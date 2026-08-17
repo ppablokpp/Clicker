@@ -1,0 +1,61 @@
+name: Deploy front to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: [front/**, .github/workflows/deploy-pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        working-directory: front
+        run: npm ci
+
+      - name: Build
+        working-directory: front
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: npm run build
+
+      # GitHub Pages has no server-side rewrites: without this, refreshing on
+      # any route other than "/" (e.g. /clasificacion) 404s. Serving the SPA
+      # shell for unknown paths lets react-router take over client-side.
+      - name: SPA fallback for client-side routing
+        run: cp front/dist/index.html front/dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: front/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

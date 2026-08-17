@@ -40,4 +40,21 @@ export const usersRepository = {
     )
     return Number(result.rows[0].total_clicks)
   },
+
+  async getLeaderboard(limit = 100) {
+    const result = await database.query(
+      `SELECT id, username, avatar_url, total_clicks
+       FROM users
+       WHERE total_clicks > 0
+       ORDER BY total_clicks DESC
+       LIMIT $1`,
+      [limit],
+    )
+    return result.rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      avatarUrl: row.avatar_url,
+      totalClicks: Number(row.total_clicks),
+    }))
+  },
 }

@@ -24,8 +24,8 @@ export function SignInScreen() {
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: '/',
+        redirectUrl: `${import.meta.env.BASE_URL}sso-callback`,
+        redirectUrlComplete: import.meta.env.BASE_URL,
       })
     } catch (err) {
       console.error('Error iniciando sesión con Google', err)
