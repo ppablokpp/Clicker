@@ -1,9 +1,10 @@
-import { MousePointerClick, Trophy, Store } from 'lucide-react'
+import { MousePointerClick, Trophy, Store, Award } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const TABS = [
   { to: '/', label: 'Click', icon: MousePointerClick, end: true },
   { to: '/clasificacion', label: 'Ranking', icon: Trophy, end: false },
+  { to: '/logros', label: 'Logros', icon: Award, end: false },
   { to: '/tienda', label: 'Tienda', icon: Store, end: false },
 ]
 

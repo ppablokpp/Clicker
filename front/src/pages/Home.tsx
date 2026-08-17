@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame } from 'lucide-react'
-import { useClickCounter } from '../hooks/useClickCounter'
+import { useClickCounterContext } from '../context/ClickCounterContext'
 import { usePlayer } from '../hooks/usePlayer'
 
 interface ClickEffect {
@@ -13,10 +13,9 @@ interface ClickEffect {
 let effectId = 0
 
 export function Home() {
-  const { totalClicks, clicksPerSecond, registerClick } = useClickCounter()
+  const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { name } = usePlayer()
   const [effects, setEffects] = useState<ClickEffect[]>([])
-  const [isPressed, setIsPressed] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handlePointerDown = useCallback(
@@ -28,7 +27,6 @@ export function Home() {
 
       const id = effectId++
       setEffects((prev) => [...prev, { id, x, y }])
-      setIsPressed(true)
       registerClick()
 
       window.setTimeout(() => {
@@ -57,20 +55,20 @@ export function Home() {
         />
       </div>
 
-      {/* top-left greeting */}
-      <div className="pointer-events-none absolute left-4 top-4 z-10 text-xs font-medium text-neutral-500 sm:left-6 sm:top-20">
-        Jugando como <span className="text-neutral-300">{name}</span>
-      </div>
-
-      {/* CPS badge */}
-      <div className="pointer-events-none absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 sm:right-6 sm:top-20">
-        <Flame size={13} className={clicksPerSecond > 0 ? 'text-orange-400' : 'text-neutral-600'} />
-        {clicksPerSecond.toFixed(1)} c/s
+      {/* top-left greeting + CPS (top-right corner is reserved for the account button) */}
+      <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-1.5 sm:left-6 sm:top-20">
+        <span className="text-xs font-medium text-neutral-500">
+          Jugando como <span className="text-neutral-300">{name}</span>
+        </span>
+        <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300">
+          <Flame size={13} className={clicksPerSecond > 0 ? 'text-orange-400' : 'text-neutral-600'} />
+          {clicksPerSecond.toFixed(1)} c/s
+        </span>
       </div>
 
       {/* main counter */}
       <div className="pointer-events-none relative z-10 flex flex-col items-center">
-        <span className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+        <span className="relative mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
           Tus clicks
         </span>
         <motion.span
@@ -83,16 +81,9 @@ export function Home() {
           {totalClicks.toLocaleString('es-ES')}
         </motion.span>
 
-        <motion.div
-          animate={{ scale: isPressed ? 0.94 : 1 }}
-          transition={{ duration: 0.1 }}
-          onAnimationComplete={() => setIsPressed(false)}
-          className="mt-10 flex h-40 w-40 items-center justify-center rounded-full border border-violet-400/30 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 shadow-[0_0_60px_rgba(168,85,247,0.25)] sm:h-52 sm:w-52"
-        >
-          <span className="text-sm font-semibold uppercase tracking-widest text-violet-200/80">
-            Toca la pantalla
-          </span>
-        </motion.div>
+        <span className="mt-8 text-xs font-medium tracking-wide text-neutral-600 sm:text-sm">
+          Toca en cualquier parte de la pantalla
+        </span>
       </div>
 
       {/* click ripples + floating +1s */}

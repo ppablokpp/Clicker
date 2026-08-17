@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Crown, Medal } from 'lucide-react'
-import { useClickCounter } from '../hooks/useClickCounter'
+import { useClickCounterContext } from '../context/ClickCounterContext'
 import { usePlayer } from '../hooks/usePlayer'
 import { MOCK_LEADERBOARD, MOCK_MONTHLY_WINNER } from '../data/mockLeaderboard'
 
@@ -11,7 +11,7 @@ const RANK_STYLES: Record<number, string> = {
 }
 
 export function Leaderboard() {
-  const { totalClicks } = useClickCounter()
+  const { totalClicks } = useClickCounterContext()
   const { name } = usePlayer()
 
   const ranked = useMemo(() => {
