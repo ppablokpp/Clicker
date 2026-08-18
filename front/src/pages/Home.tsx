@@ -137,7 +137,7 @@ export function Home() {
         {bestOwned && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-yellow-400/20 bg-yellow-500/[0.07] px-3 py-1.5 text-xs font-bold text-yellow-200 shadow-lg shadow-black/20">
             <Clover size={12} className="text-yellow-300" />
-            {(bestOwned.chance * 100).toFixed(0)}% ×{bestOwned.multiplier}
+            ×{bestOwned.multiplier} ({(bestOwned.chance * 100).toFixed(0)}%)
           </span>
         )}
       </div>

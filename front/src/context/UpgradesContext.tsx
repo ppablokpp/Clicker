@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useClickCounterContext } from './ClickCounterContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -32,6 +33,7 @@ const UpgradesContext = createContext<UpgradesContextValue | null>(null)
 
 export function UpgradesProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
+  const { syncTotalClicks } = useClickCounterContext()
   const [catalog, setCatalog] = useState<PermanentUpgradeDef[]>([])
   const [owned, setOwned] = useState<Set<string>>(new Set())
   const [buyingId, setBuyingId] = useState<string | null>(null)
@@ -79,6 +81,7 @@ export function UpgradesProvider({ children }: { children: ReactNode }) {
         const data = await res.json()
         if (res.ok) {
           setOwned((prev) => new Set(prev).add(upgrade.id))
+          if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
         }
         return { ok: false, error: data.error }
@@ -89,7 +92,7 @@ export function UpgradesProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken],
+    [userId, getToken, syncTotalClicks],
   )
 
   const bestOwned = useMemo(() => {

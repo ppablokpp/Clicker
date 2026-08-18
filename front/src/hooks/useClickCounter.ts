@@ -107,5 +107,14 @@ export function useClickCounter() {
     setTotalClicks(confirmedRef.current + pendingRef.current)
   }, [])
 
-  return { totalClicks, clicksPerSecond, registerClick }
+  // Other places that spend clicks server-side (buying a powerup or a
+  // permanent upgrade) return the fresh authoritative total — this folds it
+  // in immediately instead of waiting for the next click-driven flush, which
+  // might never come if nothing gets clicked again right away.
+  const syncTotalClicks = useCallback((newTotal: number) => {
+    confirmedRef.current = newTotal
+    setTotalClicks(confirmedRef.current + pendingRef.current)
+  }, [])
+
+  return { totalClicks, clicksPerSecond, registerClick, syncTotalClicks }
 }

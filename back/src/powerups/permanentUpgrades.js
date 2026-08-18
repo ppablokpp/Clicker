@@ -1,7 +1,9 @@
 /**
- * Permanent luck upgrades — not cumulative: only the player's single
- * highest-tier owned upgrade ever rolls (enforced client-side). Same
- * multiplier tiers as the temporary powerups, for consistency.
+ * Permanent luck upgrades — not cumulative (only the highest-tier owned one
+ * ever rolls, enforced client-side) and unlock in order: array order IS
+ * purchase order, each tier requires owning the one right before it
+ * (enforced in permanentUpgradesRepository.buy). Same multiplier tiers as
+ * the temporary powerups, for consistency.
  */
 export const PERMANENT_UPGRADE_CATALOG = [
   { id: 'luck_x2', cost: 800, chance: 0.01, multiplier: 2 },

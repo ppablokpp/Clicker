@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useClickCounterContext } from './ClickCounterContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -35,6 +36,7 @@ const PowerupContext = createContext<PowerupContextValue | null>(null)
 
 export function PowerupProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
+  const { syncTotalClicks } = useClickCounterContext()
   const [catalog, setCatalog] = useState<PowerupDef[]>([])
   const [active, setActive] = useState<ActivePowerup | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
@@ -110,6 +112,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
             multiplier: data.activePowerup.multiplier,
             expiresAt: new Date(data.activePowerup.expiresAt).getTime(),
           })
+          if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
         }
         return { ok: false, error: data.error }
@@ -120,7 +123,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken],
+    [userId, getToken, syncTotalClicks],
   )
 
   return (

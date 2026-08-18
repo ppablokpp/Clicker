@@ -24,7 +24,11 @@ upgradesRouter.post('/buy', async (req, res) => {
   const upgrade = getPermanentUpgrade(req.body?.upgradeId)
   if (!upgrade) return res.status(400).json({ error: 'Unknown upgrade' })
 
-  const result = await permanentUpgradesRepository.buy(userId, upgrade.id, upgrade.cost)
+  // Tiers unlock small -> large, one at a time.
+  const index = PERMANENT_UPGRADE_CATALOG.findIndex((u) => u.id === upgrade.id)
+  const requiredPreviousId = index > 0 ? PERMANENT_UPGRADE_CATALOG[index - 1].id : null
+
+  const result = await permanentUpgradesRepository.buy(userId, upgrade.id, upgrade.cost, requiredPreviousId)
   if (!result.ok) return res.status(400).json({ error: result.reason })
 
   res.json({ totalClicks: result.totalClicks })

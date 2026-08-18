@@ -41,9 +41,11 @@ export interface TranslationStrings {
     notEnoughClicks: string
     powerupsSection: string
     upgradesSection: string
-    upgradesIntro: string
-    included: string
     infinity: string
+    luckTitle: string
+    noUpgradeYet: string
+    maxLevel: string
+    upgradeCta: string
     powerups: Record<string, { name: string; desc: string }>
     upgrades: Record<string, { name: string; desc: string }>
   }
@@ -101,8 +103,10 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughClicks: 'Te faltan clicks',
       powerupsSection: 'Potenciadores',
       upgradesSection: 'Mejoras permanentes',
-      upgradesIntro: 'No se acumulan entre sí: solo cuenta la más alta que tengas.',
-      included: 'Incluido',
+      luckTitle: 'Suerte',
+      noUpgradeYet: 'Todavía ninguna',
+      maxLevel: 'Nivel máximo',
+      upgradeCta: 'Mejorar',
       infinity: '∞',
       powerups: {
         click_x2: {
@@ -193,8 +197,10 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughClicks: "You're short on clicks",
       powerupsSection: 'Powerups',
       upgradesSection: 'Permanent upgrades',
-      upgradesIntro: "They don't stack — only your highest one counts.",
-      included: 'Included',
+      luckTitle: 'Luck',
+      noUpgradeYet: 'None yet',
+      maxLevel: 'Max level',
+      upgradeCta: 'Upgrade',
       infinity: '∞',
       powerups: {
         click_x2: {

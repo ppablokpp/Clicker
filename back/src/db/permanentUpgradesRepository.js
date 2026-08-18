@@ -9,20 +9,27 @@ export const permanentUpgradesRepository = {
     return result.rows.map((row) => row.upgrade_id)
   },
 
-  // Real transaction: not-already-owned check, the balance deduction, and
-  // the ownership row all have to succeed together or not at all.
-  async buy(userId, upgradeId, cost) {
+  // Real transaction: not-already-owned, the previous tier being owned
+  // (upgrades unlock small -> large, one at a time), the balance deduction,
+  // and the ownership row all have to succeed together or not at all.
+  async buy(userId, upgradeId, cost, requiredPreviousId) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
 
       const owned = await client.query(
-        'SELECT 1 FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2',
-        [userId, upgradeId],
+        'SELECT upgrade_id FROM user_permanent_upgrades WHERE user_id = $1',
+        [userId],
       )
-      if (owned.rowCount > 0) {
+      const ownedIds = new Set(owned.rows.map((row) => row.upgrade_id))
+
+      if (ownedIds.has(upgradeId)) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'already-owned' }
+      }
+      if (requiredPreviousId && !ownedIds.has(requiredPreviousId)) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'previous-tier-required' }
       }
 
       const spent = await client.query(
