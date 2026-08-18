@@ -20,7 +20,11 @@ if (!CLERK_PUBLISHABLE_KEY) {
 } else {
   root.render(
     <StrictMode>
-      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} appearance={{ baseTheme: dark }}>
+      <ClerkProvider
+        publishableKey={CLERK_PUBLISHABLE_KEY}
+        appearance={{ baseTheme: dark }}
+        afterSignOutUrl={import.meta.env.BASE_URL}
+      >
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <App />
         </BrowserRouter>
