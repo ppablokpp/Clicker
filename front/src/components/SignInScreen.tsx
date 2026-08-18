@@ -55,7 +55,7 @@ export function SignInScreen() {
         <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
           <MousePointerClick size={26} />
         </div>
-        <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white">Clicker</h1>
+        <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white">ClankUp</h1>
         <p className="mt-2 text-sm text-neutral-500">{strings.signIn.tagline}</p>
 
         <button

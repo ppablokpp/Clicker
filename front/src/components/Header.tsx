@@ -10,7 +10,7 @@ export function Header() {
       <div className="pointer-events-none fixed left-4 top-3.5 z-40 flex items-center gap-2 sm:left-6">
         <MousePointerClick size={16} className="text-violet-300 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
         <span className="font-[Space_Grotesk] text-base font-bold tracking-tight text-white/90">
-          Clicker
+          ClankUp
         </span>
       </div>
 
