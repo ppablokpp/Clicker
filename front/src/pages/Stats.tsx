@@ -2,27 +2,51 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
-import { STAT_CATEGORIES } from '../stats/config'
+import { useMilestonesContext } from '../context/MilestonesContext'
+import { STAT_CATEGORIES, MILESTONE_REWARD_TIERS } from '../stats/config'
 
 interface OpenMilestone {
   categoryKey: string
+  categoryLabel: string
   milestone: number
   unit: string
   reached: boolean
+  tierIndex: number
 }
 
 export function Stats() {
   const { language, strings } = useLanguage()
   const { stats } = useUserStats()
+  const { claimed, claimingKey, claim } = useMilestonesContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const [openMilestone, setOpenMilestone] = useState<OpenMilestone | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const toggleMilestone = (next: OpenMilestone) => {
+    setError(null)
     setOpenMilestone((current) =>
       current?.categoryKey === next.categoryKey && current?.milestone === next.milestone
         ? null
         : next,
     )
+  }
+
+  const rewardDescription = (tierIndex: number) => {
+    const reward = MILESTONE_REWARD_TIERS[tierIndex]
+    if (reward.type === 'powerup') {
+      return strings.stats.rewardPowerup(strings.store.powerups[reward.powerupId]?.name ?? reward.powerupId)
+    }
+    if (reward.type === 'clicks') {
+      return strings.stats.rewardClicks(reward.amount.toLocaleString(locale))
+    }
+    return strings.stats.rewardPermanent((reward.amount * 100).toFixed(0))
+  }
+
+  const handleClaim = async () => {
+    if (!openMilestone) return
+    setError(null)
+    const result = await claim(openMilestone.categoryKey, openMilestone.milestone)
+    if (!result.ok) setError(result.error ?? 'error')
   }
 
   return (
@@ -59,14 +83,22 @@ export function Stats() {
                     style={{ width: `${pct}%` }}
                   />
 
-                  {milestones.map((milestone) => {
+                  {milestones.map((milestone, tierIndex) => {
                     const reached = value >= milestone
+                    const isClaimed = claimed.has(`${key}:${milestone}`)
                     const leftPct = Math.min((milestone / max) * 100, 100)
                     return (
                       <button
                         key={milestone}
                         onClick={() =>
-                          toggleMilestone({ categoryKey: key, milestone, unit: category.unit, reached })
+                          toggleMilestone({
+                            categoryKey: key,
+                            categoryLabel: category.label,
+                            milestone,
+                            unit: category.unit,
+                            reached,
+                            tierIndex,
+                          })
                         }
                         style={{ left: `${leftPct}%` }}
                         aria-label={`${milestone} ${category.unit}`}
@@ -74,9 +106,11 @@ export function Stats() {
                       >
                         <span
                           className={`block rounded-full transition-all ${
-                            reached
-                              ? 'h-2.5 w-2.5 bg-yellow-300 shadow-[0_0_6px_rgba(253,224,71,0.8)]'
-                              : 'h-2 w-2 border border-neutral-500 bg-[#08080c]'
+                            isClaimed
+                              ? 'h-2.5 w-2.5 bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,0.8)]'
+                              : reached
+                                ? 'h-2.5 w-2.5 bg-yellow-300 shadow-[0_0_6px_rgba(253,224,71,0.8)]'
+                                : 'h-2 w-2 border border-neutral-500 bg-[#08080c]'
                           }`}
                         />
                       </button>
@@ -106,28 +140,47 @@ export function Stats() {
               <X size={16} />
             </button>
 
-            <div
-              className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
-                openMilestone.reached
-                  ? 'bg-gradient-to-br from-yellow-400/30 to-amber-500/20'
-                  : 'bg-white/5'
-              }`}
-            >
-              <span
-                className={`block rounded-full ${
-                  openMilestone.reached
-                    ? 'h-3 w-3 bg-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.8)]'
-                    : 'h-2.5 w-2.5 border border-neutral-500'
-                }`}
-              />
-            </div>
+            {(() => {
+              const isClaimed = claimed.has(`${openMilestone.categoryKey}:${openMilestone.milestone}`)
+              const isClaiming = claimingKey === `${openMilestone.categoryKey}:${openMilestone.milestone}`
 
-            <p className="font-[Space_Grotesk] text-xl font-bold text-white">
-              {openMilestone.milestone.toLocaleString(locale)} {openMilestone.unit}
-            </p>
-            <p className={`mt-1 text-sm ${openMilestone.reached ? 'text-yellow-300' : 'text-neutral-500'}`}>
-              {openMilestone.reached ? strings.stats.reached : strings.stats.rewardTbd}
-            </p>
+              return (
+                <>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+                    {openMilestone.categoryLabel}
+                  </p>
+                  <p className="mt-1 font-[Space_Grotesk] text-3xl font-bold text-white">
+                    {openMilestone.milestone.toLocaleString(locale)}{' '}
+                    <span className="text-lg font-semibold text-neutral-400">{openMilestone.unit}</span>
+                  </p>
+
+                  <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-500/[0.08] px-4 py-3 text-left">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-yellow-300/80">
+                      {strings.stats.rewardLabel}
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-yellow-100">
+                      {rewardDescription(openMilestone.tierIndex)}
+                    </p>
+                  </div>
+
+                  {openMilestone.reached && (
+                    <button
+                      onClick={handleClaim}
+                      disabled={isClaimed || isClaiming}
+                      className={`mt-4 w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                        isClaimed
+                          ? 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                          : 'bg-white text-neutral-900 hover:opacity-90 disabled:opacity-60'
+                      }`}
+                    >
+                      {isClaimed ? strings.stats.claimed : isClaiming ? strings.stats.claiming : strings.stats.claim}
+                    </button>
+                  )}
+
+                  {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}

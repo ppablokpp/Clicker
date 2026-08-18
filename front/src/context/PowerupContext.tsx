@@ -24,12 +24,20 @@ interface ActivePowerup {
   expiresAt: number
 }
 
+interface ActivePowerupInput {
+  id: string
+  multiplier: number
+  expiresAt: string
+}
+
 interface PowerupContextValue {
   catalog: PowerupDef[]
   active: ActivePowerup | null
   secondsLeft: number
   buyingId: string | null
   buy: (powerup: PowerupDef) => Promise<{ ok: boolean; error?: string }>
+  /** For rewards granted elsewhere (e.g. a claimed milestone) that also hand out a powerup. */
+  applyActivePowerup: (data: ActivePowerupInput) => void
 }
 
 const PowerupContext = createContext<PowerupContextValue | null>(null)
@@ -126,8 +134,14 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
     [userId, getToken, syncTotalClicks],
   )
 
+  const applyActivePowerup = useCallback((data: ActivePowerupInput) => {
+    setActive({ id: data.id, multiplier: data.multiplier, expiresAt: new Date(data.expiresAt).getTime() })
+  }, [])
+
   return (
-    <PowerupContext.Provider value={{ catalog, active, secondsLeft, buyingId, buy }}>
+    <PowerupContext.Provider
+      value={{ catalog, active, secondsLeft, buyingId, buy, applyActivePowerup }}
+    >
       {children}
     </PowerupContext.Provider>
   )

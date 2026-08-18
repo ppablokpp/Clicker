@@ -27,7 +27,7 @@ export const usersRepository = {
              last_active_date = CURRENT_DATE,
              updated_at = now()
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
-                 active_powerup, active_powerup_expires_at, created_at`,
+                 active_powerup, active_powerup_expires_at, milestone_bonus_multiplier, created_at`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]

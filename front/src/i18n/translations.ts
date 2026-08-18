@@ -52,8 +52,13 @@ export interface TranslationStrings {
   stats: {
     title: string
     subtitle: string
-    reached: string
-    rewardTbd: string
+    rewardLabel: string
+    claim: string
+    claiming: string
+    claimed: string
+    rewardPowerup: (name: string) => string
+    rewardClicks: (amount: string) => string
+    rewardPermanent: (pct: string) => string
     categories: {
       totalClicks: { label: string; unit: string }
       bestCps: { label: string; unit: string }
@@ -149,8 +154,13 @@ export const translations: Record<Language, TranslationStrings> = {
     stats: {
       title: 'Estadísticas',
       subtitle: 'Tu progreso, hito a hito.',
-      reached: 'Conseguido',
-      rewardTbd: 'Recompensa por decidir',
+      rewardLabel: 'Recompensa',
+      claim: 'Reclamar',
+      claiming: 'Reclamando…',
+      claimed: 'Reclamado',
+      rewardPowerup: (name) => `Potenciador ${name} gratis`,
+      rewardClicks: (amount) => `+${amount} clicks`,
+      rewardPermanent: (pct) => `+${pct}% permanente a todos tus clicks`,
       categories: {
         totalClicks: { label: 'Clicks totales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
@@ -244,8 +254,13 @@ export const translations: Record<Language, TranslationStrings> = {
     stats: {
       title: 'Stats',
       subtitle: 'Your progress, milestone by milestone.',
-      reached: 'Reached',
-      rewardTbd: 'Reward TBD',
+      rewardLabel: 'Reward',
+      claim: 'Claim',
+      claiming: 'Claiming…',
+      claimed: 'Claimed',
+      rewardPowerup: (name) => `Free ${name} powerup`,
+      rewardClicks: (amount) => `+${amount} clicks`,
+      rewardPermanent: (pct) => `+${pct}% permanent bonus to every click`,
       categories: {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },

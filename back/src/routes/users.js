@@ -18,6 +18,7 @@ function toPublicUser(row) {
     bestCps: Number(row.best_cps),
     currentStreak: row.current_streak,
     longestStreak: row.longest_streak,
+    milestoneBonusMultiplier: Number(row.milestone_bonus_multiplier ?? 1),
     activePowerup: isPowerupActive
       ? {
           id: row.active_powerup,

@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Rocket, Clover } from 'lucide-react'
+import { Zap, Rocket, Clover, TrendingUp } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
+import { useMilestonesContext } from '../context/MilestonesContext'
 
 interface ClickEffect {
   id: number
@@ -49,12 +50,13 @@ export function Home() {
   const { language, strings } = useLanguage()
   const { active: activePowerup, secondsLeft } = usePowerupContext()
   const { bestOwned, rollLuckMultiplier } = useUpgradesContext()
+  const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
-  const totalMultiplier = heat.multiplier * powerupMultiplier
+  const totalMultiplier = heat.multiplier * powerupMultiplier * bonusMultiplier
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -138,6 +140,12 @@ export function Home() {
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-yellow-400/20 bg-yellow-500/[0.07] px-3 py-1.5 text-xs font-bold text-yellow-200 shadow-lg shadow-black/20">
             <Clover size={12} className="text-yellow-300" />
             ×{bestOwned.multiplier} ({(bestOwned.chance * 100).toFixed(0)}%)
+          </span>
+        )}
+
+        {bonusMultiplier > 1 && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/[0.07] px-3 py-1.5 text-xs font-bold text-emerald-200 shadow-lg shadow-black/20">
+            <TrendingUp size={12} className="text-emerald-300" />×{bonusMultiplier}
           </span>
         )}
       </div>

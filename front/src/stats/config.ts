@@ -31,3 +31,12 @@ export const STAT_CATEGORIES = [
 ]
 
 export type StatCategoryKey = (typeof STAT_CATEGORIES)[number]['key']
+
+// Presentation only, matching back/src/stats/config.js by position — the
+// server is what actually decides and applies the reward.
+export const MILESTONE_REWARD_TIERS = [
+  { type: 'powerup' as const, powerupId: 'click_x2' },
+  { type: 'clicks' as const, amount: 1000 },
+  { type: 'powerup' as const, powerupId: 'click_x10' },
+  { type: 'permanentBonus' as const, amount: 1 },
+]
