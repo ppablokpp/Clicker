@@ -21,6 +21,7 @@ export function useClickCounter() {
   const confirmedRef = useRef(0)
   const pendingRef = useRef(0)
   const isFlushingRef = useRef(false)
+  const peakCpsRef = useRef(0)
 
   useEffect(() => {
     if (!userId) return
@@ -51,7 +52,9 @@ export function useClickCounter() {
       recentClicksRef.current = recentClicksRef.current.filter(
         (t) => now - t < CPS_WINDOW_MS,
       )
-      setClicksPerSecond(recentClicksRef.current.length / (CPS_WINDOW_MS / 1000))
+      const cps = recentClicksRef.current.length / (CPS_WINDOW_MS / 1000)
+      if (cps > peakCpsRef.current) peakCpsRef.current = cps
+      setClicksPerSecond(cps)
     }, 200)
     return () => clearInterval(interval)
   }, [])
@@ -66,7 +69,7 @@ export function useClickCounter() {
       const res = await fetch(`${API_URL}/api/clicks/increment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: amountSent }),
+        body: JSON.stringify({ amount: amountSent, peakCps: peakCpsRef.current }),
         keepalive: true,
       })
       if (res.ok) {

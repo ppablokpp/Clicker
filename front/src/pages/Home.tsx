@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Flame } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -97,7 +97,7 @@ export function Home() {
       {/* CPS badge (below the fixed header) */}
       <div className="pointer-events-none absolute left-4 top-20 z-10 sm:left-6">
         <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-colors">
-          <Flame size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
+          <Zap size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
           <span className={clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}>
             {clicksPerSecond.toFixed(1)} {strings.home.cps}
           </span>

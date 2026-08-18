@@ -39,8 +39,12 @@ export interface TranslationStrings {
   achievements: {
     title: string
     subtitle: string
-    comingSoon: string
-    items: { title: string; desc: string }[]
+    unlocked: string
+    categories: {
+      totalClicks: { label: string; unit: string }
+      bestCps: { label: string; unit: string }
+      longestStreak: { label: string; unit: string }
+    }
   }
 }
 
@@ -87,13 +91,13 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     achievements: {
       title: 'Logros',
-      subtitle: 'Todavía no hay logros activos, pero esto es lo que viene.',
-      comingSoon: 'Próximamente',
-      items: [
-        { title: 'Hitos de clicks', desc: 'Desbloquea logros al llegar a ciertas cifras totales.' },
-        { title: 'Rachas', desc: 'Recompensas por jugar días seguidos.' },
-        { title: 'Insignias de ranking', desc: 'Logros por posición en la clasificación mensual.' },
-      ],
+      subtitle: 'Se desbloquean según tus estadísticas.',
+      unlocked: 'Desbloqueado',
+      categories: {
+        totalClicks: { label: 'Clicks totales', unit: 'clicks' },
+        bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
+        longestStreak: { label: 'Racha de días', unit: 'días' },
+      },
     },
   },
   en: {
@@ -138,13 +142,13 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     achievements: {
       title: 'Achievements',
-      subtitle: "No active achievements yet, but here's what's coming.",
-      comingSoon: 'Coming soon',
-      items: [
-        { title: 'Click milestones', desc: 'Unlock achievements at certain click totals.' },
-        { title: 'Streaks', desc: 'Rewards for playing on consecutive days.' },
-        { title: 'Ranking badges', desc: 'Achievements for your position on the monthly leaderboard.' },
-      ],
+      subtitle: 'Unlocked based on your stats.',
+      unlocked: 'Unlocked',
+      categories: {
+        totalClicks: { label: 'Total clicks', unit: 'clicks' },
+        bestCps: { label: 'Peak speed', unit: 'c/s' },
+        longestStreak: { label: 'Day streak', unit: 'days' },
+      },
     },
   },
 }

@@ -5,6 +5,7 @@ import { usersRepository } from '../db/usersRepository.js'
 export const clicksRouter = Router()
 
 const MAX_CLICKS_PER_REQUEST = 500
+const MAX_CPS = 1000
 
 clicksRouter.get('/me', async (req, res) => {
   const { userId } = getAuth(req)
@@ -23,6 +24,9 @@ clicksRouter.post('/increment', async (req, res) => {
     return res.status(400).json({ error: 'Invalid amount' })
   }
 
-  const totalClicks = await usersRepository.incrementClicks(userId, amount)
+  const rawPeakCps = Number(req.body?.peakCps) || 0
+  const peakCps = Math.min(Math.max(rawPeakCps, 0), MAX_CPS)
+
+  const { totalClicks } = await usersRepository.incrementClicks(userId, amount, peakCps)
   res.json({ totalClicks })
 })
