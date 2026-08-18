@@ -13,7 +13,7 @@ export function Leaderboard() {
   const { leaderboard, isLoading } = useLeaderboard()
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-24 pt-6 sm:px-6 sm:pb-10 sm:pt-24">
+    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
       <div className="mx-auto max-w-2xl">
         <header className="mb-6">
           <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white sm:text-3xl">

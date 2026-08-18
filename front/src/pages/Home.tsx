@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import confetti from 'canvas-confetti'
 import { Flame } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { usePlayer } from '../hooks/usePlayer'
-
-const MILESTONE_STEP = 100
-const CONFETTI_COLORS = ['#a855f7', '#e879f9', '#f0abfc', '#c026d3', '#f5d0fe']
 
 interface ClickEffect {
   id: number
@@ -41,29 +37,7 @@ export function Home() {
   const { name } = usePlayer()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
-  const lastSeenTotalRef = useRef<number | null>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
-
-  // Skips the jump when totalClicks first loads from the DB — only fires
-  // when a milestone is actually crossed live, one confetti burst per 100.
-  useEffect(() => {
-    if (lastSeenTotalRef.current === null) {
-      lastSeenTotalRef.current = totalClicks
-      return
-    }
-    const previousMilestone = Math.floor(lastSeenTotalRef.current / MILESTONE_STEP)
-    const currentMilestone = Math.floor(totalClicks / MILESTONE_STEP)
-    if (currentMilestone > previousMilestone && totalClicks > 0) {
-      confetti({
-        particleCount: 90,
-        spread: 70,
-        startVelocity: 35,
-        origin: { y: 0.6 },
-        colors: CONFETTI_COLORS,
-      })
-    }
-    lastSeenTotalRef.current = totalClicks
-  }, [totalClicks])
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -87,7 +61,7 @@ export function Home() {
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
-      className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c] pb-20 sm:pb-0 sm:pt-16"
+      className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
       {/* ambient background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -110,8 +84,8 @@ export function Home() {
         />
       </div>
 
-      {/* top-left greeting + CPS (top-right corner is reserved for the account button) */}
-      <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-1.5 sm:left-6 sm:top-20">
+      {/* top-left greeting + CPS (top-right corner is reserved for the nav cluster) */}
+      <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-1.5 sm:left-6">
         <span className="text-xs font-medium text-neutral-500">
           Jugando como <span className="text-neutral-300">{name}</span>
         </span>
