@@ -1,8 +1,12 @@
-import { useCallback, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import confetti from 'canvas-confetti'
 import { Flame } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { usePlayer } from '../hooks/usePlayer'
+
+const MILESTONE_STEP = 100
+const CONFETTI_COLORS = ['#a855f7', '#e879f9', '#f0abfc', '#c026d3', '#f5d0fe']
 
 interface ClickEffect {
   id: number
@@ -17,6 +21,28 @@ export function Home() {
   const { name } = usePlayer()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const lastSeenTotalRef = useRef<number | null>(null)
+
+  // Skips the jump when totalClicks first loads from the DB — only fires
+  // when a milestone is actually crossed live, one confetti burst per 100.
+  useEffect(() => {
+    if (lastSeenTotalRef.current === null) {
+      lastSeenTotalRef.current = totalClicks
+      return
+    }
+    const previousMilestone = Math.floor(lastSeenTotalRef.current / MILESTONE_STEP)
+    const currentMilestone = Math.floor(totalClicks / MILESTONE_STEP)
+    if (currentMilestone > previousMilestone && totalClicks > 0) {
+      confetti({
+        particleCount: 90,
+        spread: 70,
+        startVelocity: 35,
+        origin: { y: 0.6 },
+        colors: CONFETTI_COLORS,
+      })
+    }
+    lastSeenTotalRef.current = totalClicks
+  }, [totalClicks])
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
