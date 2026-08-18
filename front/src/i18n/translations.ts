@@ -37,8 +37,15 @@ export interface TranslationStrings {
     buy: string
     buying: string
     active: string
+    owned: string
     notEnoughClicks: string
+    powerupsSection: string
+    upgradesSection: string
+    upgradesIntro: string
+    included: string
+    infinity: string
     powerups: Record<string, { name: string; desc: string }>
+    upgrades: Record<string, { name: string; desc: string }>
   }
   achievements: {
     title: string
@@ -85,12 +92,18 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     store: {
       title: 'Tienda',
-      subtitle: 'Gasta tus clicks totales en potenciadores temporales.',
+      subtitle: 'Gasta tus clicks en potenciadores temporales.',
       costLabel: 'clicks',
       buy: 'Comprar',
       buying: 'Comprando…',
       active: 'Activo',
+      owned: 'Comprado',
       notEnoughClicks: 'Te faltan clicks',
+      powerupsSection: 'Potenciadores',
+      upgradesSection: 'Mejoras permanentes',
+      upgradesIntro: 'No se acumulan entre sí: solo cuenta la más alta que tengas.',
+      included: 'Incluido',
+      infinity: '∞',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -102,11 +115,29 @@ export const translations: Record<Language, TranslationStrings> = {
         },
         click_x5: {
           name: 'Click x5',
-          desc: 'Cada click cuenta x5 durante el tiempo activo. Se combina con tu racha de velocidad.',
+          desc: 'Cada click cuenta x5 durante el tiempo activo.',
         },
         click_x10: {
           name: 'Click x10',
           desc: 'El multiplicador más alto, ráfaga corta. Solo rentable si aprietas a fondo.',
+        },
+      },
+      upgrades: {
+        luck_x2: {
+          name: 'Suerte x2',
+          desc: 'Cada click tiene una pequeña probabilidad de contar x2. La más barata.',
+        },
+        luck_x3: {
+          name: 'Suerte x3',
+          desc: 'Cada click tiene una pequeña probabilidad de contar x3.',
+        },
+        luck_x5: {
+          name: 'Suerte x5',
+          desc: 'Cada click tiene una pequeña probabilidad de contar x5.',
+        },
+        luck_x10: {
+          name: 'Suerte x10',
+          desc: 'La mejora más alta. Pequeña probabilidad de un click x10.',
         },
       },
     },
@@ -153,12 +184,18 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     store: {
       title: 'Store',
-      subtitle: 'Spend your total clicks on temporary powerups.',
+      subtitle: 'Spend your clicks on temporary powerups.',
       costLabel: 'clicks',
       buy: 'Buy',
       buying: 'Buying…',
       active: 'Active',
+      owned: 'Owned',
       notEnoughClicks: "You're short on clicks",
+      powerupsSection: 'Powerups',
+      upgradesSection: 'Permanent upgrades',
+      upgradesIntro: "They don't stack — only your highest one counts.",
+      included: 'Included',
+      infinity: '∞',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -170,11 +207,29 @@ export const translations: Record<Language, TranslationStrings> = {
         },
         click_x5: {
           name: 'Click x5',
-          desc: 'Every click counts x5 while active. Stacks with your speed combo.',
+          desc: 'Every click counts x5 while active.',
         },
         click_x10: {
           name: 'Click x10',
           desc: 'The highest multiplier, short burst. Only worth it if you go all out.',
+        },
+      },
+      upgrades: {
+        luck_x2: {
+          name: 'Luck x2',
+          desc: 'Every click has a small chance to count x2. The cheapest one.',
+        },
+        luck_x3: {
+          name: 'Luck x3',
+          desc: 'Every click has a small chance to count x3.',
+        },
+        luck_x5: {
+          name: 'Luck x5',
+          desc: 'Every click has a small chance to count x5.',
+        },
+        luck_x10: {
+          name: 'Luck x10',
+          desc: 'The highest one. A small chance at a x10 click.',
         },
       },
     },

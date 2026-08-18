@@ -1,0 +1,15 @@
+/**
+ * Permanent luck upgrades — not cumulative: only the player's single
+ * highest-tier owned upgrade ever rolls (enforced client-side). Same
+ * multiplier tiers as the temporary powerups, for consistency.
+ */
+export const PERMANENT_UPGRADE_CATALOG = [
+  { id: 'luck_x2', cost: 800, chance: 0.01, multiplier: 2 },
+  { id: 'luck_x3', cost: 1500, chance: 0.01, multiplier: 3 },
+  { id: 'luck_x5', cost: 3000, chance: 0.01, multiplier: 5 },
+  { id: 'luck_x10', cost: 7000, chance: 0.01, multiplier: 10 },
+]
+
+export function getPermanentUpgrade(id) {
+  return PERMANENT_UPGRADE_CATALOG.find((u) => u.id === id)
+}

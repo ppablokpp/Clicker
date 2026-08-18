@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Rocket } from 'lucide-react'
+import { Zap, Rocket, Clover } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
+import { useUpgradesContext } from '../context/UpgradesContext'
 
 interface ClickEffect {
   id: number
@@ -11,6 +12,7 @@ interface ClickEffect {
   y: number
   ripple: string
   amount: number
+  isLucky: boolean
 }
 
 let effectId = 0
@@ -46,6 +48,7 @@ export function Home() {
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { language, strings } = useLanguage()
   const { active: activePowerup, secondsLeft } = usePowerupContext()
+  const { bestOwned, rollLuckMultiplier } = useUpgradesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
@@ -60,15 +63,22 @@ export function Home() {
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
 
+      const luckMultiplier = rollLuckMultiplier()
+      const isLucky = luckMultiplier > 1
+      const amount = totalMultiplier * luckMultiplier
+
       const id = effectId++
-      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount: totalMultiplier }])
-      registerClick(totalMultiplier)
+      setEffects((prev) => [
+        ...prev,
+        { id, x, y, ripple: isLucky ? 'bg-yellow-300/70' : heat.ripple, amount, isLucky },
+      ])
+      registerClick(amount)
 
       window.setTimeout(() => {
         setEffects((prev) => prev.filter((fx) => fx.id !== id))
       }, 900)
     },
-    [registerClick, heat, totalMultiplier],
+    [registerClick, heat, totalMultiplier, rollLuckMultiplier],
   )
 
   return (
@@ -123,6 +133,13 @@ export function Home() {
             )}
           </span>
         )}
+
+        {bestOwned && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-bold text-yellow-200">
+            <Clover size={12} className="text-yellow-300" />
+            {(bestOwned.chance * 100).toFixed(0)}% ×{bestOwned.multiplier}
+          </span>
+        )}
       </div>
 
       {/* main counter */}
@@ -151,14 +168,19 @@ export function Home() {
         {effects.map((fx) => (
           <div key={fx.id} className="pointer-events-none absolute inset-0 z-20">
             <span
-              className={`animate-ripple absolute h-24 w-24 rounded-full ${fx.ripple}`}
+              className={`animate-ripple absolute rounded-full ${fx.ripple} ${fx.isLucky ? 'h-36 w-36' : 'h-24 w-24'}`}
               style={{ left: fx.x, top: fx.y }}
             />
             <span
-              className="animate-float-up absolute select-none text-lg font-bold text-white"
+              className={`animate-float-up absolute select-none font-bold ${
+                fx.isLucky
+                  ? 'text-2xl text-yellow-300 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]'
+                  : 'text-lg text-white'
+              }`}
               style={{ left: fx.x, top: fx.y }}
             >
               +{fx.amount}
+              {fx.isLucky && '!'}
             </span>
           </div>
         ))}

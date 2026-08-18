@@ -27,7 +27,7 @@ interface PowerupContextValue {
   catalog: PowerupDef[]
   active: ActivePowerup | null
   secondsLeft: number
-  isBuying: boolean
+  buyingId: string | null
   buy: (powerup: PowerupDef) => Promise<{ ok: boolean; error?: string }>
 }
 
@@ -38,7 +38,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
   const [catalog, setCatalog] = useState<PowerupDef[]>([])
   const [active, setActive] = useState<ActivePowerup | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
-  const [isBuying, setIsBuying] = useState(false)
+  const [buyingId, setBuyingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/powerups`)
@@ -95,7 +95,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
   const buy = useCallback(
     async (powerup: PowerupDef) => {
       if (!userId) return { ok: false, error: 'not-signed-in' }
-      setIsBuying(true)
+      setBuyingId(powerup.id)
       try {
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/powerups/buy`, {
@@ -117,14 +117,14 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
         console.error('No se pudo comprar el potenciador', err)
         return { ok: false, error: 'network' }
       } finally {
-        setIsBuying(false)
+        setBuyingId(null)
       }
     },
     [userId, getToken],
   )
 
   return (
-    <PowerupContext.Provider value={{ catalog, active, secondsLeft, isBuying, buy }}>
+    <PowerupContext.Provider value={{ catalog, active, secondsLeft, buyingId, buy }}>
       {children}
     </PowerupContext.Provider>
   )

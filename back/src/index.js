@@ -7,6 +7,7 @@ import { usersRouter } from './routes/users.js'
 import { clicksRouter } from './routes/clicks.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
 import { powerupsRouter } from './routes/powerups.js'
+import { upgradesRouter } from './routes/upgrades.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -38,6 +39,7 @@ app.use('/api/users', usersRouter)
 app.use('/api/clicks', clicksRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/powerups', powerupsRouter)
+app.use('/api/upgrades', upgradesRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.
 
