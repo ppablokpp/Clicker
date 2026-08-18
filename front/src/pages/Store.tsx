@@ -31,8 +31,7 @@ export function Store() {
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.upgradesSection}</h2>
           <div className="flex flex-col gap-3">
-            {/* RevenueCat money purchases disabled for now — uncomment to bring them back. Logic untouched. */}
-            {/* <MoneyUpgradeLadder strings={strings.store} /> */}
+            <MoneyUpgradeLadder strings={strings.store} />
             <UpgradeLadder locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
         </section>
@@ -411,9 +410,7 @@ interface MoneyUpgradeLadderProps {
 // non-cumulative tiers — but bought with real money via RevenueCat instead
 // of clicks, so price comes from RevenueCat (once loaded) and there's no
 // "not enough clicks" state to show.
-// Exported (even though currently unused) so TS doesn't flag it as dead code
-// while the RevenueCat section above is commented out.
-export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
+function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
   const { catalog, owned, bestOwned, prices, buyingId, buy } = useMoneyUpgradesContext()
   const [error, setError] = useState<string | null>(null)
 
