@@ -10,6 +10,9 @@ export interface TranslationStrings {
   home: {
     yourClicks: string
     tapAnywhere: string
+    prestigeReady: string
+    changePrestige: string
+    prestigeComingSoon: string
     cps: string
     heat: {
       onFire: string
@@ -86,6 +89,9 @@ export const translations: Record<Language, TranslationStrings> = {
     home: {
       yourClicks: 'Tus clicks',
       tapAnywhere: 'Toca en cualquier parte de la pantalla',
+      prestigeReady: '¡Prestigio disponible!',
+      changePrestige: 'Cambiar de prestigio',
+      prestigeComingSoon: 'Próximamente...',
       cps: 'c/s',
       heat: {
         onFire: 'En racha',
@@ -216,6 +222,9 @@ export const translations: Record<Language, TranslationStrings> = {
     home: {
       yourClicks: 'Your clicks',
       tapAnywhere: 'Tap anywhere on the screen',
+      prestigeReady: 'Prestige available!',
+      changePrestige: 'Change prestige',
+      prestigeComingSoon: 'Coming soon',
       cps: 'c/s',
       heat: {
         onFire: 'On fire',

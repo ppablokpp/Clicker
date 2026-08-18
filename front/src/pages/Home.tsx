@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Zap, Rocket, Clover, Gem, Dices, TrendingUp } from 'lucide-react'
+import { Zap, Rocket, Clover, Gem, Dices, TrendingUp, Sparkles } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
@@ -49,14 +49,65 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
   return level
 }
 
+// First prestige threshold — reaching it is meant to be when prestige becomes
+// available (prestige itself isn't built yet, this is just the ring's target).
+const PRESTIGE_TARGET = 1_000_000
+
+// Glowing ring around the counter that fills up towards the prestige target.
+// Once maxed, it stops being a progress indicator and becomes a spinning gold
+// halo instead — a visibly different state for "you've got something to do here".
+function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
+  const radius = 92
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference * (1 - Math.max(0, Math.min(1, pct)))
+
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      className={`pointer-events-none absolute inset-0 h-full w-full overflow-visible -rotate-90 ${isMaxed ? 'animate-spin-slow' : ''}`}
+    >
+      <defs>
+        <linearGradient id="homeProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#e879f9" />
+        </linearGradient>
+        <linearGradient id="homePrestigeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fde68a" />
+          <stop offset="50%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#fde68a" />
+        </linearGradient>
+      </defs>
+      <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="3" fill="none" />
+      <circle
+        cx="100"
+        cy="100"
+        r={radius}
+        stroke={isMaxed ? 'url(#homePrestigeGradient)' : 'url(#homeProgressGradient)'}
+        strokeWidth={isMaxed ? 4 : 3}
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={isMaxed ? 0 : offset}
+        style={{
+          transition: 'stroke-dashoffset 0.6s ease-out',
+          filter: isMaxed
+            ? 'drop-shadow(0 0 10px rgba(245,158,11,0.8))'
+            : 'drop-shadow(0 0 6px rgba(217,70,239,0.55))',
+        }}
+      />
+    </svg>
+  )
+}
+
 // Shrinks the counter as it grows more digits so it never overflows the
-// screen width, especially on mobile once clicks pass the hundreds of millions.
+// fixed-size ring around it (much tighter budget than the old full-width layout).
 function counterTextSizeClass(value: number): string {
   const digits = Math.max(1, Math.floor(value)).toString().length
-  if (digits <= 6) return 'text-6xl sm:text-8xl'
-  if (digits <= 9) return 'text-5xl sm:text-7xl'
-  if (digits <= 12) return 'text-4xl sm:text-6xl'
-  return 'text-3xl sm:text-5xl'
+  if (digits <= 3) return 'text-7xl sm:text-8xl'
+  if (digits <= 6) return 'text-5xl sm:text-7xl'
+  if (digits <= 9) return 'text-4xl sm:text-6xl'
+  if (digits <= 12) return 'text-3xl sm:text-5xl'
+  return 'text-2xl sm:text-4xl'
 }
 
 export function Home() {
@@ -70,6 +121,7 @@ export function Home() {
   const { bestOwned: bestMoneyOwned } = useMoneyUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
+  const [showPrestigeComingSoon, setShowPrestigeComingSoon] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
@@ -83,6 +135,14 @@ export function Home() {
   const hasLuck = Boolean(bestOwned || activeLuckPowerup)
   const luckChance = activeLuckPowerup?.chance ?? bestOwned?.chance ?? 0
   const combinedLuckMultiplier = (bestOwned?.multiplier ?? 1) * (activeLuckPowerup?.multiplier ?? 1)
+
+  const prestige = useMemo(
+    () => ({
+      isMaxed: totalClicks >= PRESTIGE_TARGET,
+      pct: Math.min(1, totalClicks / PRESTIGE_TARGET),
+    }),
+    [totalClicks],
+  )
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -139,6 +199,13 @@ export function Home() {
             opacity: heat.key ? 1 : 0,
           }}
         />
+        {/* prestige glow — replaces the ambient mood once you hit the target.
+            Rendered only when maxed (not just faded via opacity), since the
+            infinite pulse-glow keyframe would otherwise keep animating its
+            own opacity and fight the inline style meant to hide it. */}
+        {prestige.isMaxed && (
+          <div className="animate-pulse-glow absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[140px]" />
+        )}
       </div>
 
       {/* CPS badge + combined multiplier (below the fixed header) */}
@@ -196,19 +263,62 @@ export function Home() {
 
       {/* main counter */}
       <div className="pointer-events-none relative z-10 flex flex-col items-center">
-        <span className="relative mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
-          {strings.home.yourClicks}
-        </span>
-        <motion.span
-          key={totalClicks}
-          initial={{ scale: 1 }}
-          animate={{ scale: [1.06, 1] }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className={`bg-gradient-to-b from-white to-neutral-400 bg-clip-text font-[Space_Grotesk] font-bold tabular-nums text-transparent transition-[filter] duration-300 ${counterTextSizeClass(totalClicks)}`}
-          style={{ filter: `drop-shadow(0 0 40px ${heat.glow})` }}
-        >
-          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
-        </motion.span>
+        <div className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
+          <ProgressRing pct={prestige.pct} isMaxed={prestige.isMaxed} />
+
+          <div className="flex flex-col items-center px-3">
+            <span
+              className={`mb-2 text-xs font-semibold uppercase tracking-[0.3em] transition-colors duration-300 ${
+                prestige.isMaxed ? 'text-amber-300' : 'text-neutral-500'
+              }`}
+            >
+              {prestige.isMaxed ? strings.home.prestigeReady : strings.home.yourClicks}
+            </span>
+            <motion.span
+              key={totalClicks}
+              initial={{ scale: 1 }}
+              animate={{ scale: [1.06, 1] }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent transition-[filter] duration-300 ${
+                prestige.isMaxed
+                  ? 'bg-gradient-to-b from-amber-200 via-yellow-300 to-amber-500'
+                  : 'bg-gradient-to-b from-white to-neutral-400'
+              } ${counterTextSizeClass(totalClicks)}`}
+              style={{
+                filter: prestige.isMaxed
+                  ? 'drop-shadow(0 0 40px rgba(245,158,11,0.55))'
+                  : `drop-shadow(0 0 40px ${heat.glow})`,
+              }}
+            >
+              {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+            </motion.span>
+
+            {prestige.isMaxed ? (
+              <div className="pointer-events-auto mt-4 flex flex-col items-center gap-1.5">
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    setShowPrestigeComingSoon(true)
+                    window.setTimeout(() => setShowPrestigeComingSoon(false), 2000)
+                  }}
+                  className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
+                >
+                  <Sparkles size={13} className="text-amber-300" />
+                  {strings.home.changePrestige}
+                </button>
+                {showPrestigeComingSoon && (
+                  <span className="text-[10px] font-medium text-amber-300/80">
+                    {strings.home.prestigeComingSoon}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="mt-3 text-[11px] font-medium tabular-nums text-neutral-500">
+                {`${totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')} / ${PRESTIGE_TARGET.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}`}
+              </span>
+            )}
+          </div>
+        </div>
 
         <span className="mt-8 text-xs font-medium tracking-wide text-neutral-600 sm:text-sm">
           {strings.home.tapAnywhere}
