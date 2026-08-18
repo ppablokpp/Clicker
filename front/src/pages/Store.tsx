@@ -128,7 +128,7 @@ function PowerupCard({
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
       <div className="mb-2 flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
           <Icon size={17} />
@@ -155,7 +155,7 @@ function PowerupCard({
           isActive
             ? 'border border-violet-400/30 bg-violet-500/10 text-violet-200'
             : looksDisabled
-              ? 'border border-white/10 bg-white/5 text-neutral-500 opacity-60'
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
               : 'bg-white text-neutral-900 hover:opacity-90'
         }`}
       >
@@ -209,7 +209,7 @@ function UpgradeCard({
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
       <div className="mb-2 flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400/30 to-amber-500/20 text-yellow-200">
           <UPGRADE_ICON size={17} />
@@ -236,7 +236,7 @@ function UpgradeCard({
           isOwned
             ? 'border border-yellow-400/30 bg-yellow-500/10 text-yellow-200'
             : looksDisabled
-              ? 'border border-white/10 bg-white/5 text-neutral-500 opacity-60'
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
               : 'bg-white text-neutral-900 hover:opacity-90'
         }`}
       >

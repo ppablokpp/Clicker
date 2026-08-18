@@ -110,7 +110,7 @@ export function Home() {
 
       {/* CPS badge + combined multiplier (below the fixed header) */}
       <div className="pointer-events-none absolute left-4 top-20 z-10 flex flex-col gap-1.5 sm:left-6">
-        <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-colors">
+        <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1.5 text-xs font-medium shadow-lg shadow-black/20 transition-colors">
           <Zap size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
           <span className={clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}>
             {clicksPerSecond.toFixed(1)} {strings.home.cps}
@@ -121,7 +121,7 @@ export function Home() {
         </span>
 
         {totalMultiplier > 1 && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-200">
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
             ×{totalMultiplier}
             {activePowerup && (
               <>
@@ -135,7 +135,7 @@ export function Home() {
         )}
 
         {bestOwned && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-bold text-yellow-200">
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-yellow-400/20 bg-yellow-500/[0.07] px-3 py-1.5 text-xs font-bold text-yellow-200 shadow-lg shadow-black/20">
             <Clover size={12} className="text-yellow-300" />
             {(bestOwned.chance * 100).toFixed(0)}% ×{bestOwned.multiplier}
           </span>

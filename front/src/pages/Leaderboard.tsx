@@ -26,7 +26,7 @@ export function Leaderboard() {
         </header>
 
         {!isLoading && leaderboard.length === 0 && (
-          <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
+          <p className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
             {strings.leaderboard.empty}
           </p>
         )}
@@ -41,13 +41,13 @@ export function Leaderboard() {
                 key={entry.id}
                 className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
                   isLocalPlayer
-                    ? 'border-violet-400/40 bg-violet-500/10'
-                    : 'border-white/5 bg-white/[0.03]'
+                    ? 'border-violet-400/20 bg-violet-500/[0.07]'
+                    : 'border-white/5 bg-white/[0.02]'
                 }`}
               >
                 <div
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-                    style ?? 'border-white/10 bg-white/5 text-neutral-400'
+                    style ?? 'border-white/5 bg-white/[0.03] text-neutral-400'
                   }`}
                 >
                   {rank <= 3 ? <Medal size={15} /> : rank}

@@ -51,7 +51,7 @@ export function SignInScreen() {
         />
       </div>
 
-      <div className="relative z-10 flex w-full max-w-sm flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center backdrop-blur-xl">
+      <div className="relative z-10 flex w-full max-w-sm flex-col items-center rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center shadow-2xl shadow-black/40 backdrop-blur-xl">
         <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
           <MousePointerClick size={26} />
         </div>

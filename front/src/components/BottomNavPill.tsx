@@ -16,7 +16,7 @@ export function BottomNavPill() {
 
   return (
     <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 sm:bottom-6">
-      <nav className="flex items-center gap-1 rounded-full border border-white/10 bg-black/60 p-1.5 backdrop-blur-xl">
+      <nav className="flex items-center gap-0.5 rounded-full border border-white/5 bg-black/40 p-1 shadow-lg shadow-black/30 backdrop-blur-xl">
         {PILL_ITEMS.map(({ to, key, icon: Icon, end }) => {
           const label = strings.nav[key]
           return (
@@ -27,13 +27,13 @@ export function BottomNavPill() {
               title={label}
               aria-label={label}
               className={({ isActive }) =>
-                `flex h-11 w-11 items-center justify-center rounded-full transition-all ${
-                  isActive ? 'bg-white/10 ring-2 ring-violet-400/60' : 'hover:bg-white/5'
+                `flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                  isActive ? 'bg-white/10' : 'hover:bg-white/5'
                 }`
               }
             >
               {({ isActive }) => (
-                <Icon size={19} className={isActive ? 'text-violet-300' : 'text-neutral-400'} />
+                <Icon size={17} className={isActive ? 'text-violet-300' : 'text-neutral-500'} />
               )}
             </NavLink>
           )

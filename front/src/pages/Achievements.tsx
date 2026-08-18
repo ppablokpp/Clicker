@@ -19,7 +19,7 @@ export function Achievements() {
         </header>
 
         <div className="flex flex-col gap-7">
-          {ACHIEVEMENT_CATEGORIES.map(({ key, icon: Icon, color, ring, tiers }) => {
+          {ACHIEVEMENT_CATEGORIES.map(({ key, icon: Icon, color, tiers }) => {
             const value = stats[key]
             const category = strings.achievements.categories[key]
             const maxTier = tiers[tiers.length - 1]
@@ -56,7 +56,7 @@ export function Achievements() {
                         title={unlocked ? strings.achievements.unlocked : undefined}
                         className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all ${
                           unlocked
-                            ? `border-white/20 bg-white/[0.06] ring-1 ${ring}`
+                            ? 'border-white/10 bg-white/[0.04]'
                             : 'border-white/5 bg-white/[0.02] opacity-50'
                         }`}
                       >
