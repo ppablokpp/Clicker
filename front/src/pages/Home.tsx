@@ -46,6 +46,16 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
   return level
 }
 
+// Shrinks the counter as it grows more digits so it never overflows the
+// screen width, especially on mobile once clicks pass the hundreds of millions.
+function counterTextSizeClass(value: number): string {
+  const digits = Math.max(1, Math.floor(value)).toString().length
+  if (digits <= 6) return 'text-6xl sm:text-8xl'
+  if (digits <= 9) return 'text-5xl sm:text-7xl'
+  if (digits <= 12) return 'text-4xl sm:text-6xl'
+  return 'text-3xl sm:text-5xl'
+}
+
 export function Home() {
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { language, strings } = useLanguage()
@@ -168,7 +178,7 @@ export function Home() {
           initial={{ scale: 1 }}
           animate={{ scale: [1.06, 1] }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="bg-gradient-to-b from-white to-neutral-400 bg-clip-text font-[Space_Grotesk] text-6xl font-bold tabular-nums text-transparent transition-[filter] duration-300 sm:text-8xl"
+          className={`bg-gradient-to-b from-white to-neutral-400 bg-clip-text font-[Space_Grotesk] font-bold tabular-nums text-transparent transition-[filter] duration-300 ${counterTextSizeClass(totalClicks)}`}
           style={{ filter: `drop-shadow(0 0 40px ${heat.glow})` }}
         >
           {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}

@@ -103,7 +103,7 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     store: {
       title: 'Tienda',
-      subtitle: 'Gasta tus clicks en potenciadores temporales.',
+      subtitle: 'Mejora tus clicks con potenciadores y mejoras permanentes.',
       costLabel: 'clicks',
       buy: 'Comprar',
       buying: 'Comprando…',
@@ -223,7 +223,7 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     store: {
       title: 'Store',
-      subtitle: 'Spend your clicks on temporary powerups.',
+      subtitle: 'Boost your clicks with powerups and permanent upgrades.',
       costLabel: 'clicks',
       buy: 'Buy',
       buying: 'Buying…',
