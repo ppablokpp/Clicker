@@ -10,7 +10,12 @@ import { leaderboardRouter } from './routes/leaderboard.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }))
+const allowedOrigins = [
+  'http://localhost:5173',
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
+]
+
+app.use(cors({ origin: allowedOrigins }))
 app.use(express.json())
 app.use(clerkMiddleware())
 
@@ -34,6 +39,7 @@ app.use('/api/leaderboard', leaderboardRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.
 
-app.listen(PORT, () => {
+// Fly's proxy expects the app on 0.0.0.0, not just the IPv6/loopback default.
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Clicker API escuchando en http://localhost:${PORT}`)
 })
