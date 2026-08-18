@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react
 import { motion, AnimatePresence } from 'framer-motion'
 import { Flame } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
-import { usePlayer } from '../hooks/usePlayer'
 
 interface ClickEffect {
   id: number
@@ -34,7 +33,6 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
 
 export function Home() {
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
-  const { name } = usePlayer()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
@@ -84,11 +82,8 @@ export function Home() {
         />
       </div>
 
-      {/* top-left greeting + CPS (top-right corner is reserved for the nav cluster) */}
-      <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-1.5 sm:left-6">
-        <span className="text-xs font-medium text-neutral-500">
-          Jugando como <span className="text-neutral-300">{name}</span>
-        </span>
+      {/* CPS badge (below the fixed header) */}
+      <div className="pointer-events-none absolute left-4 top-20 z-10 sm:left-6">
         <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-colors">
           <Flame size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
           <span className={clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}>

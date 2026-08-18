@@ -1,7 +1,8 @@
 import { Route, Routes } from 'react-router-dom'
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
-import { NavCluster } from './components/NavCluster'
+import { Header } from './components/Header'
+import { BottomNavPill } from './components/BottomNavPill'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
@@ -17,7 +18,8 @@ function ClickerApp() {
         <Route path="/logros" element={<Achievements />} />
         <Route path="/tienda" element={<Store />} />
       </Routes>
-      <NavCluster />
+      <Header />
+      <BottomNavPill />
     </ClickCounterProvider>
   )
 }
