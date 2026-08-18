@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useSignIn } from '@clerk/clerk-react'
 import { MousePointerClick, TriangleAlert } from 'lucide-react'
+import { useLanguage } from '../context/LanguageContext'
+import { LanguageToggle } from './LanguageToggle'
 
 interface ClerkApiError {
   errors?: { message?: string; longMessage?: string }[]
 }
 
-function extractErrorMessage(err: unknown): string {
+function extractErrorMessage(err: unknown, fallback: string): string {
   const apiError = err as ClerkApiError
   const first = apiError?.errors?.[0]
-  return first?.longMessage ?? first?.message ?? 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.'
+  return first?.longMessage ?? first?.message ?? fallback
 }
 
 export function SignInScreen() {
   const { signIn, isLoaded } = useSignIn()
+  const { strings } = useLanguage()
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,13 +32,17 @@ export function SignInScreen() {
       })
     } catch (err) {
       console.error('Error iniciando sesión con Google', err)
-      setError(extractErrorMessage(err))
+      setError(extractErrorMessage(err, strings.signIn.genericError))
       setIsRedirecting(false)
     }
   }
 
   return (
     <div className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#08080c] px-6">
+      <div className="fixed right-4 top-3 z-40 sm:right-6">
+        <LanguageToggle />
+      </div>
+
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="animate-pulse-glow absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-[100px]" />
         <div
@@ -49,9 +56,7 @@ export function SignInScreen() {
           <MousePointerClick size={26} />
         </div>
         <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white">Clicker</h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          Inicia sesión para guardar tus clicks y competir en la clasificación mundial.
-        </p>
+        <p className="mt-2 text-sm text-neutral-500">{strings.signIn.tagline}</p>
 
         <button
           onClick={handleGoogleSignIn}
@@ -59,7 +64,7 @@ export function SignInScreen() {
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           <GoogleIcon />
-          {isRedirecting ? 'Redirigiendo…' : 'Continuar con Google'}
+          {isRedirecting ? strings.signIn.redirecting : strings.signIn.continueWithGoogle}
         </button>
 
         {error && (

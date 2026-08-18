@@ -1,6 +1,7 @@
 import { Medal, User } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useLeaderboard } from '../hooks/useLeaderboard'
+import { useLanguage } from '../context/LanguageContext'
 
 const RANK_STYLES: Record<number, string> = {
   1: 'text-amber-300 border-amber-400/30 bg-amber-400/10',
@@ -11,20 +12,22 @@ const RANK_STYLES: Record<number, string> = {
 export function Leaderboard() {
   const { userId } = useAuth()
   const { leaderboard, isLoading } = useLeaderboard()
+  const { language, strings } = useLanguage()
+  const locale = language === 'en' ? 'en-US' : 'es-ES'
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
       <div className="mx-auto max-w-2xl">
         <header className="mb-6">
           <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white sm:text-3xl">
-            Clasificación mundial
+            {strings.leaderboard.title}
           </h1>
-          <p className="mt-1 text-sm text-neutral-500">Compite con el resto de jugadores por clicks.</p>
+          <p className="mt-1 text-sm text-neutral-500">{strings.leaderboard.subtitle}</p>
         </header>
 
         {!isLoading && leaderboard.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
-            Nadie ha dado clicks todavía. ¡Sé el primero!
+            {strings.leaderboard.empty}
           </p>
         )}
 
@@ -67,15 +70,15 @@ export function Leaderboard() {
                     isLocalPlayer ? 'text-violet-200' : 'text-neutral-200'
                   }`}
                 >
-                  {entry.username ?? 'Jugador'}
+                  {entry.username ?? strings.leaderboard.fallbackName}
                   {isLocalPlayer && (
                     <span className="ml-2 rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
-                      Tú
+                      {strings.leaderboard.you}
                     </span>
                   )}
                 </span>
                 <span className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100">
-                  {entry.totalClicks.toLocaleString('es-ES')}
+                  {entry.totalClicks.toLocaleString(locale)}
                 </span>
               </li>
             )

@@ -5,6 +5,7 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import { dark } from '@clerk/themes'
 import './index.css'
 import App from './App.tsx'
+import { LanguageProvider } from './context/LanguageContext'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
@@ -26,7 +27,9 @@ if (!CLERK_PUBLISHABLE_KEY) {
         afterSignOutUrl={import.meta.env.BASE_URL}
       >
         <BrowserRouter basename={import.meta.env.BASE_URL}>
-          <App />
+          <LanguageProvider>
+            <App />
+          </LanguageProvider>
         </BrowserRouter>
       </ClerkProvider>
     </StrictMode>,
