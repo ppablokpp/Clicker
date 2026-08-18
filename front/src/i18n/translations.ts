@@ -46,8 +46,11 @@ export interface TranslationStrings {
     noUpgradeYet: string
     maxLevel: string
     upgradeCta: string
+    moneyUpgradesTitle: string
+    purchaseError: string
     powerups: Record<string, { name: string; desc: string }>
     upgrades: Record<string, { name: string; desc: string }>
+    moneyUpgrades: Record<string, { name: string; desc: string }>
   }
   stats: {
     title: string
@@ -114,6 +117,8 @@ export const translations: Record<Language, TranslationStrings> = {
       maxLevel: 'Nivel máximo',
       upgradeCta: 'Mejorar',
       infinity: '∞',
+      moneyUpgradesTitle: 'Multiplicador premium',
+      purchaseError: 'No se pudo completar la compra. Inténtalo de nuevo.',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -135,7 +140,7 @@ export const translations: Record<Language, TranslationStrings> = {
       upgrades: {
         luck_x2: {
           name: 'Suerte x2',
-          desc: 'Cada click tiene una pequeña probabilidad de contar x2. La más barata.',
+          desc: 'Cada click tiene una pequeña probabilidad de contar x2.',
         },
         luck_x3: {
           name: 'Suerte x3',
@@ -150,6 +155,24 @@ export const translations: Record<Language, TranslationStrings> = {
           desc: 'La mejora más alta. Pequeña probabilidad de un click x10.',
         },
       },
+      moneyUpgrades: {
+        x2_clicks: {
+          name: 'Multiplicador x2',
+          desc: 'Cada click cuenta x2, para siempre.',
+        },
+        x3_clicks: {
+          name: 'Multiplicador x3',
+          desc: 'Cada click cuenta x3, para siempre.',
+        },
+        x5_clicks: {
+          name: 'Multiplicador x5',
+          desc: 'Cada click cuenta x5, para siempre.',
+        },
+        x10_clicks: {
+          name: 'Multiplicador x10',
+          desc: 'El nivel más alto. Cada click cuenta x10, para siempre.',
+        },
+      },
     },
     stats: {
       title: 'Estadísticas',
@@ -158,9 +181,9 @@ export const translations: Record<Language, TranslationStrings> = {
       claim: 'Reclamar',
       claiming: 'Reclamando…',
       claimed: 'Reclamado',
-      rewardPowerup: (name) => `Potenciador ${name} gratis`,
+      rewardPowerup: (name) => `Potenciador ${name}`,
       rewardClicks: (amount) => `+${amount} clicks`,
-      rewardPermanent: (pct) => `+${pct}% permanente a todos tus clicks`,
+      rewardPermanent: (mult) => `×${mult} a todos tus clicks`,
       categories: {
         totalClicks: { label: 'Clicks totales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
@@ -214,6 +237,8 @@ export const translations: Record<Language, TranslationStrings> = {
       maxLevel: 'Max level',
       upgradeCta: 'Upgrade',
       infinity: '∞',
+      moneyUpgradesTitle: 'Premium multiplier',
+      purchaseError: "Couldn't complete the purchase. Please try again.",
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -235,7 +260,7 @@ export const translations: Record<Language, TranslationStrings> = {
       upgrades: {
         luck_x2: {
           name: 'Luck x2',
-          desc: 'Every click has a small chance to count x2. The cheapest one.',
+          desc: 'Every click has a small chance to count x2.',
         },
         luck_x3: {
           name: 'Luck x3',
@@ -250,6 +275,24 @@ export const translations: Record<Language, TranslationStrings> = {
           desc: 'The highest one. A small chance at a x10 click.',
         },
       },
+      moneyUpgrades: {
+        x2_clicks: {
+          name: 'Multiplier x2',
+          desc: 'Every click counts x2, forever.',
+        },
+        x3_clicks: {
+          name: 'Multiplier x3',
+          desc: 'Every click counts x3, forever.',
+        },
+        x5_clicks: {
+          name: 'Multiplier x5',
+          desc: 'Every click counts x5, forever.',
+        },
+        x10_clicks: {
+          name: 'Multiplier x10',
+          desc: 'The highest tier. Every click counts x10, forever.',
+        },
+      },
     },
     stats: {
       title: 'Stats',
@@ -258,9 +301,9 @@ export const translations: Record<Language, TranslationStrings> = {
       claim: 'Claim',
       claiming: 'Claiming…',
       claimed: 'Claimed',
-      rewardPowerup: (name) => `Free ${name} powerup`,
+      rewardPowerup: (name) => `${name} powerup`,
       rewardClicks: (amount) => `+${amount} clicks`,
-      rewardPermanent: (pct) => `+${pct}% permanent bonus to every click`,
+      rewardPermanent: (mult) => `×${mult} to all your clicks`,
       categories: {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },

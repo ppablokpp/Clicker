@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Rocket, Clover, TrendingUp } from 'lucide-react'
+import { Zap, Rocket, Clover, Gem, TrendingUp } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
+import { useMoneyUpgradesContext } from '../context/MoneyUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
 
 interface ClickEffect {
@@ -50,13 +51,15 @@ export function Home() {
   const { language, strings } = useLanguage()
   const { active: activePowerup, secondsLeft } = usePowerupContext()
   const { bestOwned, rollLuckMultiplier } = useUpgradesContext()
+  const { bestOwned: bestMoneyOwned } = useMoneyUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
-  const totalMultiplier = heat.multiplier * powerupMultiplier * bonusMultiplier
+  const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
+  const totalMultiplier = heat.multiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -72,7 +75,7 @@ export function Home() {
       const id = effectId++
       setEffects((prev) => [
         ...prev,
-        { id, x, y, ripple: isLucky ? 'bg-yellow-300/70' : heat.ripple, amount, isLucky },
+        { id, x, y, ripple: isLucky ? 'bg-green-400/70' : heat.ripple, amount, isLucky },
       ])
       registerClick(amount)
 
@@ -122,6 +125,18 @@ export function Home() {
           )}
         </span>
 
+        {bestMoneyOwned && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-3 py-1.5 text-xs font-bold text-fuchsia-200 shadow-lg shadow-black/20">
+            <Gem size={12} className="text-fuchsia-300" />×{bestMoneyOwned.multiplier}
+          </span>
+        )}
+
+        {bestOwned && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-green-400/20 bg-green-500/[0.07] px-3 py-1.5 text-xs font-bold text-green-200 shadow-lg shadow-black/20">
+            <Clover size={12} className="text-green-300" />×{bestOwned.multiplier}
+          </span>
+        )}
+
         {totalMultiplier > 1 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
             ×{totalMultiplier}
@@ -133,13 +148,6 @@ export function Home() {
                 </span>
               </>
             )}
-          </span>
-        )}
-
-        {bestOwned && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-yellow-400/20 bg-yellow-500/[0.07] px-3 py-1.5 text-xs font-bold text-yellow-200 shadow-lg shadow-black/20">
-            <Clover size={12} className="text-yellow-300" />
-            ×{bestOwned.multiplier} ({(bestOwned.chance * 100).toFixed(0)}%)
           </span>
         )}
 
@@ -182,7 +190,7 @@ export function Home() {
             <span
               className={`animate-float-up absolute select-none font-bold ${
                 fx.isLucky
-                  ? 'text-2xl text-yellow-300 drop-shadow-[0_0_10px_rgba(253,224,71,0.8)]'
+                  ? 'text-2xl text-green-300 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]'
                   : 'text-lg text-white'
               }`}
               style={{ left: fx.x, top: fx.y }}

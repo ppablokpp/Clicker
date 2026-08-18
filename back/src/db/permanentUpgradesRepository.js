@@ -55,4 +55,14 @@ export const permanentUpgradesRepository = {
       client.release()
     }
   },
+
+  // Real-money upgrades don't spend clicks — ownership is granted after
+  // verifying the purchase with RevenueCat, not through the balance check
+  // above. Idempotent so re-syncing on every page load is safe.
+  async grantIfMissing(userId, upgradeId) {
+    await database.query(
+      'INSERT INTO user_permanent_upgrades (user_id, upgrade_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, upgradeId],
+    )
+  },
 }

@@ -7,6 +7,7 @@ import { ClickCounterProvider } from './context/ClickCounterContext'
 import { PowerupProvider } from './context/PowerupContext'
 import { UpgradesProvider } from './context/UpgradesContext'
 import { MilestonesProvider } from './context/MilestonesContext'
+import { MoneyUpgradesProvider } from './context/MoneyUpgradesContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
@@ -18,14 +19,16 @@ function ClickerApp() {
       <PowerupProvider>
         <MilestonesProvider>
           <UpgradesProvider>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/clasificacion" element={<Leaderboard />} />
-              <Route path="/estadisticas" element={<Stats />} />
-              <Route path="/tienda" element={<Store />} />
-            </Routes>
-            <Header />
-            <BottomNavPill />
+            <MoneyUpgradesProvider>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/clasificacion" element={<Leaderboard />} />
+                <Route path="/estadisticas" element={<Stats />} />
+                <Route path="/tienda" element={<Store />} />
+              </Routes>
+              <Header />
+              <BottomNavPill />
+            </MoneyUpgradesProvider>
           </UpgradesProvider>
         </MilestonesProvider>
       </PowerupProvider>

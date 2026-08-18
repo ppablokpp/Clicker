@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
 import { useMilestonesContext } from '../context/MilestonesContext'
-import { STAT_CATEGORIES, MILESTONE_REWARD_TIERS } from '../stats/config'
+import { STAT_CATEGORIES, MILESTONE_REWARD_TIERS, type StatAccent } from '../stats/config'
 
 interface OpenMilestone {
   categoryKey: string
@@ -12,6 +12,7 @@ interface OpenMilestone {
   unit: string
   reached: boolean
   tierIndex: number
+  accent: StatAccent
 }
 
 export function Stats() {
@@ -39,7 +40,7 @@ export function Stats() {
     if (reward.type === 'clicks') {
       return strings.stats.rewardClicks(reward.amount.toLocaleString(locale))
     }
-    return strings.stats.rewardPermanent((reward.amount * 100).toFixed(0))
+    return strings.stats.rewardPermanent((1 + reward.amount).toFixed(0))
   }
 
   const handleClaim = async () => {
@@ -60,7 +61,7 @@ export function Stats() {
         </header>
 
         <div className="flex flex-col gap-12">
-          {STAT_CATEGORIES.map(({ key, icon: Icon, color, max, milestones }) => {
+          {STAT_CATEGORIES.map(({ key, icon: Icon, color, max, milestones, accent }) => {
             const value = stats[key]
             const category = strings.stats.categories[key]
             const pct = Math.min((value / max) * 100, 100)
@@ -98,6 +99,7 @@ export function Stats() {
                             unit: category.unit,
                             reached,
                             tierIndex,
+                            accent,
                           })
                         }
                         style={{ left: `${leftPct}%` }}
@@ -107,9 +109,9 @@ export function Stats() {
                         <span
                           className={`block rounded-full transition-all ${
                             isClaimed
-                              ? 'h-2.5 w-2.5 bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,0.8)]'
+                              ? `h-2.5 w-2.5 ${accent.dotClaimed}`
                               : reached
-                                ? 'h-2.5 w-2.5 bg-yellow-300 shadow-[0_0_6px_rgba(253,224,71,0.8)]'
+                                ? `h-2.5 w-2.5 ${accent.dotReached}`
                                 : 'h-2 w-2 border border-neutral-500 bg-[#08080c]'
                           }`}
                         />
@@ -154,11 +156,13 @@ export function Stats() {
                     <span className="text-lg font-semibold text-neutral-400">{openMilestone.unit}</span>
                   </p>
 
-                  <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-500/[0.08] px-4 py-3 text-left">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-yellow-300/80">
+                  <div
+                    className={`mt-5 rounded-xl border px-4 py-3 text-left ${openMilestone.accent.rewardBorder} ${openMilestone.accent.rewardBg}`}
+                  >
+                    <p className={`text-[10px] font-semibold uppercase tracking-wide ${openMilestone.accent.rewardLabelColor}`}>
                       {strings.stats.rewardLabel}
                     </p>
-                    <p className="mt-0.5 text-sm font-semibold text-yellow-100">
+                    <p className={`mt-0.5 text-sm font-semibold ${openMilestone.accent.rewardTextColor}`}>
                       {rewardDescription(openMilestone.tierIndex)}
                     </p>
                   </div>

@@ -36,6 +36,7 @@ jobs:
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_REVENUECAT_PUBLIC_KEY: ${{ secrets.VITE_REVENUECAT_PUBLIC_KEY }}
         run: npm run build
 
       # GitHub Pages has no server-side rewrites: without this, refreshing on

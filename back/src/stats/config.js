@@ -2,7 +2,7 @@
 // draws the bars from its own copy, but the server is what actually decides
 // whether a milestone counts and hands out the reward.
 export const STAT_CATEGORIES = {
-  totalClicks: { statColumn: 'total_clicks', milestones: [1_000, 10_000, 50_000, 100_000] },
+  totalClicks: { statColumn: 'total_clicks', milestones: [50_000, 250_000, 500_000, 1_000_000] },
   bestCps: { statColumn: 'best_cps', milestones: [10, 25, 50, 100] },
   longestStreak: { statColumn: 'longest_streak', milestones: [5, 15, 30, 100] },
 }
