@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { Flame } from 'lucide-react'
@@ -12,9 +12,29 @@ interface ClickEffect {
   id: number
   x: number
   y: number
+  ripple: string
+  amount: number
 }
 
 let effectId = 0
+
+// Escalates the whole screen's feel with click speed — a free "combo meter"
+// with no server round trip, purely derived from clicksPerSecond. Legendario
+// also doubles the value of each click (registerClick(multiplier)).
+const HEAT_LEVELS = [
+  { min: 0, label: '', badge: 'text-neutral-300', icon: 'text-neutral-600', ripple: 'bg-violet-400/40', glow: 'rgba(168,85,247,0.25)', multiplier: 1 },
+  { min: 3, label: 'En racha', badge: 'text-amber-300', icon: 'text-amber-400', ripple: 'bg-amber-400/50', glow: 'rgba(251,191,36,0.35)', multiplier: 1 },
+  { min: 6, label: 'Imparable', badge: 'text-orange-300', icon: 'text-orange-400', ripple: 'bg-orange-500/55', glow: 'rgba(249,115,22,0.4)', multiplier: 1 },
+  { min: 10, label: 'Legendario', badge: 'text-red-300', icon: 'text-red-400', ripple: 'bg-red-500/60', glow: 'rgba(239,68,68,0.45)', multiplier: 2 },
+] as const
+
+function getHeatLevel(cps: number) {
+  let level = HEAT_LEVELS[0]
+  for (const l of HEAT_LEVELS) {
+    if (cps >= l.min) level = l
+  }
+  return level
+}
 
 export function Home() {
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
@@ -22,6 +42,7 @@ export function Home() {
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSeenTotalRef = useRef<number | null>(null)
+  const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
 
   // Skips the jump when totalClicks first loads from the DB — only fires
   // when a milestone is actually crossed live, one confetti burst per 100.
@@ -52,14 +73,14 @@ export function Home() {
       const y = e.clientY - rect.top
 
       const id = effectId++
-      setEffects((prev) => [...prev, { id, x, y }])
-      registerClick()
+      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount: heat.multiplier }])
+      registerClick(heat.multiplier)
 
       window.setTimeout(() => {
         setEffects((prev) => prev.filter((fx) => fx.id !== id))
       }, 900)
     },
-    [registerClick],
+    [registerClick, heat],
   )
 
   return (
@@ -79,6 +100,14 @@ export function Home() {
           className="animate-pulse-glow absolute right-1/4 top-1/4 h-56 w-56 rounded-full bg-cyan-500/10 blur-[100px]"
           style={{ animationDelay: '2s' }}
         />
+        {/* combo heat glow — intensifies with clicksPerSecond, invisible at rest */}
+        <div
+          className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] transition-all duration-300"
+          style={{
+            backgroundColor: heat.glow,
+            opacity: heat.label ? 1 : 0,
+          }}
+        />
       </div>
 
       {/* top-left greeting + CPS (top-right corner is reserved for the account button) */}
@@ -86,9 +115,14 @@ export function Home() {
         <span className="text-xs font-medium text-neutral-500">
           Jugando como <span className="text-neutral-300">{name}</span>
         </span>
-        <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300">
-          <Flame size={13} className={clicksPerSecond > 0 ? 'text-orange-400' : 'text-neutral-600'} />
-          {clicksPerSecond.toFixed(1)} c/s
+        <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-colors">
+          <Flame size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
+          <span className={clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}>
+            {clicksPerSecond.toFixed(1)} c/s
+          </span>
+          {heat.label && (
+            <span className={`font-semibold uppercase tracking-wide ${heat.badge}`}>· {heat.label}</span>
+          )}
         </span>
       </div>
 
@@ -102,7 +136,8 @@ export function Home() {
           initial={{ scale: 1 }}
           animate={{ scale: [1.06, 1] }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="bg-gradient-to-b from-white to-neutral-400 bg-clip-text font-[Space_Grotesk] text-6xl font-bold tabular-nums text-transparent drop-shadow-[0_0_40px_rgba(168,85,247,0.25)] sm:text-8xl"
+          className="bg-gradient-to-b from-white to-neutral-400 bg-clip-text font-[Space_Grotesk] text-6xl font-bold tabular-nums text-transparent transition-[filter] duration-300 sm:text-8xl"
+          style={{ filter: `drop-shadow(0 0 40px ${heat.glow})` }}
         >
           {totalClicks.toLocaleString('es-ES')}
         </motion.span>
@@ -112,19 +147,19 @@ export function Home() {
         </span>
       </div>
 
-      {/* click ripples + floating +1s */}
+      {/* click ripples + floating +N */}
       <AnimatePresence>
         {effects.map((fx) => (
           <div key={fx.id} className="pointer-events-none absolute inset-0 z-20">
             <span
-              className="animate-ripple absolute h-24 w-24 rounded-full bg-violet-400/40"
+              className={`animate-ripple absolute h-24 w-24 rounded-full ${fx.ripple}`}
               style={{ left: fx.x, top: fx.y }}
             />
             <span
-              className="animate-float-up absolute select-none text-lg font-bold text-violet-300"
+              className="animate-float-up absolute select-none text-lg font-bold text-white"
               style={{ left: fx.x, top: fx.y }}
             >
-              +1
+              +{fx.amount}
             </span>
           </div>
         ))}

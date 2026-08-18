@@ -98,9 +98,9 @@ export function useClickCounter() {
     }
   }, [flush])
 
-  const registerClick = useCallback(() => {
+  const registerClick = useCallback((amount = 1) => {
     recentClicksRef.current.push(Date.now())
-    pendingRef.current += 1
+    pendingRef.current += amount
     setTotalClicks(confirmedRef.current + pendingRef.current)
   }, [])
 
