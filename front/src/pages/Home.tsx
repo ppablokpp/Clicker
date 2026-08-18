@@ -28,8 +28,8 @@ const HEAT_LEVELS = [
   { min: 10, label: 'Legendario', badge: 'text-red-300', icon: 'text-red-400', ripple: 'bg-red-500/60', glow: 'rgba(239,68,68,0.45)', multiplier: 2 },
 ] as const
 
-function getHeatLevel(cps: number) {
-  let level = HEAT_LEVELS[0]
+function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
+  let level: (typeof HEAT_LEVELS)[number] = HEAT_LEVELS[0]
   for (const l of HEAT_LEVELS) {
     if (cps >= l.min) level = l
   }
