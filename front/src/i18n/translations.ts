@@ -20,7 +20,7 @@ export interface TranslationStrings {
   nav: {
     home: string
     leaderboard: string
-    achievements: string
+    stats: string
     store: string
   }
   leaderboard: {
@@ -49,10 +49,11 @@ export interface TranslationStrings {
     powerups: Record<string, { name: string; desc: string }>
     upgrades: Record<string, { name: string; desc: string }>
   }
-  achievements: {
+  stats: {
     title: string
     subtitle: string
-    unlocked: string
+    reached: string
+    rewardTbd: string
     categories: {
       totalClicks: { label: string; unit: string }
       bestCps: { label: string; unit: string }
@@ -82,7 +83,7 @@ export const translations: Record<Language, TranslationStrings> = {
     nav: {
       home: 'Inicio',
       leaderboard: 'Clasificación',
-      achievements: 'Logros',
+      stats: 'Estadísticas',
       store: 'Tienda',
     },
     leaderboard: {
@@ -145,10 +146,11 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
     },
-    achievements: {
-      title: 'Logros',
-      subtitle: 'Se desbloquean según tus estadísticas.',
-      unlocked: 'Desbloqueado',
+    stats: {
+      title: 'Estadísticas',
+      subtitle: 'Tu progreso, hito a hito.',
+      reached: 'Conseguido',
+      rewardTbd: 'Recompensa por decidir',
       categories: {
         totalClicks: { label: 'Clicks totales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
@@ -176,7 +178,7 @@ export const translations: Record<Language, TranslationStrings> = {
     nav: {
       home: 'Home',
       leaderboard: 'Leaderboard',
-      achievements: 'Achievements',
+      stats: 'Stats',
       store: 'Store',
     },
     leaderboard: {
@@ -239,10 +241,11 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
     },
-    achievements: {
-      title: 'Achievements',
-      subtitle: 'Unlocked based on your stats.',
-      unlocked: 'Unlocked',
+    stats: {
+      title: 'Stats',
+      subtitle: 'Your progress, milestone by milestone.',
+      reached: 'Reached',
+      rewardTbd: 'Reward TBD',
       categories: {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },

@@ -9,7 +9,7 @@ import { UpgradesProvider } from './context/UpgradesContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
-import { Achievements } from './pages/Achievements'
+import { Stats } from './pages/Stats'
 
 function ClickerApp() {
   return (
@@ -19,7 +19,7 @@ function ClickerApp() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/clasificacion" element={<Leaderboard />} />
-            <Route path="/logros" element={<Achievements />} />
+            <Route path="/estadisticas" element={<Stats />} />
             <Route path="/tienda" element={<Store />} />
           </Routes>
           <Header />

@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { MousePointerClick, Trophy, Award, Store } from 'lucide-react'
+import { MousePointerClick, Trophy, BarChart3, Store } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 
 const PILL_ITEMS = [
   { to: '/', key: 'home', icon: MousePointerClick, end: true },
   { to: '/clasificacion', key: 'leaderboard', icon: Trophy, end: false },
-  { to: '/logros', key: 'achievements', icon: Award, end: false },
+  { to: '/estadisticas', key: 'stats', icon: BarChart3, end: false },
   { to: '/tienda', key: 'store', icon: Store, end: false },
 ] as const
 
