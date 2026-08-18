@@ -5,6 +5,7 @@ import { Header } from './components/Header'
 import { BottomNavPill } from './components/BottomNavPill'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { PowerupProvider } from './context/PowerupContext'
+import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
 import { UpgradesProvider } from './context/UpgradesContext'
 import { MilestonesProvider } from './context/MilestonesContext'
 import { MoneyUpgradesProvider } from './context/MoneyUpgradesContext'
@@ -17,20 +18,22 @@ function ClickerApp() {
   return (
     <ClickCounterProvider>
       <PowerupProvider>
-        <MilestonesProvider>
-          <UpgradesProvider>
-            <MoneyUpgradesProvider>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/clasificacion" element={<Leaderboard />} />
-                <Route path="/estadisticas" element={<Stats />} />
-                <Route path="/tienda" element={<Store />} />
-              </Routes>
-              <Header />
-              <BottomNavPill />
-            </MoneyUpgradesProvider>
-          </UpgradesProvider>
-        </MilestonesProvider>
+        <TimedLuckPowerupProvider>
+          <MilestonesProvider>
+            <UpgradesProvider>
+              <MoneyUpgradesProvider>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/clasificacion" element={<Leaderboard />} />
+                  <Route path="/estadisticas" element={<Stats />} />
+                  <Route path="/tienda" element={<Store />} />
+                </Routes>
+                <Header />
+                <BottomNavPill />
+              </MoneyUpgradesProvider>
+            </UpgradesProvider>
+          </MilestonesProvider>
+        </TimedLuckPowerupProvider>
       </PowerupProvider>
     </ClickCounterProvider>
   )

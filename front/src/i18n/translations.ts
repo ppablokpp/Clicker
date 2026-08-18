@@ -40,6 +40,7 @@ export interface TranslationStrings {
     owned: string
     notEnoughClicks: string
     powerupsSection: string
+    powerupsSubtitle: string
     upgradesSection: string
     infinity: string
     luckTitle: string
@@ -48,9 +49,12 @@ export interface TranslationStrings {
     upgradeCta: string
     moneyUpgradesTitle: string
     purchaseError: string
+    timedLuckTitle: string
+    timedLuckSubtitle: string
     powerups: Record<string, { name: string; desc: string }>
     upgrades: Record<string, { name: string; desc: string }>
     moneyUpgrades: Record<string, { name: string; desc: string }>
+    timedLuckPowerups: Record<string, { name: string; desc: string }>
   }
   stats: {
     title: string
@@ -110,7 +114,8 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Activo',
       owned: 'Comprado',
       notEnoughClicks: 'Te faltan clicks',
-      powerupsSection: 'Potenciadores',
+      powerupsSection: 'Multiplicadores',
+      powerupsSubtitle: 'Multiplica tus clicks durante un tiempo.',
       upgradesSection: 'Mejoras permanentes',
       luckTitle: 'Suerte',
       noUpgradeYet: 'Todavía ninguna',
@@ -119,6 +124,8 @@ export const translations: Record<Language, TranslationStrings> = {
       infinity: '∞',
       moneyUpgradesTitle: 'Multiplicador premium',
       purchaseError: 'No se pudo completar la compra. Inténtalo de nuevo.',
+      timedLuckTitle: 'Suerte relámpago',
+      timedLuckSubtitle: 'Multiplica tu Suerte permanente mientras esté activa.',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -172,6 +179,12 @@ export const translations: Record<Language, TranslationStrings> = {
           name: 'Multiplicador x10',
           desc: 'El nivel más alto. Cada click cuenta x10, para siempre.',
         },
+      },
+      timedLuckPowerups: {
+        luck_x50: { name: 'Suerte x50', desc: '1% de probabilidad de un click x50.' },
+        luck_x100: { name: 'Suerte x100', desc: '1% de probabilidad de un click x100.' },
+        luck_x200: { name: 'Suerte x200', desc: '1% de probabilidad de un click x200.' },
+        luck_x500: { name: 'Suerte x500', desc: '1% de probabilidad de un click x500. El más bestia.' },
       },
     },
     stats: {
@@ -230,7 +243,8 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Active',
       owned: 'Owned',
       notEnoughClicks: "You're short on clicks",
-      powerupsSection: 'Powerups',
+      powerupsSection: 'Multipliers',
+      powerupsSubtitle: 'Multiplies your clicks for a while.',
       upgradesSection: 'Permanent upgrades',
       luckTitle: 'Luck',
       noUpgradeYet: 'None yet',
@@ -239,6 +253,8 @@ export const translations: Record<Language, TranslationStrings> = {
       infinity: '∞',
       moneyUpgradesTitle: 'Premium multiplier',
       purchaseError: "Couldn't complete the purchase. Please try again.",
+      timedLuckTitle: 'Lightning luck',
+      timedLuckSubtitle: 'Multiplies your permanent Luck while active.',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -292,6 +308,12 @@ export const translations: Record<Language, TranslationStrings> = {
           name: 'Multiplier x10',
           desc: 'The highest tier. Every click counts x10, forever.',
         },
+      },
+      timedLuckPowerups: {
+        luck_x50: { name: 'Luck x50', desc: '1% chance of a x50 click.' },
+        luck_x100: { name: 'Luck x100', desc: '1% chance of a x100 click.' },
+        luck_x200: { name: 'Luck x200', desc: '1% chance of a x200 click.' },
+        luck_x500: { name: 'Luck x500', desc: '1% chance of a x500 click. The wildest one.' },
       },
     },
     stats: {

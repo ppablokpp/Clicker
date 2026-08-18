@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Rocket, Clover, Gem, TrendingUp } from 'lucide-react'
+import { Zap, Rocket, Clover, Gem, Dices, TrendingUp } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
+import { useTimedLuckPowerupContext } from '../context/TimedLuckPowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
 import { useMoneyUpgradesContext } from '../context/MoneyUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
@@ -60,7 +61,8 @@ export function Home() {
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { language, strings } = useLanguage()
   const { active: activePowerup, secondsLeft } = usePowerupContext()
-  const { bestOwned, rollLuckMultiplier } = useUpgradesContext()
+  const { active: activeLuckPowerup, secondsLeft: luckSecondsLeft } = useTimedLuckPowerupContext()
+  const { bestOwned } = useUpgradesContext()
   const { bestOwned: bestMoneyOwned } = useMoneyUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
@@ -71,6 +73,13 @@ export function Home() {
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
   const totalMultiplier = heat.multiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
+  // Permanent Suerte and the timed one aren't two separate rolls — owning
+  // both multiplies together into a single number under one shared 1% roll,
+  // so buying the timed one actually amplifies the permanent tier you already have.
+  const hasLuck = Boolean(bestOwned || activeLuckPowerup)
+  const luckChance = activeLuckPowerup?.chance ?? bestOwned?.chance ?? 0
+  const combinedLuckMultiplier = (bestOwned?.multiplier ?? 1) * (activeLuckPowerup?.multiplier ?? 1)
+
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       const rect = containerRef.current?.getBoundingClientRect()
@@ -78,7 +87,7 @@ export function Home() {
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
 
-      const luckMultiplier = rollLuckMultiplier()
+      const luckMultiplier = hasLuck && Math.random() < luckChance ? combinedLuckMultiplier : 1
       const isLucky = luckMultiplier > 1
       const amount = totalMultiplier * luckMultiplier
 
@@ -93,7 +102,7 @@ export function Home() {
         setEffects((prev) => prev.filter((fx) => fx.id !== id))
       }, 900)
     },
-    [registerClick, heat, totalMultiplier, rollLuckMultiplier],
+    [registerClick, heat, totalMultiplier, hasLuck, luckChance, combinedLuckMultiplier],
   )
 
   return (
@@ -141,9 +150,17 @@ export function Home() {
           </span>
         )}
 
-        {bestOwned && (
+        {hasLuck && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-green-400/20 bg-green-500/[0.07] px-3 py-1.5 text-xs font-bold text-green-200 shadow-lg shadow-black/20">
-            <Clover size={12} className="text-green-300" />×{bestOwned.multiplier}
+            <Clover size={12} className="text-green-300" />×{combinedLuckMultiplier}
+            {activeLuckPowerup && (
+              <>
+                <Dices size={12} className="text-green-300" />
+                <span className="tabular-nums text-green-300">
+                  {Math.floor(luckSecondsLeft / 60)}:{String(luckSecondsLeft % 60).padStart(2, '0')}
+                </span>
+              </>
+            )}
           </span>
         )}
 

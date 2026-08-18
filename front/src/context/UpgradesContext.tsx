@@ -26,7 +26,6 @@ interface UpgradesContextValue {
   bestOwned: PermanentUpgradeDef | null
   buyingId: string | null
   buy: (upgrade: PermanentUpgradeDef) => Promise<{ ok: boolean; error?: string }>
-  rollLuckMultiplier: () => number
 }
 
 const UpgradesContext = createContext<UpgradesContextValue | null>(null)
@@ -105,13 +104,8 @@ export function UpgradesProvider({ children }: { children: ReactNode }) {
     return best
   }, [catalog, owned])
 
-  const rollLuckMultiplier = useCallback(() => {
-    if (!bestOwned) return 1
-    return Math.random() < bestOwned.chance ? bestOwned.multiplier : 1
-  }, [bestOwned])
-
   return (
-    <UpgradesContext.Provider value={{ catalog, owned, bestOwned, buyingId, buy, rollLuckMultiplier }}>
+    <UpgradesContext.Provider value={{ catalog, owned, bestOwned, buyingId, buy }}>
       {children}
     </UpgradesContext.Provider>
   )

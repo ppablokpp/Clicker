@@ -27,7 +27,8 @@ export const usersRepository = {
              last_active_date = CURRENT_DATE,
              updated_at = now()
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
-                 active_powerup, active_powerup_expires_at, milestone_bonus_multiplier, created_at`,
+                 active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
+                 milestone_bonus_multiplier, created_at`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]
@@ -74,6 +75,23 @@ export const usersRepository = {
            updated_at = now()
        WHERE id = $1 AND total_clicks >= $2
        RETURNING total_clicks, active_powerup, active_powerup_expires_at`,
+      [id, cost, powerupId, durationSeconds],
+    )
+    return result.rows[0] ?? null
+  },
+
+  // Same atomic balance-checked pattern as buyPowerup, in the separate
+  // active_luck_powerup slot so a click-multiplier powerup and a timed luck
+  // powerup can run at the same time.
+  async buyTimedLuckPowerup(id, powerupId, cost, durationSeconds) {
+    const result = await database.query(
+      `UPDATE users
+       SET total_clicks = total_clicks - $2,
+           active_luck_powerup = $3,
+           active_luck_powerup_expires_at = now() + make_interval(secs => $4),
+           updated_at = now()
+       WHERE id = $1 AND total_clicks >= $2
+       RETURNING total_clicks, active_luck_powerup, active_luck_powerup_expires_at`,
       [id, cost, powerupId, durationSeconds],
     )
     return result.rows[0] ?? null

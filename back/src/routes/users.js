@@ -2,12 +2,17 @@ import { Router } from 'express'
 import { getAuth, clerkClient } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
 import { getPowerup } from '../powerups/catalog.js'
+import { getTimedLuckPowerup } from '../powerups/timedLuckPowerups.js'
 
 export const usersRouter = Router()
 
 function toPublicUser(row) {
   const isPowerupActive =
     row.active_powerup && row.active_powerup_expires_at && new Date(row.active_powerup_expires_at) > new Date()
+  const isLuckPowerupActive =
+    row.active_luck_powerup &&
+    row.active_luck_powerup_expires_at &&
+    new Date(row.active_luck_powerup_expires_at) > new Date()
 
   return {
     id: row.id,
@@ -24,6 +29,14 @@ function toPublicUser(row) {
           id: row.active_powerup,
           multiplier: getPowerup(row.active_powerup)?.multiplier ?? 1,
           expiresAt: row.active_powerup_expires_at,
+        }
+      : null,
+    activeLuckPowerup: isLuckPowerupActive
+      ? {
+          id: row.active_luck_powerup,
+          chance: getTimedLuckPowerup(row.active_luck_powerup)?.chance ?? 0,
+          multiplier: getTimedLuckPowerup(row.active_luck_powerup)?.multiplier ?? 1,
+          expiresAt: row.active_luck_powerup_expires_at,
         }
       : null,
   }

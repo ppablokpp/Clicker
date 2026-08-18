@@ -15,10 +15,11 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
 const OFFERING_ID = 'permanent_upgrades'
 
-// Store UI for this is commented out for now, and the backend routes
-// aren't deployed yet either — flip this back on together with both of
-// those once it's ready to go live. Keeps every network call quiet until then.
-const MONEY_UPGRADES_ENABLED = false
+// The Store UI for buying new tiers is commented out (nobody else should be
+// able to purchase yet), but this stays on so already-owned tiers keep
+// loading and applying normally. Requires the backend's /api/money-upgrades
+// routes to actually be deployed — otherwise these calls 404.
+const MONEY_UPGRADES_ENABLED = true
 
 export interface MoneyUpgradeDef {
   id: string

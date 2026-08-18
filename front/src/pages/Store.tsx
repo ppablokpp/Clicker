@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { Clock, MousePointerClick } from 'lucide-react'
+import { Rocket, Dices, Clock, MousePointerClick } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
+import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
 import { useMoneyUpgradesContext, type MoneyUpgradeDef } from '../context/MoneyUpgradesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
-import { POWERUP_ICONS, DEFAULT_POWERUP_ICON, UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
+import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 
 export function Store() {
   const { language, strings } = useLanguage()
   const { totalClicks } = useClickCounterContext()
-  const { catalog: powerups, active, secondsLeft, buyingId, buy } = usePowerupContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
 
   return (
@@ -39,22 +39,9 @@ export function Store() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.powerupsSection}</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {powerups.map((powerup) => (
-              <PowerupCard
-                key={powerup.id}
-                powerup={powerup}
-                locale={locale}
-                totalClicks={totalClicks}
-                isActive={active?.id === powerup.id}
-                blockedByOther={active !== null && active.id !== powerup.id}
-                secondsLeft={secondsLeft}
-                isBuyingThis={buyingId === powerup.id}
-                isBuyingAny={buyingId !== null}
-                onBuy={buy}
-                strings={strings.store}
-              />
-            ))}
+          <div className="flex flex-col gap-3">
+            <PowerupGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
+            <TimedLuckGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
         </section>
       </div>
@@ -69,6 +56,9 @@ interface StoreStrings {
   active: string
   owned: string
   notEnoughClicks: string
+  powerupsSection: string
+  powerupsSubtitle: string
+  upgradesSection: string
   infinity: string
   luckTitle: string
   noUpgradeYet: string
@@ -76,9 +66,12 @@ interface StoreStrings {
   upgradeCta: string
   moneyUpgradesTitle: string
   purchaseError: string
+  timedLuckTitle: string
+  timedLuckSubtitle: string
   powerups: Record<string, { name: string; desc: string }>
   upgrades: Record<string, { name: string; desc: string }>
   moneyUpgrades: Record<string, { name: string; desc: string }>
+  timedLuckPowerups: Record<string, { name: string; desc: string }>
 }
 
 /** The buy button's own content IS the price — no separate cost row, no generic "Buy" label. */
@@ -92,40 +85,92 @@ function ClickPriceTag({ cost, locale, costLabel }: { cost: number; locale: stri
   )
 }
 
-interface PowerupCardProps {
-  powerup: PowerupDef
+interface TierTileProps {
+  name: string
+  durationSeconds: number
+  cost: number
+  locale: string
+  accent: 'violet' | 'green'
+  isActive: boolean
+  isBuyingThis: boolean
+  disabled: boolean
+  activeCountdown: string
+  buyingLabel: string
+  onClick: () => void
+}
+
+// One tile = one freely-buyable tier: name, duration, and a white price
+// button — compact enough for all 4 to sit in a row like the original cards did.
+function TierTile({
+  name,
+  durationSeconds,
+  cost,
+  locale,
+  accent,
+  isActive,
+  isBuyingThis,
+  disabled,
+  activeCountdown,
+  buyingLabel,
+  onClick,
+}: TierTileProps) {
+  const activeClasses =
+    accent === 'violet'
+      ? 'border-violet-400/30 bg-violet-500/10 text-violet-200'
+      : 'border-green-400/30 bg-green-500/10 text-green-200'
+
+  return (
+    <div className="flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.02] p-2.5 text-center">
+      <span className="text-xs font-semibold text-white">{name}</span>
+      <span className="mb-2 flex items-center gap-1 text-[10px] font-medium text-neutral-500">
+        <Clock size={9} />
+        {durationSeconds}s
+      </span>
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={name}
+        className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+          isActive
+            ? `border ${activeClasses}`
+            : disabled
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+              : 'bg-white text-neutral-900 hover:opacity-90'
+        }`}
+      >
+        {isActive ? (
+          activeCountdown
+        ) : isBuyingThis ? (
+          buyingLabel
+        ) : (
+          <span className="flex items-center justify-center gap-1">
+            <MousePointerClick size={10} className="opacity-70" />
+            <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
+          </span>
+        )}
+      </button>
+    </div>
+  )
+}
+
+interface PowerupGridCardProps {
   locale: string
   totalClicks: number
-  isActive: boolean
-  blockedByOther: boolean
-  secondsLeft: number
-  isBuyingThis: boolean
-  isBuyingAny: boolean
-  onBuy: (powerup: PowerupDef) => Promise<{ ok: boolean; error?: string }>
   strings: StoreStrings
 }
 
-function PowerupCard({
-  powerup,
-  locale,
-  totalClicks,
-  isActive,
-  blockedByOther,
-  secondsLeft,
-  isBuyingThis,
-  isBuyingAny,
-  onBuy,
-  strings,
-}: PowerupCardProps) {
+// All 4 click-multiplier powerups in one card instead of 4 separate ones —
+// freely buyable in any order (only one can run at a time), each tile is its
+// own price button.
+function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps) {
+  const { catalog, active, secondsLeft, buyingId, buy } = usePowerupContext()
   const [error, setError] = useState<string | null>(null)
-  const Icon = POWERUP_ICONS[powerup.id] ?? DEFAULT_POWERUP_ICON
-  const display = strings.powerups[powerup.id] ?? { name: powerup.id, desc: '' }
-  const canAfford = totalClicks >= powerup.cost
-  const looksDisabled = !isActive && (isBuyingAny || !canAfford || blockedByOther)
 
-  const handleBuy = async () => {
+  if (catalog.length === 0) return null
+
+  const handleBuy = async (powerup: PowerupDef) => {
     setError(null)
-    const result = await onBuy(powerup)
+    const result = await buy(powerup)
     if (!result.ok) setError(result.error ?? 'error')
   }
 
@@ -133,39 +178,121 @@ function PowerupCard({
     <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
       <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-500/10 blur-2xl" />
 
-      <div className="relative mb-2 flex items-center gap-2">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
-          <Icon size={17} />
+      <div className="relative mb-4 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
+          <Rocket size={17} />
         </div>
-        <span className="text-base font-semibold text-white">{display.name}</span>
-        <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-medium text-neutral-500">
-          <Clock size={11} />
-          {powerup.durationSeconds}s
-        </span>
+        <div>
+          <div className="text-base font-semibold text-white">{strings.powerupsSection}</div>
+          {active && (
+            <div className="text-xs text-neutral-500">{strings.powerups[active.id]?.name ?? active.id}</div>
+          )}
+        </div>
       </div>
 
-      <p className="relative mb-4 text-sm text-neutral-500">{display.desc}</p>
+      <p className="relative mb-4 text-sm text-neutral-500">{strings.powerupsSubtitle}</p>
 
-      <button
-        onClick={handleBuy}
-        disabled={isActive || isBuyingAny || !canAfford || blockedByOther}
-        aria-label={strings.buy}
-        className={`relative w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-          isActive
-            ? 'border border-violet-400/30 bg-violet-500/10 text-violet-200'
-            : looksDisabled
-              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-              : 'bg-white text-neutral-900 hover:opacity-90'
-        }`}
-      >
-        {isActive
-          ? `${strings.active} · ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
-          : isBuyingThis
-            ? strings.buying
-            : canAfford
-              ? <ClickPriceTag cost={powerup.cost} locale={locale} costLabel={strings.costLabel} />
-              : strings.notEnoughClicks}
-      </button>
+      <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {catalog.map((powerup) => {
+          const isActive = active?.id === powerup.id
+          const blockedByOther = active !== null && active.id !== powerup.id
+          const canAfford = totalClicks >= powerup.cost
+          const isBuyingThis = buyingId === powerup.id
+          const disabled = isActive || buyingId !== null || !canAfford || blockedByOther
+          const name = strings.powerups[powerup.id]?.name ?? powerup.id
+
+          return (
+            <TierTile
+              key={powerup.id}
+              name={name}
+              durationSeconds={powerup.durationSeconds}
+              cost={powerup.cost}
+              locale={locale}
+              accent="violet"
+              isActive={isActive}
+              isBuyingThis={isBuyingThis}
+              disabled={disabled}
+              activeCountdown={`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
+              buyingLabel={strings.buying}
+              onClick={() => handleBuy(powerup)}
+            />
+          )
+        })}
+      </div>
+
+      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+interface TimedLuckGridCardProps {
+  locale: string
+  totalClicks: number
+  strings: StoreStrings
+}
+
+// Same freely-buyable grid as PowerupGridCard, but for the temporary,
+// high-variance version of the permanent Suerte upgrade — same 1% chance,
+// much bigger multiplier, only lasts a short while.
+function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardProps) {
+  const { catalog, active, secondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
+  const [error, setError] = useState<string | null>(null)
+
+  if (catalog.length === 0) return null
+
+  const handleBuy = async (powerup: TimedLuckPowerupDef) => {
+    setError(null)
+    const result = await buy(powerup)
+    if (!result.ok) setError(result.error ?? 'error')
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-green-500/10 blur-2xl" />
+
+      <div className="relative mb-1 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-green-400/30 to-emerald-500/20 text-green-200">
+          <Dices size={17} />
+        </div>
+        <div>
+          <div className="text-base font-semibold text-white">{strings.timedLuckTitle}</div>
+          {active && (
+            <div className="text-xs text-neutral-500">
+              {strings.timedLuckPowerups[active.id]?.name ?? active.id}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="relative mb-4 text-sm text-neutral-500">{strings.timedLuckSubtitle}</p>
+
+      <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {catalog.map((powerup) => {
+          const isActive = active?.id === powerup.id
+          const blockedByOther = active !== null && active.id !== powerup.id
+          const canAfford = totalClicks >= powerup.cost
+          const isBuyingThis = buyingId === powerup.id
+          const disabled = isActive || buyingId !== null || !canAfford || blockedByOther
+          const name = strings.timedLuckPowerups[powerup.id]?.name ?? powerup.id
+
+          return (
+            <TierTile
+              key={powerup.id}
+              name={name}
+              durationSeconds={powerup.durationSeconds}
+              cost={powerup.cost}
+              locale={locale}
+              accent="green"
+              isActive={isActive}
+              isBuyingThis={isBuyingThis}
+              disabled={disabled}
+              activeCountdown={`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
+              buyingLabel={strings.buying}
+              onClick={() => handleBuy(powerup)}
+            />
+          )
+        })}
+      </div>
 
       {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
     </div>
@@ -217,6 +344,10 @@ function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
           <div className="text-base font-semibold text-white">{strings.luckTitle}</div>
           <div className="text-xs text-neutral-500">{currentLabel}</div>
         </div>
+        <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-medium text-neutral-500">
+          <Clock size={11} />
+          {strings.infinity}
+        </span>
       </div>
 
       <div className="relative mb-1.5 flex gap-1">
@@ -317,6 +448,10 @@ export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
           <div className="text-base font-semibold text-white">{strings.moneyUpgradesTitle}</div>
           <div className="text-xs text-neutral-500">{currentLabel}</div>
         </div>
+        <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-medium text-neutral-500">
+          <Clock size={11} />
+          {strings.infinity}
+        </span>
       </div>
 
       <div className="relative mb-1.5 flex gap-1">
