@@ -1,10 +1,14 @@
 import { Router } from 'express'
 import { getAuth, clerkClient } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
+import { getPowerup } from '../powerups/catalog.js'
 
 export const usersRouter = Router()
 
 function toPublicUser(row) {
+  const isPowerupActive =
+    row.active_powerup && row.active_powerup_expires_at && new Date(row.active_powerup_expires_at) > new Date()
+
   return {
     id: row.id,
     email: row.email,
@@ -14,6 +18,13 @@ function toPublicUser(row) {
     bestCps: Number(row.best_cps),
     currentStreak: row.current_streak,
     longestStreak: row.longest_streak,
+    activePowerup: isPowerupActive
+      ? {
+          id: row.active_powerup,
+          multiplier: getPowerup(row.active_powerup)?.multiplier ?? 1,
+          expiresAt: row.active_powerup_expires_at,
+        }
+      : null,
   }
 }
 

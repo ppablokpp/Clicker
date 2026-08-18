@@ -33,8 +33,12 @@ export interface TranslationStrings {
   store: {
     title: string
     subtitle: string
-    comingSoon: string
-    items: { title: string; desc: string }[]
+    costLabel: string
+    buy: string
+    buying: string
+    active: string
+    notEnoughClicks: string
+    powerups: Record<string, { name: string; desc: string }>
   }
   achievements: {
     title: string
@@ -81,13 +85,30 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     store: {
       title: 'Tienda',
-      subtitle: 'Todavía no hay nada a la venta, pero esto es lo que viene.',
-      comingSoon: 'Próximamente',
-      items: [
-        { title: 'Multiplicadores', desc: 'Aumenta los clicks que suma cada toque.' },
-        { title: 'Temas y skins', desc: 'Personaliza colores y efectos de la zona de click.' },
-        { title: 'Auto-clicker', desc: 'Genera clicks pasivamente con mejoras.' },
-      ],
+      subtitle: 'Gasta tus clicks totales en potenciadores temporales.',
+      costLabel: 'clicks',
+      buy: 'Comprar',
+      buying: 'Comprando…',
+      active: 'Activo',
+      notEnoughClicks: 'Te faltan clicks',
+      powerups: {
+        click_x2: {
+          name: 'Click x2',
+          desc: 'Duplica el valor de cada click. El más barato, ideal para probar.',
+        },
+        click_x3: {
+          name: 'Click x3',
+          desc: 'Triplica cada click durante más tiempo. Rinde bien en tiradas largas.',
+        },
+        click_x5: {
+          name: 'Click x5',
+          desc: 'Cada click cuenta x5 durante el tiempo activo. Se combina con tu racha de velocidad.',
+        },
+        click_x10: {
+          name: 'Click x10',
+          desc: 'El multiplicador más alto, ráfaga corta. Solo rentable si aprietas a fondo.',
+        },
+      },
     },
     achievements: {
       title: 'Logros',
@@ -132,13 +153,30 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     store: {
       title: 'Store',
-      subtitle: "Nothing for sale yet, but here's what's coming.",
-      comingSoon: 'Coming soon',
-      items: [
-        { title: 'Multipliers', desc: 'Increase the clicks each tap adds.' },
-        { title: 'Themes & skins', desc: 'Customize colors and effects of the click zone.' },
-        { title: 'Auto-clicker', desc: 'Passively generate clicks with upgrades.' },
-      ],
+      subtitle: 'Spend your total clicks on temporary powerups.',
+      costLabel: 'clicks',
+      buy: 'Buy',
+      buying: 'Buying…',
+      active: 'Active',
+      notEnoughClicks: "You're short on clicks",
+      powerups: {
+        click_x2: {
+          name: 'Click x2',
+          desc: 'Doubles the value of every click. The cheapest one, great for trying it out.',
+        },
+        click_x3: {
+          name: 'Click x3',
+          desc: 'Triples every click for longer. Pays off well on long runs.',
+        },
+        click_x5: {
+          name: 'Click x5',
+          desc: 'Every click counts x5 while active. Stacks with your speed combo.',
+        },
+        click_x10: {
+          name: 'Click x10',
+          desc: 'The highest multiplier, short burst. Only worth it if you go all out.',
+        },
+      },
     },
     achievements: {
       title: 'Achievements',

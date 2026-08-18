@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap } from 'lucide-react'
+import { Zap, Rocket } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
+import { usePowerupContext } from '../context/PowerupContext'
 
 interface ClickEffect {
   id: number
@@ -44,10 +45,13 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
 export function Home() {
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { language, strings } = useLanguage()
+  const { active: activePowerup, secondsLeft } = usePowerupContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
+  const powerupMultiplier = activePowerup?.multiplier ?? 1
+  const totalMultiplier = heat.multiplier * powerupMultiplier
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -57,14 +61,14 @@ export function Home() {
       const y = e.clientY - rect.top
 
       const id = effectId++
-      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount: heat.multiplier }])
-      registerClick(heat.multiplier)
+      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount: totalMultiplier }])
+      registerClick(totalMultiplier)
 
       window.setTimeout(() => {
         setEffects((prev) => prev.filter((fx) => fx.id !== id))
       }, 900)
     },
-    [registerClick, heat],
+    [registerClick, heat, totalMultiplier],
   )
 
   return (
@@ -94,8 +98,8 @@ export function Home() {
         />
       </div>
 
-      {/* CPS badge (below the fixed header) */}
-      <div className="pointer-events-none absolute left-4 top-20 z-10 sm:left-6">
+      {/* CPS badge + combined multiplier (below the fixed header) */}
+      <div className="pointer-events-none absolute left-4 top-20 z-10 flex flex-col gap-1.5 sm:left-6">
         <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium transition-colors">
           <Zap size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
           <span className={clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}>
@@ -105,6 +109,20 @@ export function Home() {
             <span className={`font-semibold uppercase tracking-wide ${heat.badge}`}>· {heatLabel}</span>
           )}
         </span>
+
+        {totalMultiplier > 1 && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-200">
+            ×{totalMultiplier}
+            {activePowerup && (
+              <>
+                <Rocket size={12} className="text-violet-300" />
+                <span className="tabular-nums text-violet-300">
+                  {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                </span>
+              </>
+            )}
+          </span>
+        )}
       </div>
 
       {/* main counter */}

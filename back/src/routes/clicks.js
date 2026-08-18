@@ -4,7 +4,9 @@ import { usersRepository } from '../db/usersRepository.js'
 
 export const clicksRouter = Router()
 
-const MAX_CLICKS_PER_REQUEST = 500
+// Generous headroom: with a x5 powerup stacked on the x2 speed combo (x10)
+// and a flush that got delayed a few seconds, legitimate bursts add up fast.
+const MAX_CLICKS_PER_REQUEST = 2000
 const MAX_CPS = 1000
 
 clicksRouter.get('/me', async (req, res) => {

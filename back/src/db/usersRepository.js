@@ -26,7 +26,8 @@ export const usersRepository = {
              ),
              last_active_date = CURRENT_DATE,
              updated_at = now()
-       RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak, created_at`,
+       RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
+                 active_powerup, active_powerup_expires_at, created_at`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]
@@ -59,6 +60,23 @@ export const usersRepository = {
       totalClicks: Number(result.rows[0].total_clicks),
       bestCps: Number(result.rows[0].best_cps),
     }
+  },
+
+  // Atomic: the WHERE clause checks the balance in the same statement that
+  // spends it, so two simultaneous purchases can't both succeed and overdraw.
+  // Returns null when the user can't afford it (0 rows updated).
+  async buyPowerup(id, powerupId, cost, durationSeconds) {
+    const result = await database.query(
+      `UPDATE users
+       SET total_clicks = total_clicks - $2,
+           active_powerup = $3,
+           active_powerup_expires_at = now() + make_interval(secs => $4),
+           updated_at = now()
+       WHERE id = $1 AND total_clicks >= $2
+       RETURNING total_clicks, active_powerup, active_powerup_expires_at`,
+      [id, cost, powerupId, durationSeconds],
+    )
+    return result.rows[0] ?? null
   },
 
   async getLeaderboard(limit = 100) {

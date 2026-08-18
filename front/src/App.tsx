@@ -4,6 +4,7 @@ import { AuthGate } from './components/AuthGate'
 import { Header } from './components/Header'
 import { BottomNavPill } from './components/BottomNavPill'
 import { ClickCounterProvider } from './context/ClickCounterContext'
+import { PowerupProvider } from './context/PowerupContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
@@ -12,14 +13,16 @@ import { Achievements } from './pages/Achievements'
 function ClickerApp() {
   return (
     <ClickCounterProvider>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/clasificacion" element={<Leaderboard />} />
-        <Route path="/logros" element={<Achievements />} />
-        <Route path="/tienda" element={<Store />} />
-      </Routes>
-      <Header />
-      <BottomNavPill />
+      <PowerupProvider>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/clasificacion" element={<Leaderboard />} />
+          <Route path="/logros" element={<Achievements />} />
+          <Route path="/tienda" element={<Store />} />
+        </Routes>
+        <Header />
+        <BottomNavPill />
+      </PowerupProvider>
     </ClickCounterProvider>
   )
 }

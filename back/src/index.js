@@ -6,6 +6,7 @@ import { database } from './db/pool.js'
 import { usersRouter } from './routes/users.js'
 import { clicksRouter } from './routes/clicks.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
+import { powerupsRouter } from './routes/powerups.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -36,6 +37,7 @@ app.get('/health/db', async (_req, res) => {
 app.use('/api/users', usersRouter)
 app.use('/api/clicks', clicksRouter)
 app.use('/api/leaderboard', leaderboardRouter)
+app.use('/api/powerups', powerupsRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.
 
