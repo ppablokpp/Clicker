@@ -4,10 +4,10 @@
  * entry — the frontend fetches this list instead of hardcoding it.
  */
 export const POWERUP_CATALOG = [
-  { id: 'click_x2', cost: 300, durationSeconds: 45, multiplier: 2 },
-  { id: 'click_x3', cost: 1500, durationSeconds: 90, multiplier: 3 },
-  { id: 'click_x5', cost: 2500, durationSeconds: 60, multiplier: 5 },
-  { id: 'click_x10', cost: 5000, durationSeconds: 20, multiplier: 10 },
+  { id: 'click_x2', cost: 300, durationSeconds: 30, multiplier: 2 },
+  { id: 'click_x3', cost: 1500, durationSeconds: 60, multiplier: 3 },
+  { id: 'click_x5', cost: 2500, durationSeconds: 45, multiplier: 5 },
+  { id: 'click_x10', cost: 5000, durationSeconds: 15, multiplier: 10 },
 ]
 
 export function getPowerup(id) {

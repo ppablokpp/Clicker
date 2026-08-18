@@ -40,6 +40,7 @@ export interface TranslationStrings {
     owned: string
     notEnoughClicks: string
     powerupsSection: string
+    powerupsCardTitle: string
     powerupsSubtitle: string
     upgradesSection: string
     infinity: string
@@ -114,7 +115,8 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Activo',
       owned: 'Comprado',
       notEnoughClicks: 'Te faltan clicks',
-      powerupsSection: 'Multiplicadores',
+      powerupsSection: 'Potenciadores',
+      powerupsCardTitle: 'Multiplicadores',
       powerupsSubtitle: 'Multiplica tus clicks durante un tiempo.',
       upgradesSection: 'Mejoras permanentes',
       luckTitle: 'Suerte',
@@ -181,10 +183,10 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
+        luck_x25: { name: 'Suerte x25', desc: '1% de probabilidad de un click x25.' },
         luck_x50: { name: 'Suerte x50', desc: '1% de probabilidad de un click x50.' },
-        luck_x100: { name: 'Suerte x100', desc: '1% de probabilidad de un click x100.' },
-        luck_x200: { name: 'Suerte x200', desc: '1% de probabilidad de un click x200.' },
-        luck_x500: { name: 'Suerte x500', desc: '1% de probabilidad de un click x500. El más bestia.' },
+        luck_x75: { name: 'Suerte x75', desc: '1% de probabilidad de un click x75.' },
+        luck_x100: { name: 'Suerte x100', desc: '1% de probabilidad de un click x100. La más alta.' },
       },
     },
     stats: {
@@ -243,7 +245,8 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Active',
       owned: 'Owned',
       notEnoughClicks: "You're short on clicks",
-      powerupsSection: 'Multipliers',
+      powerupsSection: 'Powerups',
+      powerupsCardTitle: 'Multipliers',
       powerupsSubtitle: 'Multiplies your clicks for a while.',
       upgradesSection: 'Permanent upgrades',
       luckTitle: 'Luck',
@@ -310,10 +313,10 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
+        luck_x25: { name: 'Luck x25', desc: '1% chance of a x25 click.' },
         luck_x50: { name: 'Luck x50', desc: '1% chance of a x50 click.' },
-        luck_x100: { name: 'Luck x100', desc: '1% chance of a x100 click.' },
-        luck_x200: { name: 'Luck x200', desc: '1% chance of a x200 click.' },
-        luck_x500: { name: 'Luck x500', desc: '1% chance of a x500 click. The wildest one.' },
+        luck_x75: { name: 'Luck x75', desc: '1% chance of a x75 click.' },
+        luck_x100: { name: 'Luck x100', desc: '1% chance of a x100 click. The highest one.' },
       },
     },
     stats: {

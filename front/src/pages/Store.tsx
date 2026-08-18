@@ -57,6 +57,7 @@ interface StoreStrings {
   owned: string
   notEnoughClicks: string
   powerupsSection: string
+  powerupsCardTitle: string
   powerupsSubtitle: string
   upgradesSection: string
   infinity: string
@@ -183,7 +184,7 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
           <Rocket size={17} />
         </div>
         <div>
-          <div className="text-base font-semibold text-white">{strings.powerupsSection}</div>
+          <div className="text-base font-semibold text-white">{strings.powerupsCardTitle}</div>
           {active && (
             <div className="text-xs text-neutral-500">{strings.powerups[active.id]?.name ?? active.id}</div>
           )}
@@ -390,10 +391,8 @@ function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
           >
             {isBuyingThis ? (
               strings.buying
-            ) : canAfford ? (
-              <ClickPriceTag cost={nextUpgrade.cost} locale={locale} costLabel={strings.costLabel} />
             ) : (
-              strings.notEnoughClicks
+              <ClickPriceTag cost={nextUpgrade.cost} locale={locale} costLabel={strings.costLabel} />
             )}
           </button>
         </>

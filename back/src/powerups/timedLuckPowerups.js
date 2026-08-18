@@ -1,14 +1,17 @@
 /**
  * A temporary, high-variance version of the permanent Suerte upgrade: same
- * 1% chance per click, but a much bigger multiplier for a short window.
+ * 1% chance per click, but a bigger multiplier for a short window. It
+ * MULTIPLIES the permanent Suerte tier you own (see toPublicUser /
+ * front Home.tsx), so tiers were deliberately kept modest — owning
+ * permanent x10 and this x100 already caps the combined roll at x1000.
  * Freely purchasable — not sequential like the permanent ladder — since
  * only one can run at a time anyway (buying a new one replaces the old one).
  */
 export const TIMED_LUCK_CATALOG = [
-  { id: 'luck_x50', cost: 1_000, durationSeconds: 30, chance: 0.01, multiplier: 50 },
-  { id: 'luck_x100', cost: 3_000, durationSeconds: 25, chance: 0.01, multiplier: 100 },
-  { id: 'luck_x200', cost: 8_000, durationSeconds: 20, chance: 0.01, multiplier: 200 },
-  { id: 'luck_x500', cost: 20_000, durationSeconds: 15, chance: 0.01, multiplier: 500 },
+  { id: 'luck_x25', cost: 5_000, durationSeconds: 20, chance: 0.01, multiplier: 25 },
+  { id: 'luck_x50', cost: 10_000, durationSeconds: 20, chance: 0.01, multiplier: 50 },
+  { id: 'luck_x75', cost: 20_000, durationSeconds: 20, chance: 0.01, multiplier: 75 },
+  { id: 'luck_x100', cost: 30_000, durationSeconds: 20, chance: 0.01, multiplier: 100 },
 ]
 
 export function getTimedLuckPowerup(id) {
