@@ -4,9 +4,12 @@ import { usersRepository } from '../db/usersRepository.js'
 
 export const clicksRouter = Router()
 
-// Generous headroom: with a x5 powerup stacked on the x2 speed combo (x10)
-// and a flush that got delayed a few seconds, legitimate bursts add up fast.
-const MAX_CLICKS_PER_REQUEST = 2000
+// Generous headroom: with the higher multipliers now reachable (click
+// powerups, permanent + timed luck, milestone bonuses all stacking) and a
+// flush that got delayed a few seconds, legitimate bursts add up fast. The
+// frontend chunks anything bigger than this into multiple requests, so this
+// is purely an anti-abuse ceiling per request, not a hard cap on a session.
+const MAX_CLICKS_PER_REQUEST = 5000
 const MAX_CPS = 1000
 
 clicksRouter.get('/me', async (req, res) => {

@@ -4,6 +4,11 @@ import { useAuth } from '@clerk/clerk-react'
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const FLUSH_INTERVAL_MS = 1000
 const CPS_WINDOW_MS = 2000
+// Must match back/src/routes/clicks.js's MAX_CLICKS_PER_REQUEST — the
+// backend rejects a single increment larger than this, so flush() has to
+// split anything bigger into several requests instead of sending it all at
+// once (high multipliers can pile up thousands of pending clicks between ticks).
+const MAX_CLICKS_PER_REQUEST = 5000
 
 /**
  * The database is the source of truth for where the count *starts*, but the
@@ -60,25 +65,29 @@ export function useClickCounter() {
   }, [])
 
   const flush = useCallback(async () => {
-    const amountSent = pendingRef.current
-    if (amountSent === 0 || !userId || isFlushingRef.current) return
+    if (pendingRef.current === 0 || !userId || isFlushingRef.current) return
     isFlushingRef.current = true
 
     try {
       const token = await getToken()
-      const res = await fetch(`${API_URL}/api/clicks/increment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: amountSent, peakCps: peakCpsRef.current }),
-        keepalive: true,
-      })
-      if (res.ok) {
+      // Drains everything in <=MAX_CLICKS_PER_REQUEST chunks within this one
+      // flush call — otherwise a single burst bigger than the cap would get
+      // rejected every tick forever, since pendingRef only grows and never
+      // shrinks on failure.
+      while (pendingRef.current > 0) {
+        const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
+        const res = await fetch(`${API_URL}/api/clicks/increment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ amount: amountSent, peakCps: peakCpsRef.current }),
+          keepalive: true,
+        })
+        if (!res.ok) break // stays in pendingRef, retried next tick
         const data = await res.json()
         confirmedRef.current = data.totalClicks
         pendingRef.current -= amountSent
         setTotalClicks(confirmedRef.current + pendingRef.current)
       }
-      // On failure the clicks stay in pendingRef and go out on the next tick.
     } catch (err) {
       console.error('No se pudo guardar el progreso de clicks', err)
     } finally {
