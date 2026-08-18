@@ -15,6 +15,11 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
 const OFFERING_ID = 'permanent_upgrades'
 
+// Store UI for this is commented out for now, and the backend routes
+// aren't deployed yet either — flip this back on together with both of
+// those once it's ready to go live. Keeps every network call quiet until then.
+const MONEY_UPGRADES_ENABLED = false
+
 export interface MoneyUpgradeDef {
   id: string
   multiplier: number
@@ -42,6 +47,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   const packagesRef = useRef<Record<string, Package>>({})
 
   useEffect(() => {
+    if (!MONEY_UPGRADES_ENABLED) return
     fetch(`${API_URL}/api/money-upgrades`)
       .then((r) => r.json())
       .then(setCatalog)
@@ -54,7 +60,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   // retry if RevenueCat hasn't indexed the new transaction yet.
   const sync = useCallback(
     async (expectProductId?: string) => {
-      if (!userId) return
+      if (!userId || !MONEY_UPGRADES_ENABLED) return
       try {
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/money-upgrades/sync`, {
@@ -88,7 +94,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   // Real, localized prices live in RevenueCat, not in our own catalog — our
   // backend only knows the gameplay numbers (chance/multiplier).
   useEffect(() => {
-    if (!userId || !REVENUECAT_PUBLIC_KEY) return
+    if (!MONEY_UPGRADES_ENABLED || !userId || !REVENUECAT_PUBLIC_KEY) return
     let cancelled = false
     ;(async () => {
       try {
@@ -115,6 +121,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
 
   const buy = useCallback(
     async (upgrade: MoneyUpgradeDef) => {
+      if (!MONEY_UPGRADES_ENABLED) return { ok: false, error: 'disabled' }
       if (!userId) return { ok: false, error: 'not-signed-in' }
       const purchases = ensureConfigured()
       if (!purchases) return { ok: false, error: 'revenuecat-not-configured' }
