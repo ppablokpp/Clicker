@@ -22,7 +22,12 @@ timedLuckPowerupsRouter.post('/buy', async (req, res) => {
     powerup.cost,
     powerup.durationSeconds,
   )
-  if (!result) return res.status(400).json({ error: 'Not enough clicks' })
+  if (!result.ok) {
+    if (result.reason === 'cooldown') {
+      return res.status(400).json({ error: 'cooldown', cooldownUntil: result.cooldownUntil })
+    }
+    return res.status(400).json({ error: 'Not enough clicks' })
+  }
 
   res.json({
     totalClicks: Number(result.total_clicks),
@@ -32,5 +37,6 @@ timedLuckPowerupsRouter.post('/buy', async (req, res) => {
       multiplier: powerup.multiplier,
       expiresAt: result.active_luck_powerup_expires_at,
     },
+    cooldownUntil: result.luck_powerup_cooldown_until,
   })
 })

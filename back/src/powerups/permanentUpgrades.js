@@ -6,10 +6,10 @@
  * the temporary powerups, for consistency.
  */
 export const PERMANENT_UPGRADE_CATALOG = [
-  { id: 'luck_x2', cost: 800, chance: 0.01, multiplier: 2 },
-  { id: 'luck_x3', cost: 1500, chance: 0.01, multiplier: 3 },
-  { id: 'luck_x5', cost: 3000, chance: 0.01, multiplier: 5 },
-  { id: 'luck_x10', cost: 7000, chance: 0.01, multiplier: 10 },
+  { id: 'luck_x2', cost: 5_000, chance: 0.01, multiplier: 2 },
+  { id: 'luck_x3', cost: 10_000, chance: 0.01, multiplier: 3 },
+  { id: 'luck_x5', cost: 25_000, chance: 0.01, multiplier: 5 },
+  { id: 'luck_x10', cost: 50_000, chance: 0.01, multiplier: 10 },
 ]
 
 export function getPermanentUpgrade(id) {

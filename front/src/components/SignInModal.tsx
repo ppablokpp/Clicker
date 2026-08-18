@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useSignIn } from '@clerk/clerk-react'
-import { MousePointerClick, TriangleAlert } from 'lucide-react'
+import { MousePointerClick, TriangleAlert, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
-import { LanguageToggle } from './LanguageToggle'
+import { useSignInPrompt } from '../context/SignInPromptContext'
 
 interface ClerkApiError {
   errors?: { message?: string; longMessage?: string }[]
@@ -14,11 +14,17 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return first?.longMessage ?? first?.message ?? fallback
 }
 
-export function SignInScreen() {
+// Opened by any click/buy/claim action attempted while signed out — a
+// dismissible overlay instead of a full-page wall, so guests can keep
+// browsing the app without an account.
+export function SignInModal() {
+  const { isOpen, closePrompt } = useSignInPrompt()
   const { signIn, isLoaded } = useSignIn()
   const { strings } = useLanguage()
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  if (!isOpen) return null
 
   const handleGoogleSignIn = async () => {
     if (!isLoaded || !signIn) return
@@ -38,20 +44,22 @@ export function SignInScreen() {
   }
 
   return (
-    <div className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#08080c] px-6">
-      <div className="fixed right-4 top-3 z-40 sm:right-6">
-        <LanguageToggle />
-      </div>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+      onClick={closePrompt}
+    >
+      <div
+        className="relative flex w-full max-w-sm flex-col items-center rounded-2xl border border-white/5 bg-[#0d0d14] p-8 text-center shadow-2xl shadow-black/50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={closePrompt}
+          aria-label="Close"
+          className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+        >
+          <X size={16} />
+        </button>
 
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="animate-pulse-glow absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-[100px]" />
-        <div
-          className="animate-pulse-glow absolute right-1/4 bottom-1/4 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-[100px]"
-          style={{ animationDelay: '1.2s' }}
-        />
-      </div>
-
-      <div className="relative z-10 flex w-full max-w-sm flex-col items-center rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center shadow-2xl shadow-black/40 backdrop-blur-xl">
         <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
           <MousePointerClick size={26} />
         </div>

@@ -17,7 +17,12 @@ powerupsRouter.post('/buy', async (req, res) => {
   if (!powerup) return res.status(400).json({ error: 'Unknown powerup' })
 
   const result = await usersRepository.buyPowerup(userId, powerup.id, powerup.cost, powerup.durationSeconds)
-  if (!result) return res.status(400).json({ error: 'Not enough clicks' })
+  if (!result.ok) {
+    if (result.reason === 'cooldown') {
+      return res.status(400).json({ error: 'cooldown', cooldownUntil: result.cooldownUntil })
+    }
+    return res.status(400).json({ error: 'Not enough clicks' })
+  }
 
   res.json({
     totalClicks: Number(result.total_clicks),
@@ -26,5 +31,6 @@ powerupsRouter.post('/buy', async (req, res) => {
       multiplier: powerup.multiplier,
       expiresAt: result.active_powerup_expires_at,
     },
+    cooldownUntil: result.powerup_cooldown_until,
   })
 })

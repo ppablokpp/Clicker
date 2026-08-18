@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { SignInScreen } from './SignInScreen'
 import { LoadingScreen } from './LoadingScreen'
 import { useSyncUser } from '../hooks/useSyncUser'
 
+// The app itself is browsable signed out — this only blocks rendering while
+// Clerk is still figuring out the session, and syncs the Clerk profile into
+// our DB once it turns out there is one.
 export function AuthGate({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth()
 
@@ -11,11 +13,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return <LoadingScreen />
   }
 
-  if (!isSignedIn) {
-    return <SignInScreen />
-  }
-
-  return <SignedInApp>{children}</SignedInApp>
+  return isSignedIn ? <SignedInApp>{children}</SignedInApp> : <>{children}</>
 }
 
 function SignedInApp({ children }: { children: ReactNode }) {

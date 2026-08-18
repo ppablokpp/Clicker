@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
+import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -34,6 +35,8 @@ interface PowerupContextValue {
   catalog: PowerupDef[]
   active: ActivePowerup | null
   secondsLeft: number
+  /** Buying any tier locks the whole category for an hour — shared across all 4. */
+  cooldownSecondsLeft: number
   buyingId: string | null
   buy: (powerup: PowerupDef) => Promise<{ ok: boolean; error?: string }>
   /** For rewards granted elsewhere (e.g. a claimed milestone) that also hand out a powerup. */
@@ -45,9 +48,12 @@ const PowerupContext = createContext<PowerupContextValue | null>(null)
 export function PowerupProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
+  const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<PowerupDef[]>([])
   const [active, setActive] = useState<ActivePowerup | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
+  const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
   const [buyingId, setBuyingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -76,6 +82,9 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
               expiresAt: new Date(data.activePowerup.expiresAt).getTime(),
             })
           }
+          if (data.powerupCooldownUntil) {
+            setCooldownUntil(new Date(data.powerupCooldownUntil).getTime())
+          }
         }
       } catch (err) {
         console.error('No se pudo comprobar el potenciador activo', err)
@@ -102,9 +111,28 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [active])
 
+  // Ticks the shared category cooldown down independently of whichever tier is active.
+  useEffect(() => {
+    if (!cooldownUntil) {
+      setCooldownSecondsLeft(0)
+      return
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
+      setCooldownSecondsLeft(remaining)
+      if (remaining === 0) setCooldownUntil(null)
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [cooldownUntil])
+
   const buy = useCallback(
     async (powerup: PowerupDef) => {
-      if (!userId) return { ok: false, error: 'not-signed-in' }
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
       setBuyingId(powerup.id)
       try {
         const token = await getToken()
@@ -120,8 +148,12 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
             multiplier: data.activePowerup.multiplier,
             expiresAt: new Date(data.activePowerup.expiresAt).getTime(),
           })
+          if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
+        }
+        if (data.error === 'cooldown' && data.cooldownUntil) {
+          setCooldownUntil(new Date(data.cooldownUntil).getTime())
         }
         return { ok: false, error: data.error }
       } catch (err) {
@@ -131,7 +163,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks],
+    [userId, getToken, syncTotalClicks, promptSignIn],
   )
 
   const applyActivePowerup = useCallback((data: ActivePowerupInput) => {
@@ -140,7 +172,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
 
   return (
     <PowerupContext.Provider
-      value={{ catalog, active, secondsLeft, buyingId, buy, applyActivePowerup }}
+      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy, applyActivePowerup }}
     >
       {children}
     </PowerupContext.Provider>

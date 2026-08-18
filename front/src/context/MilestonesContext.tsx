@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { usePowerupContext } from './PowerupContext'
+import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -22,6 +23,7 @@ export function MilestonesProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
   const { applyActivePowerup } = usePowerupContext()
+  const { promptSignIn } = useSignInPrompt()
   const [claimed, setClaimed] = useState<Set<string>>(new Set())
   const [bonusMultiplier, setBonusMultiplier] = useState(1)
   const [claimingKey, setClaimingKey] = useState<string | null>(null)
@@ -57,7 +59,10 @@ export function MilestonesProvider({ children }: { children: ReactNode }) {
 
   const claim = useCallback(
     async (categoryKey: string, milestone: number) => {
-      if (!userId) return { ok: false, error: 'not-signed-in' }
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
       const key = milestoneKey(categoryKey, milestone)
       setClaimingKey(key)
       try {
@@ -82,7 +87,7 @@ export function MilestonesProvider({ children }: { children: ReactNode }) {
         setClaimingKey(null)
       }
     },
-    [userId, getToken, syncTotalClicks, applyActivePowerup],
+    [userId, getToken, syncTotalClicks, applyActivePowerup, promptSignIn],
   )
 
   return (

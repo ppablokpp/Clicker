@@ -47,7 +47,7 @@ export function Stats() {
     if (!openMilestone) return
     setError(null)
     const result = await claim(openMilestone.categoryKey, openMilestone.milestone)
-    if (!result.ok) setError(result.error ?? 'error')
+    if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
   return (

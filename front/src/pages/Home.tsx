@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '@clerk/clerk-react'
 import { Zap, Rocket, Clover, Gem, Dices, TrendingUp } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -8,6 +9,7 @@ import { useTimedLuckPowerupContext } from '../context/TimedLuckPowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
 import { useMoneyUpgradesContext } from '../context/MoneyUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
+import { useSignInPrompt } from '../context/SignInPromptContext'
 
 interface ClickEffect {
   id: number
@@ -58,6 +60,8 @@ function counterTextSizeClass(value: number): string {
 }
 
 export function Home() {
+  const { userId } = useAuth()
+  const { promptSignIn } = useSignInPrompt()
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { language, strings } = useLanguage()
   const { active: activePowerup, secondsLeft } = usePowerupContext()
@@ -82,6 +86,11 @@ export function Home() {
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
+      if (!userId) {
+        promptSignIn()
+        return
+      }
+
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
       const x = e.clientX - rect.left
@@ -102,7 +111,7 @@ export function Home() {
         setEffects((prev) => prev.filter((fx) => fx.id !== id))
       }, 900)
     },
-    [registerClick, heat, totalMultiplier, hasLuck, luckChance, combinedLuckMultiplier],
+    [userId, promptSignIn, registerClick, heat, totalMultiplier, hasLuck, luckChance, combinedLuckMultiplier],
   )
 
   return (

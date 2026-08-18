@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { Purchases, PurchasesError, ErrorCode, type Package } from '@revenuecat/purchases-js'
+import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
@@ -41,6 +42,7 @@ const MoneyUpgradesContext = createContext<MoneyUpgradesContextValue | null>(nul
 
 export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
+  const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<MoneyUpgradeDef[]>([])
   const [owned, setOwned] = useState<Set<string>>(new Set())
   const [prices, setPrices] = useState<Record<string, string>>({})
@@ -123,7 +125,10 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   const buy = useCallback(
     async (upgrade: MoneyUpgradeDef) => {
       if (!MONEY_UPGRADES_ENABLED) return { ok: false, error: 'disabled' }
-      if (!userId) return { ok: false, error: 'not-signed-in' }
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
       const purchases = ensureConfigured()
       if (!purchases) return { ok: false, error: 'revenuecat-not-configured' }
 
@@ -152,7 +157,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, ensureConfigured, sync],
+    [userId, ensureConfigured, sync, promptSignIn],
   )
 
   const bestOwned = useMemo(() => {

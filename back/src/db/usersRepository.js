@@ -28,6 +28,7 @@ export const usersRepository = {
              updated_at = now()
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
+                 powerup_cooldown_until, luck_powerup_cooldown_until,
                  milestone_bonus_multiplier, created_at`,
       [id, email, username, avatarUrl],
     )
@@ -63,38 +64,99 @@ export const usersRepository = {
     }
   },
 
-  // Atomic: the WHERE clause checks the balance in the same statement that
-  // spends it, so two simultaneous purchases can't both succeed and overdraw.
-  // Returns null when the user can't afford it (0 rows updated).
+  // Buying ANY tier locks the whole category (all 4 tiers) for an hour —
+  // otherwise a powerup that's net-positive while actively clicking becomes
+  // an infinite money printer (buy it back the instant it expires, forever).
+  // Row-locked transaction so we can tell "on cooldown" apart from "can't
+  // afford it" instead of just returning null for both.
   async buyPowerup(id, powerupId, cost, durationSeconds) {
-    const result = await database.query(
-      `UPDATE users
-       SET total_clicks = total_clicks - $2,
-           active_powerup = $3,
-           active_powerup_expires_at = now() + make_interval(secs => $4),
-           updated_at = now()
-       WHERE id = $1 AND total_clicks >= $2
-       RETURNING total_clicks, active_powerup, active_powerup_expires_at`,
-      [id, cost, powerupId, durationSeconds],
-    )
-    return result.rows[0] ?? null
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT total_clicks, powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (user.powerup_cooldown_until && new Date(user.powerup_cooldown_until) > new Date()) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'cooldown', cooldownUntil: user.powerup_cooldown_until }
+      }
+      if (Number(user.total_clicks) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks - $2,
+             active_powerup = $3,
+             active_powerup_expires_at = now() + make_interval(secs => $4),
+             powerup_cooldown_until = now() + interval '1 hour',
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, active_powerup, active_powerup_expires_at, powerup_cooldown_until`,
+        [id, cost, powerupId, durationSeconds],
+      )
+      await client.query('COMMIT')
+      return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
   },
 
-  // Same atomic balance-checked pattern as buyPowerup, in the separate
-  // active_luck_powerup slot so a click-multiplier powerup and a timed luck
-  // powerup can run at the same time.
+  // Same cooldown-locked pattern as buyPowerup, in the separate
+  // active_luck_powerup slot (and its own cooldown column) so a
+  // click-multiplier powerup and a timed luck powerup can run — and be on
+  // cooldown — independently of each other.
   async buyTimedLuckPowerup(id, powerupId, cost, durationSeconds) {
-    const result = await database.query(
-      `UPDATE users
-       SET total_clicks = total_clicks - $2,
-           active_luck_powerup = $3,
-           active_luck_powerup_expires_at = now() + make_interval(secs => $4),
-           updated_at = now()
-       WHERE id = $1 AND total_clicks >= $2
-       RETURNING total_clicks, active_luck_powerup, active_luck_powerup_expires_at`,
-      [id, cost, powerupId, durationSeconds],
-    )
-    return result.rows[0] ?? null
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT total_clicks, luck_powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (user.luck_powerup_cooldown_until && new Date(user.luck_powerup_cooldown_until) > new Date()) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'cooldown', cooldownUntil: user.luck_powerup_cooldown_until }
+      }
+      if (Number(user.total_clicks) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks - $2,
+             active_luck_powerup = $3,
+             active_luck_powerup_expires_at = now() + make_interval(secs => $4),
+             luck_powerup_cooldown_until = now() + interval '1 hour',
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, active_luck_powerup, active_luck_powerup_expires_at, luck_powerup_cooldown_until`,
+        [id, cost, powerupId, durationSeconds],
+      )
+      await client.query('COMMIT')
+      return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
   },
 
   async getLeaderboard(limit = 100) {

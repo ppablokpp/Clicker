@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
+import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -30,6 +31,8 @@ interface TimedLuckPowerupContextValue {
   catalog: TimedLuckPowerupDef[]
   active: ActiveLuckPowerup | null
   secondsLeft: number
+  /** Buying any tier locks the whole category for an hour — shared across all 4. */
+  cooldownSecondsLeft: number
   buyingId: string | null
   buy: (powerup: TimedLuckPowerupDef) => Promise<{ ok: boolean; error?: string }>
 }
@@ -42,9 +45,12 @@ const TimedLuckPowerupContext = createContext<TimedLuckPowerupContextValue | nul
 export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
+  const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<TimedLuckPowerupDef[]>([])
   const [active, setActive] = useState<ActiveLuckPowerup | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
+  const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
   const [buyingId, setBuyingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -74,6 +80,9 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
               expiresAt: new Date(data.activeLuckPowerup.expiresAt).getTime(),
             })
           }
+          if (data.luckPowerupCooldownUntil) {
+            setCooldownUntil(new Date(data.luckPowerupCooldownUntil).getTime())
+          }
         }
       } catch (err) {
         console.error('No se pudo comprobar la suerte con temporizador activa', err)
@@ -99,9 +108,28 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
     return () => clearInterval(interval)
   }, [active])
 
+  // Ticks the shared category cooldown down independently of whichever tier is active.
+  useEffect(() => {
+    if (!cooldownUntil) {
+      setCooldownSecondsLeft(0)
+      return
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
+      setCooldownSecondsLeft(remaining)
+      if (remaining === 0) setCooldownUntil(null)
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [cooldownUntil])
+
   const buy = useCallback(
     async (powerup: TimedLuckPowerupDef) => {
-      if (!userId) return { ok: false, error: 'not-signed-in' }
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
       setBuyingId(powerup.id)
       try {
         const token = await getToken()
@@ -118,8 +146,12 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
             multiplier: data.activeLuckPowerup.multiplier,
             expiresAt: new Date(data.activeLuckPowerup.expiresAt).getTime(),
           })
+          if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
+        }
+        if (data.error === 'cooldown' && data.cooldownUntil) {
+          setCooldownUntil(new Date(data.cooldownUntil).getTime())
         }
         return { ok: false, error: data.error }
       } catch (err) {
@@ -129,11 +161,13 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks],
+    [userId, getToken, syncTotalClicks, promptSignIn],
   )
 
   return (
-    <TimedLuckPowerupContext.Provider value={{ catalog, active, secondsLeft, buyingId, buy }}>
+    <TimedLuckPowerupContext.Provider
+      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy }}
+    >
       {children}
     </TimedLuckPowerupContext.Provider>
   )

@@ -13,6 +13,10 @@ function toPublicUser(row) {
     row.active_luck_powerup &&
     row.active_luck_powerup_expires_at &&
     new Date(row.active_luck_powerup_expires_at) > new Date()
+  const isPowerupOnCooldown =
+    row.powerup_cooldown_until && new Date(row.powerup_cooldown_until) > new Date()
+  const isLuckPowerupOnCooldown =
+    row.luck_powerup_cooldown_until && new Date(row.luck_powerup_cooldown_until) > new Date()
 
   return {
     id: row.id,
@@ -39,6 +43,8 @@ function toPublicUser(row) {
           expiresAt: row.active_luck_powerup_expires_at,
         }
       : null,
+    powerupCooldownUntil: isPowerupOnCooldown ? row.powerup_cooldown_until : null,
+    luckPowerupCooldownUntil: isLuckPowerupOnCooldown ? row.luck_powerup_cooldown_until : null,
   }
 }
 

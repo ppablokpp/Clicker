@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
+import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -33,6 +34,7 @@ const UpgradesContext = createContext<UpgradesContextValue | null>(null)
 export function UpgradesProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
+  const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<PermanentUpgradeDef[]>([])
   const [owned, setOwned] = useState<Set<string>>(new Set())
   const [buyingId, setBuyingId] = useState<string | null>(null)
@@ -68,7 +70,10 @@ export function UpgradesProvider({ children }: { children: ReactNode }) {
 
   const buy = useCallback(
     async (upgrade: PermanentUpgradeDef) => {
-      if (!userId) return { ok: false, error: 'not-signed-in' }
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
       setBuyingId(upgrade.id)
       try {
         const token = await getToken()
@@ -91,7 +96,7 @@ export function UpgradesProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks],
+    [userId, getToken, syncTotalClicks, promptSignIn],
   )
 
   const bestOwned = useMemo(() => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '@clerk/clerk-react'
 import { Rocket, Dices, Clock, MousePointerClick } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
@@ -31,7 +32,8 @@ export function Store() {
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.upgradesSection}</h2>
           <div className="flex flex-col gap-3">
-            <MoneyUpgradeLadder strings={strings.store} />
+            {/* RevenueCat money purchases disabled for now — uncomment to bring them back. Logic untouched. */}
+            {/* <MoneyUpgradeLadder strings={strings.store} /> */}
             <UpgradeLadder locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
         </section>
@@ -92,9 +94,12 @@ interface TierTileProps {
   locale: string
   accent: 'violet' | 'green'
   isActive: boolean
+  /** Buying any tier in this category locks all 4 for an hour. */
+  isOnCooldown: boolean
   isBuyingThis: boolean
   disabled: boolean
   activeCountdown: string
+  cooldownCountdown: string
   buyingLabel: string
   onClick: () => void
 }
@@ -108,9 +113,11 @@ function TierTile({
   locale,
   accent,
   isActive,
+  isOnCooldown,
   isBuyingThis,
   disabled,
   activeCountdown,
+  cooldownCountdown,
   buyingLabel,
   onClick,
 }: TierTileProps) {
@@ -133,13 +140,17 @@ function TierTile({
         className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
           isActive
             ? `border ${activeClasses}`
-            : disabled
-              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-              : 'bg-white text-neutral-900 hover:opacity-90'
+            : isOnCooldown
+              ? 'bg-white/70 text-neutral-900'
+              : disabled
+                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                : 'bg-white text-neutral-900 hover:opacity-90'
         }`}
       >
         {isActive ? (
           activeCountdown
+        ) : isOnCooldown ? (
+          cooldownCountdown
         ) : isBuyingThis ? (
           buyingLabel
         ) : (
@@ -163,7 +174,8 @@ interface PowerupGridCardProps {
 // freely buyable in any order (only one can run at a time), each tile is its
 // own price button.
 function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps) {
-  const { catalog, active, secondsLeft, buyingId, buy } = usePowerupContext()
+  const { userId } = useAuth()
+  const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = usePowerupContext()
   const [error, setError] = useState<string | null>(null)
 
   if (catalog.length === 0) return null
@@ -171,7 +183,7 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
   const handleBuy = async (powerup: PowerupDef) => {
     setError(null)
     const result = await buy(powerup)
-    if (!result.ok) setError(result.error ?? 'error')
+    if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
   return (
@@ -195,10 +207,12 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
       <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
         {catalog.map((powerup) => {
           const isActive = active?.id === powerup.id
-          const blockedByOther = active !== null && active.id !== powerup.id
-          const canAfford = totalClicks >= powerup.cost
+          const isOnCooldown = !isActive && cooldownSecondsLeft > 0
+          // Guests always show "affordable" here — the click isn't blocked
+          // by balance for them, it opens the sign-in prompt instead.
+          const canAfford = !userId || totalClicks >= powerup.cost
           const isBuyingThis = buyingId === powerup.id
-          const disabled = isActive || buyingId !== null || !canAfford || blockedByOther
+          const disabled = isActive || isOnCooldown || buyingId !== null || !canAfford
           const name = strings.powerups[powerup.id]?.name ?? powerup.id
 
           return (
@@ -210,9 +224,11 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
               locale={locale}
               accent="violet"
               isActive={isActive}
+              isOnCooldown={isOnCooldown}
               isBuyingThis={isBuyingThis}
               disabled={disabled}
               activeCountdown={`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
+              cooldownCountdown={`${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`}
               buyingLabel={strings.buying}
               onClick={() => handleBuy(powerup)}
             />
@@ -235,7 +251,8 @@ interface TimedLuckGridCardProps {
 // high-variance version of the permanent Suerte upgrade — same 1% chance,
 // much bigger multiplier, only lasts a short while.
 function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardProps) {
-  const { catalog, active, secondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
+  const { userId } = useAuth()
+  const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
   const [error, setError] = useState<string | null>(null)
 
   if (catalog.length === 0) return null
@@ -243,7 +260,7 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
   const handleBuy = async (powerup: TimedLuckPowerupDef) => {
     setError(null)
     const result = await buy(powerup)
-    if (!result.ok) setError(result.error ?? 'error')
+    if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
   return (
@@ -269,10 +286,10 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
       <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
         {catalog.map((powerup) => {
           const isActive = active?.id === powerup.id
-          const blockedByOther = active !== null && active.id !== powerup.id
-          const canAfford = totalClicks >= powerup.cost
+          const isOnCooldown = !isActive && cooldownSecondsLeft > 0
+          const canAfford = !userId || totalClicks >= powerup.cost
           const isBuyingThis = buyingId === powerup.id
-          const disabled = isActive || buyingId !== null || !canAfford || blockedByOther
+          const disabled = isActive || isOnCooldown || buyingId !== null || !canAfford
           const name = strings.timedLuckPowerups[powerup.id]?.name ?? powerup.id
 
           return (
@@ -284,9 +301,11 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
               locale={locale}
               accent="green"
               isActive={isActive}
+              isOnCooldown={isOnCooldown}
               isBuyingThis={isBuyingThis}
               disabled={disabled}
               activeCountdown={`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
+              cooldownCountdown={`${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`}
               buyingLabel={strings.buying}
               onClick={() => handleBuy(powerup)}
             />
@@ -309,6 +328,7 @@ interface UpgradeLadderProps {
 // segmented bar shows how far you've gone, and the CTA always targets
 // whatever the next tier is (buying is enforced sequential server-side).
 function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
+  const { userId } = useAuth()
   const { catalog, owned, bestOwned, buyingId, buy } = useUpgradesContext()
   const [error, setError] = useState<string | null>(null)
 
@@ -317,7 +337,7 @@ function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
   const ownedCount = catalog.filter((u) => owned.has(u.id)).length
   const nextUpgrade = catalog[ownedCount]
   const isMaxed = !nextUpgrade
-  const canAfford = nextUpgrade ? totalClicks >= nextUpgrade.cost : false
+  const canAfford = nextUpgrade ? !userId || totalClicks >= nextUpgrade.cost : false
   const isBuyingThis = nextUpgrade ? buyingId === nextUpgrade.id : false
   const looksDisabled = !isMaxed && (buyingId !== null || !canAfford)
 
@@ -325,7 +345,7 @@ function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
     if (!nextUpgrade) return
     setError(null)
     const result = await buy(nextUpgrade)
-    if (!result.ok) setError(result.error ?? 'error')
+    if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
   const currentLabel = bestOwned
@@ -410,7 +430,9 @@ interface MoneyUpgradeLadderProps {
 // non-cumulative tiers — but bought with real money via RevenueCat instead
 // of clicks, so price comes from RevenueCat (once loaded) and there's no
 // "not enough clicks" state to show.
-function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
+// Exported (even though currently unused) so TS doesn't flag it as dead code
+// while the RevenueCat section above is commented out.
+export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
   const { catalog, owned, bestOwned, prices, buyingId, buy } = useMoneyUpgradesContext()
   const [error, setError] = useState<string | null>(null)
 
@@ -427,7 +449,9 @@ function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
     if (!nextUpgrade) return
     setError(null)
     const result = await buy(nextUpgrade)
-    if (!result.ok && result.error !== 'cancelled') setError(result.error ?? 'error')
+    if (!result.ok && result.error !== 'cancelled' && result.error !== 'not-signed-in') {
+      setError(result.error ?? 'error')
+    }
   }
 
   const currentLabel = bestOwned ? `×${bestOwned.multiplier}` : strings.noUpgradeYet

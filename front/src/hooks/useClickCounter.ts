@@ -110,11 +110,15 @@ export function useClickCounter() {
     }
   }, [flush])
 
-  const registerClick = useCallback((amount = 1) => {
-    recentClicksRef.current.push(Date.now())
-    pendingRef.current += amount
-    setTotalClicks(confirmedRef.current + pendingRef.current)
-  }, [])
+  const registerClick = useCallback(
+    (amount = 1) => {
+      if (!userId) return
+      recentClicksRef.current.push(Date.now())
+      pendingRef.current += amount
+      setTotalClicks(confirmedRef.current + pendingRef.current)
+    },
+    [userId],
+  )
 
   // Other places that spend clicks server-side (buying a powerup or a
   // permanent upgrade) return the fresh authoritative total — this folds it
