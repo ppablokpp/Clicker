@@ -11,10 +11,14 @@ import { timedLuckPowerupsRouter } from './routes/timedLuckPowerups.js'
 import { upgradesRouter } from './routes/upgrades.js'
 import { milestonesRouter } from './routes/milestones.js'
 import { dailyCaseRouter } from './routes/dailyCase.js'
+import { dailyKeyRouter } from './routes/dailyKey.js'
 import { moneyCaseRouter } from './routes/moneyCase.js'
 import { gemCaseRouter } from './routes/gemCase.js'
 import { moneyUpgradesRouter } from './routes/moneyUpgrades.js'
 import { gemUpgradesRouter } from './routes/gemUpgrades.js'
+import { clickPacksRouter } from './routes/clickPacks.js'
+import { keyPacksRouter } from './routes/keyPacks.js'
+import { gemPacksRouter } from './routes/gemPacks.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -50,10 +54,14 @@ app.use('/api/timed-luck-powerups', timedLuckPowerupsRouter)
 app.use('/api/upgrades', upgradesRouter)
 app.use('/api/milestones', milestonesRouter)
 app.use('/api/daily-case', dailyCaseRouter)
+app.use('/api/daily-key', dailyKeyRouter)
 app.use('/api/money-case', moneyCaseRouter)
 app.use('/api/gem-case', gemCaseRouter)
 app.use('/api/money-upgrades', moneyUpgradesRouter)
 app.use('/api/gem-upgrades', gemUpgradesRouter)
+app.use('/api/click-packs', clickPacksRouter)
+app.use('/api/key-packs', keyPacksRouter)
+app.use('/api/gem-packs', gemPacksRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.
 

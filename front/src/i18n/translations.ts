@@ -50,6 +50,13 @@ export interface TranslationStrings {
     openCaseGems: string
     notEnoughGems: string
     notEnoughKeys: string
+    claimDailyKey: string
+    keyClaimedToday: string
+    claimingKey: string
+    buyClicksTitle: string
+    buyKeysTitle: string
+    buyGemsTitle: string
+    savingsBadge: (pct: number) => string
     opening: string
     youWon: (amount: string) => string
     youWonGems: (amount: string) => string
@@ -145,6 +152,13 @@ export const translations: Record<Language, TranslationStrings> = {
       openCaseGems: 'Abrir con gemas',
       notEnoughGems: 'Te faltan gemas',
       notEnoughKeys: 'Te falta una llave',
+      claimDailyKey: 'Reclamar llave gratis diaria',
+      keyClaimedToday: 'Llave diaria reclamada',
+      claimingKey: 'Reclamando…',
+      buyClicksTitle: 'Comprar clicks',
+      buyKeysTitle: 'Comprar llaves',
+      buyGemsTitle: 'Comprar gemas',
+      savingsBadge: (pct) => `Ahorra ${pct}%`,
       opening: 'Abriendo…',
       youWon: (amount) => `+${amount} clicks`,
       youWonGems: (amount) => `+${amount} gemas`,
@@ -304,6 +318,13 @@ export const translations: Record<Language, TranslationStrings> = {
       openCaseGems: 'Open with gems',
       notEnoughGems: "You're short on gems",
       notEnoughKeys: 'You need a key',
+      claimDailyKey: 'Claim free daily key',
+      keyClaimedToday: 'Daily key claimed',
+      claimingKey: 'Claiming…',
+      buyClicksTitle: 'Buy clicks',
+      buyKeysTitle: 'Buy keys',
+      buyGemsTitle: 'Buy gems',
+      savingsBadge: (pct) => `Save ${pct}%`,
       opening: 'Opening…',
       youWon: (amount) => `+${amount} clicks`,
       youWonGems: (amount) => `+${amount} gems`,

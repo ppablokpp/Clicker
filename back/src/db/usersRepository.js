@@ -29,14 +29,22 @@ export const usersRepository = {
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
-                 milestone_bonus_multiplier, created_at, cases_opened, gems, keys`,
+                 milestone_bonus_multiplier, created_at, cases_opened, gems, keys,
+                 (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]
   },
 
+  // The "already claimed today" flag is computed in SQL against CURRENT_DATE
+  // rather than in JS — comparing a DATE column's parsed value against
+  // "today" in JS risks a timezone mismatch with what the DB considers today.
   async getById(id) {
-    const result = await database.query('SELECT * FROM users WHERE id = $1', [id])
+    const result = await database.query(
+      `SELECT *, (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today
+       FROM users WHERE id = $1`,
+      [id],
+    )
     return result.rows[0] ?? null
   },
 
@@ -159,6 +167,86 @@ export const usersRepository = {
     }
   },
 
+  // Once per calendar day, grants exactly one key — the same cooldown
+  // mechanic the free case used to have, just moved here so the case itself
+  // stays freely repeatable and keys are what's actually rationed.
+  async claimDailyKey(id) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        `SELECT (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS claimed_today
+         FROM users WHERE id = $1 FOR UPDATE`,
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (user.claimed_today) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-claimed' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET keys = keys + 1,
+             last_key_claim_date = CURRENT_DATE,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING keys`,
+        [id],
+      )
+      await client.query('COMMIT')
+      return { ok: true, keys: Number(updated.rows[0].keys) }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Currency exchange, not a real purchase — gems in, clicks out, atomic.
+  async buyClickPack(id, pack) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [id])
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.gems) < pack.gemCost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-gems' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks + $2,
+             gems = gems - $3,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, gems`,
+        [id, pack.clicks, pack.gemCost],
+      )
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        gems: Number(updated.rows[0].gems),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   // Free case: costs clicks AND a key, repeatable infinitely (no daily
   // cooldown — the key itself is what limits how often this can happen).
   // The prize gets added back in the same update — to total_clicks or to
@@ -249,6 +337,73 @@ export const usersRepository = {
         totalClicks: Number(updated.rows[0].total_clicks),
         gems: Number(updated.rows[0].gems),
       }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Real-money key pack (consumable RevenueCat product, repeatable).
+  // `transactionId` already verified as real by the route before calling
+  // this; the PRIMARY KEY on redeemed_key_purchases stops the same
+  // purchase being redeemed twice.
+  async redeemKeyPack(id, transactionId, pack) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const existing = await client.query(
+        'SELECT 1 FROM redeemed_key_purchases WHERE transaction_id = $1',
+        [transactionId],
+      )
+      if (existing.rowCount > 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-redeemed' }
+      }
+
+      await client.query(
+        'INSERT INTO redeemed_key_purchases (transaction_id, user_id, pack_id, amount) VALUES ($1, $2, $3, $4)',
+        [transactionId, id, pack.id, pack.amount],
+      )
+      const updated = await client.query(
+        'UPDATE users SET keys = keys + $2, updated_at = now() WHERE id = $1 RETURNING keys',
+        [id, pack.amount],
+      )
+      await client.query('COMMIT')
+      return { ok: true, keys: Number(updated.rows[0].keys) }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same as redeemKeyPack but for gem packs.
+  async redeemGemPack(id, transactionId, pack) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const existing = await client.query(
+        'SELECT 1 FROM redeemed_gem_purchases WHERE transaction_id = $1',
+        [transactionId],
+      )
+      if (existing.rowCount > 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-redeemed' }
+      }
+
+      await client.query(
+        'INSERT INTO redeemed_gem_purchases (transaction_id, user_id, pack_id, amount) VALUES ($1, $2, $3, $4)',
+        [transactionId, id, pack.id, pack.amount],
+      )
+      const updated = await client.query(
+        'UPDATE users SET gems = gems + $2, updated_at = now() WHERE id = $1 RETURNING gems',
+        [id, pack.amount],
+      )
+      await client.query('COMMIT')
+      return { ok: true, gems: Number(updated.rows[0].gems) }
     } catch (err) {
       await client.query('ROLLBACK')
       throw err

@@ -26,6 +26,7 @@ function toPublicUser(row) {
     totalClicks: Number(row.total_clicks),
     gems: Number(row.gems ?? 0),
     keys: Number(row.keys ?? 0),
+    keyClaimedToday: Boolean(row.key_claimed_today),
     bestCps: Number(row.best_cps),
     currentStreak: row.current_streak,
     longestStreak: row.longest_streak,

@@ -12,6 +12,10 @@ import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseCo
 import { useGemCaseContext } from '../context/GemCaseContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useKeysContext } from '../context/KeysContext'
+import { useDailyKeyContext } from '../context/DailyKeyContext'
+import { useClickPacksContext, type ClickPackDef } from '../context/ClickPacksContext'
+import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
+import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import { playCaseReveal, playCaseTick } from '../lib/caseSound'
@@ -22,6 +26,9 @@ export function Store() {
   const { gems } = useGemsContext()
   const { keys } = useKeysContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
+  const [showClickPacks, setShowClickPacks] = useState(false)
+  const [showKeyPacks, setShowKeyPacks] = useState(false)
+  const [showGemPacks, setShowGemPacks] = useState(false)
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
@@ -32,18 +39,30 @@ export function Store() {
               {strings.store.title}
             </h1>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300">
+              <button
+                onClick={() => setShowClickPacks(true)}
+                aria-label={strings.store.buyClicksTitle}
+                className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300 transition-colors hover:bg-white/[0.06]"
+              >
                 <MousePointerClick size={12} className="opacity-70" />
                 {totalClicks.toLocaleString(locale)}
-              </span>
-              <span className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-amber-200">
+              </button>
+              <button
+                onClick={() => setShowKeyPacks(true)}
+                aria-label={strings.store.buyKeysTitle}
+                className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-amber-200 transition-colors hover:bg-amber-500/[0.14]"
+              >
                 <Key size={12} className="opacity-80" />
                 {keys.toLocaleString(locale)}
-              </span>
-              <span className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-indigo-200">
+              </button>
+              <button
+                onClick={() => setShowGemPacks(true)}
+                aria-label={strings.store.buyGemsTitle}
+                className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-indigo-200 transition-colors hover:bg-indigo-500/[0.14]"
+              >
                 <Gem size={12} className="opacity-80" />
                 {gems.toLocaleString(locale)}
-              </span>
+              </button>
             </div>
           </div>
           <p className="mt-1 text-sm text-neutral-500">{strings.store.subtitle}</p>
@@ -56,7 +75,7 @@ export function Store() {
 
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.upgradesSection}</h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <GemUpgradeLadder strings={strings.store} />
             <UpgradeLadder locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
@@ -64,12 +83,16 @@ export function Store() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.powerupsSection}</h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <PowerupGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
             <TimedLuckGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
         </section>
       </div>
+
+      {showClickPacks && <ClickPacksModal locale={locale} strings={strings.store} onClose={() => setShowClickPacks(false)} />}
+      {showKeyPacks && <KeyPacksModal locale={locale} strings={strings.store} onClose={() => setShowKeyPacks(false)} />}
+      {showGemPacks && <GemPacksModal locale={locale} strings={strings.store} onClose={() => setShowGemPacks(false)} />}
     </div>
   )
 }
@@ -89,6 +112,13 @@ interface StoreStrings {
   openCaseGems: string
   notEnoughGems: string
   notEnoughKeys: string
+  claimDailyKey: string
+  keyClaimedToday: string
+  claimingKey: string
+  buyClicksTitle: string
+  buyKeysTitle: string
+  buyGemsTitle: string
+  savingsBadge: (pct: number) => string
   opening: string
   youWon: (amount: string) => string
   youWonGems: (amount: string) => string
@@ -133,6 +163,296 @@ function GemPriceTag({ cost }: { cost: number }) {
       <Gem size={14} className="opacity-80" />
       <span className="text-base font-bold tabular-nums">{cost}</span>
     </span>
+  )
+}
+
+// Cooldowns here can span up to a full day (unlike the 1h powerup cooldowns),
+// so this needs an hours segment where TierTile's mm:ss didn't.
+function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, totalSeconds)
+  const hours = Math.floor(s / 3600)
+  const minutes = Math.floor((s % 3600) / 60)
+  const seconds = s % 60
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+// Same "price per unit, relative to the first tier" math for all three pack
+// modals — clicks (priced in gems) and keys/gems (priced in real money via
+// RevenueCat) all reduce to "how much does one unit cost here vs. tier 1".
+function computeSavingsPct(baseUnitPrice: number, unitPrice: number): number {
+  if (baseUnitPrice <= 0 || unitPrice <= 0) return 0
+  return Math.round((1 - unitPrice / baseUnitPrice) * 100)
+}
+
+type PackTheme = 'neutral' | 'amber' | 'indigo'
+
+const PACK_THEME: Record<PackTheme, { iconWrap: string }> = {
+  neutral: { iconWrap: 'bg-gradient-to-br from-white/25 to-white/10 text-white' },
+  amber: { iconWrap: 'bg-gradient-to-br from-amber-400/30 to-yellow-500/20 text-amber-200' },
+  indigo: { iconWrap: 'bg-gradient-to-br from-indigo-400/30 to-violet-500/20 text-indigo-200' },
+}
+
+// Same soft glass look on every buy button regardless of currency — bordered,
+// translucent, blurred, not the solid opaque white used elsewhere (e.g. the
+// free-case button).
+const PACK_BUTTON_CLASSES = 'border border-white/15 bg-white/[0.06] text-white backdrop-blur-sm hover:bg-white/[0.1]'
+
+interface PackTileData {
+  id: string
+  amount: number
+  priceContent: React.ReactNode
+  isBuying: boolean
+  disabled: boolean
+  savingsBadge: string | null
+  onClick: () => void
+}
+
+function PackTile({
+  tile,
+  icon: Icon,
+  locale,
+  inline = false,
+  accentColorClass = 'text-neutral-300',
+}: {
+  tile: PackTileData
+  icon: typeof Gem
+  locale: string
+  /** Icon + amount side by side instead of stacked — reads better for small numbers like key/gem counts. */
+  inline?: boolean
+  accentColorClass?: string
+}) {
+  return (
+    <div className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 pt-4 text-center">
+      {tile.savingsBadge && (
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-red-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-md shadow-black/30">
+          {tile.savingsBadge}
+        </span>
+      )}
+      {inline ? (
+        <span className={`flex items-center gap-1.5 ${accentColorClass}`}>
+          <Icon size={18} />
+          <span className="text-lg font-bold tabular-nums">{tile.amount.toLocaleString(locale)}</span>
+        </span>
+      ) : (
+        <>
+          <Icon size={20} className="text-neutral-300" />
+          <span className="text-base font-bold tabular-nums text-white">{tile.amount.toLocaleString(locale)}</span>
+        </>
+      )}
+      <button
+        onClick={tile.onClick}
+        disabled={tile.disabled}
+        className={`mt-0.5 w-full rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed ${
+          tile.disabled
+            ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+            : PACK_BUTTON_CLASSES
+        }`}
+      >
+        {tile.isBuying ? <Loader2 size={12} className="mx-auto animate-spin" /> : tile.priceContent}
+      </button>
+    </div>
+  )
+}
+
+interface PackModalShellProps {
+  title: string
+  icon: typeof Gem
+  theme: PackTheme
+  onClose: () => void
+  error?: string | null
+  children: React.ReactNode
+}
+
+function PackModalShell({ title, icon: Icon, theme, onClose, error, children }: PackModalShellProps) {
+  const classes = PACK_THEME[theme]
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="mb-4 flex items-center gap-2">
+          <div className={`flex h-9 w-9 items-center justify-center rounded-full ${classes.iconWrap}`}>
+            <Icon size={17} />
+          </div>
+          <p className="text-sm font-semibold text-white">{title}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-2 gap-y-6">{children}</div>
+
+        {error && <p className="relative mt-3 text-xs text-red-400">{error}</p>}
+      </div>
+    </div>
+  )
+}
+
+interface ClickPacksModalProps {
+  locale: string
+  strings: StoreStrings
+  onClose: () => void
+}
+
+function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
+  const { catalog, buyingId, buy } = useClickPacksContext()
+  const { gems } = useGemsContext()
+  const [error, setError] = useState<string | null>(null)
+
+  const baseUnitPrice = catalog[0] ? catalog[0].gemCost / catalog[0].clicks : 0
+
+  const handleBuy = async (pack: ClickPackDef) => {
+    setError(null)
+    const result = await buy(pack)
+    if (!result.ok && result.error && result.error !== 'not-signed-in') {
+      setError(result.error === 'not-enough-gems' ? strings.notEnoughGems : strings.purchaseError)
+    }
+  }
+
+  return (
+    <PackModalShell title={strings.buyClicksTitle} icon={MousePointerClick} theme="neutral" onClose={onClose} error={error}>
+      {catalog.map((pack, i) => {
+        const unitPrice = pack.gemCost / pack.clicks
+        const savingsPct = i > 0 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+        return (
+          <PackTile
+            key={pack.id}
+            icon={MousePointerClick}
+            locale={locale}
+            tile={{
+              id: pack.id,
+              amount: pack.clicks,
+              priceContent: (
+                <span className="flex items-center justify-center gap-1">
+                  <Gem size={11} className="opacity-70" />
+                  {pack.gemCost}
+                </span>
+              ),
+              isBuying: buyingId === pack.id,
+              disabled: buyingId !== null || gems < pack.gemCost,
+              savingsBadge: i === 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
+              onClick: () => handleBuy(pack),
+            }}
+          />
+        )
+      })}
+    </PackModalShell>
+  )
+}
+
+interface KeyPacksModalProps {
+  locale: string
+  strings: StoreStrings
+  onClose: () => void
+}
+
+function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
+  const { catalog, prices, priceAmountsMicros, buyingId, buy } = useKeyPacksContext()
+  const [error, setError] = useState<string | null>(null)
+
+  const baseTier = catalog[0]
+  const baseUnitPrice =
+    baseTier && priceAmountsMicros[baseTier.id] ? priceAmountsMicros[baseTier.id] / baseTier.amount : 0
+
+  const handleBuy = async (pack: KeyPackDef) => {
+    setError(null)
+    const result = await buy(pack)
+    if (!result.ok && result.error && result.error !== 'not-signed-in' && result.error !== 'cancelled') {
+      setError(strings.purchaseError)
+    }
+  }
+
+  return (
+    <PackModalShell title={strings.buyKeysTitle} icon={Key} theme="amber" onClose={onClose} error={error}>
+      {catalog.map((pack, i) => {
+        const priceMicros = priceAmountsMicros[pack.id]
+        const unitPrice = priceMicros ? priceMicros / pack.amount : 0
+        const savingsPct = i > 0 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+        const priceLabel = prices[pack.id]
+        return (
+          <PackTile
+            key={pack.id}
+            icon={Key}
+            locale={locale}
+            inline
+            accentColorClass="text-amber-300"
+            tile={{
+              id: pack.id,
+              amount: pack.amount,
+              priceContent: priceLabel ?? '···',
+              isBuying: buyingId === pack.id,
+              disabled: buyingId !== null || !priceLabel,
+              savingsBadge: i === 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
+              onClick: () => handleBuy(pack),
+            }}
+          />
+        )
+      })}
+    </PackModalShell>
+  )
+}
+
+interface GemPacksModalProps {
+  locale: string
+  strings: StoreStrings
+  onClose: () => void
+}
+
+function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
+  const { catalog, prices, priceAmountsMicros, buyingId, buy } = useGemPacksContext()
+  const [error, setError] = useState<string | null>(null)
+
+  const baseTier = catalog[0]
+  const baseUnitPrice =
+    baseTier && priceAmountsMicros[baseTier.id] ? priceAmountsMicros[baseTier.id] / baseTier.amount : 0
+
+  const handleBuy = async (pack: GemPackDef) => {
+    setError(null)
+    const result = await buy(pack)
+    if (!result.ok && result.error && result.error !== 'not-signed-in' && result.error !== 'cancelled') {
+      setError(strings.purchaseError)
+    }
+  }
+
+  return (
+    <PackModalShell title={strings.buyGemsTitle} icon={Gem} theme="indigo" onClose={onClose} error={error}>
+      {catalog.map((pack, i) => {
+        const priceMicros = priceAmountsMicros[pack.id]
+        const unitPrice = priceMicros ? priceMicros / pack.amount : 0
+        const savingsPct = i > 0 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+        const priceLabel = prices[pack.id]
+        return (
+          <PackTile
+            key={pack.id}
+            icon={Gem}
+            locale={locale}
+            inline
+            accentColorClass="text-indigo-300"
+            tile={{
+              id: pack.id,
+              amount: pack.amount,
+              priceContent: priceLabel ?? '···',
+              isBuying: buyingId === pack.id,
+              disabled: buyingId !== null || !priceLabel,
+              savingsBadge: i === 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
+              onClick: () => handleBuy(pack),
+            }}
+          />
+        )
+      })}
+    </PackModalShell>
   )
 }
 
@@ -638,6 +958,12 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   const { syncTotalClicks } = useClickCounterContext()
   const { gems, syncGems } = useGemsContext()
   const { keys, syncKeys } = useKeysContext()
+  const {
+    claimedToday,
+    cooldownSecondsLeft: keyCooldownSecondsLeft,
+    isClaiming,
+    claim: claimDailyKey,
+  } = useDailyKeyContext()
   const viewportRef = useRef<HTMLDivElement>(null)
   // Holds the new balance between "purchase confirmed" and "reel finished
   // spinning" — applied only once the animation reveals the prize, so the
@@ -775,6 +1101,15 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks, result.gems, result.prizeCurrency)
   }
 
+  const handleClaimKey = async () => {
+    if (claimedToday || isClaiming) return
+    setError(null)
+    const result = await claimDailyKey()
+    if (!result.ok && result.error && result.error !== 'not-signed-in' && result.error !== 'already-claimed') {
+      setError(strings.purchaseError)
+    }
+  }
+
   const prizeStyle = revealed ? (CASE_PRIZE_STYLES[revealed.id] ?? DEFAULT_CASE_PRIZE_STYLE) : null
 
   return (
@@ -796,6 +1131,24 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       </div>
 
       <p className="relative mb-4 text-sm text-neutral-500">{strings.casesSubtitle}</p>
+
+      <button
+        onClick={handleClaimKey}
+        disabled={claimedToday || isClaiming}
+        aria-label={strings.claimDailyKey}
+        className={`relative mb-4 flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+          claimedToday
+            ? 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+            : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
+        }`}
+      >
+        <Key size={13} className="opacity-80" />
+        {isClaiming
+          ? strings.claimingKey
+          : claimedToday
+            ? formatCountdown(keyCooldownSecondsLeft)
+            : strings.claimDailyKey}
+      </button>
 
       <div
         ref={viewportRef}
@@ -906,7 +1259,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           <span className="flex items-center justify-center gap-1.5">
             <MousePointerClick size={14} className="opacity-70" />
             <span className="text-base font-bold tabular-nums">{cost.toLocaleString(locale)}</span>
-            <Key size={13} className="ml-7 opacity-70" />
+            <Key size={13} className="ml-4 opacity-70" />
             <span className="text-base font-bold tabular-nums">{keyCost}</span>
           </span>
         </button>
