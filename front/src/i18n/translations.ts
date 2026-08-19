@@ -82,6 +82,7 @@ export interface TranslationStrings {
       totalClicks: { label: string; unit: string }
       bestCps: { label: string; unit: string }
       longestStreak: { label: string; unit: string }
+      casesOpened: { label: string; unit: string }
     }
   }
 }
@@ -232,6 +233,7 @@ export const translations: Record<Language, TranslationStrings> = {
         totalClicks: { label: 'Clicks totales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
         longestStreak: { label: 'Racha de días', unit: 'días' },
+        casesOpened: { label: 'Cofres abiertos', unit: 'cofres' },
       },
     },
   },
@@ -380,6 +382,7 @@ export const translations: Record<Language, TranslationStrings> = {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },
         longestStreak: { label: 'Day streak', unit: 'days' },
+        casesOpened: { label: 'Cases opened', unit: 'cases' },
       },
     },
   },

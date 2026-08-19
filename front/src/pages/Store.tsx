@@ -711,10 +711,10 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-cyan-500/10 blur-2xl" />
 
       <div className="relative mb-1 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400/30 to-yellow-500/20 text-amber-200">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-sky-500/20 text-cyan-200">
           <Gift size={17} />
         </div>
         <div className="text-base font-semibold text-white">{strings.casesSection}</div>
@@ -727,9 +727,9 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
         className="relative mb-4 h-[88px] overflow-hidden rounded-xl border border-white/5 bg-black/30"
       >
         {/* center pointer */}
-        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-amber-300/70 shadow-[0_0_8px_rgba(252,211,77,0.8)]" />
-        <div className="pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-amber-300" />
-        <div className="pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-amber-300" />
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-cyan-300/70 shadow-[0_0_8px_rgba(103,232,249,0.8)]" />
+        <div className="pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-cyan-300" />
+        <div className="pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-cyan-300" />
 
         {reel ? (
           <motion.div

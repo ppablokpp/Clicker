@@ -8,9 +8,16 @@ export interface UserStats {
   bestCps: number
   currentStreak: number
   longestStreak: number
+  casesOpened: number
 }
 
-const EMPTY_STATS: UserStats = { totalClicks: 0, bestCps: 0, currentStreak: 0, longestStreak: 0 }
+const EMPTY_STATS: UserStats = {
+  totalClicks: 0,
+  bestCps: 0,
+  currentStreak: 0,
+  longestStreak: 0,
+  casesOpened: 0,
+}
 
 export function useUserStats() {
   const { userId, getToken } = useAuth()
@@ -33,6 +40,7 @@ export function useUserStats() {
             bestCps: data.bestCps,
             currentStreak: data.currentStreak,
             longestStreak: data.longestStreak,
+            casesOpened: data.casesOpened,
           })
         }
       } catch (err) {

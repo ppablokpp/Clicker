@@ -1,4 +1,4 @@
-import { Target, Zap, Flame } from 'lucide-react'
+import { Target, Zap, Flame, Gift } from 'lucide-react'
 
 /**
  * Single place to tune the stat bars. Each category maps one stat from
@@ -59,6 +59,22 @@ export const STAT_CATEGORIES = [
       rewardBg: 'bg-orange-500/[0.08]',
       rewardLabelColor: 'text-orange-300/80',
       rewardTextColor: 'text-orange-100',
+    },
+  },
+  {
+    key: 'casesOpened' as const,
+    icon: Gift,
+    color: 'text-cyan-300',
+    max: 100,
+    // No claimable rewards for this one (yet) — just a count, so no milestones/tiers.
+    milestones: [],
+    accent: {
+      dotReached: 'bg-cyan-300',
+      dotClaimed: 'bg-cyan-300/50',
+      rewardBorder: 'border-cyan-400/20',
+      rewardBg: 'bg-cyan-500/[0.08]',
+      rewardLabelColor: 'text-cyan-300/80',
+      rewardTextColor: 'text-cyan-100',
     },
   },
 ]

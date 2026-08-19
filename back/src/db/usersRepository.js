@@ -29,7 +29,7 @@ export const usersRepository = {
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
-                 milestone_bonus_multiplier, created_at,
+                 milestone_bonus_multiplier, created_at, cases_opened,
                  (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_case_today`,
       [id, email, username, avatarUrl],
     )
@@ -197,6 +197,7 @@ export const usersRepository = {
         `UPDATE users
          SET total_clicks = total_clicks - $2 + $3,
              last_case_spin_date = CURRENT_DATE,
+             cases_opened = cases_opened + 1,
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks`,
@@ -235,7 +236,7 @@ export const usersRepository = {
         [transactionId, id, prizeId, prizeAmount],
       )
       const updated = await client.query(
-        'UPDATE users SET total_clicks = total_clicks + $2, updated_at = now() WHERE id = $1 RETURNING total_clicks',
+        'UPDATE users SET total_clicks = total_clicks + $2, cases_opened = cases_opened + 1, updated_at = now() WHERE id = $1 RETURNING total_clicks',
         [id, prizeAmount],
       )
       await client.query('COMMIT')
