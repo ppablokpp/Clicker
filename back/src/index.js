@@ -14,6 +14,7 @@ import { dailyCaseRouter } from './routes/dailyCase.js'
 import { dailyKeyRouter } from './routes/dailyKey.js'
 import { moneyCaseRouter } from './routes/moneyCase.js'
 import { gemCaseRouter } from './routes/gemCase.js'
+import { gemChestRouter } from './routes/gemChest.js'
 import { moneyUpgradesRouter } from './routes/moneyUpgrades.js'
 import { gemUpgradesRouter } from './routes/gemUpgrades.js'
 import { clickPacksRouter } from './routes/clickPacks.js'
@@ -57,6 +58,7 @@ app.use('/api/daily-case', dailyCaseRouter)
 app.use('/api/daily-key', dailyKeyRouter)
 app.use('/api/money-case', moneyCaseRouter)
 app.use('/api/gem-case', gemCaseRouter)
+app.use('/api/gem-chest', gemChestRouter)
 app.use('/api/money-upgrades', moneyUpgradesRouter)
 app.use('/api/gem-upgrades', gemUpgradesRouter)
 app.use('/api/click-packs', clickPacksRouter)

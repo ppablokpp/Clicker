@@ -3,9 +3,10 @@ import { usersRepository } from '../db/usersRepository.js'
 
 export const leaderboardRouter = Router()
 
-leaderboardRouter.get('/', async (_req, res) => {
+leaderboardRouter.get('/', async (req, res) => {
   try {
-    const leaderboard = await usersRepository.getLeaderboard()
+    const sortBy = req.query.sortBy === 'cps' ? 'cps' : 'clicks'
+    const leaderboard = await usersRepository.getLeaderboard(100, sortBy)
     res.json(leaderboard)
   } catch (err) {
     console.error('Error fetching leaderboard', err)

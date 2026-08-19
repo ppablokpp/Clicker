@@ -30,6 +30,7 @@ export const usersRepository = {
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
                  milestone_bonus_multiplier, created_at, cases_opened, gems, keys,
+                 owned_click_chests, owned_gem_chests,
                  (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today`,
       [id, email, username, avatarUrl],
     )
@@ -247,41 +248,46 @@ export const usersRepository = {
     }
   },
 
-  // Free case: costs clicks AND a key, repeatable infinitely (no daily
-  // cooldown — the key itself is what limits how often this can happen).
-  // The prize gets added back in the same update — to total_clicks or to
-  // gems depending on `prize.currency`. `prize` is decided by the caller
-  // (route) via the server-side weighted roll — never by the client.
-  async spinDailyCase(id, cost, prize) {
+  // Free case: costs a key AND a previously-bought chest (see buyClickChest
+  // below), repeatable infinitely — no daily cooldown, keys and owned
+  // chests are what limit how often this can happen. The prize gets added
+  // back in the same update — to total_clicks or to gems depending on
+  // `prize.currency`. `prize` is decided by the caller (route) via the
+  // server-side weighted roll — never by the client.
+  async spinDailyCase(id, keyCost, prize) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT total_clicks, keys FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query(
+        'SELECT keys, owned_click_chests FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
-      if (Number(user.keys) < 1) {
+      if (Number(user.keys) < keyCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-keys' }
       }
-      if (Number(user.total_clicks) < cost) {
+      if (Number(user.owned_click_chests) < 1) {
         await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-enough-clicks' }
+        return { ok: false, reason: 'not-enough-chests' }
       }
 
       const isGemPrize = prize.currency === 'gems'
       const updated = await client.query(
         `UPDATE users
-         SET total_clicks = total_clicks - $2 + $3,
-             gems = gems + $4,
-             keys = keys - 1,
+         SET total_clicks = total_clicks + $2,
+             gems = gems + $3,
+             keys = keys - $4,
+             owned_click_chests = owned_click_chests - 1,
              cases_opened = cases_opened + 1,
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, gems, keys`,
-        [id, cost, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0],
+         RETURNING total_clicks, gems, keys, owned_click_chests`,
+        [id, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0, keyCost],
       )
       await client.query('COMMIT')
       return {
@@ -289,6 +295,47 @@ export const usersRepository = {
         totalClicks: Number(updated.rows[0].total_clicks),
         gems: Number(updated.rows[0].gems),
         keys: Number(updated.rows[0].keys),
+        ownedChests: Number(updated.rows[0].owned_click_chests),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Buys one click-chest for clicks — a prerequisite for spinDailyCase's
+  // key-paid open path (the gem-paid path bypasses this entirely).
+  async buyClickChest(id, cost) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [id])
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.total_clicks) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks - $2,
+             owned_click_chests = owned_click_chests + 1,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, owned_click_chests`,
+        [id, cost],
+      )
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        ownedChests: Number(updated.rows[0].owned_click_chests),
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -454,12 +501,140 @@ export const usersRepository = {
     }
   },
 
-  async getLeaderboard(limit = 100) {
+  // Gem chest, paid with keys: spends keys AND a previously-bought chest
+  // (see buyGemChest below), always pays out gems. The gem-paid variant
+  // further down bypasses the owned-chest requirement entirely.
+  async openGemChestWithKeys(id, keyCost, prize) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT keys, owned_gem_chests FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.keys) < keyCost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-keys' }
+      }
+      if (Number(user.owned_gem_chests) < 1) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-chests' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET keys = keys - $2,
+             gems = gems + $3,
+             owned_gem_chests = owned_gem_chests - 1,
+             cases_opened = cases_opened + 1,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING keys, gems, owned_gem_chests`,
+        [id, keyCost, prize.amount],
+      )
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        keys: Number(updated.rows[0].keys),
+        gems: Number(updated.rows[0].gems),
+        ownedChests: Number(updated.rows[0].owned_gem_chests),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Buys one gem-chest for clicks — a prerequisite for openGemChestWithKeys.
+  async buyGemChest(id, cost) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [id])
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.total_clicks) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks - $2,
+             owned_gem_chests = owned_gem_chests + 1,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, owned_gem_chests`,
+        [id, cost],
+      )
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        ownedChests: Number(updated.rows[0].owned_gem_chests),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Gem chest, paid with gems instead of keys — same prize table, no cooldown.
+  async openGemChestWithGems(id, gemCost, prize) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [id])
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.gems) < gemCost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-gems' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET gems = gems - $2 + $3,
+             cases_opened = cases_opened + 1,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING gems`,
+        [id, gemCost, prize.amount],
+      )
+      await client.query('COMMIT')
+      return { ok: true, gems: Number(updated.rows[0].gems) }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // `sortBy` only ever picks between these two fixed column names — never
+  // interpolates the raw query param — so there's no injection surface.
+  async getLeaderboard(limit = 100, sortBy = 'clicks') {
+    const column = sortBy === 'cps' ? 'best_cps' : 'total_clicks'
     const result = await database.query(
-      `SELECT id, username, avatar_url, total_clicks
+      `SELECT id, username, avatar_url, total_clicks, best_cps
        FROM users
-       WHERE total_clicks > 0
-       ORDER BY total_clicks DESC
+       WHERE ${column} > 0
+       ORDER BY ${column} DESC
        LIMIT $1`,
       [limit],
     )
@@ -468,6 +643,7 @@ export const usersRepository = {
       username: row.username,
       avatarUrl: row.avatar_url,
       totalClicks: Number(row.total_clicks),
+      bestCps: Number(row.best_cps),
     }))
   },
 }

@@ -1,11 +1,11 @@
 /**
  * Free loot case — same weighted-prize idea as the CS:GO-style case opening
- * UI, but real: costs clicks and a key (no daily cooldown — repeatable as
- * long as you have both), the prize is rolled here on the server (never
- * trust the client for that) and its amount is added straight to the
- * user's total.
+ * UI, but real: the chest itself is bought with clicks, then opened with a
+ * key (no daily cooldown — repeatable as long as you own a chest and have a
+ * key), the prize is rolled here on the server (never trust the client for
+ * that) and its amount is added straight to the user's total.
  */
-export const DAILY_CASE_COST = 10_000
+export const DAILY_CASE_CHEST_COST = 10_000
 export const DAILY_CASE_KEY_COST = 1
 
 // Gem-paid case: no cooldown (repeatable, like the old RevenueCat one was),

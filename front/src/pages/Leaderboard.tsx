@@ -1,6 +1,7 @@
-import { Medal, User } from 'lucide-react'
+import { useState } from 'react'
+import { Medal, User, MousePointerClick, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
-import { useLeaderboard } from '../hooks/useLeaderboard'
+import { useLeaderboard, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 
 const RANK_STYLES: Record<number, string> = {
@@ -11,19 +12,36 @@ const RANK_STYLES: Record<number, string> = {
 
 export function Leaderboard() {
   const { userId } = useAuth()
-  const { leaderboard, isLoading } = useLeaderboard()
+  const [sortBy, setSortBy] = useState<LeaderboardSort>('clicks')
+  const { leaderboard, isLoading } = useLeaderboard(sortBy)
   const { language, strings } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
       <div className="mx-auto max-w-2xl">
-        <header className="mb-6">
-          <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white sm:text-3xl">
-            {strings.leaderboard.title}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">{strings.leaderboard.subtitle}</p>
-        </header>
+        <div className="mb-6 flex justify-center">
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] p-1">
+            <button
+              onClick={() => setSortBy('clicks')}
+              aria-label={strings.leaderboard.clicksTab}
+              className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
+                sortBy === 'clicks' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <MousePointerClick size={16} />
+            </button>
+            <button
+              onClick={() => setSortBy('cps')}
+              aria-label={strings.leaderboard.cpsTab}
+              className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
+                sortBy === 'cps' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <Zap size={16} />
+            </button>
+          </div>
+        </div>
 
         {!isLoading && leaderboard.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
@@ -78,7 +96,13 @@ export function Leaderboard() {
                   )}
                 </span>
                 <span className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100">
-                  {entry.totalClicks.toLocaleString(locale)}
+                  {sortBy === 'cps' ? (
+                    <>
+                      {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">c/s</span>
+                    </>
+                  ) : (
+                    entry.totalClicks.toLocaleString(locale)
+                  )}
                 </span>
               </li>
             )

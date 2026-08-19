@@ -19,6 +19,7 @@ import { MilestonesProvider } from './context/MilestonesContext'
 import { GemUpgradesProvider } from './context/GemUpgradesContext'
 import { DailyCaseProvider } from './context/DailyCaseContext'
 import { GemCaseProvider } from './context/GemCaseContext'
+import { GemChestProvider } from './context/GemChestContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
@@ -41,15 +42,17 @@ function ClickerApp() {
                             <GemUpgradesProvider>
                               <DailyCaseProvider>
                                 <GemCaseProvider>
-                                  <Routes>
-                                    <Route path="/" element={<Home />} />
-                                    <Route path="/clasificacion" element={<Leaderboard />} />
-                                    <Route path="/estadisticas" element={<Stats />} />
-                                    <Route path="/tienda" element={<Store />} />
-                                  </Routes>
-                                  <Header />
-                                  <BottomNavPill />
-                                  <SignInModal />
+                                  <GemChestProvider>
+                                    <Routes>
+                                      <Route path="/" element={<Home />} />
+                                      <Route path="/clasificacion" element={<Leaderboard />} />
+                                      <Route path="/estadisticas" element={<Stats />} />
+                                      <Route path="/tienda" element={<Store />} />
+                                    </Routes>
+                                    <Header />
+                                    <BottomNavPill />
+                                    <SignInModal />
+                                  </GemChestProvider>
                                 </GemCaseProvider>
                               </DailyCaseProvider>
                             </GemUpgradesProvider>

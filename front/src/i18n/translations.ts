@@ -32,6 +32,8 @@ export interface TranslationStrings {
     empty: string
     you: string
     fallbackName: string
+    clicksTab: string
+    cpsTab: string
   }
   store: {
     title: string
@@ -44,12 +46,14 @@ export interface TranslationStrings {
     notEnoughClicks: string
     lootSection: string
     casesSection: string
-    casesSubtitle: string
     openCase: string
     openCaseMoney: string
     openCaseGems: string
     notEnoughGems: string
     notEnoughKeys: string
+    notEnoughChests: string
+    notEnoughClicksForChest: string
+    buyChest: string
     claimDailyKey: string
     keyClaimedToday: string
     claimingKey: string
@@ -64,6 +68,8 @@ export interface TranslationStrings {
     caseCatalogButton: string
     caseCatalogTitle: string
     caseMythicLabel: string
+    caseTitleClicks: string
+    caseTitleGems: string
     powerupsSection: string
     powerupsCardTitle: string
     powerupsSubtitle: string
@@ -134,6 +140,8 @@ export const translations: Record<Language, TranslationStrings> = {
       empty: 'Nadie ha dado clicks todavía. ¡Sé el primero!',
       you: 'Tú',
       fallbackName: 'Jugador',
+      clicksTab: 'Ranking de clicks',
+      cpsTab: 'Ranking de velocidad',
     },
     store: {
       title: 'Tienda',
@@ -146,12 +154,14 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughClicks: 'Te faltan clicks',
       lootSection: 'Premios',
       casesSection: 'Cofres',
-      casesSubtitle: 'Prueba tu suerte y gana clicks.',
       openCase: 'Abrir cofre',
       openCaseMoney: 'Comprar cofre',
       openCaseGems: 'Abrir con gemas',
       notEnoughGems: 'Te faltan gemas',
       notEnoughKeys: 'Te falta una llave',
+      notEnoughChests: 'Compra un cofre primero',
+      notEnoughClicksForChest: 'Te faltan clicks',
+      buyChest: 'Comprar cofre',
       claimDailyKey: 'Reclamar llave gratis diaria',
       keyClaimedToday: 'Llave diaria reclamada',
       claimingKey: 'Reclamando…',
@@ -161,7 +171,7 @@ export const translations: Record<Language, TranslationStrings> = {
       savingsBadge: (pct) => `Ahorra ${pct}%`,
       opening: 'Abriendo…',
       youWon: (amount) => `+${amount} clicks`,
-      youWonGems: (amount) => `+${amount} gemas`,
+      youWonGems: (amount) => `+${amount} ${amount === '1' ? 'gema' : 'gemas'}`,
       casePrizeNames: {
         consumer: 'Común',
         milspec: 'Poco común',
@@ -170,12 +180,15 @@ export const translations: Record<Language, TranslationStrings> = {
         covert: 'Épico',
         gold: 'Legendario',
         gem_1: 'Mítico',
+        gem_2: 'Mítico',
         gem_3: 'Mítico',
         gem_5: 'Mítico',
       },
       caseCatalogButton: 'Ver catálogo',
       caseCatalogTitle: 'Premios posibles',
       caseMythicLabel: 'Mítico',
+      caseTitleClicks: 'Cofre de clicks',
+      caseTitleGems: 'Cofre de gemas',
       powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
       powerupsSubtitle: 'Multiplica tus clicks durante un tiempo.',
@@ -300,6 +313,8 @@ export const translations: Record<Language, TranslationStrings> = {
       empty: 'No one has clicked yet. Be the first!',
       you: 'You',
       fallbackName: 'Player',
+      clicksTab: 'Clicks ranking',
+      cpsTab: 'Speed ranking',
     },
     store: {
       title: 'Store',
@@ -312,12 +327,14 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughClicks: "You're short on clicks",
       lootSection: 'Prizes',
       casesSection: 'Cases',
-      casesSubtitle: 'Try your luck and win clicks.',
       openCase: 'Open case',
       openCaseMoney: 'Buy case',
       openCaseGems: 'Open with gems',
       notEnoughGems: "You're short on gems",
       notEnoughKeys: 'You need a key',
+      notEnoughChests: 'Buy a chest first',
+      notEnoughClicksForChest: "You're short on clicks",
+      buyChest: 'Buy chest',
       claimDailyKey: 'Claim free daily key',
       keyClaimedToday: 'Daily key claimed',
       claimingKey: 'Claiming…',
@@ -327,7 +344,7 @@ export const translations: Record<Language, TranslationStrings> = {
       savingsBadge: (pct) => `Save ${pct}%`,
       opening: 'Opening…',
       youWon: (amount) => `+${amount} clicks`,
-      youWonGems: (amount) => `+${amount} gems`,
+      youWonGems: (amount) => `+${amount} ${amount === '1' ? 'gem' : 'gems'}`,
       casePrizeNames: {
         consumer: 'Common',
         milspec: 'Uncommon',
@@ -336,12 +353,15 @@ export const translations: Record<Language, TranslationStrings> = {
         covert: 'Epic',
         gold: 'Legendary',
         gem_1: 'Mythic',
+        gem_2: 'Mythic',
         gem_3: 'Mythic',
         gem_5: 'Mythic',
       },
       caseCatalogButton: 'View catalog',
       caseCatalogTitle: 'Possible prizes',
       caseMythicLabel: 'Mythic',
+      caseTitleClicks: 'Click chest',
+      caseTitleGems: 'Gem chest',
       powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
       powerupsSubtitle: 'Multiplies your clicks for a while.',

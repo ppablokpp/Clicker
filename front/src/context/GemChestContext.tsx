@@ -4,22 +4,19 @@ import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
-export interface DailyCasePrize {
+export interface GemChestPrize {
   id: string
   amount: number
   weight: number
-  /** 'clicks' (default) or 'gems' — which balance this prize's amount adds to. */
   currency?: 'clicks' | 'gems'
 }
 
-interface SpinResult {
+interface OpenResult {
   ok: boolean
   error?: string
   prizeId?: string
   prizeAmount?: number
-  prizeCurrency?: 'clicks' | 'gems'
   /** Caller applies these to the visible counters once the reel animation reveals the prize — not before, or the total would spoil the result early. */
-  totalClicks?: number
   gems?: number
   keys?: number
 }
@@ -30,41 +27,45 @@ interface BuyChestResult {
   totalClicks?: number
 }
 
-interface DailyCaseContextValue {
-  catalog: DailyCasePrize[]
+interface GemChestContextValue {
+  catalog: GemChestPrize[]
   chestCost: number
   keyCost: number
+  gemCost: number
   ownedChests: number
-  isSpinning: boolean
+  isOpening: boolean
   isBuying: boolean
-  spin: () => Promise<SpinResult>
+  openWithKeys: () => Promise<OpenResult>
+  openWithGems: () => Promise<OpenResult>
   buyChest: () => Promise<BuyChestResult>
 }
 
-const DailyCaseContext = createContext<DailyCaseContextValue | null>(null)
+const GemChestContext = createContext<GemChestContextValue | null>(null)
 
-// Free case: the chest itself is bought with clicks, then opened with a key
-// — repeatable infinitely, no daily cooldown, keys and owned chests are
-// what limit how often this can happen.
-export function DailyCaseProvider({ children }: { children: ReactNode }) {
+// Second case: no clicks involved to open, pays out gems, opens with either
+// keys (requires owning a chest, bought separately with clicks) or gems
+// (skips the owned-chest requirement entirely) — no RevenueCat, no cooldown.
+export function GemChestProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { promptSignIn } = useSignInPrompt()
-  const [catalog, setCatalog] = useState<DailyCasePrize[]>([])
+  const [catalog, setCatalog] = useState<GemChestPrize[]>([])
   const [chestCost, setChestCost] = useState(0)
   const [keyCost, setKeyCost] = useState(0)
+  const [gemCost, setGemCost] = useState(0)
   const [ownedChests, setOwnedChests] = useState(0)
-  const [isSpinning, setIsSpinning] = useState(false)
+  const [isOpening, setIsOpening] = useState(false)
   const [isBuying, setIsBuying] = useState(false)
 
   useEffect(() => {
-    fetch(`${API_URL}/api/daily-case`)
+    fetch(`${API_URL}/api/gem-chest`)
       .then((r) => r.json())
       .then((data) => {
         setCatalog(data.prizes)
         setChestCost(data.chestCost)
         setKeyCost(data.keyCost)
+        setGemCost(data.gemCost)
       })
-      .catch((err) => console.error('No se pudo cargar el cofre diario', err))
+      .catch((err) => console.error('No se pudo cargar el cofre de gemas', err))
   }, [])
 
   useEffect(() => {
@@ -78,10 +79,10 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
         })
         if (!cancelled && res.ok) {
           const data = await res.json()
-          if (typeof data.ownedClickChests === 'number') setOwnedChests(data.ownedClickChests)
+          if (typeof data.ownedGemChests === 'number') setOwnedChests(data.ownedGemChests)
         }
       } catch (err) {
-        console.error('No se pudieron cargar los cofres de clicks', err)
+        console.error('No se pudieron cargar los cofres de gemas', err)
       }
     })()
     return () => {
@@ -89,39 +90,36 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken])
 
-  const spin = useCallback(async (): Promise<SpinResult> => {
-    if (!userId) {
-      promptSignIn()
-      return { ok: false, error: 'not-signed-in' }
-    }
-    setIsSpinning(true)
-    try {
-      const token = await getToken()
-      const res = await fetch(`${API_URL}/api/daily-case/spin`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json()
-      if (res.ok) {
-        if (typeof data.ownedChests === 'number') setOwnedChests(data.ownedChests)
-        return {
-          ok: true,
-          prizeId: data.prizeId,
-          prizeAmount: data.prizeAmount,
-          prizeCurrency: data.prizeCurrency,
-          totalClicks: data.totalClicks,
-          gems: data.gems,
-          keys: data.keys,
-        }
+  const open = useCallback(
+    async (path: 'open-with-keys' | 'open-with-gems'): Promise<OpenResult> => {
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
       }
-      return { ok: false, error: data.error }
-    } catch (err) {
-      console.error('No se pudo abrir el cofre diario', err)
-      return { ok: false, error: 'network' }
-    } finally {
-      setIsSpinning(false)
-    }
-  }, [userId, getToken, promptSignIn])
+      setIsOpening(true)
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/api/gem-chest/${path}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        if (!res.ok) return { ok: false, error: data.error }
+
+        if (typeof data.ownedChests === 'number') setOwnedChests(data.ownedChests)
+        return { ok: true, prizeId: data.prizeId, prizeAmount: data.prizeAmount, gems: data.gems, keys: data.keys }
+      } catch (err) {
+        console.error('No se pudo abrir el cofre de gemas', err)
+        return { ok: false, error: 'network' }
+      } finally {
+        setIsOpening(false)
+      }
+    },
+    [userId, getToken, promptSignIn],
+  )
+
+  const openWithKeys = useCallback(() => open('open-with-keys'), [open])
+  const openWithGems = useCallback(() => open('open-with-gems'), [open])
 
   const buyChest = useCallback(async (): Promise<BuyChestResult> => {
     if (!userId) {
@@ -131,7 +129,7 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
     setIsBuying(true)
     try {
       const token = await getToken()
-      const res = await fetch(`${API_URL}/api/daily-case/buy-chest`, {
+      const res = await fetch(`${API_URL}/api/gem-chest/buy-chest`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -141,7 +139,7 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
       if (typeof data.ownedChests === 'number') setOwnedChests(data.ownedChests)
       return { ok: true, totalClicks: data.totalClicks }
     } catch (err) {
-      console.error('No se pudo comprar el cofre de clicks', err)
+      console.error('No se pudo comprar el cofre de gemas', err)
       return { ok: false, error: 'network' }
     } finally {
       setIsBuying(false)
@@ -149,16 +147,16 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
   }, [userId, getToken, promptSignIn])
 
   return (
-    <DailyCaseContext.Provider
-      value={{ catalog, chestCost, keyCost, ownedChests, isSpinning, isBuying, spin, buyChest }}
+    <GemChestContext.Provider
+      value={{ catalog, chestCost, keyCost, gemCost, ownedChests, isOpening, isBuying, openWithKeys, openWithGems, buyChest }}
     >
       {children}
-    </DailyCaseContext.Provider>
+    </GemChestContext.Provider>
   )
 }
 
-export function useDailyCaseContext() {
-  const ctx = useContext(DailyCaseContext)
-  if (!ctx) throw new Error('useDailyCaseContext must be used within a DailyCaseProvider')
+export function useGemChestContext() {
+  const ctx = useContext(GemChestContext)
+  if (!ctx) throw new Error('useGemChestContext must be used within a GemChestProvider')
   return ctx
 }

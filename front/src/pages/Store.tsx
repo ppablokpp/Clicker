@@ -10,6 +10,7 @@ import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgrade
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
 import { useGemCaseContext } from '../context/GemCaseContext'
+import { useGemChestContext } from '../context/GemChestContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useKeysContext } from '../context/KeysContext'
 import { useDailyKeyContext } from '../context/DailyKeyContext'
@@ -65,7 +66,6 @@ export function Store() {
               </button>
             </div>
           </div>
-          <p className="mt-1 text-sm text-neutral-500">{strings.store.subtitle}</p>
         </header>
 
         <section className="mb-8">
@@ -106,12 +106,14 @@ interface StoreStrings {
   notEnoughClicks: string
   lootSection: string
   casesSection: string
-  casesSubtitle: string
   openCase: string
   openCaseMoney: string
   openCaseGems: string
   notEnoughGems: string
   notEnoughKeys: string
+  notEnoughChests: string
+  notEnoughClicksForChest: string
+  buyChest: string
   claimDailyKey: string
   keyClaimedToday: string
   claimingKey: string
@@ -126,6 +128,8 @@ interface StoreStrings {
   caseCatalogButton: string
   caseCatalogTitle: string
   caseMythicLabel: string
+  caseTitleClicks: string
+  caseTitleGems: string
   powerupsSection: string
   powerupsCardTitle: string
   powerupsSubtitle: string
@@ -195,10 +199,13 @@ const PACK_THEME: Record<PackTheme, { iconWrap: string }> = {
   indigo: { iconWrap: 'bg-gradient-to-br from-indigo-400/30 to-violet-500/20 text-indigo-200' },
 }
 
-// Same soft glass look on every buy button regardless of currency — bordered,
-// translucent, blurred, not the solid opaque white used elsewhere (e.g. the
-// free-case button).
+// Same soft glass look by default — bordered, translucent, blurred, not the
+// solid opaque white used elsewhere (e.g. the free-case button). Clicks
+// override this to indigo since they're paid for with gems, same as the
+// gem-case button in the Cofres card.
 const PACK_BUTTON_CLASSES = 'border border-white/15 bg-white/[0.06] text-white backdrop-blur-sm hover:bg-white/[0.1]'
+const PACK_BUTTON_CLASSES_INDIGO =
+  'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
 
 interface PackTileData {
   id: string
@@ -216,6 +223,7 @@ function PackTile({
   locale,
   inline = false,
   accentColorClass = 'text-neutral-300',
+  buttonClassName = PACK_BUTTON_CLASSES,
 }: {
   tile: PackTileData
   icon: typeof Gem
@@ -223,6 +231,7 @@ function PackTile({
   /** Icon + amount side by side instead of stacked — reads better for small numbers like key/gem counts. */
   inline?: boolean
   accentColorClass?: string
+  buttonClassName?: string
 }) {
   return (
     <div className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 pt-4 text-center">
@@ -248,7 +257,7 @@ function PackTile({
         className={`mt-0.5 w-full rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed ${
           tile.disabled
             ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-            : PACK_BUTTON_CLASSES
+            : buttonClassName
         }`}
       >
         {tile.isBuying ? <Loader2 size={12} className="mx-auto animate-spin" /> : tile.priceContent}
@@ -325,12 +334,13 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
     <PackModalShell title={strings.buyClicksTitle} icon={MousePointerClick} theme="neutral" onClose={onClose} error={error}>
       {catalog.map((pack, i) => {
         const unitPrice = pack.gemCost / pack.clicks
-        const savingsPct = i > 0 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+        const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
         return (
           <PackTile
             key={pack.id}
             icon={MousePointerClick}
             locale={locale}
+            buttonClassName={PACK_BUTTON_CLASSES_INDIGO}
             tile={{
               id: pack.id,
               amount: pack.clicks,
@@ -342,7 +352,7 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
               ),
               isBuying: buyingId === pack.id,
               disabled: buyingId !== null || gems < pack.gemCost,
-              savingsBadge: i === 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
+              savingsBadge: i >= 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
               onClick: () => handleBuy(pack),
             }}
           />
@@ -359,12 +369,8 @@ interface KeyPacksModalProps {
 }
 
 function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
-  const { catalog, prices, priceAmountsMicros, buyingId, buy } = useKeyPacksContext()
+  const { catalog, prices, buyingId, buy } = useKeyPacksContext()
   const [error, setError] = useState<string | null>(null)
-
-  const baseTier = catalog[0]
-  const baseUnitPrice =
-    baseTier && priceAmountsMicros[baseTier.id] ? priceAmountsMicros[baseTier.id] / baseTier.amount : 0
 
   const handleBuy = async (pack: KeyPackDef) => {
     setError(null)
@@ -376,10 +382,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
 
   return (
     <PackModalShell title={strings.buyKeysTitle} icon={Key} theme="amber" onClose={onClose} error={error}>
-      {catalog.map((pack, i) => {
-        const priceMicros = priceAmountsMicros[pack.id]
-        const unitPrice = priceMicros ? priceMicros / pack.amount : 0
-        const savingsPct = i > 0 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+      {catalog.map((pack) => {
         const priceLabel = prices[pack.id]
         return (
           <PackTile
@@ -394,7 +397,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
               priceContent: priceLabel ?? '···',
               isBuying: buyingId === pack.id,
               disabled: buyingId !== null || !priceLabel,
-              savingsBadge: i === 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
+              savingsBadge: pack.id === 'x50_keys' ? strings.savingsBadge(10) : null,
               onClick: () => handleBuy(pack),
             }}
           />
@@ -411,12 +414,8 @@ interface GemPacksModalProps {
 }
 
 function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
-  const { catalog, prices, priceAmountsMicros, buyingId, buy } = useGemPacksContext()
+  const { catalog, prices, buyingId, buy } = useGemPacksContext()
   const [error, setError] = useState<string | null>(null)
-
-  const baseTier = catalog[0]
-  const baseUnitPrice =
-    baseTier && priceAmountsMicros[baseTier.id] ? priceAmountsMicros[baseTier.id] / baseTier.amount : 0
 
   const handleBuy = async (pack: GemPackDef) => {
     setError(null)
@@ -428,10 +427,7 @@ function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
 
   return (
     <PackModalShell title={strings.buyGemsTitle} icon={Gem} theme="indigo" onClose={onClose} error={error}>
-      {catalog.map((pack, i) => {
-        const priceMicros = priceAmountsMicros[pack.id]
-        const unitPrice = priceMicros ? priceMicros / pack.amount : 0
-        const savingsPct = i > 0 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+      {catalog.map((pack) => {
         const priceLabel = prices[pack.id]
         return (
           <PackTile
@@ -446,7 +442,7 @@ function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
               priceContent: priceLabel ?? '···',
               isBuying: buyingId === pack.id,
               disabled: buyingId !== null || !priceLabel,
-              savingsBadge: i === 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
+              savingsBadge: pack.id === 'x50_gems' ? strings.savingsBadge(20) : null,
               onClick: () => handleBuy(pack),
             }}
           />
@@ -942,37 +938,65 @@ function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
   )
 }
 
-interface CaseOpeningCardProps {
-  locale: string
-  totalClicks: number
-  strings: StoreStrings
+// Both cases (and the store buttons that open them) resolve to this same
+// shape, whichever context they came from — lets MiniCaseReel stay generic.
+interface CaseOpenOutcome {
+  ok: boolean
+  error?: string
+  prizeId?: string
+  prizeAmount?: number
+  prizeCurrency?: 'clicks' | 'gems'
+  totalClicks?: number
+  gems?: number
+  keys?: number
 }
 
-// CS:GO-style case: the real prize is rolled server-side the moment you hit
-// spin (never decided client-side) — once we know it, the strip is built
-// with that prize fixed at CASE_LANDING_INDEX and the whole strip is
-// translated so that slot ends up centered under the pointer.
-function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps) {
-  const { catalog, cost, keyCost, isSpinning, spin } = useDailyCaseContext()
-  const { cost: gemCost, isOpening: isBuyingGems, open: openGemCase } = useGemCaseContext()
-  const { syncTotalClicks } = useClickCounterContext()
-  const { gems, syncGems } = useGemsContext()
-  const { keys, syncKeys } = useKeysContext()
-  const {
-    claimedToday,
-    cooldownSecondsLeft: keyCooldownSecondsLeft,
-    isClaiming,
-    claim: claimDailyKey,
-  } = useDailyKeyContext()
+interface MiniCaseReelButtonConfig {
+  content: React.ReactNode
+  ariaLabel: string
+  affordable: boolean
+  className: string
+  onOpen: () => Promise<CaseOpenOutcome>
+}
+
+interface MiniCaseReelProps {
+  catalog: DailyCasePrize[]
+  locale: string
+  strings: StoreStrings
+  accent: 'red' | 'indigo'
+  primary: MiniCaseReelButtonConfig
+  secondary: MiniCaseReelButtonConfig
+  syncTotalClicks: (n: number) => void
+  syncGems: (n: number) => void
+  syncKeys: (n: number) => void
+}
+
+const REEL_ACCENT_CLASSES: Record<'red' | 'indigo', { line: string; dot: string }> = {
+  red: { line: 'bg-red-300/70 shadow-[0_0_8px_rgba(252,165,165,0.8)]', dot: 'bg-red-300' },
+  indigo: { line: 'bg-indigo-300/70 shadow-[0_0_8px_rgba(165,180,252,0.8)]', dot: 'bg-indigo-300' },
+}
+
+// The CS:GO-style reel itself: the real prize is rolled server-side the
+// moment either button is hit (never decided client-side) — once we know
+// it, the strip is built with that prize fixed at CASE_LANDING_INDEX and
+// the whole strip is translated so that slot ends up centered under the
+// pointer. Shared by both cases in the Cofres card — only the catalog and
+// the two buttons' data/handlers differ between them.
+function MiniCaseReel({
+  catalog,
+  locale,
+  strings,
+  accent,
+  primary,
+  secondary,
+  syncTotalClicks,
+  syncGems,
+  syncKeys,
+}: MiniCaseReelProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  // Holds the new balance between "purchase confirmed" and "reel finished
-  // spinning" — applied only once the animation reveals the prize, so the
-  // header counter doesn't jump (and spoil the result) while it's still reeling.
   const pendingTotalClicksRef = useRef<number | null>(null)
   const pendingGemsRef = useRef<number | null>(null)
   const pendingKeysRef = useRef<number | null>(null)
-  // Tracks which item is currently under the center pointer so a tick only
-  // fires once per item crossed, not once per animation frame.
   const lastTickIndexRef = useRef<number | null>(null)
   const [reel, setReel] = useState<{
     id: number
@@ -984,23 +1008,17 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   const [revealed, setRevealed] = useState<DailyCasePrize | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [idleItems, setIdleItems] = useState<DailyCasePrize[]>([])
-  const [showCatalog, setShowCatalog] = useState(false)
-  // Lets people drag the idle strip around to browse what's inside — purely
-  // cosmetic, no server call, no cost. Three copies of idleItems are
-  // rendered back to back and this value gets silently snapped by one loop's
-  // width whenever it nears either end, so dragging (or flicking, with
-  // momentum) never runs out of items in either direction.
+  // Which button's request is currently in flight — drives the spinner and,
+  // together with isReeling, keeps both buttons locked through the whole
+  // open (API call + the 8s reel animation), not just the network round trip.
+  const [openingSide, setOpeningSide] = useState<'primary' | 'secondary' | null>(null)
   const idleDragX = useMotionValue(0)
   const idleLoopWidth = idleItems.length * CASE_ITEM_SPAN
+  const accentClasses = REEL_ACCENT_CLASSES[accent]
 
-  // Fill the reel with real items right away instead of showing it empty —
-  // opening it just starts the spin from where it already visually is.
   useEffect(() => {
     if (catalog.length > 0 && idleItems.length === 0) {
       const items = Array.from({ length: CASE_STRIP_LENGTH }, () => pickRandomFiller(catalog))
-      // Gems are weighted so low a real weighted draw would show one only
-      // ~7% of the time — force one into the browsing strip so dragging
-      // around actually surfaces them instead of relying on real odds.
       const gemPrizes = catalog.filter((p) => p.currency === 'gems')
       if (gemPrizes.length > 0 && !items.some((p) => p.currency === 'gems')) {
         const slot = Math.floor(Math.random() * items.length)
@@ -1014,13 +1032,8 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     if (idleLoopWidth > 0) idleDragX.set(-idleLoopWidth)
   }, [idleLoopWidth, idleDragX])
 
-  // Purely visual wrap — no sound here. A manual drag can flick into a long
-  // fast coast, and ticking through that turned into a mess of overlapping
-  // sound; the real spin's tick/reveal sounds (which stayed on) don't have
-  // that problem since their pace is server/animation-controlled, not a flick.
   useMotionValueEvent(idleDragX, 'change', (latest) => {
     if (idleLoopWidth <= 0) return
-
     if (latest > 0) {
       idleDragX.set(latest - idleLoopWidth)
     } else if (latest < -idleLoopWidth * 2) {
@@ -1028,22 +1041,16 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     }
   })
 
-  const canAfford = totalClicks >= cost
-  const hasKey = keys >= keyCost
-  const canAffordGems = gems >= gemCost
-  const isFreeBusy = isSpinning || isReeling
-  // Only one reel can spin at a time, so opening the gem case also locks
-  // out the free button (and vice versa) while either purchase resolves.
-  const isBusyOverall = isFreeBusy || isBuyingGems
-  const freeDisabled = isBusyOverall || catalog.length === 0 || !canAfford || !hasKey
-  const gemDisabled = isBusyOverall || catalog.length === 0 || gemCost === 0 || !canAffordGems
+  const isBusyOverall = isReeling || openingSide !== null
+  const primaryDisabled = isBusyOverall || catalog.length === 0 || !primary.affordable
+  const secondaryDisabled = isBusyOverall || catalog.length === 0 || !secondary.affordable
 
   const resolveWin = (
     prizeId: string,
     prizeAmount: number,
+    prizeCurrency?: 'clicks' | 'gems',
     newTotalClicks?: number,
     newGems?: number,
-    prizeCurrency?: 'clicks' | 'gems',
     newKeys?: number,
   ) => {
     const won = catalog.find((p) => p.id === prizeId) ?? {
@@ -1067,97 +1074,48 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     setReel((prev) => ({ id: (prev?.id ?? 0) + 1, items, targetX, result: won }))
   }
 
-  const handleOpen = async () => {
-    if (freeDisabled) return
+  const handleOpen = async (side: 'primary' | 'secondary') => {
+    const disabled = side === 'primary' ? primaryDisabled : secondaryDisabled
+    if (disabled) return
     setError(null)
-    const result = await spin()
-    if (!result.ok || !result.prizeId) {
-      if (result.error === 'not-enough-keys') setError(strings.notEnoughKeys)
-      else if (result.error && result.error !== 'not-signed-in') setError(result.error)
-      return
-    }
-    resolveWin(
-      result.prizeId,
-      result.prizeAmount ?? 0,
-      result.totalClicks,
-      result.gems,
-      result.prizeCurrency,
-      result.keys,
-    )
-  }
-
-  const handleOpenGemCase = async () => {
-    if (gemDisabled) return
-    setError(null)
-    const result = await openGemCase()
-    if (!result.ok || !result.prizeId) {
-      if (result.error === 'not-enough-gems') {
-        setError(strings.notEnoughGems)
-      } else if (result.error && result.error !== 'not-signed-in') {
-        setError(strings.purchaseError)
+    setOpeningSide(side)
+    try {
+      const result = await (side === 'primary' ? primary : secondary).onOpen()
+      if (!result.ok || !result.prizeId) {
+        if (result.error) setError(result.error)
+        return
       }
-      return
-    }
-    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks, result.gems, result.prizeCurrency)
-  }
-
-  const handleClaimKey = async () => {
-    if (claimedToday || isClaiming) return
-    setError(null)
-    const result = await claimDailyKey()
-    if (!result.ok && result.error && result.error !== 'not-signed-in' && result.error !== 'already-claimed') {
-      setError(strings.purchaseError)
+      resolveWin(
+        result.prizeId,
+        result.prizeAmount ?? 0,
+        result.prizeCurrency,
+        result.totalClicks,
+        result.gems,
+        result.keys,
+      )
+    } finally {
+      setOpeningSide(null)
     }
   }
 
   const prizeStyle = revealed ? (CASE_PRIZE_STYLES[revealed.id] ?? DEFAULT_CASE_PRIZE_STYLE) : null
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-red-500/10 blur-2xl" />
-
-      <div className="relative mb-1 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-red-400/30 to-rose-500/20 text-red-200">
-          <Gift size={17} />
-        </div>
-        <div className="text-base font-semibold text-white">{strings.casesSection}</div>
-        <button
-          onClick={() => setShowCatalog(true)}
-          aria-label={strings.caseCatalogButton}
-          className="ml-auto flex h-7 w-7 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
-        >
-          <List size={14} />
-        </button>
-      </div>
-
-      <p className="relative mb-4 text-sm text-neutral-500">{strings.casesSubtitle}</p>
-
-      <button
-        onClick={handleClaimKey}
-        disabled={claimedToday || isClaiming}
-        aria-label={strings.claimDailyKey}
-        className={`relative mb-4 flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-          claimedToday
-            ? 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-            : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-        }`}
-      >
-        <Key size={13} className="opacity-80" />
-        {isClaiming
-          ? strings.claimingKey
-          : claimedToday
-            ? formatCountdown(keyCooldownSecondsLeft)
-            : strings.claimDailyKey}
-      </button>
-
+    <div>
       <div
         ref={viewportRef}
-        className="relative mb-4 h-[88px] overflow-hidden rounded-xl border border-white/5 bg-black/30"
+        className="relative mb-3 h-[88px] overflow-hidden rounded-xl border border-white/5 bg-black/30"
       >
         {/* center pointer */}
-        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-red-300/70 shadow-[0_0_8px_rgba(252,165,165,0.8)]" />
-        <div className="pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-red-300" />
-        <div className="pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-red-300" />
+        <div
+          className={`pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 ${accentClasses.line}`}
+        />
+        <div
+          className={`pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 ${accentClasses.dot}`}
+        />
+        <div
+          className={`pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 ${accentClasses.dot}`}
+        />
 
         {reel ? (
           <motion.div
@@ -1220,7 +1178,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           initial={{ opacity: 0, scale: 0.85, y: -6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-          className="relative mb-4 flex flex-col items-center gap-1 rounded-xl border py-4"
+          className="relative mb-3 flex flex-col items-center gap-1 rounded-xl border py-3"
           style={{
             borderColor: `${prizeStyle.color}55`,
             backgroundColor: `${prizeStyle.color}14`,
@@ -1228,16 +1186,16 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           }}
         >
           <span
-            className="text-[10px] font-bold uppercase tracking-widest"
+            className="text-[9px] font-bold uppercase tracking-widest"
             style={{ color: prizeStyle.color }}
           >
             {strings.casePrizeNames[revealed.id] ?? revealed.id}
           </span>
           <span
-            className="flex items-center gap-1.5 text-2xl font-bold"
+            className="flex items-center gap-1.5 text-lg font-bold"
             style={{ color: prizeStyle.color, textShadow: `0 0 20px ${prizeStyle.glow}` }}
           >
-            {revealed.currency === 'gems' ? <Gem size={20} /> : <MousePointerClick size={20} />}
+            {revealed.currency === 'gems' ? <Gem size={16} /> : <MousePointerClick size={16} />}
             {revealed.currency === 'gems'
               ? strings.youWonGems(revealed.amount.toLocaleString(locale))
               : strings.youWon(revealed.amount.toLocaleString(locale))}
@@ -1247,60 +1205,92 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
 
       <div className="relative grid grid-cols-2 gap-2">
         <button
-          onClick={handleOpen}
-          disabled={freeDisabled}
-          aria-label={strings.openCase}
+          onClick={() => handleOpen('primary')}
+          disabled={primaryDisabled}
+          aria-label={primary.ariaLabel}
           className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-            freeDisabled
-              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-              : 'bg-white text-neutral-900 hover:opacity-90'
+            primaryDisabled ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60' : primary.className
           }`}
         >
-          <span className="flex items-center justify-center gap-1.5">
-            <MousePointerClick size={14} className="opacity-70" />
-            <span className="text-base font-bold tabular-nums">{cost.toLocaleString(locale)}</span>
-            <Key size={13} className="ml-4 opacity-70" />
-            <span className="text-base font-bold tabular-nums">{keyCost}</span>
-          </span>
+          {openingSide === 'primary' ? <Loader2 size={16} className="mx-auto animate-spin" /> : primary.content}
         </button>
-
         <button
-          onClick={handleOpenGemCase}
-          disabled={gemDisabled}
-          aria-label={strings.openCaseGems}
+          onClick={() => handleOpen('secondary')}
+          disabled={secondaryDisabled}
+          aria-label={secondary.ariaLabel}
           className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-            gemDisabled
+            secondaryDisabled
               ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-              : 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
+              : secondary.className
           }`}
         >
-          {isBuyingGems ? <Loader2 size={16} className="mx-auto animate-spin" /> : <GemPriceTag cost={gemCost} />}
+          {openingSide === 'secondary' ? <Loader2 size={16} className="mx-auto animate-spin" /> : secondary.content}
         </button>
       </div>
 
       {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
+    </div>
+  )
+}
 
-      {showCatalog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
-          onClick={() => setShowCatalog(false)}
+interface CaseCatalogModalProps {
+  catalog: DailyCasePrize[]
+  locale: string
+  strings: StoreStrings
+  onClose: () => void
+  // 'grouped' (case 1): click prizes listed individually, all gem prizes
+  // collapsed into one combined "Mythic" row. 'percent' (case 2, an
+  // all-gems catalog): each prize listed individually with its actual
+  // roll odds, e.g. "x1 gema 75%".
+  variant?: 'grouped' | 'percent'
+}
+
+function CaseCatalogModal({ catalog, locale, strings, onClose, variant = 'grouped' }: CaseCatalogModalProps) {
+  const totalWeight = catalog.reduce((sum, p) => sum + p.weight, 0)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
         >
-          <div
-            className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowCatalog(false)}
-              aria-label="Close"
-              className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
-            >
-              <X size={16} />
-            </button>
+          <X size={16} />
+        </button>
 
-            <p className="mb-4 text-sm font-semibold text-white">{strings.caseCatalogTitle}</p>
+        <p className="mb-4 text-sm font-semibold text-white">{strings.caseCatalogTitle}</p>
 
-            <div className="flex flex-col gap-2">
-              {catalog
+        <div className="flex flex-col gap-2">
+          {variant === 'percent'
+            ? catalog.map((prize) => {
+                const style = CASE_PRIZE_STYLES[prize.id] ?? DEFAULT_CASE_PRIZE_STYLE
+                const pct = totalWeight > 0 ? Math.round((prize.weight / totalWeight) * 100) : 0
+                return (
+                  <div
+                    key={prize.id}
+                    className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                    style={{ borderColor: `${style.color}30`, backgroundColor: `${style.color}0d` }}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: style.color, boxShadow: `0 0 6px ${style.glow}` }}
+                    />
+                    <span className="flex items-center gap-1 text-sm font-medium" style={{ color: style.color }}>
+                      <Gem size={12} className="opacity-70" />
+                      x{prize.amount}
+                    </span>
+                    <span className="ml-auto text-sm font-bold tabular-nums text-white">{pct}%</span>
+                  </div>
+                )
+              })
+            : catalog
                 .filter((prize) => prize.currency !== 'gems')
                 .map((prize) => {
                   const style = CASE_PRIZE_STYLES[prize.id] ?? DEFAULT_CASE_PRIZE_STYLE
@@ -1325,33 +1315,318 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
                   )
                 })}
 
-              {/* All 3 gem prizes shown as one combined "Mythic" entry instead of 3 near-identical rows. */}
-              {(() => {
-                const gemPrizes = catalog.filter((prize) => prize.currency === 'gems')
-                if (gemPrizes.length === 0) return null
-                const style = CASE_PRIZE_STYLES[gemPrizes[0].id] ?? DEFAULT_CASE_PRIZE_STYLE
-                return (
-                  <div
-                    className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
-                    style={{ borderColor: `${style.color}30`, backgroundColor: `${style.color}0d` }}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: style.color, boxShadow: `0 0 6px ${style.glow}` }}
-                    />
-                    <span className="text-sm font-medium" style={{ color: style.color }}>
-                      {strings.caseMythicLabel}
-                    </span>
-                    <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
-                      <Gem size={12} className="opacity-70" />
-                      {gemPrizes.map((p) => p.amount).join(' / ')}
-                    </span>
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
+          {/* All gem prizes shown as one combined "Mythic" entry instead of separate near-identical rows. */}
+          {variant === 'grouped' &&
+            (() => {
+              const gemPrizes = catalog.filter((prize) => prize.currency === 'gems')
+              if (gemPrizes.length === 0) return null
+              const style = CASE_PRIZE_STYLES[gemPrizes[0].id] ?? DEFAULT_CASE_PRIZE_STYLE
+              return (
+                <div
+                  className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                  style={{ borderColor: `${style.color}30`, backgroundColor: `${style.color}0d` }}
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: style.color, boxShadow: `0 0 6px ${style.glow}` }}
+                  />
+                  <span className="text-sm font-medium" style={{ color: style.color }}>
+                    {strings.caseMythicLabel}
+                  </span>
+                  <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
+                    <Gem size={12} className="opacity-70" />
+                    {gemPrizes.map((p) => p.amount).join(' / ')}
+                  </span>
+                </div>
+              )
+            })()}
         </div>
+      </div>
+    </div>
+  )
+}
+
+interface CaseOpeningCardProps {
+  locale: string
+  totalClicks: number
+  strings: StoreStrings
+}
+
+// Two cases live in this one card: the original (clicks or gems) and a
+// second one (keys or gems, pays out gems) — same reel mechanic, laid out
+// side by side.
+function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps) {
+  const {
+    catalog: catalog1,
+    chestCost: chestCost1,
+    keyCost,
+    ownedChests: ownedChests1,
+    spin,
+    buyChest: buyClickChest,
+  } = useDailyCaseContext()
+  const {
+    catalog: catalog2,
+    chestCost: chestCost2,
+    keyCost: chestKeyCost,
+    gemCost: chestGemCost,
+    ownedChests: ownedChests2,
+    openWithKeys,
+    openWithGems,
+    buyChest: buyGemChest,
+  } = useGemChestContext()
+  const { cost: gemCost, open: openGemCase } = useGemCaseContext()
+  const { syncTotalClicks } = useClickCounterContext()
+  const { gems, syncGems } = useGemsContext()
+  const { keys, syncKeys } = useKeysContext()
+  const {
+    claimedToday,
+    cooldownSecondsLeft: keyCooldownSecondsLeft,
+    isClaiming,
+    claim: claimDailyKey,
+  } = useDailyKeyContext()
+  const [error, setError] = useState<string | null>(null)
+  const [showCatalog1, setShowCatalog1] = useState(false)
+  const [showCatalog2, setShowCatalog2] = useState(false)
+  const [buyingChest, setBuyingChest] = useState<'click' | 'gem' | null>(null)
+
+  const handleClaimKey = async () => {
+    if (claimedToday || isClaiming) return
+    setError(null)
+    const result = await claimDailyKey()
+    if (!result.ok && result.error && result.error !== 'not-signed-in' && result.error !== 'already-claimed') {
+      setError(strings.purchaseError)
+    }
+  }
+
+  const handleBuyChest = async (type: 'click' | 'gem') => {
+    if (buyingChest) return
+    setError(null)
+    setBuyingChest(type)
+    try {
+      const result = type === 'click' ? await buyClickChest() : await buyGemChest()
+      if (!result.ok) {
+        if (result.error === 'not-enough-clicks') setError(strings.notEnoughClicksForChest)
+        else if (result.error && result.error !== 'not-signed-in') setError(strings.purchaseError)
+        return
+      }
+      if (typeof result.totalClicks === 'number') syncTotalClicks(result.totalClicks)
+    } finally {
+      setBuyingChest(null)
+    }
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-red-500/10 blur-2xl" />
+
+      <div className="relative mb-6 flex items-center gap-2">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400/30 to-rose-500/20 text-red-200">
+          <Gift size={17} />
+        </div>
+        <div className="text-base font-semibold text-white">{strings.casesSection}</div>
+        <button
+          onClick={handleClaimKey}
+          disabled={claimedToday || isClaiming}
+          aria-label={strings.claimDailyKey}
+          className={`ml-auto flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+            claimedToday
+              ? 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+              : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
+          }`}
+        >
+          <Key size={13} className="opacity-80" />
+          {isClaiming
+            ? strings.claimingKey
+            : claimedToday
+              ? formatCountdown(keyCooldownSecondsLeft)
+              : strings.claimDailyKey}
+        </button>
+      </div>
+
+      <div className="relative mb-6 grid grid-cols-2 gap-3">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+          <Gift size={18} className="text-neutral-400" />
+          <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleClicks}</span>
+          <button
+            onClick={() => handleBuyChest('click')}
+            disabled={buyingChest !== null || totalClicks < chestCost1}
+            aria-label={`${strings.buyChest} — ${strings.caseTitleClicks}`}
+            className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+              totalClicks < chestCost1
+                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                : 'bg-white text-neutral-900 hover:opacity-90'
+            }`}
+          >
+            {buyingChest === 'click' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <>
+                <MousePointerClick size={12} className="opacity-70" />
+                <span className="tabular-nums">{chestCost1.toLocaleString(locale)}</span>
+              </>
+            )}
+          </button>
+        </div>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+          <Gift size={18} className="text-indigo-300" />
+          <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleGems}</span>
+          <button
+            onClick={() => handleBuyChest('gem')}
+            disabled={buyingChest !== null || totalClicks < chestCost2}
+            aria-label={`${strings.buyChest} — ${strings.caseTitleGems}`}
+            className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+              totalClicks < chestCost2
+                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                : 'bg-white text-neutral-900 hover:opacity-90'
+            }`}
+          >
+            {buyingChest === 'gem' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <>
+                <MousePointerClick size={12} className="opacity-70" />
+                <span className="tabular-nums">{chestCost2.toLocaleString(locale)}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-semibold text-neutral-300">
+            {strings.caseTitleClicks} <span className="text-neutral-500">x{ownedChests1}</span>
+          </span>
+          <button
+            onClick={() => setShowCatalog1(true)}
+            aria-label={strings.caseCatalogButton}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
+          >
+            <List size={12} />
+          </button>
+        </div>
+        <MiniCaseReel
+          catalog={catalog1}
+          locale={locale}
+          strings={strings}
+          accent="red"
+          syncTotalClicks={syncTotalClicks}
+          syncGems={syncGems}
+          syncKeys={syncKeys}
+          primary={{
+            ariaLabel: strings.openCase,
+            affordable: keys >= keyCost && ownedChests1 >= 1,
+            className: 'border border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15',
+            content: (
+              <span className="flex items-center justify-center gap-1">
+                <Key size={12} className="opacity-80" />
+                <span className="tabular-nums">{keyCost}</span>
+              </span>
+            ),
+            onOpen: async (): Promise<CaseOpenOutcome> => {
+              const result = await spin()
+              if (!result.ok) {
+                if (result.error === 'not-enough-keys') return { ok: false, error: strings.notEnoughKeys }
+                if (result.error === 'not-enough-chests') return { ok: false, error: strings.notEnoughChests }
+                return { ok: false, error: result.error }
+              }
+              return result
+            },
+          }}
+          secondary={{
+            ariaLabel: strings.openCaseGems,
+            affordable: gems >= gemCost,
+            className: 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15',
+            content: <GemPriceTag cost={gemCost} />,
+            onOpen: async (): Promise<CaseOpenOutcome> => {
+              const result = await openGemCase()
+              if (!result.ok) {
+                if (result.error === 'not-enough-gems') return { ok: false, error: strings.notEnoughGems }
+                if (result.error && result.error !== 'not-signed-in' && result.error !== 'cancelled') {
+                  return { ok: false, error: strings.purchaseError }
+                }
+                return { ok: false, error: result.error }
+              }
+              return result
+            },
+          }}
+        />
+      </div>
+
+      <div className="relative mt-8">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-semibold text-neutral-300">
+            {strings.caseTitleGems} <span className="text-neutral-500">x{ownedChests2}</span>
+          </span>
+          <button
+            onClick={() => setShowCatalog2(true)}
+            aria-label={strings.caseCatalogButton}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
+          >
+            <List size={12} />
+          </button>
+        </div>
+        <MiniCaseReel
+          catalog={catalog2}
+          locale={locale}
+          strings={strings}
+          accent="red"
+          syncTotalClicks={() => {}}
+          syncGems={syncGems}
+          syncKeys={syncKeys}
+          primary={{
+            ariaLabel: strings.openCase,
+            affordable: keys >= chestKeyCost && ownedChests2 >= 1,
+            className: 'border border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15',
+            content: (
+              <span className="flex items-center justify-center gap-1">
+                <Key size={12} className="opacity-80" />
+                <span className="tabular-nums">{chestKeyCost}</span>
+              </span>
+            ),
+            onOpen: async (): Promise<CaseOpenOutcome> => {
+              const result = await openWithKeys()
+              if (!result.ok) {
+                if (result.error === 'not-enough-keys') return { ok: false, error: strings.notEnoughKeys }
+                if (result.error === 'not-enough-chests') return { ok: false, error: strings.notEnoughChests }
+                return { ok: false, error: result.error }
+              }
+              return { ...result, prizeCurrency: 'gems' }
+            },
+          }}
+          secondary={{
+            ariaLabel: strings.openCaseGems,
+            affordable: gems >= chestGemCost,
+            className: 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15',
+            content: <GemPriceTag cost={chestGemCost} />,
+            onOpen: async (): Promise<CaseOpenOutcome> => {
+              const result = await openWithGems()
+              if (!result.ok) {
+                if (result.error === 'not-enough-gems') return { ok: false, error: strings.notEnoughGems }
+                if (result.error && result.error !== 'not-signed-in' && result.error !== 'cancelled') {
+                  return { ok: false, error: strings.purchaseError }
+                }
+                return { ok: false, error: result.error }
+              }
+              return { ...result, prizeCurrency: 'gems' }
+            },
+          }}
+        />
+      </div>
+
+      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
+
+      {showCatalog1 && (
+        <CaseCatalogModal catalog={catalog1} locale={locale} strings={strings} onClose={() => setShowCatalog1(false)} />
+      )}
+      {showCatalog2 && (
+        <CaseCatalogModal
+          catalog={catalog2}
+          locale={locale}
+          strings={strings}
+          onClose={() => setShowCatalog2(false)}
+          variant="percent"
+        />
       )}
     </div>
   )
