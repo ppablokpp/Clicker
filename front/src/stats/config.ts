@@ -1,4 +1,4 @@
-import { Target, Zap, Flame, Gift } from 'lucide-react'
+import { Target, Zap, Gift } from 'lucide-react'
 
 /**
  * Single place to tune the stat bars. Each category maps one stat from
@@ -44,21 +44,6 @@ export const STAT_CATEGORIES = [
       rewardBg: 'bg-yellow-500/[0.08]',
       rewardLabelColor: 'text-yellow-300/80',
       rewardTextColor: 'text-yellow-100',
-    },
-  },
-  {
-    key: 'longestStreak' as const,
-    icon: Flame,
-    color: 'text-orange-400',
-    max: 100,
-    milestones: [5, 15, 30, 100],
-    accent: {
-      dotReached: 'bg-orange-400',
-      dotClaimed: 'bg-orange-400/50',
-      rewardBorder: 'border-orange-400/20',
-      rewardBg: 'bg-orange-500/[0.08]',
-      rewardLabelColor: 'text-orange-300/80',
-      rewardTextColor: 'text-orange-100',
     },
   },
   {

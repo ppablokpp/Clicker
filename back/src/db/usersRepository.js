@@ -55,22 +55,50 @@ export const usersRepository = {
   },
 
   // Upserts on the id alone (no email/username yet) so an increment that races
-  // ahead of the Clerk profile sync never loses clicks.
+  // ahead of the Clerk profile sync never loses clicks. Also marks today in
+  // click_days (for the stats-page calendar) in the same round trip — the
+  // day_marked CTE selects FROM updated purely to force it to run after the
+  // user upsert, so a brand-new user's very first click doesn't violate the
+  // FK before the row exists.
   async incrementClicks(id, amount, peakCps = 0) {
     const result = await database.query(
-      `INSERT INTO users (id, total_clicks, best_cps)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO UPDATE
-         SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
-             best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
-             updated_at = now()
-       RETURNING total_clicks, best_cps`,
+      `WITH updated AS (
+         INSERT INTO users (id, total_clicks, best_cps)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (id) DO UPDATE
+           SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
+               best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
+               updated_at = now()
+         RETURNING total_clicks, best_cps
+       ),
+       day_marked AS (
+         INSERT INTO click_days (user_id, click_date)
+         SELECT $1, CURRENT_DATE FROM updated
+         ON CONFLICT (user_id, click_date) DO NOTHING
+       )
+       SELECT total_clicks, best_cps FROM updated`,
       [id, amount, peakCps],
     )
     return {
       totalClicks: Number(result.rows[0].total_clicks),
       bestCps: Number(result.rows[0].best_cps),
     }
+  },
+
+  // Every day the user has ever clicked at least once — powers the
+  // stats-page calendar strip, which scrolls all the way back to the
+  // earliest one. Dates come back as plain 'YYYY-MM-DD' text straight from
+  // SQL rather than parsed JS Dates, to avoid any timezone-shifting round
+  // trip through the pg driver.
+  async getClickDays(id) {
+    const result = await database.query(
+      `SELECT to_char(click_date, 'YYYY-MM-DD') AS click_date
+       FROM click_days
+       WHERE user_id = $1
+       ORDER BY click_date ASC`,
+      [id],
+    )
+    return result.rows.map((r) => r.click_date)
   },
 
   // Buying ANY tier locks the whole category (all 4 tiers) for an hour —

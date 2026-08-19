@@ -88,3 +88,15 @@ usersRouter.get('/me', async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' })
   res.json(toPublicUser(user))
 })
+
+// Powers the stats-page calendar strip — every day the user clicked at
+// least once.
+usersRouter.get('/me/click-days', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const clickDays = await usersRepository.getClickDays(userId)
+  res.json({ clickDays })
+})

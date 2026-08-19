@@ -90,8 +90,7 @@ export interface TranslationStrings {
     timedLuckPowerups: Record<string, { name: string; desc: string }>
   }
   stats: {
-    title: string
-    subtitle: string
+    streakUnit: string
     rewardLabel: string
     claim: string
     claiming: string
@@ -102,7 +101,6 @@ export interface TranslationStrings {
     categories: {
       totalClicks: { label: string; unit: string }
       bestCps: { label: string; unit: string }
-      longestStreak: { label: string; unit: string }
       casesOpened: { label: string; unit: string }
     }
   }
@@ -266,8 +264,7 @@ export const translations: Record<Language, TranslationStrings> = {
       },
     },
     stats: {
-      title: 'Estadísticas',
-      subtitle: 'Tu progreso, hito a hito.',
+      streakUnit: 'días',
       rewardLabel: 'Recompensa',
       claim: 'Reclamar',
       claiming: 'Reclamando…',
@@ -278,7 +275,6 @@ export const translations: Record<Language, TranslationStrings> = {
       categories: {
         totalClicks: { label: 'Clicks totales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
-        longestStreak: { label: 'Racha de días', unit: 'días' },
         casesOpened: { label: 'Cofres abiertos', unit: 'cofres' },
       },
     },
@@ -440,8 +436,7 @@ export const translations: Record<Language, TranslationStrings> = {
       },
     },
     stats: {
-      title: 'Stats',
-      subtitle: 'Your progress, milestone by milestone.',
+      streakUnit: 'days',
       rewardLabel: 'Reward',
       claim: 'Claim',
       claiming: 'Claiming…',
@@ -452,7 +447,6 @@ export const translations: Record<Language, TranslationStrings> = {
       categories: {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },
-        longestStreak: { label: 'Day streak', unit: 'days' },
         casesOpened: { label: 'Cases opened', unit: 'cases' },
       },
     },
