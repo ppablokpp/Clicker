@@ -64,17 +64,17 @@ export const STAT_CATEGORIES = [
   {
     key: 'casesOpened' as const,
     icon: Gift,
-    color: 'text-cyan-300',
+    color: 'text-red-300',
     max: 100,
     // No claimable rewards for this one (yet) — just a count, so no milestones/tiers.
     milestones: [],
     accent: {
-      dotReached: 'bg-cyan-300',
-      dotClaimed: 'bg-cyan-300/50',
-      rewardBorder: 'border-cyan-400/20',
-      rewardBg: 'bg-cyan-500/[0.08]',
-      rewardLabelColor: 'text-cyan-300/80',
-      rewardTextColor: 'text-cyan-100',
+      dotReached: 'bg-red-300',
+      dotClaimed: 'bg-red-300/50',
+      rewardBorder: 'border-red-400/20',
+      rewardBg: 'bg-red-500/[0.08]',
+      rewardLabelColor: 'text-red-300/80',
+      rewardTextColor: 'text-red-100',
     },
   },
 ]
