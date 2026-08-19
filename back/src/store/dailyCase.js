@@ -7,14 +7,21 @@
 export const DAILY_CASE_COST = 10_000
 
 // Weighted so the average payout lands around 7,900 clicks (cost is 10,000
-// — still a net loss on average, just a gentler one than before).
+// — still a net loss on average, just a gentler one than before). Rescaled
+// to a base of 10,000 (from 100) so the gem prizes below can sit at
+// fractions of a percent without losing precision.
 export const CASE_PRIZES = [
-  { id: 'consumer', amount: 1_000, weight: 35 },
-  { id: 'milspec', amount: 3_000, weight: 27 },
-  { id: 'restricted', amount: 8_000, weight: 17 },
-  { id: 'classified', amount: 15_000, weight: 15 },
-  { id: 'covert', amount: 40_000, weight: 5 },
-  { id: 'gold', amount: 100_000, weight: 1 },
+  { id: 'consumer', amount: 1_000, currency: 'clicks', weight: 3_500 },
+  { id: 'milspec', amount: 3_000, currency: 'clicks', weight: 2_700 },
+  { id: 'restricted', amount: 8_000, currency: 'clicks', weight: 1_700 },
+  { id: 'classified', amount: 15_000, currency: 'clicks', weight: 1_500 },
+  { id: 'covert', amount: 40_000, currency: 'clicks', weight: 500 },
+  { id: 'gold', amount: 100_000, currency: 'clicks', weight: 100 },
+  // Gems are a separate currency (not clicks) — vanishingly rare on top of
+  // the click prizes above, not carved out of their share.
+  { id: 'gem_1', amount: 1, currency: 'gems', weight: 10 }, // 0.1%
+  { id: 'gem_3', amount: 3, currency: 'gems', weight: 5 }, // 0.05%
+  { id: 'gem_5', amount: 5, currency: 'gems', weight: 1 }, // 0.01%
 ]
 
 export function pickWeightedPrize() {

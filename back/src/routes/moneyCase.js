@@ -31,13 +31,19 @@ moneyCaseRouter.post('/redeem', async (req, res) => {
     if (!isRealTransaction) return res.status(400).json({ error: 'transaction-not-found' })
 
     const prize = pickWeightedPrize()
-    const result = await usersRepository.redeemCasePurchase(userId, transactionId, prize.id, prize.amount)
+    const result = await usersRepository.redeemCasePurchase(userId, transactionId, prize)
     if (!result.ok) {
       if (result.reason === 'already-redeemed') return res.status(400).json({ error: 'already-redeemed' })
       return res.status(400).json({ error: 'redeem-failed' })
     }
 
-    res.json({ totalClicks: result.totalClicks, prizeId: prize.id, prizeAmount: prize.amount })
+    res.json({
+      totalClicks: result.totalClicks,
+      gems: result.gems,
+      prizeId: prize.id,
+      prizeAmount: prize.amount,
+      prizeCurrency: prize.currency,
+    })
   } catch (err) {
     console.error('No se pudo canjear la compra del cofre', err)
     res.status(502).json({ error: 'revenuecat-sync-failed' })

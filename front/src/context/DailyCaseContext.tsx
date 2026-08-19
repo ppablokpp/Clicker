@@ -15,6 +15,8 @@ export interface DailyCasePrize {
   id: string
   amount: number
   weight: number
+  /** 'clicks' (default) or 'gems' — which balance this prize's amount adds to. */
+  currency?: 'clicks' | 'gems'
 }
 
 interface SpinResult {
@@ -22,8 +24,10 @@ interface SpinResult {
   error?: string
   prizeId?: string
   prizeAmount?: number
-  /** Caller applies this to the visible counter once the reel animation reveals the prize — not before, or the total would spoil the result early. */
+  prizeCurrency?: 'clicks' | 'gems'
+  /** Caller applies these to the visible counters once the reel animation reveals the prize — not before, or the total would spoil the result early. */
   totalClicks?: number
+  gems?: number
 }
 
 interface DailyCaseContextValue {
@@ -129,7 +133,14 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         setIsAvailable(false)
         setResetAt(Date.now() + msUntilNextUtcMidnight())
-        return { ok: true, prizeId: data.prizeId, prizeAmount: data.prizeAmount, totalClicks: data.totalClicks }
+        return {
+          ok: true,
+          prizeId: data.prizeId,
+          prizeAmount: data.prizeAmount,
+          prizeCurrency: data.prizeCurrency,
+          totalClicks: data.totalClicks,
+          gems: data.gems,
+        }
       }
       if (data.error === 'cooldown') {
         setIsAvailable(false)

@@ -1,0 +1,51 @@
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useAuth } from '@clerk/clerk-react'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+
+interface GemsContextValue {
+  gems: number
+  /** Other places that award gems server-side (case prizes) return the fresh authoritative total — this folds it in. */
+  syncGems: (newTotal: number) => void
+}
+
+const GemsContext = createContext<GemsContextValue | null>(null)
+
+export function GemsProvider({ children }: { children: ReactNode }) {
+  const { userId, getToken } = useAuth()
+  const [gems, setGems] = useState(0)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/api/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!cancelled && res.ok) {
+          const data = await res.json()
+          if (typeof data.gems === 'number') setGems(data.gems)
+        }
+      } catch (err) {
+        console.error('No se pudieron cargar las gemas', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId, getToken])
+
+  const syncGems = useCallback((newTotal: number) => {
+    setGems(newTotal)
+  }, [])
+
+  return <GemsContext.Provider value={{ gems, syncGems }}>{children}</GemsContext.Provider>
+}
+
+export function useGemsContext() {
+  const ctx = useContext(GemsContext)
+  if (!ctx) throw new Error('useGemsContext must be used within a GemsProvider')
+  return ctx
+}

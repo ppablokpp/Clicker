@@ -17,11 +17,17 @@ dailyCaseRouter.post('/spin', async (req, res) => {
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
   const prize = pickWeightedPrize()
-  const result = await usersRepository.spinDailyCase(userId, DAILY_CASE_COST, prize.amount)
+  const result = await usersRepository.spinDailyCase(userId, DAILY_CASE_COST, prize)
   if (!result.ok) {
     if (result.reason === 'cooldown') return res.status(400).json({ error: 'cooldown' })
     return res.status(400).json({ error: 'Not enough clicks' })
   }
 
-  res.json({ totalClicks: result.totalClicks, prizeId: prize.id, prizeAmount: prize.amount })
+  res.json({
+    totalClicks: result.totalClicks,
+    gems: result.gems,
+    prizeId: prize.id,
+    prizeAmount: prize.amount,
+    prizeCurrency: prize.currency,
+  })
 })

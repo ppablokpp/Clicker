@@ -29,7 +29,7 @@ export const usersRepository = {
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
-                 milestone_bonus_multiplier, created_at, cases_opened,
+                 milestone_bonus_multiplier, created_at, cases_opened, gems,
                  (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_case_today`,
       [id, email, username, avatarUrl],
     )
@@ -167,10 +167,11 @@ export const usersRepository = {
     }
   },
 
-  // Free daily case: once per calendar day, costs clicks, the prize amount
-  // gets added straight back in the same update. `prizeAmount` is decided by
-  // the caller (route) via the server-side weighted roll — never by the client.
-  async spinDailyCase(id, cost, prizeAmount) {
+  // Free daily case: once per calendar day, costs clicks, the prize gets
+  // added back in the same update — to total_clicks or to gems depending on
+  // `prize.currency`. `prize` is decided by the caller (route) via the
+  // server-side weighted roll — never by the client.
+  async spinDailyCase(id, cost, prize) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -193,18 +194,24 @@ export const usersRepository = {
         return { ok: false, reason: 'not-enough-clicks' }
       }
 
+      const isGemPrize = prize.currency === 'gems'
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks - $2 + $3,
+             gems = gems + $4,
              last_case_spin_date = CURRENT_DATE,
              cases_opened = cases_opened + 1,
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks`,
-        [id, cost, prizeAmount],
+         RETURNING total_clicks, gems`,
+        [id, cost, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0],
       )
       await client.query('COMMIT')
-      return { ok: true, totalClicks: Number(updated.rows[0].total_clicks) }
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        gems: Number(updated.rows[0].gems),
+      }
     } catch (err) {
       await client.query('ROLLBACK')
       throw err
@@ -218,7 +225,7 @@ export const usersRepository = {
   // transaction id, already verified as real by the route before calling
   // this; the PRIMARY KEY on redeemed_case_purchases is what actually stops
   // the same purchase being redeemed twice (e.g. a retried request).
-  async redeemCasePurchase(id, transactionId, prizeId, prizeAmount) {
+  async redeemCasePurchase(id, transactionId, prize) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -233,14 +240,25 @@ export const usersRepository = {
 
       await client.query(
         'INSERT INTO redeemed_case_purchases (transaction_id, user_id, prize_id, prize_amount) VALUES ($1, $2, $3, $4)',
-        [transactionId, id, prizeId, prizeAmount],
+        [transactionId, id, prize.id, prize.amount],
       )
+      const isGemPrize = prize.currency === 'gems'
       const updated = await client.query(
-        'UPDATE users SET total_clicks = total_clicks + $2, cases_opened = cases_opened + 1, updated_at = now() WHERE id = $1 RETURNING total_clicks',
-        [id, prizeAmount],
+        `UPDATE users
+         SET total_clicks = total_clicks + $2,
+             gems = gems + $3,
+             cases_opened = cases_opened + 1,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, gems`,
+        [id, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0],
       )
       await client.query('COMMIT')
-      return { ok: true, totalClicks: Number(updated.rows[0].total_clicks) }
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        gems: Number(updated.rows[0].gems),
+      }
     } catch (err) {
       await client.query('ROLLBACK')
       throw err

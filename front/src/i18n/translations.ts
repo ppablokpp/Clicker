@@ -49,7 +49,11 @@ export interface TranslationStrings {
     openCaseMoney: string
     opening: string
     youWon: (amount: string) => string
+    youWonGems: (amount: string) => string
     casePrizeNames: Record<string, string>
+    caseCatalogButton: string
+    caseCatalogTitle: string
+    caseMythicLabel: string
     powerupsSection: string
     powerupsCardTitle: string
     powerupsSubtitle: string
@@ -137,14 +141,21 @@ export const translations: Record<Language, TranslationStrings> = {
       openCaseMoney: 'Comprar cofre',
       opening: 'Abriendo…',
       youWon: (amount) => `+${amount} clicks`,
+      youWonGems: (amount) => `+${amount} gemas`,
       casePrizeNames: {
         consumer: 'Común',
         milspec: 'Poco común',
         restricted: 'Raro',
-        classified: 'Excepcional',
-        covert: 'Extraordinario',
+        classified: 'Muy raro',
+        covert: 'Épico',
         gold: 'Legendario',
+        gem_1: 'Mítico',
+        gem_3: 'Mítico',
+        gem_5: 'Mítico',
       },
+      caseCatalogButton: 'Ver catálogo',
+      caseCatalogTitle: 'Premios posibles',
+      caseMythicLabel: 'Mítico',
       powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
       powerupsSubtitle: 'Multiplica tus clicks durante un tiempo.',
@@ -286,14 +297,21 @@ export const translations: Record<Language, TranslationStrings> = {
       openCaseMoney: 'Buy case',
       opening: 'Opening…',
       youWon: (amount) => `+${amount} clicks`,
+      youWonGems: (amount) => `+${amount} gems`,
       casePrizeNames: {
         consumer: 'Common',
         milspec: 'Uncommon',
         restricted: 'Rare',
-        classified: 'Exceptional',
-        covert: 'Extraordinary',
+        classified: 'Very rare',
+        covert: 'Epic',
         gold: 'Legendary',
+        gem_1: 'Mythic',
+        gem_3: 'Mythic',
+        gem_5: 'Mythic',
       },
+      caseCatalogButton: 'View catalog',
+      caseCatalogTitle: 'Possible prizes',
+      caseMythicLabel: 'Mythic',
       powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
       powerupsSubtitle: 'Multiplies your clicks for a while.',

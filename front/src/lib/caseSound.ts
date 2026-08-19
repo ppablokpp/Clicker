@@ -7,6 +7,12 @@
 
 let ctx: AudioContext | null = null
 let noiseBuffer: AudioBuffer | null = null
+let masterOutput: DynamicsCompressorNode | null = null
+let lastTickAt = 0
+// A fast manual drag can cross many items per animation frame — without a
+// floor, each one queues its own tick and they pile up into distorted noise.
+// This caps how often a tick can actually fire, no matter the source.
+const MIN_TICK_INTERVAL = 0.04
 
 function getContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -15,6 +21,22 @@ function getContext(): AudioContext | null {
   if (!ctx) ctx = new AudioCtor()
   if (ctx.state === 'suspended') void ctx.resume()
   return ctx
+}
+
+// Every sound routes through this instead of straight to destination — a
+// fast drag can still overlap several ticks even with the rate limit above,
+// and without a limiter their summed peaks clip into a distorted crunch.
+function getMasterOutput(audioCtx: AudioContext): AudioNode {
+  if (!masterOutput) {
+    masterOutput = audioCtx.createDynamicsCompressor()
+    masterOutput.threshold.value = -18
+    masterOutput.knee.value = 12
+    masterOutput.ratio.value = 8
+    masterOutput.attack.value = 0.002
+    masterOutput.release.value = 0.1
+    masterOutput.connect(audioCtx.destination)
+  }
+  return masterOutput
 }
 
 /** One second of white noise, reused (played back through filters) for both the tick's clack and the reveal whoosh. */
@@ -34,6 +56,10 @@ export function playCaseTick() {
   if (!audioCtx) return
   try {
     const now = audioCtx.currentTime
+    if (now - lastTickAt < MIN_TICK_INTERVAL) return
+    lastTickAt = now
+
+    const output = getMasterOutput(audioCtx)
 
     const noise = audioCtx.createBufferSource()
     noise.buffer = getNoiseBuffer(audioCtx)
@@ -42,22 +68,22 @@ export function playCaseTick() {
     bandpass.frequency.setValueAtTime(2200 + Math.random() * 500, now)
     bandpass.Q.value = 5
     const noiseGain = audioCtx.createGain()
-    noiseGain.gain.setValueAtTime(0.18, now)
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035)
-    noise.connect(bandpass).connect(noiseGain).connect(audioCtx.destination)
+    noiseGain.gain.setValueAtTime(0.15, now)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.024)
+    noise.connect(bandpass).connect(noiseGain).connect(output)
     noise.start(now)
-    noise.stop(now + 0.04)
+    noise.stop(now + 0.026)
 
     const osc = audioCtx.createOscillator()
     const oscGain = audioCtx.createGain()
     osc.type = 'square'
     osc.frequency.setValueAtTime(1100, now)
-    osc.frequency.exponentialRampToValueAtTime(650, now + 0.04)
-    oscGain.gain.setValueAtTime(0.08, now)
-    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04)
-    osc.connect(oscGain).connect(audioCtx.destination)
+    osc.frequency.exponentialRampToValueAtTime(650, now + 0.028)
+    oscGain.gain.setValueAtTime(0.07, now)
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.028)
+    osc.connect(oscGain).connect(output)
     osc.start(now)
-    osc.stop(now + 0.05)
+    osc.stop(now + 0.03)
   } catch {
     // Audio is a nice-to-have — never let it break the reveal flow.
   }
@@ -69,6 +95,7 @@ export function playCaseReveal(tier: number) {
   if (!audioCtx) return
   try {
     const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
 
     // A little shimmer via feedback delay, not a wall of layers.
     const delay = audioCtx.createDelay()
@@ -89,7 +116,7 @@ export function playCaseReveal(tier: number) {
       gain.gain.exponentialRampToValueAtTime(0.18, start + 0.015)
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5)
       osc.connect(gain)
-      gain.connect(audioCtx.destination)
+      gain.connect(output)
       gain.connect(delay)
       osc.start(start)
       osc.stop(start + 0.52)
@@ -106,7 +133,7 @@ export function playCaseReveal(tier: number) {
       gain.gain.exponentialRampToValueAtTime(tier >= 5 ? 0.12 : 0.08, start + 0.015)
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.55)
       osc.connect(gain)
-      gain.connect(audioCtx.destination)
+      gain.connect(output)
       gain.connect(delay)
       osc.start(start)
       osc.stop(start + 0.57)

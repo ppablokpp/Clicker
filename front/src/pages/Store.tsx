@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Rocket, Dices, Clock, MousePointerClick, Gift, Loader2 } from 'lucide-react'
+import { Rocket, Dices, Clock, MousePointerClick, Gift, Loader2, List, X, Gem } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
@@ -10,6 +10,7 @@ import { useMoneyUpgradesContext, type MoneyUpgradeDef } from '../context/MoneyU
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
 import { useMoneyCaseContext } from '../context/MoneyCaseContext'
+import { useGemsContext } from '../context/GemsContext'
 import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import { playCaseReveal, playCaseTick } from '../lib/caseSound'
@@ -17,6 +18,7 @@ import { playCaseReveal, playCaseTick } from '../lib/caseSound'
 export function Store() {
   const { language, strings } = useLanguage()
   const { totalClicks } = useClickCounterContext()
+  const { gems } = useGemsContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
 
   return (
@@ -27,9 +29,15 @@ export function Store() {
             <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white sm:text-3xl">
               {strings.store.title}
             </h1>
-            <span className="shrink-0 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300">
-              {totalClicks.toLocaleString(locale)} {strings.store.costLabel}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300">
+                {totalClicks.toLocaleString(locale)} {strings.store.costLabel}
+              </span>
+              <span className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-indigo-200">
+                <Gem size={12} className="opacity-80" />
+                {gems.toLocaleString(locale)}
+              </span>
+            </div>
           </div>
           <p className="mt-1 text-sm text-neutral-500">{strings.store.subtitle}</p>
         </header>
@@ -73,7 +81,11 @@ interface StoreStrings {
   openCaseMoney: string
   opening: string
   youWon: (amount: string) => string
+  youWonGems: (amount: string) => string
   casePrizeNames: Record<string, string>
+  caseCatalogButton: string
+  caseCatalogTitle: string
+  caseMythicLabel: string
   powerupsSection: string
   powerupsCardTitle: string
   powerupsSubtitle: string
@@ -603,7 +615,11 @@ function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
         boxShadow: `0 0 14px ${style.glow} inset, 0 0 10px ${style.glow}`,
       }}
     >
-      <MousePointerClick size={16} style={{ color: style.color }} />
+      {prize.currency === 'gems' ? (
+        <Gem size={16} style={{ color: style.color }} />
+      ) : (
+        <MousePointerClick size={16} style={{ color: style.color }} />
+      )}
       <span className="mt-1 text-[11px] font-bold tabular-nums text-white">
         {prize.amount.toLocaleString(locale)}
       </span>
@@ -625,11 +641,13 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   const { catalog, cost, isAvailable, cooldownSecondsLeft, isSpinning, spin } = useDailyCaseContext()
   const { price: moneyPrice, isBuying: isBuyingMoney, buy: buyMoneyCase } = useMoneyCaseContext()
   const { syncTotalClicks } = useClickCounterContext()
+  const { syncGems } = useGemsContext()
   const viewportRef = useRef<HTMLDivElement>(null)
   // Holds the new balance between "purchase confirmed" and "reel finished
   // spinning" — applied only once the animation reveals the prize, so the
   // header counter doesn't jump (and spoil the result) while it's still reeling.
   const pendingTotalClicksRef = useRef<number | null>(null)
+  const pendingGemsRef = useRef<number | null>(null)
   // Tracks which item is currently under the center pointer so a tick only
   // fires once per item crossed, not once per animation frame.
   const lastTickIndexRef = useRef<number | null>(null)
@@ -643,14 +661,49 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   const [revealed, setRevealed] = useState<DailyCasePrize | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [idleItems, setIdleItems] = useState<DailyCasePrize[]>([])
+  const [showCatalog, setShowCatalog] = useState(false)
+  // Lets people drag the idle strip around to browse what's inside — purely
+  // cosmetic, no server call, no cost. Three copies of idleItems are
+  // rendered back to back and this value gets silently snapped by one loop's
+  // width whenever it nears either end, so dragging (or flicking, with
+  // momentum) never runs out of items in either direction.
+  const idleDragX = useMotionValue(0)
+  const idleLoopWidth = idleItems.length * CASE_ITEM_SPAN
 
   // Fill the reel with real items right away instead of showing it empty —
   // opening it just starts the spin from where it already visually is.
   useEffect(() => {
     if (catalog.length > 0 && idleItems.length === 0) {
-      setIdleItems(Array.from({ length: CASE_STRIP_LENGTH }, () => pickRandomFiller(catalog)))
+      const items = Array.from({ length: CASE_STRIP_LENGTH }, () => pickRandomFiller(catalog))
+      // Gems are weighted so low a real weighted draw would show one only
+      // ~7% of the time — force one into the browsing strip so dragging
+      // around actually surfaces them instead of relying on real odds.
+      const gemPrizes = catalog.filter((p) => p.currency === 'gems')
+      if (gemPrizes.length > 0 && !items.some((p) => p.currency === 'gems')) {
+        const slot = Math.floor(Math.random() * items.length)
+        items[slot] = gemPrizes[Math.floor(Math.random() * gemPrizes.length)]
+      }
+      setIdleItems(items)
     }
   }, [catalog, idleItems.length])
+
+  useEffect(() => {
+    if (idleLoopWidth > 0) idleDragX.set(-idleLoopWidth)
+  }, [idleLoopWidth, idleDragX])
+
+  // Purely visual wrap — no sound here. A manual drag can flick into a long
+  // fast coast, and ticking through that turned into a mess of overlapping
+  // sound; the real spin's tick/reveal sounds (which stayed on) don't have
+  // that problem since their pace is server/animation-controlled, not a flick.
+  useMotionValueEvent(idleDragX, 'change', (latest) => {
+    if (idleLoopWidth <= 0) return
+
+    if (latest > 0) {
+      idleDragX.set(latest - idleLoopWidth)
+    } else if (latest < -idleLoopWidth * 2) {
+      idleDragX.set(latest + idleLoopWidth)
+    }
+  })
 
   const canAfford = totalClicks >= cost
   const isFreeBusy = isSpinning || isReeling
@@ -664,11 +717,18 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   const freeDisabled = isBusyOverall || !isAvailable || catalog.length === 0 || !canAfford
   const moneyDisabled = isBusyOverall || catalog.length === 0 || !moneyPrice
 
-  const resolveWin = (prizeId: string, prizeAmount: number, newTotalClicks?: number) => {
+  const resolveWin = (
+    prizeId: string,
+    prizeAmount: number,
+    newTotalClicks?: number,
+    newGems?: number,
+    prizeCurrency?: 'clicks' | 'gems',
+  ) => {
     const won = catalog.find((p) => p.id === prizeId) ?? {
       id: prizeId,
       amount: prizeAmount,
       weight: 1,
+      currency: prizeCurrency,
     }
     const viewportWidth = viewportRef.current?.clientWidth ?? 320
     const items = buildCaseStrip(won, catalog)
@@ -677,6 +737,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     const targetX = centerOfItem - viewportWidth / 2 + jitter
 
     pendingTotalClicksRef.current = typeof newTotalClicks === 'number' ? newTotalClicks : null
+    pendingGemsRef.current = typeof newGems === 'number' ? newGems : null
     lastTickIndexRef.current = null
     setRevealed(null)
     setIsReeling(true)
@@ -691,7 +752,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       if (result.error && result.error !== 'not-signed-in') setError(result.error)
       return
     }
-    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks)
+    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks, result.gems, result.prizeCurrency)
   }
 
   const handleBuyMoney = async () => {
@@ -704,7 +765,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       }
       return
     }
-    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks)
+    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks, result.gems, result.prizeCurrency)
   }
 
   const prizeStyle = revealed ? (CASE_PRIZE_STYLES[revealed.id] ?? DEFAULT_CASE_PRIZE_STYLE) : null
@@ -718,6 +779,13 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           <Gift size={17} />
         </div>
         <div className="text-base font-semibold text-white">{strings.casesSection}</div>
+        <button
+          onClick={() => setShowCatalog(true)}
+          aria-label={strings.caseCatalogButton}
+          className="ml-auto flex h-7 w-7 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
+        >
+          <List size={14} />
+        </button>
       </div>
 
       <p className="relative mb-4 text-sm text-neutral-500">{strings.casesSubtitle}</p>
@@ -758,6 +826,10 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
                 syncTotalClicks(pendingTotalClicksRef.current)
                 pendingTotalClicksRef.current = null
               }
+              if (pendingGemsRef.current !== null) {
+                syncGems(pendingGemsRef.current)
+                pendingGemsRef.current = null
+              }
             }}
           >
             {reel.items.map((item, i) => (
@@ -765,11 +837,17 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
             ))}
           </motion.div>
         ) : (
-          <div className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center" style={{ gap: CASE_ITEM_GAP }}>
-            {idleItems.map((item, i) => (
+          <motion.div
+            drag="x"
+            dragElastic={0}
+            dragMomentum
+            style={{ x: idleDragX, gap: CASE_ITEM_GAP }}
+            className="absolute left-0 top-1/2 flex -translate-y-1/2 cursor-grab items-center active:cursor-grabbing"
+          >
+            {[...idleItems, ...idleItems, ...idleItems].map((item, i) => (
               <CasePrizeCard key={i} prize={item} locale={locale} />
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -795,8 +873,10 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
             className="flex items-center gap-1.5 text-2xl font-bold"
             style={{ color: prizeStyle.color, textShadow: `0 0 20px ${prizeStyle.glow}` }}
           >
-            <MousePointerClick size={20} />
-            {strings.youWon(revealed.amount.toLocaleString(locale))}
+            {revealed.currency === 'gems' ? <Gem size={20} /> : <MousePointerClick size={20} />}
+            {revealed.currency === 'gems'
+              ? strings.youWonGems(revealed.amount.toLocaleString(locale))
+              : strings.youWon(revealed.amount.toLocaleString(locale))}
           </span>
         </motion.div>
       )}
@@ -842,6 +922,80 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       </div>
 
       {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
+
+      {showCatalog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowCatalog(false)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowCatalog(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <p className="mb-4 text-sm font-semibold text-white">{strings.caseCatalogTitle}</p>
+
+            <div className="flex flex-col gap-2">
+              {catalog
+                .filter((prize) => prize.currency !== 'gems')
+                .map((prize) => {
+                  const style = CASE_PRIZE_STYLES[prize.id] ?? DEFAULT_CASE_PRIZE_STYLE
+                  return (
+                    <div
+                      key={prize.id}
+                      className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                      style={{ borderColor: `${style.color}30`, backgroundColor: `${style.color}0d` }}
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: style.color, boxShadow: `0 0 6px ${style.glow}` }}
+                      />
+                      <span className="text-sm font-medium" style={{ color: style.color }}>
+                        {strings.casePrizeNames[prize.id] ?? prize.id}
+                      </span>
+                      <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
+                        <MousePointerClick size={12} className="opacity-70" />
+                        {prize.amount.toLocaleString(locale)}
+                      </span>
+                    </div>
+                  )
+                })}
+
+              {/* All 3 gem prizes shown as one combined "Mythic" entry instead of 3 near-identical rows. */}
+              {(() => {
+                const gemPrizes = catalog.filter((prize) => prize.currency === 'gems')
+                if (gemPrizes.length === 0) return null
+                const style = CASE_PRIZE_STYLES[gemPrizes[0].id] ?? DEFAULT_CASE_PRIZE_STYLE
+                return (
+                  <div
+                    className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                    style={{ borderColor: `${style.color}30`, backgroundColor: `${style.color}0d` }}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: style.color, boxShadow: `0 0 6px ${style.glow}` }}
+                    />
+                    <span className="text-sm font-medium" style={{ color: style.color }}>
+                      {strings.caseMythicLabel}
+                    </span>
+                    <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
+                      <Gem size={12} className="opacity-70" />
+                      {gemPrizes.map((p) => p.amount).join(' / ')}
+                    </span>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -15,6 +15,12 @@ export const CASE_PRIZE_STYLES: Record<string, CasePrizeStyle> = {
   classified: { color: '#d32ce6', glow: 'rgba(211,44,230,0.55)' },
   covert: { color: '#eb4b4b', glow: 'rgba(235,75,75,0.55)' },
   gold: { color: '#e4ae39', glow: 'rgba(228,174,57,0.7)' },
+  // Gems are a separate currency, not part of the click-rarity ladder above —
+  // same indigo hue for all three so they read as one family, just glowing
+  // a little brighter the rarer (i.e. the more gems) the pull.
+  gem_1: { color: '#818cf8', glow: 'rgba(129,140,248,0.55)' },
+  gem_3: { color: '#818cf8', glow: 'rgba(129,140,248,0.7)' },
+  gem_5: { color: '#818cf8', glow: 'rgba(129,140,248,0.9)' },
 }
 
 export const DEFAULT_CASE_PRIZE_STYLE: CasePrizeStyle = {

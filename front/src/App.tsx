@@ -6,6 +6,7 @@ import { BottomNavPill } from './components/BottomNavPill'
 import { SignInModal } from './components/SignInModal'
 import { SignInPromptProvider } from './context/SignInPromptContext'
 import { ClickCounterProvider } from './context/ClickCounterContext'
+import { GemsProvider } from './context/GemsContext'
 import { PowerupProvider } from './context/PowerupContext'
 import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
 import { UpgradesProvider } from './context/UpgradesContext'
@@ -22,29 +23,31 @@ function ClickerApp() {
   return (
     <SignInPromptProvider>
       <ClickCounterProvider>
-        <PowerupProvider>
-          <TimedLuckPowerupProvider>
-            <MilestonesProvider>
-              <UpgradesProvider>
-                <MoneyUpgradesProvider>
-                  <DailyCaseProvider>
-                    <MoneyCaseProvider>
-                      <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/clasificacion" element={<Leaderboard />} />
-                        <Route path="/estadisticas" element={<Stats />} />
-                        <Route path="/tienda" element={<Store />} />
-                      </Routes>
-                      <Header />
-                      <BottomNavPill />
-                      <SignInModal />
-                    </MoneyCaseProvider>
-                  </DailyCaseProvider>
-                </MoneyUpgradesProvider>
-              </UpgradesProvider>
-            </MilestonesProvider>
-          </TimedLuckPowerupProvider>
-        </PowerupProvider>
+        <GemsProvider>
+          <PowerupProvider>
+            <TimedLuckPowerupProvider>
+              <MilestonesProvider>
+                <UpgradesProvider>
+                  <MoneyUpgradesProvider>
+                    <DailyCaseProvider>
+                      <MoneyCaseProvider>
+                        <Routes>
+                          <Route path="/" element={<Home />} />
+                          <Route path="/clasificacion" element={<Leaderboard />} />
+                          <Route path="/estadisticas" element={<Stats />} />
+                          <Route path="/tienda" element={<Store />} />
+                        </Routes>
+                        <Header />
+                        <BottomNavPill />
+                        <SignInModal />
+                      </MoneyCaseProvider>
+                    </DailyCaseProvider>
+                  </MoneyUpgradesProvider>
+                </UpgradesProvider>
+              </MilestonesProvider>
+            </TimedLuckPowerupProvider>
+          </PowerupProvider>
+        </GemsProvider>
       </ClickCounterProvider>
     </SignInPromptProvider>
   )

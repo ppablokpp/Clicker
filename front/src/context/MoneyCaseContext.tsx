@@ -21,8 +21,10 @@ interface BuyResult {
   error?: string
   prizeId?: string
   prizeAmount?: number
-  /** Caller applies this to the visible counter once the reel animation reveals the prize — not before, or the total would spoil the result early. */
+  prizeCurrency?: 'clicks' | 'gems'
+  /** Caller applies these to the visible counters once the reel animation reveals the prize — not before, or the total would spoil the result early. */
   totalClicks?: number
+  gems?: number
 }
 
 interface MoneyCaseContextValue {
@@ -104,7 +106,14 @@ export function MoneyCaseProvider({ children }: { children: ReactNode }) {
       const data = await res.json()
       if (!res.ok) return { ok: false, error: data.error }
 
-      return { ok: true, prizeId: data.prizeId, prizeAmount: data.prizeAmount, totalClicks: data.totalClicks }
+      return {
+        ok: true,
+        prizeId: data.prizeId,
+        prizeAmount: data.prizeAmount,
+        prizeCurrency: data.prizeCurrency,
+        totalClicks: data.totalClicks,
+        gems: data.gems,
+      }
     } catch (err) {
       if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {
         return { ok: false, error: 'cancelled' }

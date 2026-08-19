@@ -24,6 +24,7 @@ function toPublicUser(row) {
     username: row.username,
     avatarUrl: row.avatar_url,
     totalClicks: Number(row.total_clicks),
+    gems: Number(row.gems ?? 0),
     bestCps: Number(row.best_cps),
     currentStreak: row.current_streak,
     longestStreak: row.longest_streak,
