@@ -12,6 +12,7 @@ import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseCo
 import { useMoneyCaseContext } from '../context/MoneyCaseContext'
 import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
+import { playCaseReveal, playCaseTick } from '../lib/caseSound'
 
 export function Store() {
   const { language, strings } = useLanguage()
@@ -629,6 +630,9 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   // spinning" — applied only once the animation reveals the prize, so the
   // header counter doesn't jump (and spoil the result) while it's still reeling.
   const pendingTotalClicksRef = useRef<number | null>(null)
+  // Tracks which item is currently under the center pointer so a tick only
+  // fires once per item crossed, not once per animation frame.
+  const lastTickIndexRef = useRef<number | null>(null)
   const [reel, setReel] = useState<{
     id: number
     items: DailyCasePrize[]
@@ -673,6 +677,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     const targetX = centerOfItem - viewportWidth / 2 + jitter
 
     pendingTotalClicksRef.current = typeof newTotalClicks === 'number' ? newTotalClicks : null
+    lastTickIndexRef.current = null
     setRevealed(null)
     setIsReeling(true)
     setReel((prev) => ({ id: (prev?.id ?? 0) + 1, items, targetX, result: won }))
@@ -734,9 +739,21 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
             initial={{ x: 0 }}
             animate={{ x: -reel.targetX }}
             transition={{ duration: 8, ease: [0.12, 0.72, 0.29, 1] }}
+            onUpdate={(latest) => {
+              const x = typeof latest.x === 'number' ? latest.x : 0
+              const viewportWidth = viewportRef.current?.clientWidth ?? 320
+              const pointerLocalX = viewportWidth / 2 - x
+              const index = Math.floor(pointerLocalX / CASE_ITEM_SPAN)
+              if (index !== lastTickIndexRef.current) {
+                lastTickIndexRef.current = index
+                playCaseTick()
+              }
+            }}
             onAnimationComplete={() => {
               setIsReeling(false)
               setRevealed(reel.result)
+              const tier = catalog.findIndex((p) => p.id === reel.result.id)
+              playCaseReveal(tier < 0 ? 0 : tier)
               if (pendingTotalClicksRef.current !== null) {
                 syncTotalClicks(pendingTotalClicksRef.current)
                 pendingTotalClicksRef.current = null
