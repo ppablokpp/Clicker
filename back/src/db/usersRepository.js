@@ -29,14 +29,22 @@ export const usersRepository = {
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
-                 milestone_bonus_multiplier, created_at`,
+                 milestone_bonus_multiplier, created_at,
+                 (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_case_today`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]
   },
 
+  // The "already opened today" flag is computed in SQL against CURRENT_DATE
+  // rather than in JS — comparing a DATE column's parsed value against
+  // "today" in JS risks a timezone mismatch with what the DB considers today.
   async getById(id) {
-    const result = await database.query('SELECT * FROM users WHERE id = $1', [id])
+    const result = await database.query(
+      `SELECT *, (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_case_today
+       FROM users WHERE id = $1`,
+      [id],
+    )
     return result.rows[0] ?? null
   },
 
@@ -151,6 +159,87 @@ export const usersRepository = {
       )
       await client.query('COMMIT')
       return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Free daily case: once per calendar day, costs clicks, the prize amount
+  // gets added straight back in the same update. `prizeAmount` is decided by
+  // the caller (route) via the server-side weighted roll — never by the client.
+  async spinDailyCase(id, cost, prizeAmount) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        `SELECT total_clicks, (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_today
+         FROM users WHERE id = $1 FOR UPDATE`,
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (user.spun_today) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'cooldown' }
+      }
+      if (Number(user.total_clicks) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks - $2 + $3,
+             last_case_spin_date = CURRENT_DATE,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks`,
+        [id, cost, prizeAmount],
+      )
+      await client.query('COMMIT')
+      return { ok: true, totalClicks: Number(updated.rows[0].total_clicks) }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Paid, repeatable case purchase (consumable RevenueCat product — unlike
+  // the daily one, no cooldown). `transactionId` is the RevenueCat store
+  // transaction id, already verified as real by the route before calling
+  // this; the PRIMARY KEY on redeemed_case_purchases is what actually stops
+  // the same purchase being redeemed twice (e.g. a retried request).
+  async redeemCasePurchase(id, transactionId, prizeId, prizeAmount) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const existing = await client.query(
+        'SELECT 1 FROM redeemed_case_purchases WHERE transaction_id = $1',
+        [transactionId],
+      )
+      if (existing.rowCount > 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-redeemed' }
+      }
+
+      await client.query(
+        'INSERT INTO redeemed_case_purchases (transaction_id, user_id, prize_id, prize_amount) VALUES ($1, $2, $3, $4)',
+        [transactionId, id, prizeId, prizeAmount],
+      )
+      const updated = await client.query(
+        'UPDATE users SET total_clicks = total_clicks + $2, updated_at = now() WHERE id = $1 RETURNING total_clicks',
+        [id, prizeAmount],
+      )
+      await client.query('COMMIT')
+      return { ok: true, totalClicks: Number(updated.rows[0].total_clicks) }
     } catch (err) {
       await client.query('ROLLBACK')
       throw err

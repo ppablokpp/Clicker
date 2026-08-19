@@ -10,6 +10,8 @@ import { powerupsRouter } from './routes/powerups.js'
 import { timedLuckPowerupsRouter } from './routes/timedLuckPowerups.js'
 import { upgradesRouter } from './routes/upgrades.js'
 import { milestonesRouter } from './routes/milestones.js'
+import { dailyCaseRouter } from './routes/dailyCase.js'
+import { moneyCaseRouter } from './routes/moneyCase.js'
 import { moneyUpgradesRouter } from './routes/moneyUpgrades.js'
 
 const app = express()
@@ -45,6 +47,8 @@ app.use('/api/powerups', powerupsRouter)
 app.use('/api/timed-luck-powerups', timedLuckPowerupsRouter)
 app.use('/api/upgrades', upgradesRouter)
 app.use('/api/milestones', milestonesRouter)
+app.use('/api/daily-case', dailyCaseRouter)
+app.use('/api/money-case', moneyCaseRouter)
 app.use('/api/money-upgrades', moneyUpgradesRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.

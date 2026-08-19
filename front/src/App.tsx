@@ -11,6 +11,8 @@ import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
 import { UpgradesProvider } from './context/UpgradesContext'
 import { MilestonesProvider } from './context/MilestonesContext'
 import { MoneyUpgradesProvider } from './context/MoneyUpgradesContext'
+import { DailyCaseProvider } from './context/DailyCaseContext'
+import { MoneyCaseProvider } from './context/MoneyCaseContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
@@ -25,15 +27,19 @@ function ClickerApp() {
             <MilestonesProvider>
               <UpgradesProvider>
                 <MoneyUpgradesProvider>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/clasificacion" element={<Leaderboard />} />
-                    <Route path="/estadisticas" element={<Stats />} />
-                    <Route path="/tienda" element={<Store />} />
-                  </Routes>
-                  <Header />
-                  <BottomNavPill />
-                  <SignInModal />
+                  <DailyCaseProvider>
+                    <MoneyCaseProvider>
+                      <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/clasificacion" element={<Leaderboard />} />
+                        <Route path="/estadisticas" element={<Stats />} />
+                        <Route path="/tienda" element={<Store />} />
+                      </Routes>
+                      <Header />
+                      <BottomNavPill />
+                      <SignInModal />
+                    </MoneyCaseProvider>
+                  </DailyCaseProvider>
                 </MoneyUpgradesProvider>
               </UpgradesProvider>
             </MilestonesProvider>

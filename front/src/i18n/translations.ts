@@ -42,6 +42,14 @@ export interface TranslationStrings {
     active: string
     owned: string
     notEnoughClicks: string
+    lootSection: string
+    casesSection: string
+    casesSubtitle: string
+    openCase: string
+    openCaseMoney: string
+    opening: string
+    youWon: (amount: string) => string
+    casePrizeNames: Record<string, string>
     powerupsSection: string
     powerupsCardTitle: string
     powerupsSubtitle: string
@@ -121,6 +129,21 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Activo',
       owned: 'Comprado',
       notEnoughClicks: 'Te faltan clicks',
+      lootSection: 'Premios',
+      casesSection: 'Cofres',
+      casesSubtitle: 'Prueba tu suerte y gana clicks.',
+      openCase: 'Abrir cofre',
+      openCaseMoney: 'Comprar cofre',
+      opening: 'Abriendo…',
+      youWon: (amount) => `+${amount} clicks`,
+      casePrizeNames: {
+        consumer: 'Común',
+        milspec: 'Poco común',
+        restricted: 'Raro',
+        classified: 'Excepcional',
+        covert: 'Extraordinario',
+        gold: 'Legendario',
+      },
       powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
       powerupsSubtitle: 'Multiplica tus clicks durante un tiempo.',
@@ -254,6 +277,21 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Active',
       owned: 'Owned',
       notEnoughClicks: "You're short on clicks",
+      lootSection: 'Prizes',
+      casesSection: 'Cases',
+      casesSubtitle: 'Try your luck and win clicks.',
+      openCase: 'Open case',
+      openCaseMoney: 'Buy case',
+      opening: 'Opening…',
+      youWon: (amount) => `+${amount} clicks`,
+      casePrizeNames: {
+        consumer: 'Common',
+        milspec: 'Uncommon',
+        restricted: 'Rare',
+        classified: 'Exceptional',
+        covert: 'Extraordinary',
+        gold: 'Legendary',
+      },
       powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
       powerupsSubtitle: 'Multiplies your clicks for a while.',

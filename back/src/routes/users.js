@@ -45,6 +45,7 @@ function toPublicUser(row) {
       : null,
     powerupCooldownUntil: isPowerupOnCooldown ? row.powerup_cooldown_until : null,
     luckPowerupCooldownUntil: isLuckPowerupOnCooldown ? row.luck_powerup_cooldown_until : null,
+    dailyCaseAvailable: !row.spun_case_today,
   }
 }
 

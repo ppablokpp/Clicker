@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Rocket, Dices, Clock, MousePointerClick } from 'lucide-react'
+import { Rocket, Dices, Clock, MousePointerClick, Gift, Loader2 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
 import { useMoneyUpgradesContext, type MoneyUpgradeDef } from '../context/MoneyUpgradesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
+import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
+import { useMoneyCaseContext } from '../context/MoneyCaseContext'
 import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
+import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 
 export function Store() {
   const { language, strings } = useLanguage()
@@ -30,10 +34,14 @@ export function Store() {
         </header>
 
         <section className="mb-8">
+          <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.lootSection}</h2>
+          <CaseOpeningCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
+        </section>
+
+        <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.upgradesSection}</h2>
           <div className="flex flex-col gap-3">
-            {/* RevenueCat money purchases disabled for now — uncomment to bring them back. Logic untouched. */}
-            {/* <MoneyUpgradeLadder strings={strings.store} /> */}
+            <MoneyUpgradeLadder strings={strings.store} />
             <UpgradeLadder locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
         </section>
@@ -57,6 +65,14 @@ interface StoreStrings {
   active: string
   owned: string
   notEnoughClicks: string
+  lootSection: string
+  casesSection: string
+  casesSubtitle: string
+  openCase: string
+  openCaseMoney: string
+  opening: string
+  youWon: (amount: string) => string
+  casePrizeNames: Record<string, string>
   powerupsSection: string
   powerupsCardTitle: string
   powerupsSubtitle: string
@@ -85,6 +101,24 @@ function ClickPriceTag({ cost, locale, costLabel }: { cost: number; locale: stri
       <span className="text-xs font-medium opacity-70">{costLabel}</span>
     </span>
   )
+}
+
+/** Same idea as ClickPriceTag but for a real-money price string from RevenueCat. */
+function MoneyPriceTag({ price }: { price: string }) {
+  return <span className="text-base font-bold tabular-nums">{price}</span>
+}
+
+// Cooldowns here can span up to a full day (unlike the 1h powerup cooldowns),
+// so this needs an hours segment where TierTile's mm:ss didn't.
+function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, totalSeconds)
+  const hours = Math.floor(s / 3600)
+  const minutes = Math.floor((s % 3600) / 60)
+  const seconds = s % 60
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
 interface TierTileProps {
@@ -515,7 +549,7 @@ export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
             {isBuyingThis ? (
               strings.buying
             ) : nextPrice ? (
-              <span className="text-base font-bold">{nextPrice}</span>
+              <MoneyPriceTag price={nextPrice} />
             ) : (
               strings.upgradeCta
             )}
@@ -524,6 +558,273 @@ export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
       )}
 
       {error && <p className="relative mt-2 text-xs text-red-400">{strings.purchaseError}</p>}
+    </div>
+  )
+}
+
+const CASE_ITEM_WIDTH = 88
+const CASE_ITEM_GAP = 8
+const CASE_ITEM_SPAN = CASE_ITEM_WIDTH + CASE_ITEM_GAP
+const CASE_STRIP_LENGTH = 44
+const CASE_LANDING_INDEX = 40
+
+function pickRandomFiller(catalog: DailyCasePrize[]): DailyCasePrize {
+  const total = catalog.reduce((sum, p) => sum + p.weight, 0)
+  let r = Math.random() * total
+  for (const p of catalog) {
+    if (r < p.weight) return p
+    r -= p.weight
+  }
+  return catalog[catalog.length - 1]
+}
+
+function buildCaseStrip(won: DailyCasePrize, catalog: DailyCasePrize[]): DailyCasePrize[] {
+  return Array.from({ length: CASE_STRIP_LENGTH }, (_, i) =>
+    i === CASE_LANDING_INDEX ? won : pickRandomFiller(catalog),
+  )
+}
+
+interface CasePrizeCardProps {
+  prize: DailyCasePrize
+  locale: string
+}
+
+function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
+  const style = CASE_PRIZE_STYLES[prize.id] ?? DEFAULT_CASE_PRIZE_STYLE
+  return (
+    <div
+      className="flex shrink-0 flex-col items-center justify-center rounded-lg border text-center"
+      style={{
+        width: CASE_ITEM_WIDTH,
+        height: CASE_ITEM_WIDTH,
+        borderColor: `${style.color}55`,
+        backgroundColor: `${style.color}14`,
+        boxShadow: `0 0 14px ${style.glow} inset, 0 0 10px ${style.glow}`,
+      }}
+    >
+      <MousePointerClick size={16} style={{ color: style.color }} />
+      <span className="mt-1 text-[11px] font-bold tabular-nums text-white">
+        {prize.amount.toLocaleString(locale)}
+      </span>
+    </div>
+  )
+}
+
+interface CaseOpeningCardProps {
+  locale: string
+  totalClicks: number
+  strings: StoreStrings
+}
+
+// CS:GO-style case: the real prize is rolled server-side the moment you hit
+// spin (never decided client-side) — once we know it, the strip is built
+// with that prize fixed at CASE_LANDING_INDEX and the whole strip is
+// translated so that slot ends up centered under the pointer.
+function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps) {
+  const { catalog, cost, isAvailable, cooldownSecondsLeft, isSpinning, spin } = useDailyCaseContext()
+  const { price: moneyPrice, isBuying: isBuyingMoney, buy: buyMoneyCase } = useMoneyCaseContext()
+  const { syncTotalClicks } = useClickCounterContext()
+  const viewportRef = useRef<HTMLDivElement>(null)
+  // Holds the new balance between "purchase confirmed" and "reel finished
+  // spinning" — applied only once the animation reveals the prize, so the
+  // header counter doesn't jump (and spoil the result) while it's still reeling.
+  const pendingTotalClicksRef = useRef<number | null>(null)
+  const [reel, setReel] = useState<{
+    id: number
+    items: DailyCasePrize[]
+    targetX: number
+    result: DailyCasePrize
+  } | null>(null)
+  const [isReeling, setIsReeling] = useState(false)
+  const [revealed, setRevealed] = useState<DailyCasePrize | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [idleItems, setIdleItems] = useState<DailyCasePrize[]>([])
+
+  // Fill the reel with real items right away instead of showing it empty —
+  // opening it just starts the spin from where it already visually is.
+  useEffect(() => {
+    if (catalog.length > 0 && idleItems.length === 0) {
+      setIdleItems(Array.from({ length: CASE_STRIP_LENGTH }, () => pickRandomFiller(catalog)))
+    }
+  }, [catalog, idleItems.length])
+
+  const canAfford = totalClicks >= cost
+  const isFreeBusy = isSpinning || isReeling
+  // Not gated on isFreeBusy: the reel that plays after a *money* purchase
+  // also flips isReeling true, and the free button's cooldown must keep
+  // showing the timer through that shared animation, not fall back to the price.
+  const isOnCooldown = !isAvailable
+  // Only one reel can spin at a time, so buying the money case also locks
+  // out the free button (and vice versa) while either purchase resolves.
+  const isBusyOverall = isFreeBusy || isBuyingMoney
+  const freeDisabled = isBusyOverall || !isAvailable || catalog.length === 0 || !canAfford
+  const moneyDisabled = isBusyOverall || catalog.length === 0 || !moneyPrice
+
+  const resolveWin = (prizeId: string, prizeAmount: number, newTotalClicks?: number) => {
+    const won = catalog.find((p) => p.id === prizeId) ?? {
+      id: prizeId,
+      amount: prizeAmount,
+      weight: 1,
+    }
+    const viewportWidth = viewportRef.current?.clientWidth ?? 320
+    const items = buildCaseStrip(won, catalog)
+    const jitter = (Math.random() - 0.5) * (CASE_ITEM_WIDTH * 0.5)
+    const centerOfItem = CASE_LANDING_INDEX * CASE_ITEM_SPAN + CASE_ITEM_WIDTH / 2
+    const targetX = centerOfItem - viewportWidth / 2 + jitter
+
+    pendingTotalClicksRef.current = typeof newTotalClicks === 'number' ? newTotalClicks : null
+    setRevealed(null)
+    setIsReeling(true)
+    setReel((prev) => ({ id: (prev?.id ?? 0) + 1, items, targetX, result: won }))
+  }
+
+  const handleOpen = async () => {
+    if (freeDisabled) return
+    setError(null)
+    const result = await spin()
+    if (!result.ok || !result.prizeId) {
+      if (result.error && result.error !== 'not-signed-in') setError(result.error)
+      return
+    }
+    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks)
+  }
+
+  const handleBuyMoney = async () => {
+    if (moneyDisabled) return
+    setError(null)
+    const result = await buyMoneyCase()
+    if (!result.ok || !result.prizeId) {
+      if (result.error && result.error !== 'not-signed-in' && result.error !== 'cancelled') {
+        setError(strings.purchaseError)
+      }
+      return
+    }
+    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks)
+  }
+
+  const prizeStyle = revealed ? (CASE_PRIZE_STYLES[revealed.id] ?? DEFAULT_CASE_PRIZE_STYLE) : null
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
+
+      <div className="relative mb-1 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400/30 to-yellow-500/20 text-amber-200">
+          <Gift size={17} />
+        </div>
+        <div className="text-base font-semibold text-white">{strings.casesSection}</div>
+      </div>
+
+      <p className="relative mb-4 text-sm text-neutral-500">{strings.casesSubtitle}</p>
+
+      <div
+        ref={viewportRef}
+        className="relative mb-4 h-[88px] overflow-hidden rounded-xl border border-white/5 bg-black/30"
+      >
+        {/* center pointer */}
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-amber-300/70 shadow-[0_0_8px_rgba(252,211,77,0.8)]" />
+        <div className="pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-amber-300" />
+        <div className="pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-amber-300" />
+
+        {reel ? (
+          <motion.div
+            key={reel.id}
+            className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center"
+            style={{ gap: CASE_ITEM_GAP }}
+            initial={{ x: 0 }}
+            animate={{ x: -reel.targetX }}
+            transition={{ duration: 8, ease: [0.12, 0.72, 0.29, 1] }}
+            onAnimationComplete={() => {
+              setIsReeling(false)
+              setRevealed(reel.result)
+              if (pendingTotalClicksRef.current !== null) {
+                syncTotalClicks(pendingTotalClicksRef.current)
+                pendingTotalClicksRef.current = null
+              }
+            }}
+          >
+            {reel.items.map((item, i) => (
+              <CasePrizeCard key={i} prize={item} locale={locale} />
+            ))}
+          </motion.div>
+        ) : (
+          <div className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center" style={{ gap: CASE_ITEM_GAP }}>
+            {idleItems.map((item, i) => (
+              <CasePrizeCard key={i} prize={item} locale={locale} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {revealed && !isReeling && prizeStyle && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85, y: -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+          className="relative mb-4 flex flex-col items-center gap-1 rounded-xl border py-4"
+          style={{
+            borderColor: `${prizeStyle.color}55`,
+            backgroundColor: `${prizeStyle.color}14`,
+            boxShadow: `0 0 24px ${prizeStyle.glow}`,
+          }}
+        >
+          <span
+            className="text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: prizeStyle.color }}
+          >
+            {strings.casePrizeNames[revealed.id] ?? revealed.id}
+          </span>
+          <span
+            className="flex items-center gap-1.5 text-2xl font-bold"
+            style={{ color: prizeStyle.color, textShadow: `0 0 20px ${prizeStyle.glow}` }}
+          >
+            <MousePointerClick size={20} />
+            {strings.youWon(revealed.amount.toLocaleString(locale))}
+          </span>
+        </motion.div>
+      )}
+
+      <div className="relative grid grid-cols-2 gap-2">
+        <button
+          onClick={handleOpen}
+          disabled={freeDisabled}
+          aria-label={strings.openCase}
+          className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+            isOnCooldown
+              ? 'bg-white/70 text-neutral-900'
+              : freeDisabled
+                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                : 'bg-white text-neutral-900 hover:opacity-90'
+          }`}
+        >
+          {isOnCooldown ? (
+            formatCountdown(cooldownSecondsLeft)
+          ) : (
+            <ClickPriceTag cost={cost} locale={locale} costLabel={strings.costLabel} />
+          )}
+        </button>
+
+        <button
+          onClick={handleBuyMoney}
+          disabled={moneyDisabled}
+          aria-label={strings.openCaseMoney}
+          className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+            moneyDisabled
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+              : 'bg-white text-neutral-900 hover:opacity-90'
+          }`}
+        >
+          {isBuyingMoney ? (
+            <Loader2 size={16} className="mx-auto animate-spin" />
+          ) : moneyPrice ? (
+            <MoneyPriceTag price={moneyPrice} />
+          ) : (
+            '···'
+          )}
+        </button>
+      </div>
+
+      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
     </div>
   )
 }
