@@ -106,6 +106,7 @@ interface StoreStrings {
   notEnoughClicks: string
   lootSection: string
   casesSection: string
+  casesSubtitle: string
   openCase: string
   openCaseMoney: string
   openCaseGems: string
@@ -1420,7 +1421,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
       <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-red-500/10 blur-2xl" />
 
-      <div className="relative mb-6 flex items-center gap-2">
+      <div className="relative mb-1 flex items-center gap-2">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400/30 to-rose-500/20 text-red-200">
           <Gift size={17} />
         </div>
@@ -1443,6 +1444,8 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
               : strings.claimDailyKey}
         </button>
       </div>
+
+      <p className="relative mb-6 text-sm text-neutral-500">{strings.casesSubtitle}</p>
 
       <div className="relative mb-6 grid grid-cols-2 gap-3">
         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
