@@ -6,6 +6,10 @@
 export interface CasePrizeStyle {
   color: string
   glow: string
+  /** Scales the glow's blur radius — opacity alone caps out at 1, so rarer
+   *  tiers that need to read as noticeably brighter lean on a bigger halo
+   *  too. Defaults to 1 (the box-shadow's base 14px/10px radii). */
+  glowSize?: number
 }
 
 export const CASE_PRIZE_STYLES: Record<string, CasePrizeStyle> = {
@@ -19,9 +23,9 @@ export const CASE_PRIZE_STYLES: Record<string, CasePrizeStyle> = {
   // same indigo hue for all three so they read as one family, just glowing
   // a little brighter the rarer (i.e. the more gems) the pull.
   gem_1: { color: '#818cf8', glow: 'rgba(129,140,248,0.55)' },
-  gem_2: { color: '#818cf8', glow: 'rgba(129,140,248,0.65)' },
-  gem_3: { color: '#818cf8', glow: 'rgba(129,140,248,0.7)' },
-  gem_5: { color: '#818cf8', glow: 'rgba(129,140,248,0.9)' },
+  gem_2: { color: '#818cf8', glow: 'rgba(129,140,248,0.65)', glowSize: 1.2 },
+  gem_3: { color: '#818cf8', glow: 'rgba(129,140,248,0.8)', glowSize: 1.4 },
+  gem_5: { color: '#818cf8', glow: 'rgba(129,140,248,0.9)', glowSize: 1.5 },
 }
 
 export const DEFAULT_CASE_PRIZE_STYLE: CasePrizeStyle = {

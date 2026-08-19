@@ -915,6 +915,7 @@ interface CasePrizeCardProps {
 
 function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
   const style = CASE_PRIZE_STYLES[prize.id] ?? DEFAULT_CASE_PRIZE_STYLE
+  const glowSize = style.glowSize ?? 1
   return (
     <div
       className="flex shrink-0 flex-col items-center justify-center rounded-lg border text-center"
@@ -923,7 +924,7 @@ function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
         height: CASE_ITEM_WIDTH,
         borderColor: `${style.color}55`,
         backgroundColor: `${style.color}14`,
-        boxShadow: `0 0 14px ${style.glow} inset, 0 0 10px ${style.glow}`,
+        boxShadow: `0 0 ${14 * glowSize}px ${style.glow} inset, 0 0 ${10 * glowSize}px ${style.glow}`,
       }}
     >
       {prize.currency === 'gems' ? (
