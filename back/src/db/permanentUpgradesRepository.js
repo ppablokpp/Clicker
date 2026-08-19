@@ -65,4 +65,49 @@ export const permanentUpgradesRepository = {
       [userId, upgradeId],
     )
   },
+
+  // Same sequential-tier rules as buy(), but spends gems instead of clicks.
+  async buyWithGems(userId, upgradeId, cost, requiredPreviousId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const owned = await client.query(
+        'SELECT upgrade_id FROM user_permanent_upgrades WHERE user_id = $1',
+        [userId],
+      )
+      const ownedIds = new Set(owned.rows.map((row) => row.upgrade_id))
+
+      if (ownedIds.has(upgradeId)) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-owned' }
+      }
+      if (requiredPreviousId && !ownedIds.has(requiredPreviousId)) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'previous-tier-required' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET gems = gems - $2, updated_at = now() WHERE id = $1 AND gems >= $2 RETURNING gems',
+        [userId, cost],
+      )
+      if (spent.rowCount === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-gems' }
+      }
+
+      await client.query(
+        'INSERT INTO user_permanent_upgrades (user_id, upgrade_id) VALUES ($1, $2)',
+        [userId, upgradeId],
+      )
+
+      await client.query('COMMIT')
+      return { ok: true, gems: Number(spent.rows[0].gems) }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
 }

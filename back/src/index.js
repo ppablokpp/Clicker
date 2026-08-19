@@ -12,7 +12,9 @@ import { upgradesRouter } from './routes/upgrades.js'
 import { milestonesRouter } from './routes/milestones.js'
 import { dailyCaseRouter } from './routes/dailyCase.js'
 import { moneyCaseRouter } from './routes/moneyCase.js'
+import { gemCaseRouter } from './routes/gemCase.js'
 import { moneyUpgradesRouter } from './routes/moneyUpgrades.js'
+import { gemUpgradesRouter } from './routes/gemUpgrades.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -49,7 +51,9 @@ app.use('/api/upgrades', upgradesRouter)
 app.use('/api/milestones', milestonesRouter)
 app.use('/api/daily-case', dailyCaseRouter)
 app.use('/api/money-case', moneyCaseRouter)
+app.use('/api/gem-case', gemCaseRouter)
 app.use('/api/money-upgrades', moneyUpgradesRouter)
+app.use('/api/gem-upgrades', gemUpgradesRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.
 

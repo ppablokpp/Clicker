@@ -47,6 +47,9 @@ export interface TranslationStrings {
     casesSubtitle: string
     openCase: string
     openCaseMoney: string
+    openCaseGems: string
+    notEnoughGems: string
+    notEnoughKeys: string
     opening: string
     youWon: (amount: string) => string
     youWonGems: (amount: string) => string
@@ -139,6 +142,9 @@ export const translations: Record<Language, TranslationStrings> = {
       casesSubtitle: 'Prueba tu suerte y gana clicks.',
       openCase: 'Abrir cofre',
       openCaseMoney: 'Comprar cofre',
+      openCaseGems: 'Abrir con gemas',
+      notEnoughGems: 'Te faltan gemas',
+      notEnoughKeys: 'Te falta una llave',
       opening: 'Abriendo…',
       youWon: (amount) => `+${amount} clicks`,
       youWonGems: (amount) => `+${amount} gemas`,
@@ -295,6 +301,9 @@ export const translations: Record<Language, TranslationStrings> = {
       casesSubtitle: 'Try your luck and win clicks.',
       openCase: 'Open case',
       openCaseMoney: 'Buy case',
+      openCaseGems: 'Open with gems',
+      notEnoughGems: "You're short on gems",
+      notEnoughKeys: 'You need a key',
       opening: 'Opening…',
       youWon: (amount) => `+${amount} clicks`,
       youWonGems: (amount) => `+${amount} gems`,

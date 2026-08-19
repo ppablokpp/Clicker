@@ -1,10 +1,18 @@
 /**
- * Free daily loot case — same weighted-prize idea as the CS:GO-style case
- * opening UI, but real: costs clicks, once per calendar day, the prize is
- * rolled here on the server (never trust the client for that) and its
- * amount is added straight to the user's total.
+ * Free loot case — same weighted-prize idea as the CS:GO-style case opening
+ * UI, but real: costs clicks and a key (no daily cooldown — repeatable as
+ * long as you have both), the prize is rolled here on the server (never
+ * trust the client for that) and its amount is added straight to the
+ * user's total.
  */
 export const DAILY_CASE_COST = 10_000
+export const DAILY_CASE_KEY_COST = 1
+
+// Gem-paid case: no cooldown (repeatable, like the old RevenueCat one was),
+// costs a single gem — mirrors the $0.99 = 1 gem anchor price from the
+// (not yet built) gem pack purchases, so opening one case still "costs"
+// roughly what it used to before gems existed.
+export const GEM_CASE_COST = 1
 
 // Weighted so the average payout lands around 7,900 clicks (cost is 10,000
 // — still a net loss on average, just a gentler one than before). Rescaled

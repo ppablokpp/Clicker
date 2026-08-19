@@ -7,13 +7,14 @@ import { SignInModal } from './components/SignInModal'
 import { SignInPromptProvider } from './context/SignInPromptContext'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { GemsProvider } from './context/GemsContext'
+import { KeysProvider } from './context/KeysContext'
 import { PowerupProvider } from './context/PowerupContext'
 import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
 import { UpgradesProvider } from './context/UpgradesContext'
 import { MilestonesProvider } from './context/MilestonesContext'
-import { MoneyUpgradesProvider } from './context/MoneyUpgradesContext'
+import { GemUpgradesProvider } from './context/GemUpgradesContext'
 import { DailyCaseProvider } from './context/DailyCaseContext'
-import { MoneyCaseProvider } from './context/MoneyCaseContext'
+import { GemCaseProvider } from './context/GemCaseContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
@@ -24,29 +25,31 @@ function ClickerApp() {
     <SignInPromptProvider>
       <ClickCounterProvider>
         <GemsProvider>
-          <PowerupProvider>
-            <TimedLuckPowerupProvider>
-              <MilestonesProvider>
-                <UpgradesProvider>
-                  <MoneyUpgradesProvider>
-                    <DailyCaseProvider>
-                      <MoneyCaseProvider>
-                        <Routes>
-                          <Route path="/" element={<Home />} />
-                          <Route path="/clasificacion" element={<Leaderboard />} />
-                          <Route path="/estadisticas" element={<Stats />} />
-                          <Route path="/tienda" element={<Store />} />
-                        </Routes>
-                        <Header />
-                        <BottomNavPill />
-                        <SignInModal />
-                      </MoneyCaseProvider>
-                    </DailyCaseProvider>
-                  </MoneyUpgradesProvider>
-                </UpgradesProvider>
-              </MilestonesProvider>
-            </TimedLuckPowerupProvider>
-          </PowerupProvider>
+          <KeysProvider>
+            <PowerupProvider>
+              <TimedLuckPowerupProvider>
+                <MilestonesProvider>
+                  <UpgradesProvider>
+                    <GemUpgradesProvider>
+                      <DailyCaseProvider>
+                        <GemCaseProvider>
+                          <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/clasificacion" element={<Leaderboard />} />
+                            <Route path="/estadisticas" element={<Stats />} />
+                            <Route path="/tienda" element={<Store />} />
+                          </Routes>
+                          <Header />
+                          <BottomNavPill />
+                          <SignInModal />
+                        </GemCaseProvider>
+                      </DailyCaseProvider>
+                    </GemUpgradesProvider>
+                  </UpgradesProvider>
+                </MilestonesProvider>
+              </TimedLuckPowerupProvider>
+            </PowerupProvider>
+          </KeysProvider>
         </GemsProvider>
       </ClickCounterProvider>
     </SignInPromptProvider>

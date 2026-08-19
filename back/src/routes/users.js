@@ -25,6 +25,7 @@ function toPublicUser(row) {
     avatarUrl: row.avatar_url,
     totalClicks: Number(row.total_clicks),
     gems: Number(row.gems ?? 0),
+    keys: Number(row.keys ?? 0),
     bestCps: Number(row.best_cps),
     currentStreak: row.current_streak,
     longestStreak: row.longest_streak,
@@ -47,7 +48,6 @@ function toPublicUser(row) {
       : null,
     powerupCooldownUntil: isPowerupOnCooldown ? row.powerup_cooldown_until : null,
     luckPowerupCooldownUntil: isLuckPowerupOnCooldown ? row.luck_powerup_cooldown_until : null,
-    dailyCaseAvailable: !row.spun_case_today,
   }
 }
 

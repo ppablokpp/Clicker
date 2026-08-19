@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext } from '../context/TimedLuckPowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
-import { useMoneyUpgradesContext } from '../context/MoneyUpgradesContext'
+import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 
@@ -118,7 +118,7 @@ export function Home() {
   const { active: activePowerup, secondsLeft } = usePowerupContext()
   const { active: activeLuckPowerup, secondsLeft: luckSecondsLeft } = useTimedLuckPowerupContext()
   const { bestOwned } = useUpgradesContext()
-  const { bestOwned: bestMoneyOwned } = useMoneyUpgradesContext()
+  const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [showPrestigeComingSoon, setShowPrestigeComingSoon] = useState(false)

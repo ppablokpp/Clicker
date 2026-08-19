@@ -29,22 +29,14 @@ export const usersRepository = {
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
-                 milestone_bonus_multiplier, created_at, cases_opened, gems,
-                 (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_case_today`,
+                 milestone_bonus_multiplier, created_at, cases_opened, gems, keys`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]
   },
 
-  // The "already opened today" flag is computed in SQL against CURRENT_DATE
-  // rather than in JS — comparing a DATE column's parsed value against
-  // "today" in JS risks a timezone mismatch with what the DB considers today.
   async getById(id) {
-    const result = await database.query(
-      `SELECT *, (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_case_today
-       FROM users WHERE id = $1`,
-      [id],
-    )
+    const result = await database.query('SELECT * FROM users WHERE id = $1', [id])
     return result.rows[0] ?? null
   },
 
@@ -167,27 +159,24 @@ export const usersRepository = {
     }
   },
 
-  // Free daily case: once per calendar day, costs clicks, the prize gets
-  // added back in the same update — to total_clicks or to gems depending on
-  // `prize.currency`. `prize` is decided by the caller (route) via the
-  // server-side weighted roll — never by the client.
+  // Free case: costs clicks AND a key, repeatable infinitely (no daily
+  // cooldown — the key itself is what limits how often this can happen).
+  // The prize gets added back in the same update — to total_clicks or to
+  // gems depending on `prize.currency`. `prize` is decided by the caller
+  // (route) via the server-side weighted roll — never by the client.
   async spinDailyCase(id, cost, prize) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query(
-        `SELECT total_clicks, (last_case_spin_date IS NOT NULL AND last_case_spin_date = CURRENT_DATE) AS spun_today
-         FROM users WHERE id = $1 FOR UPDATE`,
-        [id],
-      )
+      const row = await client.query('SELECT total_clicks, keys FROM users WHERE id = $1 FOR UPDATE', [id])
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
-      if (user.spun_today) {
+      if (Number(user.keys) < 1) {
         await client.query('ROLLBACK')
-        return { ok: false, reason: 'cooldown' }
+        return { ok: false, reason: 'not-enough-keys' }
       }
       if (Number(user.total_clicks) < cost) {
         await client.query('ROLLBACK')
@@ -199,11 +188,11 @@ export const usersRepository = {
         `UPDATE users
          SET total_clicks = total_clicks - $2 + $3,
              gems = gems + $4,
-             last_case_spin_date = CURRENT_DATE,
+             keys = keys - 1,
              cases_opened = cases_opened + 1,
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, gems`,
+         RETURNING total_clicks, gems, keys`,
         [id, cost, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0],
       )
       await client.query('COMMIT')
@@ -211,6 +200,7 @@ export const usersRepository = {
         ok: true,
         totalClicks: Number(updated.rows[0].total_clicks),
         gems: Number(updated.rows[0].gems),
+        keys: Number(updated.rows[0].keys),
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -252,6 +242,48 @@ export const usersRepository = {
          WHERE id = $1
          RETURNING total_clicks, gems`,
         [id, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0],
+      )
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        gems: Number(updated.rows[0].gems),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Gem-paid case: no RevenueCat involved, no cooldown — just spends the
+  // player's own gems (already won from other cases) for another roll.
+  async spendGemsForCase(id, cost, prize) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [id])
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.gems) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-gems' }
+      }
+
+      const isGemPrize = prize.currency === 'gems'
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks + $2,
+             gems = gems - $3 + $4,
+             cases_opened = cases_opened + 1,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, gems`,
+        [id, isGemPrize ? 0 : prize.amount, cost, isGemPrize ? prize.amount : 0],
       )
       await client.query('COMMIT')
       return {

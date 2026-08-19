@@ -1,12 +1,12 @@
 import { Router } from 'express'
 import { getAuth } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
-import { CASE_PRIZES, DAILY_CASE_COST, pickWeightedPrize } from '../store/dailyCase.js'
+import { CASE_PRIZES, DAILY_CASE_COST, DAILY_CASE_KEY_COST, pickWeightedPrize } from '../store/dailyCase.js'
 
 export const dailyCaseRouter = Router()
 
 dailyCaseRouter.get('/', (_req, res) => {
-  res.json({ cost: DAILY_CASE_COST, prizes: CASE_PRIZES })
+  res.json({ cost: DAILY_CASE_COST, keyCost: DAILY_CASE_KEY_COST, prizes: CASE_PRIZES })
 })
 
 // The prize is rolled here, server-side, right before spending the cost —
@@ -19,13 +19,14 @@ dailyCaseRouter.post('/spin', async (req, res) => {
   const prize = pickWeightedPrize()
   const result = await usersRepository.spinDailyCase(userId, DAILY_CASE_COST, prize)
   if (!result.ok) {
-    if (result.reason === 'cooldown') return res.status(400).json({ error: 'cooldown' })
+    if (result.reason === 'not-enough-keys') return res.status(400).json({ error: 'not-enough-keys' })
     return res.status(400).json({ error: 'Not enough clicks' })
   }
 
   res.json({
     totalClicks: result.totalClicks,
     gems: result.gems,
+    keys: result.keys,
     prizeId: prize.id,
     prizeAmount: prize.amount,
     prizeCurrency: prize.currency,

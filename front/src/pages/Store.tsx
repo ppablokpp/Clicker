@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Rocket, Dices, Clock, MousePointerClick, Gift, Loader2, List, X, Gem } from 'lucide-react'
+import { Rocket, Dices, Clock, MousePointerClick, Gift, Loader2, List, X, Gem, Key } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
-import { useMoneyUpgradesContext, type MoneyUpgradeDef } from '../context/MoneyUpgradesContext'
+import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
-import { useMoneyCaseContext } from '../context/MoneyCaseContext'
+import { useGemCaseContext } from '../context/GemCaseContext'
 import { useGemsContext } from '../context/GemsContext'
+import { useKeysContext } from '../context/KeysContext'
 import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import { playCaseReveal, playCaseTick } from '../lib/caseSound'
@@ -19,6 +20,7 @@ export function Store() {
   const { language, strings } = useLanguage()
   const { totalClicks } = useClickCounterContext()
   const { gems } = useGemsContext()
+  const { keys } = useKeysContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
 
   return (
@@ -30,8 +32,13 @@ export function Store() {
               {strings.store.title}
             </h1>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300">
-                {totalClicks.toLocaleString(locale)} {strings.store.costLabel}
+              <span className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300">
+                <MousePointerClick size={12} className="opacity-70" />
+                {totalClicks.toLocaleString(locale)}
+              </span>
+              <span className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-amber-200">
+                <Key size={12} className="opacity-80" />
+                {keys.toLocaleString(locale)}
               </span>
               <span className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-indigo-200">
                 <Gem size={12} className="opacity-80" />
@@ -50,7 +57,7 @@ export function Store() {
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.upgradesSection}</h2>
           <div className="flex flex-col gap-3">
-            <MoneyUpgradeLadder strings={strings.store} />
+            <GemUpgradeLadder strings={strings.store} />
             <UpgradeLadder locale={locale} totalClicks={totalClicks} strings={strings.store} />
           </div>
         </section>
@@ -79,6 +86,9 @@ interface StoreStrings {
   casesSubtitle: string
   openCase: string
   openCaseMoney: string
+  openCaseGems: string
+  notEnoughGems: string
+  notEnoughKeys: string
   opening: string
   youWon: (amount: string) => string
   youWonGems: (amount: string) => string
@@ -116,22 +126,14 @@ function ClickPriceTag({ cost, locale, costLabel }: { cost: number; locale: stri
   )
 }
 
-/** Same idea as ClickPriceTag but for a real-money price string from RevenueCat. */
-function MoneyPriceTag({ price }: { price: string }) {
-  return <span className="text-base font-bold tabular-nums">{price}</span>
-}
-
-// Cooldowns here can span up to a full day (unlike the 1h powerup cooldowns),
-// so this needs an hours segment where TierTile's mm:ss didn't.
-function formatCountdown(totalSeconds: number): string {
-  const s = Math.max(0, totalSeconds)
-  const hours = Math.floor(s / 3600)
-  const minutes = Math.floor((s % 3600) / 60)
-  const seconds = s % 60
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-  }
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
+/** Same idea as ClickPriceTag but priced in gems instead of clicks. */
+function GemPriceTag({ cost }: { cost: number }) {
+  return (
+    <span className="flex items-center justify-center gap-1.5">
+      <Gem size={14} className="opacity-80" />
+      <span className="text-base font-bold tabular-nums">{cost}</span>
+    </span>
+  )
 }
 
 interface TierTileProps {
@@ -469,35 +471,34 @@ function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
   )
 }
 
-interface MoneyUpgradeLadderProps {
+interface GemUpgradeLadderProps {
   strings: StoreStrings
 }
 
 // Same exact mechanic and layout as UpgradeLadder — small, sequential,
-// non-cumulative tiers — but bought with real money via RevenueCat instead
-// of clicks, so price comes from RevenueCat (once loaded) and there's no
-// "not enough clicks" state to show.
-// Exported (even though currently unused) so TS doesn't flag it as dead code
-// while the RevenueCat section above is commented out.
-export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
-  const { catalog, owned, bestOwned, prices, buyingId, buy } = useMoneyUpgradesContext()
+// non-cumulative tiers — but bought with gems instead of clicks (no
+// RevenueCat involved, unlike the old money version this replaced).
+function GemUpgradeLadder({ strings }: GemUpgradeLadderProps) {
+  const { catalog, owned, bestOwned, buyingId, buy } = useGemUpgradesContext()
+  const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
 
   if (catalog.length === 0) return null
 
   const ownedCount = catalog.filter((u) => owned.has(u.id)).length
-  const nextUpgrade: MoneyUpgradeDef | undefined = catalog[ownedCount]
+  const nextUpgrade: GemUpgradeDef | undefined = catalog[ownedCount]
   const isMaxed = !nextUpgrade
+  const canAfford = nextUpgrade ? gems >= nextUpgrade.cost : false
   const isBuyingThis = nextUpgrade ? buyingId === nextUpgrade.id : false
   const isBuyingAny = buyingId !== null
-  const nextPrice = nextUpgrade ? prices[nextUpgrade.id] : undefined
+  const looksDisabled = isBuyingAny || !canAfford
 
   const handleBuy = async () => {
     if (!nextUpgrade) return
     setError(null)
     const result = await buy(nextUpgrade)
-    if (!result.ok && result.error !== 'cancelled' && result.error !== 'not-signed-in') {
-      setError(result.error ?? 'error')
+    if (!result.ok && result.error !== 'not-signed-in') {
+      setError(result.error === 'not-enough-gems' ? strings.notEnoughGems : strings.purchaseError)
     }
   }
 
@@ -551,26 +552,20 @@ export function MoneyUpgradeLadder({ strings }: MoneyUpgradeLadderProps) {
 
           <button
             onClick={handleBuy}
-            disabled={isBuyingAny}
+            disabled={looksDisabled}
             aria-label={strings.upgradeCta}
             className={`relative w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-              isBuyingAny
+              looksDisabled
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'bg-white text-neutral-900 hover:opacity-90'
+                : 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
             }`}
           >
-            {isBuyingThis ? (
-              strings.buying
-            ) : nextPrice ? (
-              <MoneyPriceTag price={nextPrice} />
-            ) : (
-              strings.upgradeCta
-            )}
+            {isBuyingThis ? strings.buying : <GemPriceTag cost={nextUpgrade.cost} />}
           </button>
         </>
       )}
 
-      {error && <p className="relative mt-2 text-xs text-red-400">{strings.purchaseError}</p>}
+      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
     </div>
   )
 }
@@ -638,16 +633,18 @@ interface CaseOpeningCardProps {
 // with that prize fixed at CASE_LANDING_INDEX and the whole strip is
 // translated so that slot ends up centered under the pointer.
 function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps) {
-  const { catalog, cost, isAvailable, cooldownSecondsLeft, isSpinning, spin } = useDailyCaseContext()
-  const { price: moneyPrice, isBuying: isBuyingMoney, buy: buyMoneyCase } = useMoneyCaseContext()
+  const { catalog, cost, keyCost, isSpinning, spin } = useDailyCaseContext()
+  const { cost: gemCost, isOpening: isBuyingGems, open: openGemCase } = useGemCaseContext()
   const { syncTotalClicks } = useClickCounterContext()
-  const { syncGems } = useGemsContext()
+  const { gems, syncGems } = useGemsContext()
+  const { keys, syncKeys } = useKeysContext()
   const viewportRef = useRef<HTMLDivElement>(null)
   // Holds the new balance between "purchase confirmed" and "reel finished
   // spinning" — applied only once the animation reveals the prize, so the
   // header counter doesn't jump (and spoil the result) while it's still reeling.
   const pendingTotalClicksRef = useRef<number | null>(null)
   const pendingGemsRef = useRef<number | null>(null)
+  const pendingKeysRef = useRef<number | null>(null)
   // Tracks which item is currently under the center pointer so a tick only
   // fires once per item crossed, not once per animation frame.
   const lastTickIndexRef = useRef<number | null>(null)
@@ -706,16 +703,14 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
   })
 
   const canAfford = totalClicks >= cost
+  const hasKey = keys >= keyCost
+  const canAffordGems = gems >= gemCost
   const isFreeBusy = isSpinning || isReeling
-  // Not gated on isFreeBusy: the reel that plays after a *money* purchase
-  // also flips isReeling true, and the free button's cooldown must keep
-  // showing the timer through that shared animation, not fall back to the price.
-  const isOnCooldown = !isAvailable
-  // Only one reel can spin at a time, so buying the money case also locks
+  // Only one reel can spin at a time, so opening the gem case also locks
   // out the free button (and vice versa) while either purchase resolves.
-  const isBusyOverall = isFreeBusy || isBuyingMoney
-  const freeDisabled = isBusyOverall || !isAvailable || catalog.length === 0 || !canAfford
-  const moneyDisabled = isBusyOverall || catalog.length === 0 || !moneyPrice
+  const isBusyOverall = isFreeBusy || isBuyingGems
+  const freeDisabled = isBusyOverall || catalog.length === 0 || !canAfford || !hasKey
+  const gemDisabled = isBusyOverall || catalog.length === 0 || gemCost === 0 || !canAffordGems
 
   const resolveWin = (
     prizeId: string,
@@ -723,6 +718,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     newTotalClicks?: number,
     newGems?: number,
     prizeCurrency?: 'clicks' | 'gems',
+    newKeys?: number,
   ) => {
     const won = catalog.find((p) => p.id === prizeId) ?? {
       id: prizeId,
@@ -738,6 +734,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
 
     pendingTotalClicksRef.current = typeof newTotalClicks === 'number' ? newTotalClicks : null
     pendingGemsRef.current = typeof newGems === 'number' ? newGems : null
+    pendingKeysRef.current = typeof newKeys === 'number' ? newKeys : null
     lastTickIndexRef.current = null
     setRevealed(null)
     setIsReeling(true)
@@ -749,18 +746,28 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     setError(null)
     const result = await spin()
     if (!result.ok || !result.prizeId) {
-      if (result.error && result.error !== 'not-signed-in') setError(result.error)
+      if (result.error === 'not-enough-keys') setError(strings.notEnoughKeys)
+      else if (result.error && result.error !== 'not-signed-in') setError(result.error)
       return
     }
-    resolveWin(result.prizeId, result.prizeAmount ?? 0, result.totalClicks, result.gems, result.prizeCurrency)
+    resolveWin(
+      result.prizeId,
+      result.prizeAmount ?? 0,
+      result.totalClicks,
+      result.gems,
+      result.prizeCurrency,
+      result.keys,
+    )
   }
 
-  const handleBuyMoney = async () => {
-    if (moneyDisabled) return
+  const handleOpenGemCase = async () => {
+    if (gemDisabled) return
     setError(null)
-    const result = await buyMoneyCase()
+    const result = await openGemCase()
     if (!result.ok || !result.prizeId) {
-      if (result.error && result.error !== 'not-signed-in' && result.error !== 'cancelled') {
+      if (result.error === 'not-enough-gems') {
+        setError(strings.notEnoughGems)
+      } else if (result.error && result.error !== 'not-signed-in') {
         setError(strings.purchaseError)
       }
       return
@@ -830,6 +837,10 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
                 syncGems(pendingGemsRef.current)
                 pendingGemsRef.current = null
               }
+              if (pendingKeysRef.current !== null) {
+                syncKeys(pendingKeysRef.current)
+                pendingKeysRef.current = null
+              }
             }}
           >
             {reel.items.map((item, i) => (
@@ -887,37 +898,30 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           disabled={freeDisabled}
           aria-label={strings.openCase}
           className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-            isOnCooldown
-              ? 'bg-white/70 text-neutral-900'
-              : freeDisabled
-                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'bg-white text-neutral-900 hover:opacity-90'
-          }`}
-        >
-          {isOnCooldown ? (
-            formatCountdown(cooldownSecondsLeft)
-          ) : (
-            <ClickPriceTag cost={cost} locale={locale} costLabel={strings.costLabel} />
-          )}
-        </button>
-
-        <button
-          onClick={handleBuyMoney}
-          disabled={moneyDisabled}
-          aria-label={strings.openCaseMoney}
-          className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-            moneyDisabled
+            freeDisabled
               ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
               : 'bg-white text-neutral-900 hover:opacity-90'
           }`}
         >
-          {isBuyingMoney ? (
-            <Loader2 size={16} className="mx-auto animate-spin" />
-          ) : moneyPrice ? (
-            <MoneyPriceTag price={moneyPrice} />
-          ) : (
-            '···'
-          )}
+          <span className="flex items-center justify-center gap-1.5">
+            <MousePointerClick size={14} className="opacity-70" />
+            <span className="text-base font-bold tabular-nums">{cost.toLocaleString(locale)}</span>
+            <Key size={13} className="ml-7 opacity-70" />
+            <span className="text-base font-bold tabular-nums">{keyCost}</span>
+          </span>
+        </button>
+
+        <button
+          onClick={handleOpenGemCase}
+          disabled={gemDisabled}
+          aria-label={strings.openCaseGems}
+          className={`w-full rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+            gemDisabled
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+              : 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
+          }`}
+        >
+          {isBuyingGems ? <Loader2 size={16} className="mx-auto animate-spin" /> : <GemPriceTag cost={gemCost} />}
         </button>
       </div>
 
