@@ -489,7 +489,7 @@ export function Home() {
           onClick={() => setShowInventory(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] py-6 pl-6 pr-2 shadow-2xl shadow-black/50"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -500,14 +500,14 @@ export function Home() {
               <X size={16} />
             </button>
 
-            <div className="mb-4 flex shrink-0 items-center gap-2">
+            <div className="mb-4 flex shrink-0 items-center gap-2 pr-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-sky-500/20 text-cyan-200">
                 <Backpack size={17} />
               </div>
               <p className="text-sm font-semibold text-white">{strings.home.inventoryTitle}</p>
             </div>
 
-            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto pr-4">
             <div className="flex flex-col gap-4">
               {(ownedClickChests > 0 || ownedGemChests > 0) && (
                 <div>
