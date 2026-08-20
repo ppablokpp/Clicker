@@ -121,6 +121,12 @@ export interface TranslationStrings {
       gold: string
       platinum: string
     }
+    milestoneDescriptions: {
+      totalClicks: (amount: string) => string
+      bestCps: (amount: string) => string
+      longestStreak: (amount: string) => string
+      casesOpened: (amount: string) => string
+    }
   }
 }
 
@@ -322,6 +328,12 @@ export const translations: Record<Language, TranslationStrings> = {
         gold: 'Oro',
         platinum: 'Platino',
       },
+      milestoneDescriptions: {
+        totalClicks: (amount) => `Haz ${amount} clicks`,
+        bestCps: (amount) => `Alcanza ${amount} c/s`,
+        longestStreak: (amount) => `Clica ${amount} días seguidos`,
+        casesOpened: (amount) => `Abre ${amount} cofres`,
+      },
     },
   },
   en: {
@@ -520,6 +532,12 @@ export const translations: Record<Language, TranslationStrings> = {
         silver: 'Silver',
         gold: 'Gold',
         platinum: 'Platinum',
+      },
+      milestoneDescriptions: {
+        totalClicks: (amount) => `Make ${amount} clicks`,
+        bestCps: (amount) => `Reach ${amount} c/s`,
+        longestStreak: (amount) => `Click ${amount} days in a row`,
+        casesOpened: (amount) => `Open ${amount} chests`,
       },
     },
   },

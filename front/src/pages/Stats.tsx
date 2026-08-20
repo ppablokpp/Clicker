@@ -178,7 +178,12 @@ export function Stats() {
                 key={key}
                 className="flex flex-col items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-5 text-center"
               >
-                <div className="text-sm font-semibold text-neutral-200">{category.label}</div>
+                <div>
+                  <div className="text-sm font-semibold text-neutral-200">{category.label}</div>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    {strings.stats.milestoneDescriptions[key](target.toLocaleString(locale))}
+                  </p>
+                </div>
 
                 <div className="relative flex h-36 w-36 items-center justify-center">
                   {/* In progress: the same shared violet→fuchsia ring as
@@ -188,31 +193,15 @@ export function Stats() {
                   ) : (
                     <CircularProgress pct={pct} size={144} strokeWidth={8} />
                   )}
-                  {reachedTarget ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
-                      <Icon size={16} className={`mb-1 ${color}`} />
-                      <span className="text-xl font-bold tabular-nums text-white">
-                        {displayValue.toLocaleString(locale)}
-                      </span>
-                      <span className="mt-0.5 text-[10px] tabular-nums text-neutral-600">
-                        / {target.toLocaleString(locale)} {category.unit}
-                      </span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Icon size={72} className="text-neutral-700/15 blur-[1px]" />
-                      </div>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
-                        <span className="text-2xl font-bold tabular-nums text-white">
-                          {displayValue.toLocaleString(locale)}
-                        </span>
-                        <span className="mt-0.5 text-xs tabular-nums text-neutral-600">
-                          / {target.toLocaleString(locale)} {category.unit}
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
+                    <Icon size={16} className={`mb-1 ${color}`} />
+                    <span className="text-xl font-bold tabular-nums text-white">
+                      {displayValue.toLocaleString(locale)}
+                    </span>
+                    <span className="mt-0.5 text-[10px] tabular-nums text-neutral-600">
+                      / {target.toLocaleString(locale)} {category.unit}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
