@@ -13,12 +13,7 @@ import { useUpgradesContext } from '../context/UpgradesContext'
 import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
-
-interface MagnetProc {
-  id: number
-  currency: 'keys' | 'gems'
-  amount: number
-}
+import { playMagnetProc } from '../lib/caseSound'
 
 interface ClickEffect {
   id: number
@@ -27,6 +22,8 @@ interface ClickEffect {
   ripple: string
   amount: number
   isLucky: boolean
+  /** Set only for a magnet proc "click" — shows the currency icon next to the +N instead of the lucky "!". */
+  icon?: 'key' | 'gem'
 }
 
 let effectId = 0
@@ -133,34 +130,38 @@ export function Home() {
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
-  const [magnetProcs, setMagnetProcs] = useState<MagnetProc[]>([])
   const [showPrestigeComingSoon, setShowPrestigeComingSoon] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevKeysRef = useRef<number | null>(null)
   const prevGemsRef = useRef<number | null>(null)
-  // Magnet procs are rolled server-side inside the batched click flush (up
-  // to ~1s of latency, never per-click) — so instead of tying the "+1" to a
-  // specific tap, it fires whenever a flush reveals keys/gems went up while
-  // a magnet was running, attributing the gain to whichever one was active.
+  // Where the last real tap landed — a magnet proc has no coordinates of its
+  // own (it's rolled server-side inside the batched click flush, up to ~1s
+  // later), so its "+1" effect spawns from here instead, reading as just
+  // another click landing rather than a separate notification.
+  const lastPosRef = useRef({ x: 0, y: 0 })
+  const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   useEffect(() => {
     if (prevKeysRef.current !== null && keys > prevKeysRef.current && activeMagnet?.currency === 'keys') {
       const amount = keys - prevKeysRef.current
       const id = effectId++
-      setMagnetProcs((prev) => [...prev, { id, currency: 'keys', amount }])
-      window.setTimeout(() => setMagnetProcs((prev) => prev.filter((p) => p.id !== id)), 1400)
+      const { x, y } = lastPosRef.current
+      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'key' }])
+      playMagnetProc('keys')
+      window.setTimeout(() => setEffects((prev) => prev.filter((fx) => fx.id !== id)), 900)
     }
     prevKeysRef.current = keys
-  }, [keys, activeMagnet])
+  }, [keys, activeMagnet, heat.ripple])
   useEffect(() => {
     if (prevGemsRef.current !== null && gems > prevGemsRef.current && activeMagnet?.currency === 'gems') {
       const amount = gems - prevGemsRef.current
       const id = effectId++
-      setMagnetProcs((prev) => [...prev, { id, currency: 'gems', amount }])
-      window.setTimeout(() => setMagnetProcs((prev) => prev.filter((p) => p.id !== id)), 1400)
+      const { x, y } = lastPosRef.current
+      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'gem' }])
+      playMagnetProc('gems')
+      window.setTimeout(() => setEffects((prev) => prev.filter((fx) => fx.id !== id)), 900)
     }
     prevGemsRef.current = gems
-  }, [gems, activeMagnet])
-  const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
+  }, [gems, activeMagnet, heat.ripple])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
@@ -192,6 +193,7 @@ export function Home() {
       if (!rect) return
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
+      lastPosRef.current = { x, y }
 
       const luckMultiplier = hasLuck && Math.random() < luckChance ? combinedLuckMultiplier : 1
       const isLucky = luckMultiplier > 1
@@ -293,7 +295,7 @@ export function Home() {
 
         {activeMagnet && (
           <span
-            className={`relative flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-lg shadow-black/20 ${
+            className={`flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-lg shadow-black/20 ${
               activeMagnet.currency === 'keys'
                 ? 'border-amber-400/20 bg-amber-500/[0.07] text-amber-200'
                 : 'border-indigo-400/20 bg-indigo-500/[0.07] text-indigo-200'
@@ -303,24 +305,6 @@ export function Home() {
             <span className="tabular-nums">
               {Math.floor(magnetSecondsLeft / 60)}:{String(magnetSecondsLeft % 60).padStart(2, '0')}
             </span>
-
-            <AnimatePresence>
-              {magnetProcs.map((p) => (
-                <motion.span
-                  key={p.id}
-                  initial={{ opacity: 0, y: 0 }}
-                  animate={{ opacity: 1, y: -18 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 1.2, ease: 'easeOut' }}
-                  className={`pointer-events-none absolute -top-1 left-1/2 flex -translate-x-1/2 items-center gap-1 text-sm font-bold ${
-                    p.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'
-                  }`}
-                >
-                  +{p.amount}
-                  {p.currency === 'keys' ? <Key size={12} /> : <Gem size={12} />}
-                </motion.span>
-              ))}
-            </AnimatePresence>
           </span>
         )}
 
@@ -404,15 +388,21 @@ export function Home() {
               style={{ left: fx.x, top: fx.y }}
             />
             <span
-              className={`animate-float-up absolute select-none font-bold ${
+              className={`animate-float-up absolute flex select-none items-center gap-1 font-bold ${
                 fx.isLucky
                   ? 'text-2xl text-green-300 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]'
-                  : 'text-lg text-white'
+                  : fx.icon === 'key'
+                    ? 'text-lg text-amber-300'
+                    : fx.icon === 'gem'
+                      ? 'text-lg text-indigo-300'
+                      : 'text-lg text-white'
               }`}
               style={{ left: fx.x, top: fx.y }}
             >
               +{fx.amount}
               {fx.isLucky && '!'}
+              {fx.icon === 'key' && <Key size={14} />}
+              {fx.icon === 'gem' && <Gem size={14} />}
             </span>
           </div>
         ))}

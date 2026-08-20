@@ -222,3 +222,45 @@ export function playChestPurchase() {
     // Audio is a nice-to-have — never let it break the purchase flow.
   }
 }
+
+/**
+ * Quick three-note ascending sparkle — plays when a magnet powerup grants a
+ * key or a gem. Pitched slightly differently per currency (warmer/lower for
+ * keys, brighter/higher for gems) with a light shimmer via feedback delay,
+ * same trick as playCaseReveal but shorter and snappier since this can fire
+ * repeatedly during an active magnet.
+ */
+export function playMagnetProc(currency: 'keys' | 'gems') {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
+
+    const delay = audioCtx.createDelay()
+    delay.delayTime.value = 0.015
+    const feedback = audioCtx.createGain()
+    feedback.gain.value = 0.22
+    delay.connect(feedback).connect(delay)
+
+    const base = currency === 'keys' ? 880 : 1175
+    const notes = [base, base * 1.5, base * 2]
+    notes.forEach((freq, i) => {
+      const start = now + i * 0.045
+      const osc = audioCtx.createOscillator()
+      const gain = audioCtx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, start)
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.008)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22)
+      osc.connect(gain)
+      gain.connect(output)
+      gain.connect(delay)
+      osc.start(start)
+      osc.stop(start + 0.23)
+    })
+  } catch {
+    // Audio is a nice-to-have — never let it break anything.
+  }
+}
