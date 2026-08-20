@@ -329,7 +329,9 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
     const result = await buy(pack)
     if (!result.ok && result.error && result.error !== 'not-signed-in') {
       setError(result.error === 'not-enough-gems' ? strings.notEnoughGems : strings.purchaseError)
+      return
     }
+    if (result.ok) playChestPurchase()
   }
 
   return (
@@ -459,40 +461,27 @@ interface TierTileProps {
   durationSeconds: number
   cost: number
   locale: string
-  accent: 'violet' | 'green'
-  isActive: boolean
-  /** Buying any tier in this category locks all 4 for an hour. */
-  isOnCooldown: boolean
   isBuyingThis: boolean
   disabled: boolean
-  activeCountdown: string
-  cooldownCountdown: string
   buyingLabel: string
   onClick: () => void
 }
 
 // One tile = one freely-buyable tier: name, duration, and a white price
 // button — compact enough for all 4 to sit in a row like the original cards did.
+// The active/cooldown countdown itself lives once in the card's header, not
+// repeated per tile — the button just goes disabled (same muted style as
+// "can't afford it") and keeps showing its cost.
 function TierTile({
   name,
   durationSeconds,
   cost,
   locale,
-  accent,
-  isActive,
-  isOnCooldown,
   isBuyingThis,
   disabled,
-  activeCountdown,
-  cooldownCountdown,
   buyingLabel,
   onClick,
 }: TierTileProps) {
-  const activeClasses =
-    accent === 'violet'
-      ? 'border-violet-400/30 bg-violet-500/10 text-violet-200'
-      : 'border-green-400/30 bg-green-500/10 text-green-200'
-
   return (
     <div className="flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.02] p-2.5 text-center">
       <span className="text-xs font-semibold text-white">{name}</span>
@@ -505,20 +494,12 @@ function TierTile({
         disabled={disabled}
         aria-label={name}
         className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-          isActive
-            ? `border ${activeClasses}`
-            : isOnCooldown
-              ? 'bg-white/70 text-neutral-900'
-              : disabled
-                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'bg-white text-neutral-900 hover:opacity-90'
+          disabled
+            ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+            : 'bg-white text-neutral-900 hover:opacity-90'
         }`}
       >
-        {isActive ? (
-          activeCountdown
-        ) : isOnCooldown ? (
-          cooldownCountdown
-        ) : isBuyingThis ? (
+        {isBuyingThis ? (
           buyingLabel
         ) : (
           <span className="flex items-center justify-center gap-1">
@@ -553,6 +534,9 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
     if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
+  const activeCountdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
+  const cooldownCountdown = `${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
       <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-500/10 blur-2xl" />
@@ -563,8 +547,12 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
         </div>
         <div>
           <div className="text-base font-semibold text-white">{strings.powerupsCardTitle}</div>
-          {active && (
-            <div className="text-xs text-neutral-500">{strings.powerups[active.id]?.name ?? active.id}</div>
+          {active ? (
+            <div className="text-xs text-neutral-500">
+              {strings.powerups[active.id]?.name ?? active.id} · {activeCountdown}
+            </div>
+          ) : (
+            cooldownSecondsLeft > 0 && <div className="text-xs text-neutral-500">{cooldownCountdown}</div>
           )}
         </div>
       </div>
@@ -589,13 +577,8 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
               durationSeconds={powerup.durationSeconds}
               cost={powerup.cost}
               locale={locale}
-              accent="violet"
-              isActive={isActive}
-              isOnCooldown={isOnCooldown}
               isBuyingThis={isBuyingThis}
               disabled={disabled}
-              activeCountdown={`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
-              cooldownCountdown={`${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`}
               buyingLabel={strings.buying}
               onClick={() => handleBuy(powerup)}
             />
@@ -630,20 +613,25 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
     if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
+  const activeCountdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
+  const cooldownCountdown = `${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
       <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-green-500/10 blur-2xl" />
 
-      <div className="relative mb-1 flex items-center gap-2">
+      <div className="relative mb-4 flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-green-400/30 to-emerald-500/20 text-green-200">
           <Dices size={17} />
         </div>
         <div>
           <div className="text-base font-semibold text-white">{strings.timedLuckTitle}</div>
-          {active && (
+          {active ? (
             <div className="text-xs text-neutral-500">
-              {strings.timedLuckPowerups[active.id]?.name ?? active.id}
+              {strings.timedLuckPowerups[active.id]?.name ?? active.id} · {activeCountdown}
             </div>
+          ) : (
+            cooldownSecondsLeft > 0 && <div className="text-xs text-neutral-500">{cooldownCountdown}</div>
           )}
         </div>
       </div>
@@ -666,13 +654,8 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
               durationSeconds={powerup.durationSeconds}
               cost={powerup.cost}
               locale={locale}
-              accent="green"
-              isActive={isActive}
-              isOnCooldown={isOnCooldown}
               isBuyingThis={isBuyingThis}
               disabled={disabled}
-              activeCountdown={`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
-              cooldownCountdown={`${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`}
               buyingLabel={strings.buying}
               onClick={() => handleBuy(powerup)}
             />
