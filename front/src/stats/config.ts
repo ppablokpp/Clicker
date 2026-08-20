@@ -22,31 +22,38 @@ export const MILESTONE_TIER_GRADIENTS: Record<MilestoneTierKey, { from: string; 
 
 /**
  * Single place to tune the stat cards. Each category maps one stat from
- * `useUserStats()` onto a circular progress ring, plus 4 milestone
- * thresholds (bronze/silver/gold/platinum) shown as small badges below the
- * ring — clicking one re-targets the ring at that milestone.
+ * `useUserStats()` (via `statKey`) onto a circular progress ring, plus 4
+ * milestone thresholds (bronze/silver/gold/platinum) shown as small badges
+ * below the ring — clicking one re-targets the ring at that milestone.
+ * `key` drives the translation lookups (label/unit/milestone description)
+ * and stays 'totalClicks' even though `statKey` points at the unmultiplied
+ * `totalRealClicks` stat — the label ("Clicks totales") is still accurate.
  */
 export const STAT_CATEGORIES = [
   {
     key: 'totalClicks' as const,
+    statKey: 'totalRealClicks' as const,
     icon: MousePointerClick,
     color: 'text-violet-300',
-    milestones: [50_000, 250_000, 500_000, 1_000_000],
+    milestones: [10_000, 25_000, 50_000, 100_000],
   },
   {
     key: 'bestCps' as const,
+    statKey: 'bestCps' as const,
     icon: Zap,
     color: 'text-yellow-300',
     milestones: [10, 25, 50, 100],
   },
   {
     key: 'longestStreak' as const,
+    statKey: 'longestStreak' as const,
     icon: Flame,
     color: 'text-orange-400',
     milestones: [5, 15, 30, 100],
   },
   {
     key: 'casesOpened' as const,
+    statKey: 'casesOpened' as const,
     icon: Gift,
     color: 'text-red-300',
     milestones: [5, 20, 50, 100],

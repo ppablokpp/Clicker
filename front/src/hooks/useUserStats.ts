@@ -5,6 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 export interface UserStats {
   totalClicks: number
+  totalRealClicks: number
   bestCps: number
   currentStreak: number
   longestStreak: number
@@ -13,6 +14,7 @@ export interface UserStats {
 
 const EMPTY_STATS: UserStats = {
   totalClicks: 0,
+  totalRealClicks: 0,
   bestCps: 0,
   currentStreak: 0,
   longestStreak: 0,
@@ -37,6 +39,7 @@ export function useUserStats() {
           const data = await res.json()
           setStats({
             totalClicks: data.totalClicks,
+            totalRealClicks: data.totalRealClicks,
             bestCps: data.bestCps,
             currentStreak: data.currentStreak,
             longestStreak: data.longestStreak,

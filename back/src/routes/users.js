@@ -29,6 +29,7 @@ function toPublicUser(row) {
     username: row.username,
     avatarUrl: row.avatar_url,
     totalClicks: Number(row.total_clicks),
+    totalRealClicks: Number(row.total_real_clicks ?? 0),
     gems: Number(row.gems ?? 0),
     keys: Number(row.keys ?? 0),
     ownedClickChests: Number(row.owned_click_chests ?? 0),

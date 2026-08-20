@@ -17,7 +17,7 @@ export const usersRepository = {
              username = EXCLUDED.username,
              avatar_url = EXCLUDED.avatar_url,
              updated_at = now()
-       RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
+       RETURNING id, email, username, avatar_url, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
                  milestone_bonus_multiplier, created_at, cases_opened, gems, keys,
@@ -64,16 +64,33 @@ export const usersRepository = {
   //   - day_marked runs last, selecting FROM updated purely to force it
   //     after the user upsert, so a brand-new user's very first click
   //     doesn't violate the FK before the row exists.
-  async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0) {
+  //   - total_real_clicks tracks genuine screen taps only (always +1 per
+  //     tap, regardless of multipliers/luck) — a separate stat from
+  //     total_clicks, which is the multiplied economy value. The caller
+  //     (routes/clicks.js) is responsible for capping realClicks <= amount.
+  async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0, clientDate = null, realClicks = 0) {
     const result = await database.query(
-      `WITH today_check AS (
+      `WITH effective_date AS (
+         -- The client sends its own local calendar date (e.g. UTC+2 at
+         -- 00:30 is already "tomorrow" locally while the DB server is still
+         -- on yesterday's UTC date) — trusted only within one day of the
+         -- server's own date either way, since no real timezone offset can
+         -- disagree by more than that, so a bogus value just falls back to
+         -- CURRENT_DATE instead of letting a client fake an arbitrary day.
+         SELECT CASE
+           WHEN $6::date IS NOT NULL AND $6::date BETWEEN CURRENT_DATE - 1 AND CURRENT_DATE + 1
+             THEN $6::date
+           ELSE CURRENT_DATE
+         END AS d
+       ),
+       today_check AS (
          SELECT EXISTS (
-           SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = CURRENT_DATE
+           SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = (SELECT d FROM effective_date)
          ) AS clicked_today
        ),
        yesterday_check AS (
          SELECT EXISTS (
-           SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = CURRENT_DATE - 1
+           SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = (SELECT d FROM effective_date) - 1
          ) AS clicked_yesterday
        ),
        magnet_state AS (
@@ -91,10 +108,11 @@ export const usersRepository = {
              ELSE 0 END AS gem_procs
        ),
        updated AS (
-         INSERT INTO users (id, total_clicks, best_cps, current_streak, longest_streak)
-         VALUES ($1, $2, $3, 1, 1)
+         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak)
+         VALUES ($1, $2, $7, $3, 1, 1)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
+               total_real_clicks = users.total_real_clicks + EXCLUDED.total_real_clicks,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
                keys = users.keys + (SELECT key_procs FROM magnet_procs),
                gems = users.gems + (SELECT gem_procs FROM magnet_procs),
@@ -112,18 +130,19 @@ export const usersRepository = {
                  END
                ),
                updated_at = now()
-         RETURNING total_clicks, best_cps, keys, gems
+         RETURNING total_clicks, total_real_clicks, best_cps, keys, gems
        ),
        day_marked AS (
          INSERT INTO click_days (user_id, click_date)
-         SELECT $1, CURRENT_DATE FROM updated
+         SELECT $1, (SELECT d FROM effective_date) FROM updated
          ON CONFLICT (user_id, click_date) DO NOTHING
        )
-       SELECT total_clicks, best_cps, keys, gems FROM updated`,
-      [id, amount, peakCps, amount, magnetProcChance],
+       SELECT total_clicks, total_real_clicks, best_cps, keys, gems FROM updated`,
+      [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks],
     )
     return {
       totalClicks: Number(result.rows[0].total_clicks),
+      totalRealClicks: Number(result.rows[0].total_real_clicks),
       bestCps: Number(result.rows[0].best_cps),
       keys: Number(result.rows[0].keys),
       gems: Number(result.rows[0].gems),

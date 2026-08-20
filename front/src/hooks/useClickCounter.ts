@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { toLocalDateString } from '../lib/date'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const FLUSH_INTERVAL_MS = 1000
@@ -31,6 +32,11 @@ export function useClickCounter() {
   const recentClicksRef = useRef<number[]>([])
   const confirmedRef = useRef(0)
   const pendingRef = useRef(0)
+  // Genuine screen taps only — always +1 per registerClick call, regardless
+  // of the (possibly multiplied) `amount` it's given. Drained in lockstep
+  // with pendingRef, capped per-chunk at that chunk's amountSent so it can
+  // never report more real taps than the multiplied total it rode along with.
+  const pendingRealClicksRef = useRef(0)
   const isFlushingRef = useRef(false)
   const peakCpsRef = useRef(0)
 
@@ -82,16 +88,23 @@ export function useClickCounter() {
       // shrinks on failure.
       while (pendingRef.current > 0) {
         const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
+        const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
         const res = await fetch(`${API_URL}/api/clicks/increment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ amount: amountSent, peakCps: peakCpsRef.current }),
+          body: JSON.stringify({
+            amount: amountSent,
+            realClicks: realClicksSent,
+            peakCps: peakCpsRef.current,
+            localDate: toLocalDateString(new Date()),
+          }),
           keepalive: true,
         })
         if (!res.ok) break // stays in pendingRef, retried next tick
         const data = await res.json()
         confirmedRef.current = data.totalClicks
         pendingRef.current -= amountSent
+        pendingRealClicksRef.current -= realClicksSent
         setTotalClicks(confirmedRef.current + pendingRef.current)
         if (typeof data.keys === 'number') setLatestKeys(data.keys)
         if (typeof data.gems === 'number') setLatestGems(data.gems)
@@ -123,6 +136,7 @@ export function useClickCounter() {
       if (!userId) return
       recentClicksRef.current.push(Date.now())
       pendingRef.current += amount
+      pendingRealClicksRef.current += 1
       setTotalClicks(confirmedRef.current + pendingRef.current)
     },
     [userId],

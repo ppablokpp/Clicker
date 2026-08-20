@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN total_real_clicks BIGINT NOT NULL DEFAULT 0;

@@ -33,11 +33,28 @@ clicksRouter.post('/increment', async (req, res) => {
   const rawPeakCps = Number(req.body?.peakCps) || 0
   const peakCps = Math.min(Math.max(rawPeakCps, 0), MAX_CPS)
 
+  // The client's own local calendar date, so a user's streak/click-days
+  // follow their timezone instead of the DB server's — repository clamps
+  // it to within a day of the server date, so a malformed/missing value
+  // just falls back to server time rather than erroring the request.
+  const rawLocalDate = req.body?.localDate
+  const clientDate = typeof rawLocalDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawLocalDate) ? rawLocalDate : null
+
+  // Genuine screen taps only, always <= amount since each tap contributes
+  // at least 1 to the (possibly multiplied) amount total — an invalid or
+  // missing value falls back to amount rather than erroring the request,
+  // for backward compatibility with any client that doesn't send it yet.
+  const rawRealClicks = Number(req.body?.realClicks)
+  const realClicks =
+    Number.isInteger(rawRealClicks) && rawRealClicks >= 0 && rawRealClicks <= amount ? rawRealClicks : amount
+
   const { totalClicks, keys, gems } = await usersRepository.incrementClicks(
     userId,
     amount,
     peakCps,
     MAGNET_PROC_CHANCE,
+    clientDate,
+    realClicks,
   )
   res.json({ totalClicks, keys, gems })
 })

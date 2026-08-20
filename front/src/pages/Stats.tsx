@@ -11,6 +11,7 @@ import {
   type StatCategoryKey,
 } from '../stats/config'
 import { CircularProgress } from '../components/CircularProgress'
+import { toLocalDateString } from '../lib/date'
 
 // Lowest milestone in the list that isn't reached yet — the last one if
 // every tier is already reached.
@@ -37,13 +38,6 @@ interface CalendarDay {
   isFuture: boolean
 }
 
-function toIso(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
 // Runs from a few days before the user's very first click day (or before
 // today, if they haven't clicked yet) up through today + a short future
 // padding — today itself is what the strip scrolls to on load, with the
@@ -68,7 +62,7 @@ function getCalendarDays(clickDays: Set<string>): CalendarDay[] {
   const days: CalendarDay[] = []
   const cursor = new Date(start)
   while (cursor <= end) {
-    const iso = toIso(cursor)
+    const iso = toLocalDateString(cursor)
     days.push({ iso, date: new Date(cursor), isToday: cursor.getTime() === today.getTime(), isFuture: cursor > today })
     cursor.setDate(cursor.getDate() + 1)
   }
@@ -159,8 +153,8 @@ export function Stats() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {STAT_CATEGORIES.map(({ key, icon: Icon, color, milestones }) => {
-            const value = stats[key]
+          {STAT_CATEGORIES.map(({ key, statKey, icon: Icon, color, milestones }) => {
+            const value = stats[statKey]
             const category = strings.stats.categories[key]
             const target = selectedMilestones[key] ?? defaultMilestone(milestones, value)
             const reachedTarget = value >= target

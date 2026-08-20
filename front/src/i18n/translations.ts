@@ -317,7 +317,7 @@ export const translations: Record<Language, TranslationStrings> = {
       rewardClicks: (amount) => `+${amount} clicks`,
       rewardPermanent: (mult) => `×${mult} a todos tus clicks`,
       categories: {
-        totalClicks: { label: 'Clicks totales', unit: 'clicks' },
+        totalClicks: { label: 'Clicks reales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
         longestStreak: { label: 'Racha más larga', unit: 'días' },
         casesOpened: { label: 'Cofres abiertos', unit: 'cofres' },
@@ -522,7 +522,7 @@ export const translations: Record<Language, TranslationStrings> = {
       rewardClicks: (amount) => `+${amount} clicks`,
       rewardPermanent: (mult) => `×${mult} to all your clicks`,
       categories: {
-        totalClicks: { label: 'Total clicks', unit: 'clicks' },
+        totalClicks: { label: 'Real clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },
         longestStreak: { label: 'Longest streak', unit: 'days' },
         casesOpened: { label: 'Chests opened', unit: 'chests' },
