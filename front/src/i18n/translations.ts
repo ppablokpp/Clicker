@@ -112,7 +112,14 @@ export interface TranslationStrings {
     categories: {
       totalClicks: { label: string; unit: string }
       bestCps: { label: string; unit: string }
+      longestStreak: { label: string; unit: string }
       casesOpened: { label: string; unit: string }
+    }
+    milestoneTiers: {
+      bronze: string
+      silver: string
+      gold: string
+      platinum: string
     }
   }
 }
@@ -306,7 +313,14 @@ export const translations: Record<Language, TranslationStrings> = {
       categories: {
         totalClicks: { label: 'Clicks totales', unit: 'clicks' },
         bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
+        longestStreak: { label: 'Racha más larga', unit: 'días' },
         casesOpened: { label: 'Cofres abiertos', unit: 'cofres' },
+      },
+      milestoneTiers: {
+        bronze: 'Bronce',
+        silver: 'Plata',
+        gold: 'Oro',
+        platinum: 'Platino',
       },
     },
   },
@@ -498,7 +512,14 @@ export const translations: Record<Language, TranslationStrings> = {
       categories: {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },
+        longestStreak: { label: 'Longest streak', unit: 'days' },
         casesOpened: { label: 'Chests opened', unit: 'chests' },
+      },
+      milestoneTiers: {
+        bronze: 'Bronze',
+        silver: 'Silver',
+        gold: 'Gold',
+        platinum: 'Platinum',
       },
     },
   },

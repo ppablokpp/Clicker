@@ -1,9 +1,22 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { Check, Flame } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Flame, Medal } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
 import { useClickDays } from '../hooks/useClickDays'
-import { STAT_CATEGORIES } from '../stats/config'
+import {
+  STAT_CATEGORIES,
+  MILESTONE_TIER_KEYS,
+  MILESTONE_TIER_COLORS,
+  MILESTONE_TIER_GRADIENTS,
+  type StatCategoryKey,
+} from '../stats/config'
+import { CircularProgress } from '../components/CircularProgress'
+
+// Lowest milestone in the list that isn't reached yet — the last one if
+// every tier is already reached.
+function defaultMilestone(milestones: number[], value: number): number {
+  return milestones.find((m) => value < m) ?? milestones[milestones.length - 1]
+}
 
 const DAY_CARD_WIDTH = 64
 const DAY_CARD_HEIGHT = 76
@@ -67,6 +80,10 @@ export function Stats() {
   const { stats } = useUserStats()
   const { clickDays } = useClickDays()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
+  // Manual milestone pick per category — undefined means "follow the
+  // default" (lowest not-yet-reached tier), so it keeps advancing on its
+  // own as the stat crosses each threshold until the user taps a badge.
+  const [selectedMilestones, setSelectedMilestones] = useState<Partial<Record<StatCategoryKey, number>>>({})
   const days = useMemo(() => getCalendarDays(clickDays), [clickDays])
   const monthFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short' }), [locale])
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -141,31 +158,83 @@ export function Stats() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-12">
-          {STAT_CATEGORIES.map(({ key, icon: Icon, color, max }) => {
+        <div className="grid grid-cols-2 gap-3">
+          {STAT_CATEGORIES.map(({ key, icon: Icon, color, milestones }) => {
             const value = stats[key]
             const category = strings.stats.categories[key]
-            const pct = Math.min((value / max) * 100, 100)
+            const target = selectedMilestones[key] ?? defaultMilestone(milestones, value)
+            const reachedTarget = value >= target
+            const pct = Math.min(value / target, 1)
+            const tierIndex = milestones.indexOf(target)
+            const tierKey = MILESTONE_TIER_KEYS[tierIndex]
+            const gradient = MILESTONE_TIER_GRADIENTS[tierKey]
+            // Once a tier is reached, freeze the numerator at its own
+            // threshold (e.g. "1.000 / 1.000") instead of the live stat
+            // value, which may already be well past it.
+            const displayValue = reachedTarget ? target : value
 
             return (
-              <section key={key}>
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon size={16} className={color} />
-                    <span className="text-sm font-semibold text-neutral-200">{category.label}</span>
-                  </div>
-                  <span className="text-xs font-medium tabular-nums text-neutral-500">
-                    {value.toLocaleString(locale)} / {max.toLocaleString(locale)} {category.unit}
-                  </span>
+              <div
+                key={key}
+                className="flex flex-col items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-5 text-center"
+              >
+                <div className="text-sm font-semibold text-neutral-200">{category.label}</div>
+
+                <div className="relative flex h-36 w-36 items-center justify-center">
+                  {/* In progress: the same shared violet→fuchsia ring as
+                      always. Completed: recolor it to the reached tier. */}
+                  {reachedTarget ? (
+                    <CircularProgress pct={pct} size={144} strokeWidth={8} gradientFrom={gradient.from} gradientTo={gradient.to} />
+                  ) : (
+                    <CircularProgress pct={pct} size={144} strokeWidth={8} />
+                  )}
+                  {reachedTarget ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
+                      <Icon size={16} className={`mb-1 ${color}`} />
+                      <span className="text-xl font-bold tabular-nums text-white">
+                        {displayValue.toLocaleString(locale)}
+                      </span>
+                      <span className="mt-0.5 text-[10px] tabular-nums text-neutral-600">
+                        / {target.toLocaleString(locale)} {category.unit}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Icon size={72} className="text-neutral-700/15 blur-[1px]" />
+                      </div>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
+                        <span className="text-2xl font-bold tabular-nums text-white">
+                          {displayValue.toLocaleString(locale)}
+                        </span>
+                        <span className="mt-0.5 text-xs tabular-nums text-neutral-600">
+                          / {target.toLocaleString(locale)} {category.unit}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="relative h-1.5 w-full rounded-full bg-white/5">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400 transition-all duration-500"
-                    style={{ width: `${pct}%` }}
-                  />
+                <div className="flex items-center gap-2">
+                  {milestones.map((milestone, tierIndex) => {
+                    const tierKey = MILESTONE_TIER_KEYS[tierIndex]
+                    const reached = value >= milestone
+                    const isSelected = target === milestone
+                    return (
+                      <button
+                        key={milestone}
+                        onClick={() => setSelectedMilestones((prev) => ({ ...prev, [key]: milestone }))}
+                        aria-label={`${strings.stats.milestoneTiers[tierKey]} · ${milestone.toLocaleString(locale)} ${category.unit}`}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                          isSelected ? 'border-white/40 bg-white/10' : 'border-white/5 bg-white/[0.02]'
+                        }`}
+                      >
+                        <Medal size={14} className={reached ? MILESTONE_TIER_COLORS[tierKey] : 'text-neutral-700'} />
+                      </button>
+                    )
+                  })}
                 </div>
-              </section>
+              </div>
             )
           })}
         </div>
