@@ -19,6 +19,12 @@ export interface TranslationStrings {
       unstoppable: string
       legendary: string
     }
+    inventory: string
+    inventoryTitle: string
+    openButton: string
+    activateButton: string
+    inventoryEmpty: string
+    durationLabel: (seconds: number) => string
   }
   nav: {
     home: string
@@ -41,6 +47,7 @@ export interface TranslationStrings {
     costLabel: string
     buy: string
     buying: string
+    availableIn: (time: string) => string
     active: string
     owned: string
     notEnoughClicks: string
@@ -91,7 +98,7 @@ export interface TranslationStrings {
     upgrades: Record<string, { name: string; desc: string }>
     moneyUpgrades: Record<string, { name: string; desc: string }>
     timedLuckPowerups: Record<string, { name: string; desc: string }>
-    magnets: Record<string, { name: string }>
+    magnets: Record<string, { name: string; desc: string }>
   }
   stats: {
     streakUnit: string
@@ -130,6 +137,12 @@ export const translations: Record<Language, TranslationStrings> = {
         unstoppable: 'Imparable',
         legendary: 'Legendario',
       },
+      inventory: 'Inventario',
+      inventoryTitle: 'Inventario',
+      openButton: 'Abrir',
+      activateButton: 'Activar',
+      inventoryEmpty: 'Aquí se guardan tus objetos. Cuando consigas alguno, aparecerá aquí.',
+      durationLabel: (seconds) => `Dura ${seconds}s`,
     },
     nav: {
       home: 'Inicio',
@@ -152,6 +165,7 @@ export const translations: Record<Language, TranslationStrings> = {
       costLabel: 'clicks',
       buy: 'Comprar',
       buying: 'Comprando…',
+      availableIn: (time) => `Disponible en ${time}`,
       active: 'Activo',
       owned: 'Comprado',
       notEnoughClicks: 'Te faltan clicks',
@@ -205,7 +219,7 @@ export const translations: Record<Language, TranslationStrings> = {
       infinity: '∞',
       moneyUpgradesTitle: 'Multiplicador premium',
       purchaseError: 'No se pudo completar la compra. Inténtalo de nuevo.',
-      timedLuckTitle: 'Suerte relámpago',
+      timedLuckTitle: 'Suerte',
       timedLuckSubtitle: 'Multiplica tu Suerte permanente mientras esté activa.',
       magnetsTitle: 'Imanes',
       magnetsSubtitle: 'Mientras esté activo, cada click tiene una pequeña probabilidad de darte un objeto.',
@@ -270,8 +284,14 @@ export const translations: Record<Language, TranslationStrings> = {
         luck_x100: { name: 'Suerte x100', desc: '1% de probabilidad de un click x100. La más alta.' },
       },
       magnets: {
-        key_magnet: { name: 'Imán de llaves' },
-        gem_magnet: { name: 'Imán de gemas' },
+        key_magnet: {
+          name: 'Imán de llaves',
+          desc: 'Mientras esté activo, cada click tiene una pequeña probabilidad de darte una llave extra.',
+        },
+        gem_magnet: {
+          name: 'Imán de gemas',
+          desc: 'Mientras esté activo, cada click tiene una pequeña probabilidad de darte una gema extra.',
+        },
       },
     },
     stats: {
@@ -309,6 +329,12 @@ export const translations: Record<Language, TranslationStrings> = {
         unstoppable: 'Unstoppable',
         legendary: 'Legendary',
       },
+      inventory: 'Inventory',
+      inventoryTitle: 'Inventory',
+      openButton: 'Open',
+      activateButton: 'Activate',
+      inventoryEmpty: "Your items live here. Once you get one, it'll show up here.",
+      durationLabel: (seconds) => `Lasts ${seconds}s`,
     },
     nav: {
       home: 'Home',
@@ -331,14 +357,15 @@ export const translations: Record<Language, TranslationStrings> = {
       costLabel: 'clicks',
       buy: 'Buy',
       buying: 'Buying…',
+      availableIn: (time) => `Available in ${time}`,
       active: 'Active',
       owned: 'Owned',
       notEnoughClicks: "You're short on clicks",
       lootSection: 'Prizes',
-      casesSection: 'Cases',
+      casesSection: 'Chests',
       casesSubtitle: 'Buy chests to open them with keys and try your luck.',
-      openCase: 'Open case',
-      openCaseMoney: 'Buy case',
+      openCase: 'Open chest',
+      openCaseMoney: 'Buy chest',
       openCaseGems: 'Open with gems',
       notEnoughGems: "You're short on gems",
       notEnoughKeys: 'You need a key',
@@ -384,7 +411,7 @@ export const translations: Record<Language, TranslationStrings> = {
       infinity: '∞',
       moneyUpgradesTitle: 'Premium multiplier',
       purchaseError: "Couldn't complete the purchase. Please try again.",
-      timedLuckTitle: 'Lightning luck',
+      timedLuckTitle: 'Luck',
       timedLuckSubtitle: 'Multiplies your permanent Luck while active.',
       magnetsTitle: 'Magnets',
       magnetsSubtitle: 'While active, every click has a small chance of giving you an item.',
@@ -449,8 +476,14 @@ export const translations: Record<Language, TranslationStrings> = {
         luck_x100: { name: 'Luck x100', desc: '1% chance of a x100 click. The highest one.' },
       },
       magnets: {
-        key_magnet: { name: 'Key magnet' },
-        gem_magnet: { name: 'Gem magnet' },
+        key_magnet: {
+          name: 'Key magnet',
+          desc: 'While active, every click has a small chance of also granting an extra key.',
+        },
+        gem_magnet: {
+          name: 'Gem magnet',
+          desc: 'While active, every click has a small chance of also granting an extra gem.',
+        },
       },
     },
     stats: {
@@ -465,7 +498,7 @@ export const translations: Record<Language, TranslationStrings> = {
       categories: {
         totalClicks: { label: 'Total clicks', unit: 'clicks' },
         bestCps: { label: 'Peak speed', unit: 'c/s' },
-        casesOpened: { label: 'Cases opened', unit: 'cases' },
+        casesOpened: { label: 'Chests opened', unit: 'chests' },
       },
     },
   },

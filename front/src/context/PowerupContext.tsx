@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
+import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -38,7 +39,11 @@ interface PowerupContextValue {
   /** Buying any tier locks the whole category for an hour — shared across all 4. */
   cooldownSecondsLeft: number
   buyingId: string | null
+  activatingId: string | null
+  /** Just adds one to the owned count — doesn't start it running. */
   buy: (powerup: PowerupDef) => Promise<{ ok: boolean; error?: string }>
+  /** Consumes one owned unit and starts it running — fails if another tier in this category is already active. */
+  activate: (powerup: PowerupDef) => Promise<{ ok: boolean; error?: string }>
   /** For rewards granted elsewhere (e.g. a claimed milestone) that also hand out a powerup. */
   applyActivePowerup: (data: ActivePowerupInput) => void
 }
@@ -48,6 +53,7 @@ const PowerupContext = createContext<PowerupContextValue | null>(null)
 export function PowerupProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
+  const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<PowerupDef[]>([])
   const [active, setActive] = useState<ActivePowerup | null>(null)
@@ -55,6 +61,7 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
   const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
   const [buyingId, setBuyingId] = useState<string | null>(null)
+  const [activatingId, setActivatingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/powerups`)
@@ -142,12 +149,8 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ powerupId: powerup.id }),
         })
         const data = await res.json()
-        if (res.ok && data.activePowerup) {
-          setActive({
-            id: data.activePowerup.id,
-            multiplier: data.activePowerup.multiplier,
-            expiresAt: new Date(data.activePowerup.expiresAt).getTime(),
-          })
+        if (res.ok) {
+          adjustInventory(powerup.id, 1)
           if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
@@ -163,7 +166,42 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, promptSignIn],
+    [userId, getToken, syncTotalClicks, adjustInventory, promptSignIn],
+  )
+
+  const activate = useCallback(
+    async (powerup: PowerupDef) => {
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
+      setActivatingId(powerup.id)
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/api/powerups/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ powerupId: powerup.id }),
+        })
+        const data = await res.json()
+        if (res.ok && data.activePowerup) {
+          setActive({
+            id: data.activePowerup.id,
+            multiplier: data.activePowerup.multiplier,
+            expiresAt: new Date(data.activePowerup.expiresAt).getTime(),
+          })
+          adjustInventory(powerup.id, -1)
+          return { ok: true }
+        }
+        return { ok: false, error: data.error }
+      } catch (err) {
+        console.error('No se pudo activar el potenciador', err)
+        return { ok: false, error: 'network' }
+      } finally {
+        setActivatingId(null)
+      }
+    },
+    [userId, getToken, adjustInventory, promptSignIn],
   )
 
   const applyActivePowerup = useCallback((data: ActivePowerupInput) => {
@@ -172,7 +210,17 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
 
   return (
     <PowerupContext.Provider
-      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy, applyActivePowerup }}
+      value={{
+        catalog,
+        active,
+        secondsLeft,
+        cooldownSecondsLeft,
+        buyingId,
+        activatingId,
+        buy,
+        activate,
+        applyActivePowerup,
+      }}
     >
       {children}
     </PowerupContext.Provider>

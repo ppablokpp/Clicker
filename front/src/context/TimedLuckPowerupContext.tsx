@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
+import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -34,7 +35,11 @@ interface TimedLuckPowerupContextValue {
   /** Buying any tier locks the whole category for an hour — shared across all 4. */
   cooldownSecondsLeft: number
   buyingId: string | null
+  activatingId: string | null
+  /** Just adds one to the owned count — doesn't start it running. */
   buy: (powerup: TimedLuckPowerupDef) => Promise<{ ok: boolean; error?: string }>
+  /** Consumes one owned unit and starts it running — fails if another tier in this category is already active. */
+  activate: (powerup: TimedLuckPowerupDef) => Promise<{ ok: boolean; error?: string }>
 }
 
 const TimedLuckPowerupContext = createContext<TimedLuckPowerupContextValue | null>(null)
@@ -45,6 +50,7 @@ const TimedLuckPowerupContext = createContext<TimedLuckPowerupContextValue | nul
 export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
+  const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<TimedLuckPowerupDef[]>([])
   const [active, setActive] = useState<ActiveLuckPowerup | null>(null)
@@ -52,6 +58,7 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
   const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
   const [buyingId, setBuyingId] = useState<string | null>(null)
+  const [activatingId, setActivatingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/timed-luck-powerups`)
@@ -139,13 +146,8 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
           body: JSON.stringify({ powerupId: powerup.id }),
         })
         const data = await res.json()
-        if (res.ok && data.activeLuckPowerup) {
-          setActive({
-            id: data.activeLuckPowerup.id,
-            chance: data.activeLuckPowerup.chance,
-            multiplier: data.activeLuckPowerup.multiplier,
-            expiresAt: new Date(data.activeLuckPowerup.expiresAt).getTime(),
-          })
+        if (res.ok) {
+          adjustInventory(powerup.id, 1)
           if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
@@ -161,12 +163,48 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, promptSignIn],
+    [userId, getToken, syncTotalClicks, adjustInventory, promptSignIn],
+  )
+
+  const activate = useCallback(
+    async (powerup: TimedLuckPowerupDef) => {
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
+      setActivatingId(powerup.id)
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/api/timed-luck-powerups/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ powerupId: powerup.id }),
+        })
+        const data = await res.json()
+        if (res.ok && data.activeLuckPowerup) {
+          setActive({
+            id: data.activeLuckPowerup.id,
+            chance: data.activeLuckPowerup.chance,
+            multiplier: data.activeLuckPowerup.multiplier,
+            expiresAt: new Date(data.activeLuckPowerup.expiresAt).getTime(),
+          })
+          adjustInventory(powerup.id, -1)
+          return { ok: true }
+        }
+        return { ok: false, error: data.error }
+      } catch (err) {
+        console.error('No se pudo activar la suerte con temporizador', err)
+        return { ok: false, error: 'network' }
+      } finally {
+        setActivatingId(null)
+      }
+    },
+    [userId, getToken, adjustInventory, promptSignIn],
   )
 
   return (
     <TimedLuckPowerupContext.Provider
-      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy }}
+      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate }}
     >
       {children}
     </TimedLuckPowerupContext.Provider>

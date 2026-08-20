@@ -150,8 +150,11 @@ export const usersRepository = {
   // otherwise a powerup that's net-positive while actively clicking becomes
   // an infinite money printer (buy it back the instant it expires, forever).
   // Row-locked transaction so we can tell "on cooldown" apart from "can't
-  // afford it" instead of just returning null for both.
-  async buyPowerup(id, powerupId, cost, durationSeconds) {
+  // afford it" instead of just returning null for both. Buying no longer
+  // activates anything — it just adds one to the owned count in
+  // user_inventory (see activatePowerup below for the separate action that
+  // actually starts the timer, called from the inventory).
+  async buyPowerup(id, powerupId, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -176,13 +179,72 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks - $2,
-             active_powerup = $3,
-             active_powerup_expires_at = now() + make_interval(secs => $4),
              powerup_cooldown_until = now() + interval '1 hour',
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, active_powerup, active_powerup_expires_at, powerup_cooldown_until`,
-        [id, cost, powerupId, durationSeconds],
+         RETURNING total_clicks, powerup_cooldown_until`,
+        [id, cost],
+      )
+      await client.query(
+        `INSERT INTO user_inventory (user_id, item_id, quantity)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_inventory.quantity + 1`,
+        [id, powerupId],
+      )
+      await client.query('COMMIT')
+      return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Consumes one owned unit of `powerupId` from the inventory and starts it
+  // running — refuses if another click-multiplier tier is already active
+  // (only one at a time per category, same as before) or if none are owned.
+  async activatePowerup(id, powerupId, durationSeconds) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT active_powerup, active_powerup_expires_at FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const isActive =
+        user.active_powerup && user.active_powerup_expires_at && new Date(user.active_powerup_expires_at) > new Date()
+      if (isActive) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-active' }
+      }
+
+      const inv = await client.query(
+        'SELECT quantity FROM user_inventory WHERE user_id = $1 AND item_id = $2 FOR UPDATE',
+        [id, powerupId],
+      )
+      if (Number(inv.rows[0]?.quantity ?? 0) < 1) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-owned' }
+      }
+
+      await client.query(
+        'UPDATE user_inventory SET quantity = quantity - 1 WHERE user_id = $1 AND item_id = $2',
+        [id, powerupId],
+      )
+      const updated = await client.query(
+        `UPDATE users
+         SET active_powerup = $2,
+             active_powerup_expires_at = now() + make_interval(secs => $3),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING active_powerup, active_powerup_expires_at`,
+        [id, powerupId, durationSeconds],
       )
       await client.query('COMMIT')
       return { ok: true, ...updated.rows[0] }
@@ -197,8 +259,9 @@ export const usersRepository = {
   // Same cooldown-locked pattern as buyPowerup, in the separate
   // active_luck_powerup slot (and its own cooldown column) so a
   // click-multiplier powerup and a timed luck powerup can run — and be on
-  // cooldown — independently of each other.
-  async buyTimedLuckPowerup(id, powerupId, cost, durationSeconds) {
+  // cooldown — independently of each other. Buying only adds to inventory,
+  // same as buyPowerup — see activateTimedLuckPowerup for activation.
+  async buyTimedLuckPowerup(id, powerupId, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -223,13 +286,72 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks - $2,
-             active_luck_powerup = $3,
-             active_luck_powerup_expires_at = now() + make_interval(secs => $4),
              luck_powerup_cooldown_until = now() + interval '1 hour',
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, active_luck_powerup, active_luck_powerup_expires_at, luck_powerup_cooldown_until`,
-        [id, cost, powerupId, durationSeconds],
+         RETURNING total_clicks, luck_powerup_cooldown_until`,
+        [id, cost],
+      )
+      await client.query(
+        `INSERT INTO user_inventory (user_id, item_id, quantity)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_inventory.quantity + 1`,
+        [id, powerupId],
+      )
+      await client.query('COMMIT')
+      return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same idea as activatePowerup, in the active_luck_powerup slot.
+  async activateTimedLuckPowerup(id, powerupId, durationSeconds) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT active_luck_powerup, active_luck_powerup_expires_at FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const isActive =
+        user.active_luck_powerup &&
+        user.active_luck_powerup_expires_at &&
+        new Date(user.active_luck_powerup_expires_at) > new Date()
+      if (isActive) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-active' }
+      }
+
+      const inv = await client.query(
+        'SELECT quantity FROM user_inventory WHERE user_id = $1 AND item_id = $2 FOR UPDATE',
+        [id, powerupId],
+      )
+      if (Number(inv.rows[0]?.quantity ?? 0) < 1) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-owned' }
+      }
+
+      await client.query(
+        'UPDATE user_inventory SET quantity = quantity - 1 WHERE user_id = $1 AND item_id = $2',
+        [id, powerupId],
+      )
+      const updated = await client.query(
+        `UPDATE users
+         SET active_luck_powerup = $2,
+             active_luck_powerup_expires_at = now() + make_interval(secs => $3),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING active_luck_powerup, active_luck_powerup_expires_at`,
+        [id, powerupId, durationSeconds],
       )
       await client.query('COMMIT')
       return { ok: true, ...updated.rows[0] }
@@ -243,10 +365,11 @@ export const usersRepository = {
 
   // Same cooldown-locked pattern again, in its own active_magnet slot — a
   // key magnet and a gem magnet share one cooldown (buying either locks
-  // both), independent of the click-multiplier and luck-powerup slots. The
-  // actual per-click proc roll happens in incrementClicks below, not here —
-  // this just flips the flag on.
-  async buyMagnet(id, magnetId, cost, durationSeconds) {
+  // both), independent of the click-multiplier and luck-powerup slots.
+  // Buying only adds to inventory — see activateMagnet for activation. The
+  // actual per-click proc roll happens in incrementClicks above, unrelated
+  // to either of these.
+  async buyMagnet(id, magnetId, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -271,13 +394,17 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks - $2,
-             active_magnet = $3,
-             active_magnet_expires_at = now() + make_interval(secs => $4),
              magnet_cooldown_until = now() + interval '1 hour',
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, active_magnet, active_magnet_expires_at, magnet_cooldown_until`,
-        [id, cost, magnetId, durationSeconds],
+         RETURNING total_clicks, magnet_cooldown_until`,
+        [id, cost],
+      )
+      await client.query(
+        `INSERT INTO user_inventory (user_id, item_id, quantity)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_inventory.quantity + 1`,
+        [id, magnetId],
       )
       await client.query('COMMIT')
       return { ok: true, ...updated.rows[0] }
@@ -287,6 +414,70 @@ export const usersRepository = {
     } finally {
       client.release()
     }
+  },
+
+  // Same idea as activatePowerup, in the active_magnet slot.
+  async activateMagnet(id, magnetId, durationSeconds) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT active_magnet, active_magnet_expires_at FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const isActive =
+        user.active_magnet && user.active_magnet_expires_at && new Date(user.active_magnet_expires_at) > new Date()
+      if (isActive) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-active' }
+      }
+
+      const inv = await client.query(
+        'SELECT quantity FROM user_inventory WHERE user_id = $1 AND item_id = $2 FOR UPDATE',
+        [id, magnetId],
+      )
+      if (Number(inv.rows[0]?.quantity ?? 0) < 1) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-owned' }
+      }
+
+      await client.query(
+        'UPDATE user_inventory SET quantity = quantity - 1 WHERE user_id = $1 AND item_id = $2',
+        [id, magnetId],
+      )
+      const updated = await client.query(
+        `UPDATE users
+         SET active_magnet = $2,
+             active_magnet_expires_at = now() + make_interval(secs => $3),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING active_magnet, active_magnet_expires_at`,
+        [id, magnetId, durationSeconds],
+      )
+      await client.query('COMMIT')
+      return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // All owned (quantity > 0) inventory items for the "Inventory" modal —
+  // returned as a plain {itemId: quantity} map, cross-referenced against
+  // each powerup catalog on the frontend for names/costs/durations.
+  async getInventory(id) {
+    const result = await database.query(
+      'SELECT item_id, quantity FROM user_inventory WHERE user_id = $1 AND quantity > 0',
+      [id],
+    )
+    return Object.fromEntries(result.rows.map((r) => [r.item_id, Number(r.quantity)]))
   },
 
   // Once per calendar day, grants exactly one key — the same cooldown

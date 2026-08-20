@@ -103,6 +103,7 @@ interface StoreStrings {
   costLabel: string
   buy: string
   buying: string
+  availableIn: (time: string) => string
   active: string
   owned: string
   notEnoughClicks: string
@@ -557,7 +558,9 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
               {strings.powerups[active.id]?.name ?? active.id} · {activeCountdown}
             </div>
           ) : (
-            cooldownSecondsLeft > 0 && <div className="text-xs text-neutral-500">{cooldownCountdown}</div>
+            cooldownSecondsLeft > 0 && (
+              <div className="text-xs text-neutral-500">{strings.availableIn(cooldownCountdown)}</div>
+            )
           )}
         </div>
       </div>
@@ -566,13 +569,14 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
 
       <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
         {catalog.map((powerup) => {
-          const isActive = active?.id === powerup.id
-          const isOnCooldown = !isActive && cooldownSecondsLeft > 0
           // Guests always show "affordable" here — the click isn't blocked
           // by balance for them, it opens the sign-in prompt instead.
+          // Buying is independent of whether a tier is currently active — it
+          // only adds to the owned count, so only the shared cooldown and
+          // affordability gate it.
           const canAfford = !userId || totalClicks >= powerup.cost
           const isBuyingThis = buyingId === powerup.id
-          const disabled = isActive || isOnCooldown || buyingId !== null || !canAfford
+          const disabled = cooldownSecondsLeft > 0 || buyingId !== null || !canAfford
           const name = strings.powerups[powerup.id]?.name ?? powerup.id
 
           return (
@@ -636,7 +640,9 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
               {strings.timedLuckPowerups[active.id]?.name ?? active.id} · {activeCountdown}
             </div>
           ) : (
-            cooldownSecondsLeft > 0 && <div className="text-xs text-neutral-500">{cooldownCountdown}</div>
+            cooldownSecondsLeft > 0 && (
+              <div className="text-xs text-neutral-500">{strings.availableIn(cooldownCountdown)}</div>
+            )
           )}
         </div>
       </div>
@@ -645,11 +651,12 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
 
       <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
         {catalog.map((powerup) => {
-          const isActive = active?.id === powerup.id
-          const isOnCooldown = !isActive && cooldownSecondsLeft > 0
+          // Buying is independent of whether a tier is currently active — it
+          // only adds to the owned count, so only the shared cooldown and
+          // affordability gate it.
           const canAfford = !userId || totalClicks >= powerup.cost
           const isBuyingThis = buyingId === powerup.id
-          const disabled = isActive || isOnCooldown || buyingId !== null || !canAfford
+          const disabled = cooldownSecondsLeft > 0 || buyingId !== null || !canAfford
           const name = strings.timedLuckPowerups[powerup.id]?.name ?? powerup.id
 
           return (
@@ -714,7 +721,9 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
               {strings.magnets[active.id]?.name ?? active.id} · {activeCountdown}
             </div>
           ) : (
-            cooldownSecondsLeft > 0 && <div className="text-xs text-neutral-500">{cooldownCountdown}</div>
+            cooldownSecondsLeft > 0 && (
+              <div className="text-xs text-neutral-500">{strings.availableIn(cooldownCountdown)}</div>
+            )
           )}
         </div>
       </div>
@@ -723,11 +732,12 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
 
       <div className="relative grid grid-cols-2 gap-3">
         {catalog.map((magnet) => {
-          const isActive = active?.id === magnet.id
-          const isOnCooldown = !isActive && cooldownSecondsLeft > 0
+          // Buying is independent of whether a magnet is currently active —
+          // it only adds to the owned count, so only the shared cooldown
+          // and affordability gate it.
           const canAfford = !userId || totalClicks >= magnet.cost
           const isBuyingThis = buyingId === magnet.id
-          const disabled = isActive || isOnCooldown || buyingId !== null || !canAfford
+          const disabled = cooldownSecondsLeft > 0 || buyingId !== null || !canAfford
           const name = strings.magnets[magnet.id]?.name ?? magnet.id
           const accentColor = magnet.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'
 

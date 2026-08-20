@@ -113,3 +113,16 @@ usersRouter.get('/me/click-days', async (req, res) => {
   const clickDays = await usersRepository.getClickDays(userId)
   res.json({ clickDays })
 })
+
+// Powers the Inventory modal — owned-but-not-yet-activated powerups/luck/
+// magnets, as {itemId: quantity}. Names/costs/durations come from each
+// catalog (already fetched separately), this is just the counts.
+usersRouter.get('/me/inventory', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const inventory = await usersRepository.getInventory(userId)
+  res.json({ inventory })
+})

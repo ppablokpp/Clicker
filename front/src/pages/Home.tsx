@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Zap, Rocket, Clover, Gem, Dices, Magnet, Key, TrendingUp, Sparkles } from 'lucide-react'
+import {
+  Zap,
+  Rocket,
+  Clover,
+  Gem,
+  Dices,
+  Magnet,
+  Key,
+  Gift,
+  TrendingUp,
+  Sparkles,
+  Backpack,
+  Info,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
@@ -12,8 +28,19 @@ import { useGemsContext } from '../context/GemsContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
 import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
+import { useDailyCaseContext } from '../context/DailyCaseContext'
+import { useGemChestContext } from '../context/GemChestContext'
+import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
+
+interface InfoModalData {
+  icon: LucideIcon
+  color: string
+  name: string
+  desc: string
+  durationSeconds: number
+}
 
 interface ClickEffect {
   id: number
@@ -118,19 +145,56 @@ function counterTextSizeClass(value: number): string {
 
 export function Home() {
   const { userId } = useAuth()
+  const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
   const { language, strings } = useLanguage()
-  const { active: activePowerup, secondsLeft } = usePowerupContext()
-  const { active: activeLuckPowerup, secondsLeft: luckSecondsLeft } = useTimedLuckPowerupContext()
-  const { active: activeMagnet, secondsLeft: magnetSecondsLeft } = useMagnetContext()
+  const {
+    catalog: powerupCatalog,
+    active: activePowerup,
+    secondsLeft,
+    activatingId: activatingPowerupId,
+    activate: activatePowerup,
+  } = usePowerupContext()
+  const {
+    catalog: luckCatalog,
+    active: activeLuckPowerup,
+    secondsLeft: luckSecondsLeft,
+    activatingId: activatingLuckId,
+    activate: activateLuck,
+  } = useTimedLuckPowerupContext()
+  const {
+    catalog: magnetCatalog,
+    active: activeMagnet,
+    secondsLeft: magnetSecondsLeft,
+    activatingId: activatingMagnetId,
+    activate: activateMagnet,
+  } = useMagnetContext()
   const { keys } = useKeysContext()
   const { gems } = useGemsContext()
+  const { ownedChests: ownedClickChests } = useDailyCaseContext()
+  const { ownedChests: ownedGemChests } = useGemChestContext()
+  const { inventory } = useInventoryContext()
+  // Keeps the just-activated item visible (its owned count can drop to 0)
+  // until its own timer runs out, instead of it vanishing the instant it starts.
+  const ownedPowerups = powerupCatalog.filter((p) => (inventory[p.id] ?? 0) > 0 || activePowerup?.id === p.id)
+  const ownedLuckPowerups = luckCatalog.filter(
+    (p) => (inventory[p.id] ?? 0) > 0 || activeLuckPowerup?.id === p.id,
+  )
+  const ownedMagnets = magnetCatalog.filter((m) => (inventory[m.id] ?? 0) > 0 || activeMagnet?.id === m.id)
+  const isInventoryEmpty =
+    ownedClickChests === 0 &&
+    ownedGemChests === 0 &&
+    ownedPowerups.length === 0 &&
+    ownedLuckPowerups.length === 0 &&
+    ownedMagnets.length === 0
   const { bestOwned } = useUpgradesContext()
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [showPrestigeComingSoon, setShowPrestigeComingSoon] = useState(false)
+  const [showInventory, setShowInventory] = useState(false)
+  const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevKeysRef = useRef<number | null>(null)
   const prevGemsRef = useRef<number | null>(null)
@@ -246,6 +310,16 @@ export function Home() {
           <div className="animate-pulse-glow absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[140px]" />
         )}
       </div>
+
+      {/* Inventory button — mirrors the CPS badge's position on the right. */}
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => setShowInventory(true)}
+        aria-label={strings.home.inventory}
+        className="pointer-events-auto absolute right-4 top-20 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6"
+      >
+        <Backpack size={16} />
+      </button>
 
       {/* CPS badge + combined multiplier (below the fixed header) */}
       <div className="pointer-events-none absolute left-4 top-20 z-10 flex flex-col gap-1.5 sm:left-6">
@@ -407,6 +481,278 @@ export function Home() {
           </div>
         ))}
       </AnimatePresence>
+
+      {showInventory && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowInventory(false)}
+        >
+          <div
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowInventory(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-4 flex shrink-0 items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-sky-500/20 text-cyan-200">
+                <Backpack size={17} />
+              </div>
+              <p className="text-sm font-semibold text-white">{strings.home.inventoryTitle}</p>
+            </div>
+
+            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-4">
+              {(ownedClickChests > 0 || ownedGemChests > 0) && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    {strings.store.casesSection}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ownedClickChests > 0 && (
+                      <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
+                        <Gift size={18} className="text-neutral-400" />
+                        <span className="text-xs font-semibold text-white">{strings.store.caseTitleClicks}</span>
+                        <span className="text-[10px] tabular-nums text-neutral-500">x{ownedClickChests}</span>
+                        <button
+                          onClick={() => navigate('/tienda')}
+                          className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.1]"
+                        >
+                          {strings.home.openButton}
+                        </button>
+                      </div>
+                    )}
+
+                    {ownedGemChests > 0 && (
+                      <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
+                        <Gift size={18} className="text-indigo-300" />
+                        <span className="text-xs font-semibold text-white">{strings.store.caseTitleGems}</span>
+                        <span className="text-[10px] tabular-nums text-neutral-500">x{ownedGemChests}</span>
+                        <button
+                          onClick={() => navigate('/tienda')}
+                          className="w-full rounded-lg border border-indigo-400/20 bg-indigo-500/10 px-2 py-1.5 text-xs font-semibold text-indigo-200 transition-colors hover:bg-indigo-500/15"
+                        >
+                          {strings.home.openButton}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {ownedPowerups.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    {strings.store.powerupsCardTitle}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ownedPowerups.map((powerup) => {
+                      const isThisActive = activePowerup?.id === powerup.id
+                      const name = strings.store.powerups[powerup.id]?.name ?? powerup.id
+                      return (
+                        <div
+                          key={powerup.id}
+                          className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center"
+                        >
+                          <button
+                            onClick={() =>
+                              setInfoModal({
+                                icon: Rocket,
+                                color: 'text-violet-300',
+                                name,
+                                desc: strings.store.powerups[powerup.id]?.desc ?? '',
+                                durationSeconds: powerup.durationSeconds,
+                              })
+                            }
+                            aria-label="Info"
+                            className="absolute right-1.5 top-1.5 text-neutral-600 hover:text-neutral-300"
+                          >
+                            <Info size={13} />
+                          </button>
+                          <Rocket size={18} className="text-violet-300" />
+                          <span className="text-xs font-semibold text-white">{name}</span>
+                          <span className="text-[10px] tabular-nums text-neutral-500">
+                            x{inventory[powerup.id] ?? 0}
+                          </span>
+                          {isThisActive ? (
+                            <div className="w-full rounded-lg border border-violet-400/20 bg-violet-500/10 px-2 py-1.5 text-xs font-semibold tabular-nums text-violet-200">
+                              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => activatePowerup(powerup)}
+                              disabled={Boolean(activePowerup) || activatingPowerupId !== null}
+                              className="w-full rounded-lg border border-violet-400/20 bg-violet-500/10 px-2 py-1.5 text-xs font-semibold text-violet-200 transition-colors hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {strings.home.activateButton}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {ownedLuckPowerups.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    {strings.store.timedLuckTitle}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ownedLuckPowerups.map((powerup) => {
+                      const isThisActive = activeLuckPowerup?.id === powerup.id
+                      const name = strings.store.timedLuckPowerups[powerup.id]?.name ?? powerup.id
+                      return (
+                        <div
+                          key={powerup.id}
+                          className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center"
+                        >
+                          <button
+                            onClick={() =>
+                              setInfoModal({
+                                icon: Dices,
+                                color: 'text-green-300',
+                                name,
+                                desc: strings.store.timedLuckPowerups[powerup.id]?.desc ?? '',
+                                durationSeconds: powerup.durationSeconds,
+                              })
+                            }
+                            aria-label="Info"
+                            className="absolute right-1.5 top-1.5 text-neutral-600 hover:text-neutral-300"
+                          >
+                            <Info size={13} />
+                          </button>
+                          <Dices size={18} className="text-green-300" />
+                          <span className="text-xs font-semibold text-white">{name}</span>
+                          <span className="text-[10px] tabular-nums text-neutral-500">
+                            x{inventory[powerup.id] ?? 0}
+                          </span>
+                          {isThisActive ? (
+                            <div className="w-full rounded-lg border border-green-400/20 bg-green-500/10 px-2 py-1.5 text-xs font-semibold tabular-nums text-green-200">
+                              {Math.floor(luckSecondsLeft / 60)}:{String(luckSecondsLeft % 60).padStart(2, '0')}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => activateLuck(powerup)}
+                              disabled={Boolean(activeLuckPowerup) || activatingLuckId !== null}
+                              className="w-full rounded-lg border border-green-400/20 bg-green-500/10 px-2 py-1.5 text-xs font-semibold text-green-200 transition-colors hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {strings.home.activateButton}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {ownedMagnets.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    {strings.store.magnetsTitle}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ownedMagnets.map((magnet) => {
+                      const isThisActive = activeMagnet?.id === magnet.id
+                      const accent =
+                        magnet.currency === 'keys'
+                          ? 'border-amber-400/20 bg-amber-500/10 text-amber-200'
+                          : 'border-indigo-400/20 bg-indigo-500/10 text-indigo-200'
+                      const accentHover =
+                        magnet.currency === 'keys' ? 'hover:bg-amber-500/15' : 'hover:bg-indigo-500/15'
+                      const iconColor = magnet.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'
+                      const name = strings.store.magnets[magnet.id]?.name ?? magnet.id
+                      return (
+                        <div
+                          key={magnet.id}
+                          className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center"
+                        >
+                          <button
+                            onClick={() =>
+                              setInfoModal({
+                                icon: Magnet,
+                                color: iconColor,
+                                name,
+                                desc: strings.store.magnets[magnet.id]?.desc ?? '',
+                                durationSeconds: magnet.durationSeconds,
+                              })
+                            }
+                            aria-label="Info"
+                            className="absolute right-1.5 top-1.5 text-neutral-600 hover:text-neutral-300"
+                          >
+                            <Info size={13} />
+                          </button>
+                          <Magnet size={18} className={iconColor} />
+                          <span className="text-xs font-semibold text-white">{name}</span>
+                          <span className="text-[10px] tabular-nums text-neutral-500">
+                            x{inventory[magnet.id] ?? 0}
+                          </span>
+                          {isThisActive ? (
+                            <div className={`w-full rounded-lg border px-2 py-1.5 text-xs font-semibold tabular-nums ${accent}`}>
+                              {Math.floor(magnetSecondsLeft / 60)}:{String(magnetSecondsLeft % 60).padStart(2, '0')}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => activateMagnet(magnet)}
+                              disabled={Boolean(activeMagnet) || activatingMagnetId !== null}
+                              className={`w-full rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${accent} ${accentHover}`}
+                            >
+                              {strings.home.activateButton}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {isInventoryEmpty && (
+                <p className="py-6 text-center text-sm text-neutral-500">{strings.home.inventoryEmpty}</p>
+              )}
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {infoModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setInfoModal(null)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setInfoModal(null)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <infoModal.icon size={18} className={infoModal.color} />
+              <p className="text-sm font-semibold text-white">{infoModal.name}</p>
+            </div>
+            <p className="mb-3 text-sm text-neutral-400">{infoModal.desc}</p>
+            <p className="text-xs font-medium text-neutral-500">
+              {strings.home.durationLabel(infoModal.durationSeconds)}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

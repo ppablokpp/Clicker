@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
+import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -33,7 +34,11 @@ interface MagnetContextValue {
   /** Buying either magnet locks both for an hour. */
   cooldownSecondsLeft: number
   buyingId: string | null
+  activatingId: string | null
+  /** Just adds one to the owned count — doesn't start it running. */
   buy: (magnet: MagnetDef) => Promise<{ ok: boolean; error?: string }>
+  /** Consumes one owned unit and starts it running — fails if the other magnet is already active. */
+  activate: (magnet: MagnetDef) => Promise<{ ok: boolean; error?: string }>
 }
 
 const MagnetContext = createContext<MagnetContextValue | null>(null)
@@ -41,10 +46,11 @@ const MagnetContext = createContext<MagnetContextValue | null>(null)
 // Passive currency-gamble powerup: while active, every click has a small
 // server-rolled chance to also grant a key or a gem (see clicks.js's
 // /increment — the actual proc happens there, this context just tracks
-// whether one is currently running and lets you buy one.
+// whether one is currently running and lets you buy/activate one.
 export function MagnetProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { syncTotalClicks } = useClickCounterContext()
+  const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<MagnetDef[]>([])
   const [active, setActive] = useState<ActiveMagnet | null>(null)
@@ -52,6 +58,7 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
   const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
   const [buyingId, setBuyingId] = useState<string | null>(null)
+  const [activatingId, setActivatingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/api/magnets`)
@@ -137,12 +144,8 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ magnetId: magnet.id }),
         })
         const data = await res.json()
-        if (res.ok && data.activeMagnet) {
-          setActive({
-            id: data.activeMagnet.id,
-            currency: magnet.currency,
-            expiresAt: new Date(data.activeMagnet.expiresAt).getTime(),
-          })
+        if (res.ok) {
+          adjustInventory(magnet.id, 1)
           if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           return { ok: true }
@@ -158,11 +161,48 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, promptSignIn],
+    [userId, getToken, syncTotalClicks, adjustInventory, promptSignIn],
+  )
+
+  const activate = useCallback(
+    async (magnet: MagnetDef) => {
+      if (!userId) {
+        promptSignIn()
+        return { ok: false, error: 'not-signed-in' }
+      }
+      setActivatingId(magnet.id)
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/api/magnets/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ magnetId: magnet.id }),
+        })
+        const data = await res.json()
+        if (res.ok && data.activeMagnet) {
+          setActive({
+            id: data.activeMagnet.id,
+            currency: magnet.currency,
+            expiresAt: new Date(data.activeMagnet.expiresAt).getTime(),
+          })
+          adjustInventory(magnet.id, -1)
+          return { ok: true }
+        }
+        return { ok: false, error: data.error }
+      } catch (err) {
+        console.error('No se pudo activar el imán', err)
+        return { ok: false, error: 'network' }
+      } finally {
+        setActivatingId(null)
+      }
+    },
+    [userId, getToken, adjustInventory, promptSignIn],
   )
 
   return (
-    <MagnetContext.Provider value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy }}>
+    <MagnetContext.Provider
+      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate }}
+    >
       {children}
     </MagnetContext.Provider>
   )
