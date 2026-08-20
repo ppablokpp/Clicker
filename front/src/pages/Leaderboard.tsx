@@ -19,30 +19,30 @@ export function Leaderboard() {
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-6 flex justify-center">
-          <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] p-1">
-            <button
-              onClick={() => setSortBy('clicks')}
-              aria-label={strings.leaderboard.clicksTab}
-              className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
-                sortBy === 'clicks' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
-              }`}
-            >
-              <MousePointerClick size={16} />
-            </button>
-            <button
-              onClick={() => setSortBy('cps')}
-              aria-label={strings.leaderboard.cpsTab}
-              className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
-                sortBy === 'cps' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
-              }`}
-            >
-              <Zap size={16} />
-            </button>
-          </div>
+      <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center sm:top-24">
+        <div className="pointer-events-auto inline-flex items-center rounded-full border border-white/10 bg-[#0d0d14]/90 p-1 shadow-lg shadow-black/30 backdrop-blur-sm">
+          <button
+            onClick={() => setSortBy('clicks')}
+            aria-label={strings.leaderboard.clicksTab}
+            className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
+              sortBy === 'clicks' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <MousePointerClick size={16} />
+          </button>
+          <button
+            onClick={() => setSortBy('cps')}
+            aria-label={strings.leaderboard.cpsTab}
+            className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
+              sortBy === 'cps' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <Zap size={16} />
+          </button>
         </div>
+      </div>
 
+      <div className="mx-auto max-w-2xl pt-16">
         {!isLoading && leaderboard.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
             {strings.leaderboard.empty}
