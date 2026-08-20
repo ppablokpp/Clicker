@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getAuth } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
+import { MAGNET_PROC_CHANCE } from '../powerups/magnets.js'
 
 export const clicksRouter = Router()
 
@@ -32,6 +33,11 @@ clicksRouter.post('/increment', async (req, res) => {
   const rawPeakCps = Number(req.body?.peakCps) || 0
   const peakCps = Math.min(Math.max(rawPeakCps, 0), MAX_CPS)
 
-  const { totalClicks } = await usersRepository.incrementClicks(userId, amount, peakCps)
-  res.json({ totalClicks })
+  const { totalClicks, keys, gems } = await usersRepository.incrementClicks(
+    userId,
+    amount,
+    peakCps,
+    MAGNET_PROC_CHANCE,
+  )
+  res.json({ totalClicks, keys, gems })
 })

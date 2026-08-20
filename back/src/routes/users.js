@@ -3,6 +3,7 @@ import { getAuth, clerkClient } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
 import { getPowerup } from '../powerups/catalog.js'
 import { getTimedLuckPowerup } from '../powerups/timedLuckPowerups.js'
+import { getMagnet } from '../powerups/magnets.js'
 
 export const usersRouter = Router()
 
@@ -17,6 +18,10 @@ function toPublicUser(row) {
     row.powerup_cooldown_until && new Date(row.powerup_cooldown_until) > new Date()
   const isLuckPowerupOnCooldown =
     row.luck_powerup_cooldown_until && new Date(row.luck_powerup_cooldown_until) > new Date()
+  const isMagnetActive =
+    row.active_magnet && row.active_magnet_expires_at && new Date(row.active_magnet_expires_at) > new Date()
+  const isMagnetOnCooldown =
+    row.magnet_cooldown_until && new Date(row.magnet_cooldown_until) > new Date()
 
   return {
     id: row.id,
@@ -51,6 +56,14 @@ function toPublicUser(row) {
       : null,
     powerupCooldownUntil: isPowerupOnCooldown ? row.powerup_cooldown_until : null,
     luckPowerupCooldownUntil: isLuckPowerupOnCooldown ? row.luck_powerup_cooldown_until : null,
+    activeMagnet: isMagnetActive
+      ? {
+          id: row.active_magnet,
+          currency: getMagnet(row.active_magnet)?.currency ?? 'keys',
+          expiresAt: row.active_magnet_expires_at,
+        }
+      : null,
+    magnetCooldownUntil: isMagnetOnCooldown ? row.magnet_cooldown_until : null,
   }
 }
 

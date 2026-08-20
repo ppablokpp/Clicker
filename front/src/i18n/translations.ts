@@ -85,10 +85,13 @@ export interface TranslationStrings {
     purchaseError: string
     timedLuckTitle: string
     timedLuckSubtitle: string
+    magnetsTitle: string
+    magnetsSubtitle: string
     powerups: Record<string, { name: string; desc: string }>
     upgrades: Record<string, { name: string; desc: string }>
     moneyUpgrades: Record<string, { name: string; desc: string }>
     timedLuckPowerups: Record<string, { name: string; desc: string }>
+    magnets: Record<string, { name: string }>
   }
   stats: {
     streakUnit: string
@@ -204,6 +207,8 @@ export const translations: Record<Language, TranslationStrings> = {
       purchaseError: 'No se pudo completar la compra. Inténtalo de nuevo.',
       timedLuckTitle: 'Suerte relámpago',
       timedLuckSubtitle: 'Multiplica tu Suerte permanente mientras esté activa.',
+      magnetsTitle: 'Imanes',
+      magnetsSubtitle: 'Mientras esté activo, cada click tiene una pequeña probabilidad de darte un objeto.',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -263,6 +268,10 @@ export const translations: Record<Language, TranslationStrings> = {
         luck_x50: { name: 'Suerte x50', desc: '1% de probabilidad de un click x50.' },
         luck_x75: { name: 'Suerte x75', desc: '1% de probabilidad de un click x75.' },
         luck_x100: { name: 'Suerte x100', desc: '1% de probabilidad de un click x100. La más alta.' },
+      },
+      magnets: {
+        key_magnet: { name: 'Imán de llaves' },
+        gem_magnet: { name: 'Imán de gemas' },
       },
     },
     stats: {
@@ -377,6 +386,8 @@ export const translations: Record<Language, TranslationStrings> = {
       purchaseError: "Couldn't complete the purchase. Please try again.",
       timedLuckTitle: 'Lightning luck',
       timedLuckSubtitle: 'Multiplies your permanent Luck while active.',
+      magnetsTitle: 'Magnets',
+      magnetsSubtitle: 'While active, every click has a small chance of giving you an item.',
       powerups: {
         click_x2: {
           name: 'Click x2',
@@ -436,6 +447,10 @@ export const translations: Record<Language, TranslationStrings> = {
         luck_x50: { name: 'Luck x50', desc: '1% chance of a x50 click.' },
         luck_x75: { name: 'Luck x75', desc: '1% chance of a x75 click.' },
         luck_x100: { name: 'Luck x100', desc: '1% chance of a x100 click. The highest one.' },
+      },
+      magnets: {
+        key_magnet: { name: 'Key magnet' },
+        gem_magnet: { name: 'Gem magnet' },
       },
     },
     stats: {

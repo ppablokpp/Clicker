@@ -22,6 +22,12 @@ export function useClickCounter() {
   const { userId, getToken } = useAuth()
   const [totalClicks, setTotalClicks] = useState(0)
   const [clicksPerSecond, setClicksPerSecond] = useState(0)
+  // Every /increment response includes the current keys/gems totals (a
+  // magnet powerup can silently grant either mid-flush) — exposed here so
+  // KeysContext/GemsContext (nested inside this provider) can sync off of
+  // it without this hook needing to know they exist.
+  const [latestKeys, setLatestKeys] = useState<number | null>(null)
+  const [latestGems, setLatestGems] = useState<number | null>(null)
   const recentClicksRef = useRef<number[]>([])
   const confirmedRef = useRef(0)
   const pendingRef = useRef(0)
@@ -87,6 +93,8 @@ export function useClickCounter() {
         confirmedRef.current = data.totalClicks
         pendingRef.current -= amountSent
         setTotalClicks(confirmedRef.current + pendingRef.current)
+        if (typeof data.keys === 'number') setLatestKeys(data.keys)
+        if (typeof data.gems === 'number') setLatestGems(data.gems)
       }
     } catch (err) {
       console.error('No se pudo guardar el progreso de clicks', err)
@@ -129,5 +137,5 @@ export function useClickCounter() {
     setTotalClicks(confirmedRef.current + pendingRef.current)
   }, [])
 
-  return { totalClicks, clicksPerSecond, registerClick, syncTotalClicks }
+  return { totalClicks, clicksPerSecond, registerClick, syncTotalClicks, latestKeys, latestGems }
 }

@@ -47,9 +47,8 @@ export const usersRepository = {
 
   // Upserts on the id alone (no email/username yet) so an increment that races
   // ahead of the Clerk profile sync never loses clicks. Also marks today in
-  // click_days (for the stats-page calendar) and updates the streak in the
-  // same round trip, both driven by the same "did this click actually land
-  // on a new day" fact instead of two separate mechanisms:
+  // click_days (for the stats-page calendar), updates the streak, and rolls
+  // any active magnet's per-click proc, all in the same round trip:
   //   - today_check/yesterday_check read click_days BEFORE any write here,
   //     so they reflect "was today already marked by an earlier flush" and
   //     "was yesterday clicked at all".
@@ -57,10 +56,15 @@ export const usersRepository = {
   //     clicked today → unchanged; clicked yesterday → +1; otherwise → reset
   //     to 1. A user's very first-ever click also lands in the "reset to 1"
   //     branch, since they'd have no click_days rows yet either.
+  //   - magnet_procs reads whichever magnet (if any) is currently active and
+  //     not yet expired, and rolls `amount` independent Bernoulli(procChance)
+  //     trials for it via generate_series — cheap even at the 5000-click
+  //     request cap, and keeps the roll server-authoritative (never trust
+  //     the client to just claim a proc happened).
   //   - day_marked runs last, selecting FROM updated purely to force it
   //     after the user upsert, so a brand-new user's very first click
   //     doesn't violate the FK before the row exists.
-  async incrementClicks(id, amount, peakCps = 0) {
+  async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0) {
     const result = await database.query(
       `WITH today_check AS (
          SELECT EXISTS (
@@ -72,12 +76,28 @@ export const usersRepository = {
            SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = CURRENT_DATE - 1
          ) AS clicked_yesterday
        ),
+       magnet_state AS (
+         SELECT active_magnet, active_magnet_expires_at FROM users WHERE id = $1
+       ),
+       magnet_procs AS (
+         SELECT
+           CASE WHEN (SELECT active_magnet FROM magnet_state) = 'key_magnet'
+                     AND (SELECT active_magnet_expires_at FROM magnet_state) > now()
+             THEN (SELECT count(*) FROM generate_series(1, $4::int) WHERE random() < $5)
+             ELSE 0 END AS key_procs,
+           CASE WHEN (SELECT active_magnet FROM magnet_state) = 'gem_magnet'
+                     AND (SELECT active_magnet_expires_at FROM magnet_state) > now()
+             THEN (SELECT count(*) FROM generate_series(1, $4::int) WHERE random() < $5)
+             ELSE 0 END AS gem_procs
+       ),
        updated AS (
          INSERT INTO users (id, total_clicks, best_cps, current_streak, longest_streak)
          VALUES ($1, $2, $3, 1, 1)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
+               keys = users.keys + (SELECT key_procs FROM magnet_procs),
+               gems = users.gems + (SELECT gem_procs FROM magnet_procs),
                current_streak = CASE
                  WHEN (SELECT clicked_today FROM today_check) THEN users.current_streak
                  WHEN (SELECT clicked_yesterday FROM yesterday_check) THEN users.current_streak + 1
@@ -92,19 +112,21 @@ export const usersRepository = {
                  END
                ),
                updated_at = now()
-         RETURNING total_clicks, best_cps
+         RETURNING total_clicks, best_cps, keys, gems
        ),
        day_marked AS (
          INSERT INTO click_days (user_id, click_date)
          SELECT $1, CURRENT_DATE FROM updated
          ON CONFLICT (user_id, click_date) DO NOTHING
        )
-       SELECT total_clicks, best_cps FROM updated`,
-      [id, amount, peakCps],
+       SELECT total_clicks, best_cps, keys, gems FROM updated`,
+      [id, amount, peakCps, amount, magnetProcChance],
     )
     return {
       totalClicks: Number(result.rows[0].total_clicks),
       bestCps: Number(result.rows[0].best_cps),
+      keys: Number(result.rows[0].keys),
+      gems: Number(result.rows[0].gems),
     }
   },
 
@@ -208,6 +230,54 @@ export const usersRepository = {
          WHERE id = $1
          RETURNING total_clicks, active_luck_powerup, active_luck_powerup_expires_at, luck_powerup_cooldown_until`,
         [id, cost, powerupId, durationSeconds],
+      )
+      await client.query('COMMIT')
+      return { ok: true, ...updated.rows[0] }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same cooldown-locked pattern again, in its own active_magnet slot — a
+  // key magnet and a gem magnet share one cooldown (buying either locks
+  // both), independent of the click-multiplier and luck-powerup slots. The
+  // actual per-click proc roll happens in incrementClicks below, not here —
+  // this just flips the flag on.
+  async buyMagnet(id, magnetId, cost, durationSeconds) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        'SELECT total_clicks, magnet_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (user.magnet_cooldown_until && new Date(user.magnet_cooldown_until) > new Date()) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'cooldown', cooldownUntil: user.magnet_cooldown_until }
+      }
+      if (Number(user.total_clicks) < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks - $2,
+             active_magnet = $3,
+             active_magnet_expires_at = now() + make_interval(secs => $4),
+             magnet_cooldown_until = now() + interval '1 hour',
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, active_magnet, active_magnet_expires_at, magnet_cooldown_until`,
+        [id, cost, magnetId, durationSeconds],
       )
       await client.query('COMMIT')
       return { ok: true, ...updated.rows[0] }

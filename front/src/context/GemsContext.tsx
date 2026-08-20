@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useClickCounterContext } from './ClickCounterContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -13,7 +14,14 @@ const GemsContext = createContext<GemsContextValue | null>(null)
 
 export function GemsProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
+  const { latestGems } = useClickCounterContext()
   const [gems, setGems] = useState(0)
+
+  // A magnet powerup can grant gems mid-flush — every click flush reports
+  // the fresh total, so fold it in as soon as it changes.
+  useEffect(() => {
+    if (typeof latestGems === 'number') setGems(latestGems)
+  }, [latestGems])
 
   useEffect(() => {
     if (!userId) return

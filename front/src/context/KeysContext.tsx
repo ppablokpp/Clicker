@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useClickCounterContext } from './ClickCounterContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -11,12 +12,16 @@ interface KeysContextValue {
 
 const KeysContext = createContext<KeysContextValue | null>(null)
 
-// Placeholder for now — nothing grants keys yet, this just reads/holds the
-// real balance (always 0 until we build a way to earn them) so the badge
-// and the free case's "you need a key" gate are already wired for real.
 export function KeysProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
+  const { latestKeys } = useClickCounterContext()
   const [keys, setKeys] = useState(0)
+
+  // A magnet powerup can grant keys mid-flush — every click flush reports
+  // the fresh total, so fold it in as soon as it changes.
+  useEffect(() => {
+    if (typeof latestKeys === 'number') setKeys(latestKeys)
+  }, [latestKeys])
 
   useEffect(() => {
     if (!userId) return
