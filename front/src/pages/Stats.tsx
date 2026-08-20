@@ -12,7 +12,10 @@ const DAY_CARD_SPAN = DAY_CARD_WIDTH + DAY_CARD_GAP
 // How far past today the strip still renders (empty, unclickable) cards —
 // lets the calendar read as "still going", not a hard stop at today.
 const FUTURE_DAYS_PADDING = 10
-const MONTH_LABEL_FONT = '500 10px system-ui, sans-serif'
+// Always visible before the earliest day the strip would otherwise start
+// at (today for a brand-new user, the first click day otherwise) — so
+// there's always a bit of "before" to scroll into, not a hard wall.
+const PAST_DAYS_PADDING = 5
 
 interface CalendarDay {
   iso: string
@@ -28,10 +31,11 @@ function toIso(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-// Runs from the user's very first click day up through today + a short
-// future padding — today itself is what the strip scrolls to on load, with
-// the past reachable by scrolling back and a handful of upcoming days
-// visible ahead of it.
+// Runs from a few days before the user's very first click day (or before
+// today, if they haven't clicked yet) up through today + a short future
+// padding — today itself is what the strip scrolls to on load, with the
+// past reachable by scrolling back and a handful of upcoming days visible
+// ahead of it.
 function getCalendarDays(clickDays: Set<string>): CalendarDay[] {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -42,6 +46,8 @@ function getCalendarDays(clickDays: Set<string>): CalendarDay[] {
     const [y, m, d] = earliestIso.split('-').map(Number)
     start = new Date(y, m - 1, d)
   }
+  start = new Date(start)
+  start.setDate(start.getDate() - PAST_DAYS_PADDING)
 
   const end = new Date(today)
   end.setDate(end.getDate() + FUTURE_DAYS_PADDING)
@@ -56,37 +62,14 @@ function getCalendarDays(clickDays: Set<string>): CalendarDay[] {
   return days
 }
 
-let measureCtx: CanvasRenderingContext2D | null = null
-function textWidth(text: string): number {
-  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d')
-  if (!measureCtx) return Infinity
-  measureCtx.font = MONTH_LABEL_FONT
-  return measureCtx.measureText(text).width
-}
-
 export function Stats() {
   const { language, strings } = useLanguage()
   const { stats } = useUserStats()
   const { clickDays } = useClickDays()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const days = useMemo(() => getCalendarDays(clickDays), [clickDays])
-  const shortMonthFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short' }), [locale])
-  const longMonthFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'long' }), [locale])
-  // Full month name if it fits the card, otherwise the short/abbreviated
-  // form ("Septiembre" → "sept.") — cached per month since it's identical
-  // across years. Rebuilt whenever the formatters change (locale switch).
-  const monthLabelCache = useMemo(() => new Map<number, string>(), [shortMonthFormatter, longMonthFormatter])
+  const monthFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short' }), [locale])
   const scrollRef = useRef<HTMLDivElement>(null)
-
-  const getMonthLabel = (date: Date): string => {
-    const key = date.getMonth()
-    const cached = monthLabelCache.get(key)
-    if (cached) return cached
-    const full = longMonthFormatter.format(date).toUpperCase()
-    const label = textWidth(full) <= DAY_CARD_WIDTH - 4 ? full : shortMonthFormatter.format(date).toUpperCase()
-    monthLabelCache.set(key, label)
-    return label
-  }
 
   // Today lands as the leftmost visible card — scrolling back reveals the
   // past, scrolling forward reveals the few upcoming padding days.
@@ -96,6 +79,24 @@ export function Stats() {
     const todayIndex = days.findIndex((d) => d.isToday)
     if (todayIndex >= 0) el.scrollLeft = todayIndex * DAY_CARD_SPAN
   }, [days])
+
+  // A plain vertical mouse wheel does nothing on a horizontal-only
+  // scroller by default (only touch/trackpad swipes do) — redirect it here
+  // so a desktop mouse wheel can scroll the strip too. Needs a real DOM
+  // listener (not JSX onWheel) since React registers wheel as passive,
+  // which silently ignores preventDefault.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const handleWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        el.scrollLeft += e.deltaY
+        e.preventDefault()
+      }
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
@@ -108,46 +109,35 @@ export function Stats() {
           >
             {days.map(({ iso, date, isToday, isFuture }) => {
               const clicked = clickDays.has(iso)
-              const isFirstOfMonth = date.getDate() === 1
               return (
                 <div
                   key={iso}
-                  className="flex shrink-0 flex-col items-center"
-                  style={{ width: DAY_CARD_WIDTH }}
+                  className={`flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl border text-sm font-semibold tabular-nums transition-colors ${
+                    clicked
+                      ? 'border-violet-400/30 bg-violet-500/10 text-violet-200'
+                      : isFuture
+                        ? 'border-dashed border-white/5 text-neutral-700'
+                        : 'border-white/5 bg-white/[0.02] text-neutral-600'
+                  } ${isToday ? 'border-2 border-white/40' : ''}`}
+                  style={{ width: DAY_CARD_WIDTH, height: DAY_CARD_HEIGHT }}
                 >
-                  <span
-                    className={`mb-1.5 text-[10px] font-medium tracking-wide text-neutral-600 ${
-                      isFirstOfMonth ? '' : 'invisible'
-                    }`}
-                  >
-                    {isFirstOfMonth ? getMonthLabel(date) : '·'}
-                  </span>
-                  <div
-                    className={`flex w-full items-center justify-center rounded-xl border text-sm font-semibold tabular-nums transition-colors ${
-                      clicked
-                        ? 'border-violet-400/30 bg-violet-500/10 text-violet-200'
-                        : isFuture
-                          ? 'border-dashed border-white/5 text-neutral-700'
-                          : 'border-white/5 bg-white/[0.02] text-neutral-600'
-                    } ${isToday ? 'border-2 border-white/40' : ''}`}
-                    style={{ height: DAY_CARD_HEIGHT }}
-                  >
-                    {clicked ? <Check size={18} /> : date.getDate()}
-                  </div>
+                  {!clicked && (
+                    <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
+                      {monthFormatter.format(date)}
+                    </span>
+                  )}
+                  {clicked ? <Check size={18} /> : date.getDate()}
                 </div>
               )
             })}
           </div>
 
-          <div className="flex shrink-0 flex-col items-center" style={{ width: DAY_CARD_WIDTH }}>
-            <span className="invisible mb-1.5 text-[10px] font-medium tracking-wide">·</span>
-            <div
-              className="flex w-full flex-col items-center justify-center gap-1 rounded-xl border border-orange-400/30 bg-orange-500/10"
-              style={{ height: DAY_CARD_HEIGHT }}
-            >
-              <Flame size={18} className="text-orange-400" />
-              <span className="text-lg font-bold tabular-nums text-orange-200">{stats.currentStreak}</span>
-            </div>
+          <div
+            className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-orange-400/30 bg-orange-500/10"
+            style={{ width: DAY_CARD_WIDTH, height: DAY_CARD_HEIGHT }}
+          >
+            <Flame size={18} className="text-orange-400" />
+            <span className="text-lg font-bold tabular-nums text-orange-200">{stats.currentStreak}</span>
           </div>
         </div>
 

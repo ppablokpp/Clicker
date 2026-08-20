@@ -35,8 +35,9 @@ dailyCaseRouter.post('/spin', async (req, res) => {
   })
 })
 
-// Buys one click-chest (no cooldown, no cap) — a prerequisite for /spin's
-// key-paid path. The gem-paid path (see gemCase.js) skips this entirely.
+// Buys one click-chest (no cooldown, capped at 10 owned at once) — a
+// prerequisite for /spin's key-paid path. The gem-paid path (see
+// gemCase.js) skips this entirely.
 dailyCaseRouter.post('/buy-chest', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
@@ -44,6 +45,7 @@ dailyCaseRouter.post('/buy-chest', async (req, res) => {
   const result = await usersRepository.buyClickChest(userId, DAILY_CASE_CHEST_COST)
   if (!result.ok) {
     if (result.reason === 'not-enough-clicks') return res.status(400).json({ error: 'not-enough-clicks' })
+    if (result.reason === 'chest-limit-reached') return res.status(400).json({ error: 'chest-limit-reached' })
     return res.status(400).json({ error: 'purchase-failed' })
   }
 

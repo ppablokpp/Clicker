@@ -19,7 +19,7 @@ import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
-import { playCaseReveal, playCaseTick } from '../lib/caseSound'
+import { playCaseReveal, playCaseTick, playChestPurchase } from '../lib/caseSound'
 
 export function Store() {
   const { language, strings } = useLanguage()
@@ -115,6 +115,7 @@ interface StoreStrings {
   notEnoughChests: string
   notEnoughClicksForChest: string
   buyChest: string
+  chestLimitReached: string
   claimDailyKey: string
   keyClaimedToday: string
   claimingKey: string
@@ -244,7 +245,7 @@ function PackTile({
       {inline ? (
         <span className={`flex items-center gap-1.5 ${accentColorClass}`}>
           <Icon size={18} />
-          <span className="text-lg font-bold tabular-nums">{tile.amount.toLocaleString(locale)}</span>
+          <span className="text-lg font-bold tabular-nums">x{tile.amount.toLocaleString(locale)}</span>
         </span>
       ) : (
         <>
@@ -887,6 +888,10 @@ function GemUpgradeLadder({ strings }: GemUpgradeLadderProps) {
   )
 }
 
+// Mirrors MAX_OWNED_CHESTS on the backend — presentation-only, the server
+// is what actually enforces it.
+const CHEST_LIMIT = 10
+
 const CASE_ITEM_WIDTH = 88
 const CASE_ITEM_GAP = 8
 const CASE_ITEM_SPAN = CASE_ITEM_WIDTH + CASE_ITEM_GAP
@@ -1408,9 +1413,11 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       const result = type === 'click' ? await buyClickChest() : await buyGemChest()
       if (!result.ok) {
         if (result.error === 'not-enough-clicks') setError(strings.notEnoughClicksForChest)
+        else if (result.error === 'chest-limit-reached') setError(strings.chestLimitReached)
         else if (result.error && result.error !== 'not-signed-in') setError(strings.purchaseError)
         return
       }
+      playChestPurchase()
       if (typeof result.totalClicks === 'number') syncTotalClicks(result.totalClicks)
     } finally {
       setBuyingChest(null)
@@ -1445,18 +1452,18 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
         </button>
       </div>
 
-      <p className="relative mb-6 text-sm text-neutral-500">{strings.casesSubtitle}</p>
+      <p className="relative mb-6 mt-4 text-sm text-neutral-500">{strings.casesSubtitle}</p>
 
-      <div className="relative mb-6 grid grid-cols-2 gap-3">
+      <div className="relative mb-12 grid grid-cols-2 gap-3">
         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
           <Gift size={18} className="text-neutral-400" />
           <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleClicks}</span>
           <button
             onClick={() => handleBuyChest('click')}
-            disabled={buyingChest !== null || totalClicks < chestCost1}
+            disabled={buyingChest !== null || totalClicks < chestCost1 || ownedChests1 >= CHEST_LIMIT}
             aria-label={`${strings.buyChest} — ${strings.caseTitleClicks}`}
             className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-              totalClicks < chestCost1
+              totalClicks < chestCost1 || ownedChests1 >= CHEST_LIMIT
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
                 : 'bg-white text-neutral-900 hover:opacity-90'
             }`}
@@ -1476,10 +1483,10 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleGems}</span>
           <button
             onClick={() => handleBuyChest('gem')}
-            disabled={buyingChest !== null || totalClicks < chestCost2}
+            disabled={buyingChest !== null || totalClicks < chestCost2 || ownedChests2 >= CHEST_LIMIT}
             aria-label={`${strings.buyChest} — ${strings.caseTitleGems}`}
             className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-              totalClicks < chestCost2
+              totalClicks < chestCost2 || ownedChests2 >= CHEST_LIMIT
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
                 : 'bg-white text-neutral-900 hover:opacity-90'
             }`}
@@ -1499,7 +1506,10 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       <div className="relative">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-semibold text-neutral-300">
-            {strings.caseTitleClicks} <span className="text-neutral-500">x{ownedChests1}</span>
+            {strings.caseTitleClicks}{' '}
+            <span className="ml-1 tabular-nums text-neutral-500">
+              {ownedChests1}/{CHEST_LIMIT}
+            </span>
           </span>
           <button
             onClick={() => setShowCatalog1(true)}
@@ -1557,10 +1567,13 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
         />
       </div>
 
-      <div className="relative mt-8">
+      <div className="relative mt-14">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-semibold text-neutral-300">
-            {strings.caseTitleGems} <span className="text-neutral-500">x{ownedChests2}</span>
+            {strings.caseTitleGems}{' '}
+            <span className="ml-1 tabular-nums text-neutral-500">
+              {ownedChests2}/{CHEST_LIMIT}
+            </span>
           </span>
           <button
             onClick={() => setShowCatalog2(true)}

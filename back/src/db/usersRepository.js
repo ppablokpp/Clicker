@@ -1,30 +1,21 @@
 import { database } from './pool.js'
 
+// Applies to both chest types — buying more than this just sits unopened,
+// so it's a soft cap on hoarding rather than a scarcity mechanic.
+const MAX_OWNED_CHESTS = 10
+
 export const usersRepository = {
-  // Runs once per session (from the sync-on-login call), so the streak math
-  // being a bit repetitive in SQL here is fine — it's not on the hot path.
+  // Runs once per session (from the sync-on-login call) — just profile
+  // fields. The streak is entirely driven by actual click activity now
+  // (see incrementClicks), not by login days, so this doesn't touch it.
   async upsertFromClerk({ id, email, username, avatarUrl }) {
     const result = await database.query(
-      `INSERT INTO users (id, email, username, avatar_url, current_streak, longest_streak, last_active_date)
-       VALUES ($1, $2, $3, $4, 1, 1, CURRENT_DATE)
+      `INSERT INTO users (id, email, username, avatar_url)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (id) DO UPDATE
          SET email = EXCLUDED.email,
              username = EXCLUDED.username,
              avatar_url = EXCLUDED.avatar_url,
-             current_streak = CASE
-               WHEN users.last_active_date = CURRENT_DATE THEN users.current_streak
-               WHEN users.last_active_date = CURRENT_DATE - 1 THEN users.current_streak + 1
-               ELSE 1
-             END,
-             longest_streak = GREATEST(
-               users.longest_streak,
-               CASE
-                 WHEN users.last_active_date = CURRENT_DATE THEN users.current_streak
-                 WHEN users.last_active_date = CURRENT_DATE - 1 THEN users.current_streak + 1
-                 ELSE 1
-               END
-             ),
-             last_active_date = CURRENT_DATE,
              updated_at = now()
        RETURNING id, email, username, avatar_url, total_clicks, best_cps, current_streak, longest_streak,
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
@@ -56,18 +47,50 @@ export const usersRepository = {
 
   // Upserts on the id alone (no email/username yet) so an increment that races
   // ahead of the Clerk profile sync never loses clicks. Also marks today in
-  // click_days (for the stats-page calendar) in the same round trip — the
-  // day_marked CTE selects FROM updated purely to force it to run after the
-  // user upsert, so a brand-new user's very first click doesn't violate the
-  // FK before the row exists.
+  // click_days (for the stats-page calendar) and updates the streak in the
+  // same round trip, both driven by the same "did this click actually land
+  // on a new day" fact instead of two separate mechanisms:
+  //   - today_check/yesterday_check read click_days BEFORE any write here,
+  //     so they reflect "was today already marked by an earlier flush" and
+  //     "was yesterday clicked at all".
+  //   - the streak only moves the first time a given day is marked: already
+  //     clicked today → unchanged; clicked yesterday → +1; otherwise → reset
+  //     to 1. A user's very first-ever click also lands in the "reset to 1"
+  //     branch, since they'd have no click_days rows yet either.
+  //   - day_marked runs last, selecting FROM updated purely to force it
+  //     after the user upsert, so a brand-new user's very first click
+  //     doesn't violate the FK before the row exists.
   async incrementClicks(id, amount, peakCps = 0) {
     const result = await database.query(
-      `WITH updated AS (
-         INSERT INTO users (id, total_clicks, best_cps)
-         VALUES ($1, $2, $3)
+      `WITH today_check AS (
+         SELECT EXISTS (
+           SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = CURRENT_DATE
+         ) AS clicked_today
+       ),
+       yesterday_check AS (
+         SELECT EXISTS (
+           SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = CURRENT_DATE - 1
+         ) AS clicked_yesterday
+       ),
+       updated AS (
+         INSERT INTO users (id, total_clicks, best_cps, current_streak, longest_streak)
+         VALUES ($1, $2, $3, 1, 1)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
+               current_streak = CASE
+                 WHEN (SELECT clicked_today FROM today_check) THEN users.current_streak
+                 WHEN (SELECT clicked_yesterday FROM yesterday_check) THEN users.current_streak + 1
+                 ELSE 1
+               END,
+               longest_streak = GREATEST(
+                 users.longest_streak,
+                 CASE
+                   WHEN (SELECT clicked_today FROM today_check) THEN users.current_streak
+                   WHEN (SELECT clicked_yesterday FROM yesterday_check) THEN users.current_streak + 1
+                   ELSE 1
+                 END
+               ),
                updated_at = now()
          RETURNING total_clicks, best_cps
        ),
@@ -339,11 +362,15 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query('SELECT total_clicks, owned_click_chests FROM users WHERE id = $1 FOR UPDATE', [id])
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.owned_click_chests) >= MAX_OWNED_CHESTS) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'chest-limit-reached' }
       }
       if (Number(user.total_clicks) < cost) {
         await client.query('ROLLBACK')
@@ -585,11 +612,15 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query('SELECT total_clicks, owned_gem_chests FROM users WHERE id = $1 FOR UPDATE', [id])
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.owned_gem_chests) >= MAX_OWNED_CHESTS) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'chest-limit-reached' }
       }
       if (Number(user.total_clicks) < cost) {
         await client.query('ROLLBACK')

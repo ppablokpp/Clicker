@@ -41,8 +41,8 @@ gemChestRouter.post('/open-with-keys', async (req, res) => {
   })
 })
 
-// Buys one gem-chest (no cooldown, no cap) — a prerequisite for
-// /open-with-keys. /open-with-gems skips this entirely.
+// Buys one gem-chest (no cooldown, capped at 10 owned at once) — a
+// prerequisite for /open-with-keys. /open-with-gems skips this entirely.
 gemChestRouter.post('/buy-chest', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
@@ -50,6 +50,7 @@ gemChestRouter.post('/buy-chest', async (req, res) => {
   const result = await usersRepository.buyGemChest(userId, GEM_CHEST_CHEST_COST)
   if (!result.ok) {
     if (result.reason === 'not-enough-clicks') return res.status(400).json({ error: 'not-enough-clicks' })
+    if (result.reason === 'chest-limit-reached') return res.status(400).json({ error: 'chest-limit-reached' })
     return res.status(400).json({ error: 'purchase-failed' })
   }
 

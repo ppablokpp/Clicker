@@ -142,3 +142,83 @@ export function playCaseReveal(tier: number) {
     // Same — silently skip on any Web Audio failure.
   }
 }
+
+/**
+ * Punchy cash-register "cha-ching" — plays when a chest is bought. A quick
+ * upward swoosh kicks it off, then a bright ascending three-note arpeggio
+ * (each note with an inharmonic overtone for a metallic register-bell
+ * ring), capped with a scatter of coin clinks — closer to the jingly
+ * "purchase confirmed" stings mobile games use than a plain two-note ding.
+ */
+export function playChestPurchase() {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
+
+    const swoosh = audioCtx.createBufferSource()
+    swoosh.buffer = getNoiseBuffer(audioCtx)
+    const swooshFilter = audioCtx.createBiquadFilter()
+    swooshFilter.type = 'bandpass'
+    swooshFilter.Q.value = 0.7
+    swooshFilter.frequency.setValueAtTime(600, now)
+    swooshFilter.frequency.exponentialRampToValueAtTime(5000, now + 0.09)
+    const swooshGain = audioCtx.createGain()
+    swooshGain.gain.setValueAtTime(0.001, now)
+    swooshGain.gain.exponentialRampToValueAtTime(0.1, now + 0.03)
+    swooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+    swoosh.connect(swooshFilter).connect(swooshGain).connect(output)
+    swoosh.start(now)
+    swoosh.stop(now + 0.11)
+
+    const notes = [784, 988, 1568] // G5, B5, G6 — bright ascending coin-jingle triad
+    notes.forEach((freq, i) => {
+      const start = now + 0.08 + i * 0.06
+
+      const osc = audioCtx.createOscillator()
+      const gain = audioCtx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(freq, start)
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.26, start + 0.006)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3)
+      osc.connect(gain).connect(output)
+      osc.start(start)
+      osc.stop(start + 0.31)
+
+      // Inharmonic overtone is what makes it read as a bell instead of a
+      // plain synth tone — a real bell's partials aren't clean octaves.
+      const overtone = audioCtx.createOscillator()
+      const overtoneGain = audioCtx.createGain()
+      overtone.type = 'sine'
+      overtone.frequency.setValueAtTime(freq * 2.41, start)
+      overtoneGain.gain.setValueAtTime(0.0001, start)
+      overtoneGain.gain.exponentialRampToValueAtTime(0.09, start + 0.004)
+      overtoneGain.gain.exponentialRampToValueAtTime(0.001, start + 0.18)
+      overtone.connect(overtoneGain).connect(output)
+      overtone.start(start)
+      overtone.stop(start + 0.19)
+    })
+
+    // A quick scatter of coin clinks right as the arpeggio lands.
+    const sparkleStart = now + 0.08 + notes.length * 0.06
+    for (let i = 0; i < 3; i++) {
+      const start = sparkleStart + i * 0.035
+      const clink = audioCtx.createBufferSource()
+      clink.buffer = getNoiseBuffer(audioCtx)
+      const bandpass = audioCtx.createBiquadFilter()
+      bandpass.type = 'bandpass'
+      bandpass.frequency.setValueAtTime(5000 + Math.random() * 1500, start)
+      bandpass.Q.value = 10
+      const clinkGain = audioCtx.createGain()
+      clinkGain.gain.setValueAtTime(0.08 - i * 0.015, start)
+      clinkGain.gain.exponentialRampToValueAtTime(0.001, start + 0.05)
+      clink.connect(bandpass).connect(clinkGain).connect(output)
+      clink.start(start)
+      clink.stop(start + 0.06)
+    }
+  } catch {
+    // Audio is a nice-to-have — never let it break the purchase flow.
+  }
+}

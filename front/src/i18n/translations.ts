@@ -55,6 +55,7 @@ export interface TranslationStrings {
     notEnoughChests: string
     notEnoughClicksForChest: string
     buyChest: string
+    chestLimitReached: string
     claimDailyKey: string
     keyClaimedToday: string
     claimingKey: string
@@ -162,6 +163,7 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughChests: 'Compra un cofre primero',
       notEnoughClicksForChest: 'Te faltan clicks',
       buyChest: 'Comprar cofre',
+      chestLimitReached: 'Ya tienes el máximo de cofres',
       claimDailyKey: 'Reclamar llave gratis diaria',
       keyClaimedToday: 'Llave diaria reclamada',
       claimingKey: 'Reclamando…',
@@ -334,6 +336,7 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughChests: 'Buy a chest first',
       notEnoughClicksForChest: "You're short on clicks",
       buyChest: 'Buy chest',
+      chestLimitReached: "You've hit the chest limit",
       claimDailyKey: 'Claim free daily key',
       keyClaimedToday: 'Daily key claimed',
       claimingKey: 'Claiming…',
