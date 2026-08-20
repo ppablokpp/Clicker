@@ -1,15 +1,24 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Zap, Rocket, Clover, Gem, Dices, TrendingUp, Sparkles } from 'lucide-react'
+import { Zap, Rocket, Clover, Gem, Dices, Magnet, Key, TrendingUp, Sparkles } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext } from '../context/TimedLuckPowerupContext'
+import { useMagnetContext } from '../context/MagnetContext'
+import { useKeysContext } from '../context/KeysContext'
+import { useGemsContext } from '../context/GemsContext'
 import { useUpgradesContext } from '../context/UpgradesContext'
 import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
+
+interface MagnetProc {
+  id: number
+  currency: 'keys' | 'gems'
+  amount: number
+}
 
 interface ClickEffect {
   id: number
@@ -117,12 +126,40 @@ export function Home() {
   const { language, strings } = useLanguage()
   const { active: activePowerup, secondsLeft } = usePowerupContext()
   const { active: activeLuckPowerup, secondsLeft: luckSecondsLeft } = useTimedLuckPowerupContext()
+  const { active: activeMagnet, secondsLeft: magnetSecondsLeft } = useMagnetContext()
+  const { keys } = useKeysContext()
+  const { gems } = useGemsContext()
   const { bestOwned } = useUpgradesContext()
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
+  const [magnetProcs, setMagnetProcs] = useState<MagnetProc[]>([])
   const [showPrestigeComingSoon, setShowPrestigeComingSoon] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const prevKeysRef = useRef<number | null>(null)
+  const prevGemsRef = useRef<number | null>(null)
+  // Magnet procs are rolled server-side inside the batched click flush (up
+  // to ~1s of latency, never per-click) — so instead of tying the "+1" to a
+  // specific tap, it fires whenever a flush reveals keys/gems went up while
+  // a magnet was running, attributing the gain to whichever one was active.
+  useEffect(() => {
+    if (prevKeysRef.current !== null && keys > prevKeysRef.current && activeMagnet?.currency === 'keys') {
+      const amount = keys - prevKeysRef.current
+      const id = effectId++
+      setMagnetProcs((prev) => [...prev, { id, currency: 'keys', amount }])
+      window.setTimeout(() => setMagnetProcs((prev) => prev.filter((p) => p.id !== id)), 1400)
+    }
+    prevKeysRef.current = keys
+  }, [keys, activeMagnet])
+  useEffect(() => {
+    if (prevGemsRef.current !== null && gems > prevGemsRef.current && activeMagnet?.currency === 'gems') {
+      const amount = gems - prevGemsRef.current
+      const id = effectId++
+      setMagnetProcs((prev) => [...prev, { id, currency: 'gems', amount }])
+      window.setTimeout(() => setMagnetProcs((prev) => prev.filter((p) => p.id !== id)), 1400)
+    }
+    prevGemsRef.current = gems
+  }, [gems, activeMagnet])
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
@@ -251,6 +288,39 @@ export function Home() {
                 </span>
               </>
             )}
+          </span>
+        )}
+
+        {activeMagnet && (
+          <span
+            className={`relative flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-lg shadow-black/20 ${
+              activeMagnet.currency === 'keys'
+                ? 'border-amber-400/20 bg-amber-500/[0.07] text-amber-200'
+                : 'border-indigo-400/20 bg-indigo-500/[0.07] text-indigo-200'
+            }`}
+          >
+            <Magnet size={12} className={activeMagnet.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'} />
+            <span className="tabular-nums">
+              {Math.floor(magnetSecondsLeft / 60)}:{String(magnetSecondsLeft % 60).padStart(2, '0')}
+            </span>
+
+            <AnimatePresence>
+              {magnetProcs.map((p) => (
+                <motion.span
+                  key={p.id}
+                  initial={{ opacity: 0, y: 0 }}
+                  animate={{ opacity: 1, y: -18 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                  className={`pointer-events-none absolute -top-1 left-1/2 flex -translate-x-1/2 items-center gap-1 text-sm font-bold ${
+                    p.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'
+                  }`}
+                >
+                  +{p.amount}
+                  {p.currency === 'keys' ? <Key size={12} /> : <Gem size={12} />}
+                </motion.span>
+              ))}
+            </AnimatePresence>
           </span>
         )}
 
