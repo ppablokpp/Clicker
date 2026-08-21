@@ -93,13 +93,16 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
 
 // Legendary's own combo meter: real taps landed *while* legendary (not
 // auto-click ticks) fill a bar; filling it once bumps the bonus from the
-// base x2 up by +0.5 and resets the bar for the next one, which takes more
-// taps than the last — same shape as the tree's cost curves (linear
+// base x1.5 up by +0.5 and resets the bar for the next one, which takes
+// more taps than the last — same shape as the tree's cost curves (linear
 // reward, exponential requirement). Dropping out of legendary resets both
 // back to zero, since this rewards *sustaining* the combo, not a lifetime
-// total.
-const LEGENDARY_STREAK_BASE = 20
+// total. First threshold deliberately steep (60 taps, ~3s even at the
+// legendary floor of 20 c/s) — an earlier 20-tap first bar filled in ~1s
+// and felt free.
+const LEGENDARY_STREAK_BASE = 60
 const LEGENDARY_STREAK_RATIO = 1.4
+const LEGENDARY_BONUS_BASE = 1.5
 const LEGENDARY_BONUS_STEP = 0.5
 
 function legendaryStreakThreshold(tier: number): number {
@@ -107,7 +110,7 @@ function legendaryStreakThreshold(tier: number): number {
 }
 
 function legendaryBonusForTier(tier: number): number {
-  return 2 + LEGENDARY_BONUS_STEP * tier
+  return LEGENDARY_BONUS_BASE + LEGENDARY_BONUS_STEP * tier
 }
 
 // First prestige threshold — reaching it is meant to be when prestige becomes
