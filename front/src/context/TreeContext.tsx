@@ -24,6 +24,12 @@ interface TreeState {
   luckNextCost: number
   luckChanceLevel: number
   luckChanceNextCost: number
+  autoLuckLevel: number
+  autoLuckMultiplier: number
+  autoLuckNextCost: number
+  autoLuckChanceLevel: number
+  autoLuckChance: number
+  autoLuckChanceNextCost: number
   multiplierLevel: number
   multiplierValue: number
   multiplierNextCost: number
@@ -33,6 +39,8 @@ interface TreeState {
   legendaryGrowthLevel: number
   legendaryBonusStep: number
   legendaryGrowthNextCost: number | null
+  autoMultiplierLevel: number
+  autoMultiplierNextCost: number | null
 }
 
 interface TreeContextValue extends TreeState {
@@ -48,6 +56,12 @@ interface TreeContextValue extends TreeState {
   buyLegendaryEase: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryGrowth: boolean
   buyLegendaryGrowth: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingAutoLuck: boolean
+  buyAutoLuck: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingAutoLuckChance: boolean
+  buyAutoLuckChance: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingAutoMultiplier: boolean
+  buyAutoMultiplier: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -63,6 +77,12 @@ const EMPTY_STATE: TreeState = {
   luckNextCost: 0,
   luckChanceLevel: 0,
   luckChanceNextCost: 0,
+  autoLuckLevel: 0,
+  autoLuckMultiplier: 1,
+  autoLuckNextCost: 0,
+  autoLuckChanceLevel: 0,
+  autoLuckChance: 0,
+  autoLuckChanceNextCost: 0,
   multiplierLevel: 0,
   multiplierValue: 1,
   multiplierNextCost: 0,
@@ -72,6 +92,8 @@ const EMPTY_STATE: TreeState = {
   legendaryGrowthLevel: 0,
   legendaryBonusStep: 0.5,
   legendaryGrowthNextCost: 0,
+  autoMultiplierLevel: 0,
+  autoMultiplierNextCost: 0,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -85,6 +107,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingMultiplier, setIsBuyingMultiplier] = useState(false)
   const [isBuyingLegendaryEase, setIsBuyingLegendaryEase] = useState(false)
   const [isBuyingLegendaryGrowth, setIsBuyingLegendaryGrowth] = useState(false)
+  const [isBuyingAutoLuck, setIsBuyingAutoLuck] = useState(false)
+  const [isBuyingAutoLuckChance, setIsBuyingAutoLuckChance] = useState(false)
+  const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -113,6 +138,12 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           luckNextCost: data.luckNextCost,
           luckChanceLevel: data.luckChanceLevel,
           luckChanceNextCost: data.luckChanceNextCost,
+          autoLuckLevel: data.autoLuckLevel,
+          autoLuckMultiplier: data.autoLuckMultiplier,
+          autoLuckNextCost: data.autoLuckNextCost,
+          autoLuckChanceLevel: data.autoLuckChanceLevel,
+          autoLuckChance: data.autoLuckChance,
+          autoLuckChanceNextCost: data.autoLuckChanceNextCost,
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
           multiplierNextCost: data.multiplierNextCost,
@@ -122,6 +153,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           legendaryGrowthLevel: data.legendaryGrowthLevel,
           legendaryBonusStep: data.legendaryBonusStep,
           legendaryGrowthNextCost: data.legendaryGrowthNextCost,
+          autoMultiplierLevel: data.autoMultiplierLevel,
+          autoMultiplierNextCost: data.autoMultiplierNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       }
@@ -338,6 +371,100 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyAutoLuck = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingAutoLuck(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/auto-luck/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        autoLuckLevel: data.autoLuckLevel,
+        autoLuckMultiplier: data.autoLuckMultiplier,
+        autoLuckNextCost: data.autoLuckNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Fortuna', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingAutoLuck(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyAutoLuckChance = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingAutoLuckChance(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/auto-luck-chance/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        autoLuckChanceLevel: data.autoLuckChanceLevel,
+        autoLuckChance: data.autoLuckChance,
+        autoLuckChanceNextCost: data.autoLuckChanceNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Azar', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingAutoLuckChance(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyAutoMultiplier = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingAutoMultiplier(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/auto-multiplier/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      // Sobrecarga multiplies auto-click's production in place, so this
+      // endpoint also reports the refreshed autoClickCps/NextCps — unlike
+      // Fortuna/Azar's buy responses.
+      setState((prev) => ({
+        ...prev,
+        autoMultiplierLevel: data.autoMultiplierLevel,
+        autoMultiplierNextCost: data.autoMultiplierNextCost,
+        autoClickCps: data.autoClickCps,
+        autoClickNextCps: data.autoClickNextCps,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Sobrecarga', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingAutoMultiplier(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   return (
     <TreeContext.Provider
       value={{
@@ -354,6 +481,12 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyLegendaryEase,
         isBuyingLegendaryGrowth,
         buyLegendaryGrowth,
+        isBuyingAutoLuck,
+        buyAutoLuck,
+        isBuyingAutoLuckChance,
+        buyAutoLuckChance,
+        isBuyingAutoMultiplier,
+        buyAutoMultiplier,
       }}
     >
       {children}

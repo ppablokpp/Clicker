@@ -452,7 +452,8 @@ export function Home() {
         {autoClickCps > 0 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
             <Bot size={12} className="text-zinc-400" />
-            {strings.tree.autoClickLabel} {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}{' '}
+            {strings.tree.autoClickLabel}{' '}
+            {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}{' '}
             {strings.home.cps}
           </span>
         )}

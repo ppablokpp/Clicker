@@ -161,6 +161,12 @@ export interface TranslationStrings {
     legendaryGrowthDesc: string
     currentBonusStep: string
     nextBonusStep: string
+    fortunaName: string
+    fortunaDesc: string
+    azarName: string
+    azarDesc: string
+    turboName: string
+    turboDesc: string
   }
 }
 
@@ -402,6 +408,12 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryGrowthDesc: 'Aumenta la subida del multiplicador de modo Legendario cada vez que sube de nivel.',
       currentBonusStep: 'Subida actual:',
       nextBonusStep: 'Subida siguiente nivel:',
+      fortunaName: 'Fortuna',
+      fortunaDesc: 'La producción del autoclick tiene una probabilidad de contar por un multiplicador. Igual que Suerte, pero para el autoclick.',
+      azarName: 'Azar',
+      azarDesc: 'Sube la probabilidad de Fortuna.',
+      turboName: 'Sobrecarga',
+      turboDesc: 'Multiplica de golpe la producción actual del autoclick por ×1,5. El aumento se queda fijo: las siguientes mejoras de autoclick solo suman encima, no vuelven a multiplicarse.',
     },
   },
   en: {
@@ -641,6 +653,12 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryGrowthDesc: "Raises how much Legendary's multiplier increases each time it levels up.",
       currentBonusStep: 'Current increase:',
       nextBonusStep: 'Next level increase:',
+      fortunaName: 'Fortune',
+      fortunaDesc: "Auto-click's production has a chance to count for a multiplier — same as Luck, but for auto-click.",
+      azarName: 'Odds',
+      azarDesc: "Raises Fortune's chance.",
+      turboName: 'Overload',
+      turboDesc: "Instantly multiplies auto-click's current production by ×1.5. The boost sticks — later auto-click levels only add on top, they don't get multiplied again.",
     },
   },
 }

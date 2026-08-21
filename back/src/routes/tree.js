@@ -66,3 +66,30 @@ treeRouter.post('/legendary-growth/buy', async (req, res) => {
   if (!result.ok) return res.status(400).json({ error: result.reason })
   res.json(result)
 })
+
+treeRouter.post('/auto-luck/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyAutoLuckLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/auto-luck-chance/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyAutoLuckChanceLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/auto-multiplier/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyAutoMultiplierLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
