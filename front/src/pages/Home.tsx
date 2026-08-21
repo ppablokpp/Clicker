@@ -150,7 +150,12 @@ export function Home() {
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
-  const { autoClickCps, luckChance: permanentLuckChance, luckMultiplier: permanentLuckMultiplier } = useTreeContext()
+  const {
+    autoClickCps,
+    luckChance: permanentLuckChance,
+    luckMultiplier: permanentLuckMultiplier,
+    multiplierValue: baseClickMultiplier,
+  } = useTreeContext()
   const { language, strings } = useLanguage()
   const {
     catalog: powerupCatalog,
@@ -200,6 +205,14 @@ export function Home() {
   const containerRef = useRef<HTMLDivElement>(null)
   const prevKeysRef = useRef<number | null>(null)
   const prevGemsRef = useRef<number | null>(null)
+  // Every click's *real* value can end up fractional once a non-integer
+  // multiplier exists (e.g. a future x1.5 upgrade) — the actual total sent
+  // to registerClick keeps that full precision, but the floating "+N" is
+  // never allowed to show a decimal. Instead it carries the leftover
+  // fraction forward and only flashes a whole number once enough has
+  // accumulated, so across many clicks the numbers shown still average out
+  // to the true value (e.g. x1.5 reads as an alternating +1, +2, +1, +2…).
+  const popupCarryRef = useRef(0)
   // Where the last real tap landed — a magnet proc has no coordinates of its
   // own (it's rolled server-side inside the batched click flush, up to ~1s
   // later), so its "+1" effect spawns from here instead, reading as just
@@ -231,7 +244,10 @@ export function Home() {
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
-  const totalMultiplier = heat.multiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
+  // baseClickMultiplier (branch E, "Multiplicador") is the base value a
+  // click starts from — everything else stacks on top of it the same way
+  // it always has, order doesn't matter since it's all multiplication.
+  const totalMultiplier = baseClickMultiplier * heat.multiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
   // two separate rolls — owning both multiplies together into a single
@@ -266,10 +282,16 @@ export function Home() {
       const isLucky = luckMultiplier > 1
       const amount = totalMultiplier * luckMultiplier
 
+      // The popup only ever shows the carried-forward whole part — see
+      // popupCarryRef above. registerClick still gets the exact `amount`.
+      popupCarryRef.current += amount
+      const displayAmount = Math.floor(popupCarryRef.current)
+      popupCarryRef.current -= displayAmount
+
       const id = effectId++
       setEffects((prev) => [
         ...prev,
-        { id, x, y, ripple: isLucky ? 'bg-green-400/70' : heat.ripple, amount, isLucky },
+        { id, x, y, ripple: isLucky ? 'bg-green-400/70' : heat.ripple, amount: displayAmount, isLucky },
       ])
       registerClick(amount)
 

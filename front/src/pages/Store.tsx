@@ -444,6 +444,7 @@ interface TierTileProps {
   name: string
   durationSeconds: number
   cost: number
+  currency: 'clicks' | 'gems'
   locale: string
   isBuyingThis: boolean
   disabled: boolean
@@ -451,15 +452,18 @@ interface TierTileProps {
   onClick: () => void
 }
 
-// One tile = one freely-buyable tier: name, duration, and a white price
-// button — compact enough for all 4 to sit in a row like the original cards did.
-// The active/cooldown countdown itself lives once in the card's header, not
+// One tile = one freely-buyable tier: name, duration, and a price button —
+// compact enough for all 4 to sit in a row like the original cards did. A
+// gem-priced tier gets the same indigo "diamond" button used everywhere
+// else gems are spent, instead of the white click-currency one. The
+// active/cooldown countdown itself lives once in the card's header, not
 // repeated per tile — the button just goes disabled (same muted style as
 // "can't afford it") and keeps showing its cost.
 function TierTile({
   name,
   durationSeconds,
   cost,
+  currency,
   locale,
   isBuyingThis,
   disabled,
@@ -480,14 +484,20 @@ function TierTile({
         className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
           disabled
             ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-            : 'bg-white text-neutral-900 hover:opacity-90'
+            : currency === 'gems'
+              ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
+              : 'bg-white text-neutral-900 hover:opacity-90'
         }`}
       >
         {isBuyingThis ? (
           buyingLabel
         ) : (
           <span className="flex items-center justify-center gap-1">
-            <MousePointerClick size={10} className="opacity-70" />
+            {currency === 'gems' ? (
+              <Gem size={10} className="opacity-80" />
+            ) : (
+              <MousePointerClick size={10} className="opacity-70" />
+            )}
             <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
           </span>
         )}
@@ -508,6 +518,7 @@ interface PowerupGridCardProps {
 function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps) {
   const { userId } = useAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = usePowerupContext()
+  const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
 
   if (catalog.length === 0) return null
@@ -552,7 +563,8 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
           // Buying is independent of whether a tier is currently active — it
           // only adds to the owned count, so only the shared cooldown and
           // affordability gate it.
-          const canAfford = !userId || totalClicks >= powerup.cost
+          const balance = powerup.currency === 'gems' ? gems : totalClicks
+          const canAfford = !userId || balance >= powerup.cost
           const isBuyingThis = buyingId === powerup.id
           const disabled = cooldownSecondsLeft > 0 || buyingId !== null || !canAfford
           const name = strings.powerups[powerup.id]?.name ?? powerup.id
@@ -563,6 +575,7 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
               name={name}
               durationSeconds={powerup.durationSeconds}
               cost={powerup.cost}
+              currency={powerup.currency}
               locale={locale}
               isBuyingThis={isBuyingThis}
               disabled={disabled}
@@ -590,6 +603,7 @@ interface TimedLuckGridCardProps {
 function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardProps) {
   const { userId } = useAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
+  const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
 
   if (catalog.length === 0) return null
@@ -632,7 +646,8 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
           // Buying is independent of whether a tier is currently active — it
           // only adds to the owned count, so only the shared cooldown and
           // affordability gate it.
-          const canAfford = !userId || totalClicks >= powerup.cost
+          const balance = powerup.currency === 'gems' ? gems : totalClicks
+          const canAfford = !userId || balance >= powerup.cost
           const isBuyingThis = buyingId === powerup.id
           const disabled = cooldownSecondsLeft > 0 || buyingId !== null || !canAfford
           const name = strings.timedLuckPowerups[powerup.id]?.name ?? powerup.id
@@ -643,6 +658,7 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
               name={name}
               durationSeconds={powerup.durationSeconds}
               cost={powerup.cost}
+              currency={powerup.currency}
               locale={locale}
               isBuyingThis={isBuyingThis}
               disabled={disabled}
@@ -847,6 +863,8 @@ interface MiniCaseReelProps {
   syncTotalClicks: (n: number) => void
   syncGems: (n: number) => void
   syncKeys: (n: number) => void
+  suspendTotalClicksSync: () => void
+  resumeTotalClicksSync: () => void
 }
 
 const REEL_ACCENT_CLASSES: Record<'red' | 'indigo', { line: string; dot: string }> = {
@@ -870,9 +888,10 @@ function MiniCaseReel({
   syncTotalClicks,
   syncGems,
   syncKeys,
+  suspendTotalClicksSync,
+  resumeTotalClicksSync,
 }: MiniCaseReelProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const pendingTotalClicksRef = useRef<number | null>(null)
   const pendingGemsRef = useRef<number | null>(null)
   const pendingKeysRef = useRef<number | null>(null)
   const lastTickIndexRef = useRef<number | null>(null)
@@ -943,7 +962,14 @@ function MiniCaseReel({
     const centerOfItem = CASE_LANDING_INDEX * CASE_ITEM_SPAN + CASE_ITEM_WIDTH / 2
     const targetX = centerOfItem - viewportWidth / 2 + jitter
 
-    pendingTotalClicksRef.current = typeof newTotalClicks === 'number' ? newTotalClicks : null
+    // The real total already includes this prize the instant the server
+    // committed it — sync it now, but held behind suspendTotalClicksSync so
+    // it can't reach the display (and spoil the reel) before the animation
+    // lands. Any unrelated sync that fires during the spin (auto-click's
+    // own poll, most notably) gets caught by the same gate instead of
+    // slipping the real number in early.
+    suspendTotalClicksSync()
+    if (typeof newTotalClicks === 'number') syncTotalClicks(newTotalClicks)
     pendingGemsRef.current = typeof newGems === 'number' ? newGems : null
     pendingKeysRef.current = typeof newKeys === 'number' ? newKeys : null
     lastTickIndexRef.current = null
@@ -1018,10 +1044,7 @@ function MiniCaseReel({
               setRevealed(reel.result)
               const tier = catalog.findIndex((p) => p.id === reel.result.id)
               playCaseReveal(tier < 0 ? 0 : tier)
-              if (pendingTotalClicksRef.current !== null) {
-                syncTotalClicks(pendingTotalClicksRef.current)
-                pendingTotalClicksRef.current = null
-              }
+              resumeTotalClicksSync()
               if (pendingGemsRef.current !== null) {
                 syncGems(pendingGemsRef.current)
                 pendingGemsRef.current = null
@@ -1253,7 +1276,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     buyChest: buyGemChest,
   } = useGemChestContext()
   const { cost: gemCost, open: openGemCase } = useGemCaseContext()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, suspendSync, resumeSync } = useClickCounterContext()
   const { gems, syncGems } = useGemsContext()
   const { keys, syncKeys } = useKeysContext()
   const {
@@ -1398,6 +1421,8 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           syncTotalClicks={syncTotalClicks}
           syncGems={syncGems}
           syncKeys={syncKeys}
+          suspendTotalClicksSync={suspendSync}
+          resumeTotalClicksSync={resumeSync}
           primary={{
             ariaLabel: strings.openCase,
             affordable: keys >= keyCost && ownedChests1 >= 1,
@@ -1462,6 +1487,8 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           syncTotalClicks={() => {}}
           syncGems={syncGems}
           syncKeys={syncKeys}
+          suspendTotalClicksSync={suspendSync}
+          resumeTotalClicksSync={resumeSync}
           primary={{
             ariaLabel: strings.openCase,
             affordable: keys >= chestKeyCost && ownedChests2 >= 1,

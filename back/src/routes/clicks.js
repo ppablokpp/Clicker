@@ -25,8 +25,13 @@ clicksRouter.post('/increment', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
+  // Whole number today, but not guaranteed forever — a future click-value
+  // upgrade (e.g. a x1.5 multiplier) can make this fractional, so only
+  // finiteness/range is enforced here, not integer-ness. total_clicks
+  // itself stores the fraction (see migration 022); only what's ever
+  // *displayed* has to be a whole number, and that's a front-end concern.
   const amount = Number(req.body?.amount)
-  if (!Number.isInteger(amount) || amount < 1 || amount > MAX_CLICKS_PER_REQUEST) {
+  if (!Number.isFinite(amount) || amount < 1 || amount > MAX_CLICKS_PER_REQUEST) {
     return res.status(400).json({ error: 'Invalid amount' })
   }
 

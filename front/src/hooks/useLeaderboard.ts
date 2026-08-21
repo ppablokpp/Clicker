@@ -25,7 +25,10 @@ export function useLeaderboard(sortBy: LeaderboardSort = 'clicks') {
       try {
         const res = await fetch(`${API_URL}/api/leaderboard?sortBy=${sortBy}`)
         if (!cancelled && res.ok) {
-          setLeaderboard(await res.json())
+          const data: LeaderboardEntry[] = await res.json()
+          // total_clicks can carry a fractional remainder server-side (see
+          // click-value multipliers) — never shown as a decimal here.
+          setLeaderboard(data.map((entry) => ({ ...entry, totalClicks: Math.floor(entry.totalClicks) })))
         }
       } catch (err) {
         console.error('No se pudo cargar la clasificación', err)

@@ -147,6 +147,8 @@ export interface TranslationStrings {
     nextMultiplier: string
     luckName: string
     luckDesc: string
+    multiplierName: string
+    multiplierDesc: string
   }
 }
 
@@ -313,9 +315,9 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
+        luck_x10: { name: 'Suerte x10', desc: '1% de probabilidad de un click x10.' },
         luck_x25: { name: 'Suerte x25', desc: '1% de probabilidad de un click x25.' },
         luck_x50: { name: 'Suerte x50', desc: '1% de probabilidad de un click x50.' },
-        luck_x75: { name: 'Suerte x75', desc: '1% de probabilidad de un click x75.' },
         luck_x100: { name: 'Suerte x100', desc: '1% de probabilidad de un click x100. La más alta.' },
       },
       magnets: {
@@ -374,6 +376,8 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiplier: 'Multiplicador siguiente nivel:',
       luckName: 'Suerte',
       luckDesc: 'Probabilidad de que un click cuente por el multiplicador.',
+      multiplierName: 'Multiplicador',
+      multiplierDesc: 'Aumenta el valor base de cada click. Cada nivel lo sube un poco más.',
     },
   },
   en: {
@@ -538,9 +542,9 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
+        luck_x10: { name: 'Luck x10', desc: '1% chance of a x10 click.' },
         luck_x25: { name: 'Luck x25', desc: '1% chance of a x25 click.' },
         luck_x50: { name: 'Luck x50', desc: '1% chance of a x50 click.' },
-        luck_x75: { name: 'Luck x75', desc: '1% chance of a x75 click.' },
         luck_x100: { name: 'Luck x100', desc: '1% chance of a x100 click. The highest one.' },
       },
       magnets: {
@@ -599,6 +603,8 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiplier: 'Next level multiplier:',
       luckName: 'Luck',
       luckDesc: 'Chance for a click to count for the multiplier instead.',
+      multiplierName: 'Multiplier',
+      multiplierDesc: "Increases the base value of every click. Each level raises it a bit further.",
     },
   },
 }

@@ -45,6 +45,15 @@ export function useClickCounter() {
   const autoPendingRef = useRef(0)
   const isFlushingRef = useRef(false)
   const peakCpsRef = useRef(0)
+  // Lets a case-opening reel hide the real total behind its reveal
+  // animation instead of letting an unrelated background sync (e.g.
+  // auto-click's own poll landing mid-spin) jump the counter and spoil the
+  // prize before the reel visually lands on it. Nestable — only actually
+  // resumes once every caller has released it. Doesn't touch pendingRef or
+  // taps in flight, only when a *synced* (server-authoritative) total is
+  // allowed to become visible.
+  const suspendSyncCountRef = useRef(0)
+  const pendingSyncTotalRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -155,9 +164,30 @@ export function useClickCounter() {
   // any predicted auto-click amount, since the new total already accounts
   // for everything up to now.
   const syncTotalClicks = useCallback((newTotal: number) => {
+    if (suspendSyncCountRef.current > 0) {
+      // Still the last-write-wins semantics a normal call would have — just
+      // held back from the display until whatever's suspending it resumes.
+      pendingSyncTotalRef.current = newTotal
+      return
+    }
     confirmedRef.current = newTotal
     autoPendingRef.current = 0
     setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+  }, [])
+
+  const suspendSync = useCallback(() => {
+    suspendSyncCountRef.current += 1
+  }, [])
+
+  const resumeSync = useCallback(() => {
+    suspendSyncCountRef.current = Math.max(0, suspendSyncCountRef.current - 1)
+    if (suspendSyncCountRef.current === 0 && pendingSyncTotalRef.current !== null) {
+      const total = pendingSyncTotalRef.current
+      pendingSyncTotalRef.current = null
+      confirmedRef.current = total
+      autoPendingRef.current = 0
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+    }
   }, [])
 
   // Purely visual — ticks the displayed total up between the infrequent
@@ -178,6 +208,8 @@ export function useClickCounter() {
     registerClick,
     syncTotalClicks,
     tickAutoClicks,
+    suspendSync,
+    resumeSync,
     latestKeys,
     latestGems,
   }

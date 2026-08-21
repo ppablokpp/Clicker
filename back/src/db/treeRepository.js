@@ -1,6 +1,7 @@
 import { database } from './pool.js'
 import { AUTOCLICK_NODE_ID, autoClickCost, autoClickCps } from '../tree/autoClick.js'
 import { LUCK_NODE_ID, LUCK_CHANCE, luckCost, luckMultiplier } from '../tree/luck.js'
+import { MULTIPLIER_NODE_ID, multiplierCost, multiplierValue } from '../tree/multiplier.js'
 
 export const treeRepository = {
   // Credits whatever the auto-click node has produced since it was last
@@ -59,6 +60,14 @@ export const treeRepository = {
       )
       const luckLevel = Number(luckRow.rows[0]?.level ?? 0)
 
+      // Same plain level-counter shape as luck — the base click-value
+      // multiplier has no per-second output either.
+      const multiplierRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, MULTIPLIER_NODE_ID],
+      )
+      const multiplierLevel = Number(multiplierRow.rows[0]?.level ?? 0)
+
       await client.query('COMMIT')
       return {
         autoClickLevel: level,
@@ -69,6 +78,9 @@ export const treeRepository = {
         luckChance: luckLevel > 0 ? LUCK_CHANCE : 0,
         luckMultiplier: luckMultiplier(luckLevel),
         luckNextCost: luckCost(luckLevel),
+        multiplierLevel,
+        multiplierValue: multiplierValue(multiplierLevel),
+        multiplierNextCost: multiplierCost(multiplierLevel),
         totalClicks,
       }
     } catch (err) {
@@ -204,6 +216,60 @@ export const treeRepository = {
         autoClickNextCost: autoClickCost(newLevel),
         autoClickNextCps: autoClickCps(newLevel + 1),
         totalClicks,
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same level-counter shape as buyLuckLevel — no production to accrue
+  // before spending.
+  async buyMultiplierLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, MULTIPLIER_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = multiplierCost(level)
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, MULTIPLIER_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        multiplierLevel: newLevel,
+        multiplierValue: multiplierValue(newLevel),
+        multiplierNextCost: multiplierCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
       await client.query('ROLLBACK')

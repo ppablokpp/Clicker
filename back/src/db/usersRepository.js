@@ -100,11 +100,15 @@ export const usersRepository = {
          SELECT
            CASE WHEN (SELECT active_magnet FROM magnet_state) = 'key_magnet'
                      AND (SELECT active_magnet_expires_at FROM magnet_state) > now()
-             THEN (SELECT count(*) FROM generate_series(1, $4::int) WHERE random() < $5)
+             -- $4 (amount) can be fractional now (a click-value multiplier
+             -- upgrade) — round through double precision first, since a
+             -- direct ::int cast parses the parameter as integer text and
+             -- errors on something like "1.5".
+             THEN (SELECT count(*) FROM generate_series(1, ROUND($4::double precision)::int) WHERE random() < $5)
              ELSE 0 END AS key_procs,
            CASE WHEN (SELECT active_magnet FROM magnet_state) = 'gem_magnet'
                      AND (SELECT active_magnet_expires_at FROM magnet_state) > now()
-             THEN (SELECT count(*) FROM generate_series(1, $4::int) WHERE random() < $5)
+             THEN (SELECT count(*) FROM generate_series(1, ROUND($4::double precision)::int) WHERE random() < $5)
              ELSE 0 END AS gem_procs
        ),
        updated AS (
@@ -173,12 +177,12 @@ export const usersRepository = {
   // activates anything — it just adds one to the owned count in
   // user_inventory (see activatePowerup below for the separate action that
   // actually starts the timer, called from the inventory).
-  async buyPowerup(id, powerupId, cost) {
+  async buyPowerup(id, powerupId, cost, currency = 'clicks') {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
       const row = await client.query(
-        'SELECT total_clicks, powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, gems, powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
         [id],
       )
       const user = row.rows[0]
@@ -190,18 +194,21 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.powerup_cooldown_until }
       }
-      if (Number(user.total_clicks) < cost) {
+      // The top two tiers are gem-priced instead of click-priced — same
+      // cooldown either way, just a different balance column to check/spend.
+      const balanceColumn = currency === 'gems' ? 'gems' : 'total_clicks'
+      if (Number(user[balanceColumn]) < cost) {
         await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-enough-clicks' }
+        return { ok: false, reason: currency === 'gems' ? 'not-enough-gems' : 'not-enough-clicks' }
       }
 
       const updated = await client.query(
         `UPDATE users
-         SET total_clicks = total_clicks - $2,
+         SET ${balanceColumn} = ${balanceColumn} - $2,
              powerup_cooldown_until = now() + interval '1 hour',
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, powerup_cooldown_until`,
+         RETURNING total_clicks, gems, powerup_cooldown_until`,
         [id, cost],
       )
       await client.query(
@@ -280,12 +287,12 @@ export const usersRepository = {
   // click-multiplier powerup and a timed luck powerup can run — and be on
   // cooldown — independently of each other. Buying only adds to inventory,
   // same as buyPowerup — see activateTimedLuckPowerup for activation.
-  async buyTimedLuckPowerup(id, powerupId, cost) {
+  async buyTimedLuckPowerup(id, powerupId, cost, currency = 'clicks') {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
       const row = await client.query(
-        'SELECT total_clicks, luck_powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, gems, luck_powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
         [id],
       )
       const user = row.rows[0]
@@ -297,18 +304,21 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.luck_powerup_cooldown_until }
       }
-      if (Number(user.total_clicks) < cost) {
+      // The top two tiers are gem-priced instead of click-priced — same
+      // cooldown either way, just a different balance column to check/spend.
+      const balanceColumn = currency === 'gems' ? 'gems' : 'total_clicks'
+      if (Number(user[balanceColumn]) < cost) {
         await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-enough-clicks' }
+        return { ok: false, reason: currency === 'gems' ? 'not-enough-gems' : 'not-enough-clicks' }
       }
 
       const updated = await client.query(
         `UPDATE users
-         SET total_clicks = total_clicks - $2,
+         SET ${balanceColumn} = ${balanceColumn} - $2,
              luck_powerup_cooldown_until = now() + interval '1 hour',
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, luck_powerup_cooldown_until`,
+         RETURNING total_clicks, gems, luck_powerup_cooldown_until`,
         [id, cost],
       )
       await client.query(

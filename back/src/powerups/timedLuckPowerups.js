@@ -8,10 +8,10 @@
  * only one can run at a time anyway (buying a new one replaces the old one).
  */
 export const TIMED_LUCK_CATALOG = [
-  { id: 'luck_x25', cost: 5_000, durationSeconds: 20, chance: 0.01, multiplier: 25 },
-  { id: 'luck_x50', cost: 10_000, durationSeconds: 20, chance: 0.01, multiplier: 50 },
-  { id: 'luck_x75', cost: 20_000, durationSeconds: 20, chance: 0.01, multiplier: 75 },
-  { id: 'luck_x100', cost: 30_000, durationSeconds: 20, chance: 0.01, multiplier: 100 },
+  { id: 'luck_x10', cost: 5_000, currency: 'clicks', durationSeconds: 20, chance: 0.01, multiplier: 10 },
+  { id: 'luck_x25', cost: 10_000, currency: 'clicks', durationSeconds: 20, chance: 0.01, multiplier: 25 },
+  { id: 'luck_x50', cost: 1, currency: 'gems', durationSeconds: 20, chance: 0.01, multiplier: 50 },
+  { id: 'luck_x100', cost: 2, currency: 'gems', durationSeconds: 20, chance: 0.01, multiplier: 100 },
 ]
 
 export function getTimedLuckPowerup(id) {

@@ -22,6 +22,9 @@ interface TreeState {
   luckChance: number
   luckMultiplier: number
   luckNextCost: number
+  multiplierLevel: number
+  multiplierValue: number
+  multiplierNextCost: number
 }
 
 interface TreeContextValue extends TreeState {
@@ -29,6 +32,8 @@ interface TreeContextValue extends TreeState {
   buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLuck: boolean
   buyLuck: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingMultiplier: boolean
+  buyMultiplier: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -42,6 +47,9 @@ const EMPTY_STATE: TreeState = {
   luckChance: 0,
   luckMultiplier: 1,
   luckNextCost: 0,
+  multiplierLevel: 0,
+  multiplierValue: 1,
+  multiplierNextCost: 0,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -51,6 +59,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
   const [isBuying, setIsBuying] = useState(false)
   const [isBuyingLuck, setIsBuyingLuck] = useState(false)
+  const [isBuyingMultiplier, setIsBuyingMultiplier] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -77,6 +86,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           luckChance: data.luckChance,
           luckMultiplier: data.luckMultiplier,
           luckNextCost: data.luckNextCost,
+          multiplierLevel: data.multiplierLevel,
+          multiplierValue: data.multiplierValue,
+          multiplierNextCost: data.multiplierNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       }
@@ -173,8 +185,40 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyMultiplier = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingMultiplier(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/multiplier/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        multiplierLevel: data.multiplierLevel,
+        multiplierValue: data.multiplierValue,
+        multiplierNextCost: data.multiplierNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar el multiplicador', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingMultiplier(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   return (
-    <TreeContext.Provider value={{ ...state, isBuying, buyAutoClick, isBuyingLuck, buyLuck }}>
+    <TreeContext.Provider
+      value={{ ...state, isBuying, buyAutoClick, isBuyingLuck, buyLuck, isBuyingMultiplier, buyMultiplier }}
+    >
       {children}
     </TreeContext.Provider>
   )

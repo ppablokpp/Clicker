@@ -18,15 +18,22 @@ powerupsRouter.post('/buy', async (req, res) => {
   const powerup = getPowerup(req.body?.powerupId)
   if (!powerup) return res.status(400).json({ error: 'Unknown powerup' })
 
-  const result = await usersRepository.buyPowerup(userId, powerup.id, powerup.cost)
+  const result = await usersRepository.buyPowerup(userId, powerup.id, powerup.cost, powerup.currency)
   if (!result.ok) {
     if (result.reason === 'cooldown') {
       return res.status(400).json({ error: 'cooldown', cooldownUntil: result.cooldownUntil })
     }
+    if (result.reason === 'not-enough-gems') {
+      return res.status(400).json({ error: 'Not enough gems' })
+    }
     return res.status(400).json({ error: 'Not enough clicks' })
   }
 
-  res.json({ totalClicks: Number(result.total_clicks), cooldownUntil: result.powerup_cooldown_until })
+  res.json({
+    totalClicks: Number(result.total_clicks),
+    gems: Number(result.gems),
+    cooldownUntil: result.powerup_cooldown_until,
+  })
 })
 
 // Consumes one owned unit and actually starts it running.

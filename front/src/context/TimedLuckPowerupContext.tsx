@@ -10,12 +10,14 @@ import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { useGemsContext } from './GemsContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 export interface TimedLuckPowerupDef {
   id: string
   cost: number
+  currency: 'clicks' | 'gems'
   durationSeconds: number
   chance: number
   multiplier: number
@@ -52,6 +54,7 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
   const { syncTotalClicks } = useClickCounterContext()
   const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()
+  const { syncGems } = useGemsContext()
   const [catalog, setCatalog] = useState<TimedLuckPowerupDef[]>([])
   const [active, setActive] = useState<ActiveLuckPowerup | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
@@ -150,6 +153,7 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
           adjustInventory(powerup.id, 1)
           if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+          if (typeof data.gems === 'number') syncGems(data.gems)
           return { ok: true }
         }
         if (data.error === 'cooldown' && data.cooldownUntil) {
@@ -163,7 +167,7 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, adjustInventory, promptSignIn],
+    [userId, getToken, syncTotalClicks, syncGems, adjustInventory, promptSignIn],
   )
 
   const activate = useCallback(
