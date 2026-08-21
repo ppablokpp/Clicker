@@ -6,8 +6,6 @@ import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
 import { useMagnetContext, type MagnetDef } from '../context/MagnetContext'
-import { useUpgradesContext } from '../context/UpgradesContext'
-import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
 import { useGemCaseContext } from '../context/GemCaseContext'
@@ -18,7 +16,6 @@ import { useDailyKeyContext } from '../context/DailyKeyContext'
 import { useClickPacksContext, type ClickPackDef } from '../context/ClickPacksContext'
 import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
-import { UPGRADE_ICON, MONEY_UPGRADE_ICON } from '../store/config'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import { playCaseReveal, playCaseTick, playChestPurchase } from '../lib/caseSound'
 
@@ -72,14 +69,6 @@ export function Store() {
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.lootSection}</h2>
           <CaseOpeningCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
-        </section>
-
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.upgradesSection}</h2>
-          <div className="flex flex-col gap-4">
-            <GemUpgradeLadder strings={strings.store} />
-            <UpgradeLadder locale={locale} totalClicks={totalClicks} strings={strings.store} />
-          </div>
         </section>
 
         <section>
@@ -157,18 +146,7 @@ interface StoreStrings {
   magnets: Record<string, { name: string }>
 }
 
-/** The buy button's own content IS the price — no separate cost row, no generic "Buy" label. */
-function ClickPriceTag({ cost, locale, costLabel }: { cost: number; locale: string; costLabel: string }) {
-  return (
-    <span className="flex items-center justify-center gap-1.5">
-      <MousePointerClick size={14} className="opacity-70" />
-      <span className="text-base font-bold tabular-nums">{cost.toLocaleString(locale)}</span>
-      <span className="text-xs font-medium opacity-70">{costLabel}</span>
-    </span>
-  )
-}
-
-/** Same idea as ClickPriceTag but priced in gems instead of clicks. */
+/** Same idea as a click-price tag but priced in gems instead of clicks. */
 function GemPriceTag({ cost }: { cost: number }) {
   return (
     <span className="flex items-center justify-center gap-1.5">
@@ -775,209 +753,6 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
           )
         })}
       </div>
-
-      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
-    </div>
-  )
-}
-
-interface UpgradeLadderProps {
-  locale: string
-  totalClicks: number
-  strings: StoreStrings
-}
-
-// One card for the whole luck ladder instead of 4 separate cards — a
-// segmented bar shows how far you've gone, and the CTA always targets
-// whatever the next tier is (buying is enforced sequential server-side).
-function UpgradeLadder({ locale, totalClicks, strings }: UpgradeLadderProps) {
-  const { userId } = useAuth()
-  const { catalog, owned, bestOwned, buyingId, buy } = useUpgradesContext()
-  const [error, setError] = useState<string | null>(null)
-
-  if (catalog.length === 0) return null
-
-  const ownedCount = catalog.filter((u) => owned.has(u.id)).length
-  const nextUpgrade = catalog[ownedCount]
-  const isMaxed = !nextUpgrade
-  const canAfford = nextUpgrade ? !userId || totalClicks >= nextUpgrade.cost : false
-  const isBuyingThis = nextUpgrade ? buyingId === nextUpgrade.id : false
-  const looksDisabled = !isMaxed && (buyingId !== null || !canAfford)
-
-  const handleBuy = async () => {
-    if (!nextUpgrade) return
-    setError(null)
-    const result = await buy(nextUpgrade)
-    if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
-  }
-
-  const currentLabel = bestOwned
-    ? `×${bestOwned.multiplier} (${(bestOwned.chance * 100).toFixed(0)}%)`
-    : strings.noUpgradeYet
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-green-500/10 blur-2xl" />
-
-      <div className="relative mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-green-400/30 to-emerald-500/20 text-green-200">
-          <UPGRADE_ICON size={17} />
-        </div>
-        <div>
-          <div className="text-base font-semibold text-white">{strings.luckTitle}</div>
-          <div className="text-xs text-neutral-500">{currentLabel}</div>
-        </div>
-        <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-medium text-neutral-500">
-          <Clock size={11} />
-          {strings.infinity}
-        </span>
-      </div>
-
-      <div className="relative mb-1.5 flex gap-1">
-        {catalog.map((u, i) => (
-          <div
-            key={u.id}
-            className={`h-2 flex-1 rounded-full transition-colors ${
-              i < ownedCount ? 'bg-green-400' : 'bg-white/10'
-            }`}
-          />
-        ))}
-      </div>
-      <div className="relative mb-4 flex text-[10px] font-medium text-neutral-600">
-        {catalog.map((u) => (
-          <span key={u.id} className="flex-1 text-center">
-            ×{u.multiplier}
-          </span>
-        ))}
-      </div>
-
-      {isMaxed ? (
-        <div className="relative rounded-xl border border-green-400/20 bg-green-500/[0.07] py-2.5 text-center text-sm font-semibold text-green-200">
-          {strings.maxLevel}
-        </div>
-      ) : (
-        <>
-          <p className="relative mb-4 text-sm text-neutral-500">
-            {strings.upgrades[nextUpgrade.id]?.desc ?? ''}
-          </p>
-
-          <button
-            onClick={handleBuy}
-            disabled={buyingId !== null || !canAfford}
-            aria-label={strings.upgradeCta}
-            className={`relative w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-              looksDisabled
-                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'bg-white text-neutral-900 hover:opacity-90'
-            }`}
-          >
-            {isBuyingThis ? (
-              strings.buying
-            ) : (
-              <ClickPriceTag cost={nextUpgrade.cost} locale={locale} costLabel={strings.costLabel} />
-            )}
-          </button>
-        </>
-      )}
-
-      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
-    </div>
-  )
-}
-
-interface GemUpgradeLadderProps {
-  strings: StoreStrings
-}
-
-// Same exact mechanic and layout as UpgradeLadder — small, sequential,
-// non-cumulative tiers — but bought with gems instead of clicks (no
-// RevenueCat involved, unlike the old money version this replaced).
-function GemUpgradeLadder({ strings }: GemUpgradeLadderProps) {
-  const { catalog, owned, bestOwned, buyingId, buy } = useGemUpgradesContext()
-  const { gems } = useGemsContext()
-  const [error, setError] = useState<string | null>(null)
-
-  if (catalog.length === 0) return null
-
-  const ownedCount = catalog.filter((u) => owned.has(u.id)).length
-  const nextUpgrade: GemUpgradeDef | undefined = catalog[ownedCount]
-  const isMaxed = !nextUpgrade
-  const canAfford = nextUpgrade ? gems >= nextUpgrade.cost : false
-  const isBuyingThis = nextUpgrade ? buyingId === nextUpgrade.id : false
-  const isBuyingAny = buyingId !== null
-  const looksDisabled = isBuyingAny || !canAfford
-
-  const handleBuy = async () => {
-    if (!nextUpgrade) return
-    setError(null)
-    const result = await buy(nextUpgrade)
-    if (!result.ok && result.error !== 'not-signed-in') {
-      setError(result.error === 'not-enough-gems' ? strings.notEnoughGems : strings.purchaseError)
-    }
-  }
-
-  const currentLabel = bestOwned ? `×${bestOwned.multiplier}` : strings.noUpgradeYet
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-2xl" />
-
-      <div className="relative mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-400/30 to-violet-500/20 text-fuchsia-200">
-          <MONEY_UPGRADE_ICON size={17} />
-        </div>
-        <div>
-          <div className="text-base font-semibold text-white">{strings.moneyUpgradesTitle}</div>
-          <div className="text-xs text-neutral-500">{currentLabel}</div>
-        </div>
-        <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-medium text-neutral-500">
-          <Clock size={11} />
-          {strings.infinity}
-        </span>
-      </div>
-
-      <div className="relative mb-1.5 flex gap-1">
-        {catalog.map((u, i) => (
-          <div
-            key={u.id}
-            className={`h-2 flex-1 rounded-full transition-colors ${
-              i < ownedCount ? 'bg-fuchsia-400' : 'bg-white/10'
-            }`}
-          />
-        ))}
-      </div>
-      <div className="relative mb-4 flex text-[10px] font-medium text-neutral-600">
-        {catalog.map((u) => (
-          <span key={u.id} className="flex-1 text-center">
-            ×{u.multiplier}
-          </span>
-        ))}
-      </div>
-
-      {isMaxed ? (
-        <div className="relative rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/[0.07] py-2.5 text-center text-sm font-semibold text-fuchsia-200">
-          {strings.maxLevel}
-        </div>
-      ) : (
-        <>
-          <p className="relative mb-4 text-sm text-neutral-500">
-            {strings.moneyUpgrades[nextUpgrade.id]?.desc ?? ''}
-          </p>
-
-          <button
-            onClick={handleBuy}
-            disabled={looksDisabled}
-            aria-label={strings.upgradeCta}
-            className={`relative w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-              looksDisabled
-                ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-            }`}
-          >
-            {isBuyingThis ? strings.buying : <GemPriceTag cost={nextUpgrade.cost} />}
-          </button>
-        </>
-      )}
 
       {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
     </div>

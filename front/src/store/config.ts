@@ -1,4 +1,4 @@
-import { Zap, Flame, Rocket, Crown, Clover, Gem, type LucideIcon } from 'lucide-react'
+import { Zap, Flame, Rocket, Crown, type LucideIcon } from 'lucide-react'
 
 // Maps a backend catalog id to how it's displayed — the backend owns
 // price/duration/multiplier/chance (the real, enforced numbers); this is presentation only.
@@ -10,7 +10,3 @@ export const POWERUP_ICONS: Record<string, LucideIcon> = {
 }
 
 export const DEFAULT_POWERUP_ICON = Zap
-
-export const UPGRADE_ICON = Clover
-
-export const MONEY_UPGRADE_ICON = Gem

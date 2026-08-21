@@ -18,16 +18,31 @@ interface TreeState {
   autoClickCps: number
   autoClickNextCost: number
   autoClickNextCps: number
+  luckLevel: number
+  luckChance: number
+  luckMultiplier: number
+  luckNextCost: number
 }
 
 interface TreeContextValue extends TreeState {
   isBuying: boolean
   buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingLuck: boolean
+  buyLuck: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
 
-const EMPTY_STATE: TreeState = { autoClickLevel: 0, autoClickCps: 0, autoClickNextCost: 0, autoClickNextCps: 0 }
+const EMPTY_STATE: TreeState = {
+  autoClickLevel: 0,
+  autoClickCps: 0,
+  autoClickNextCost: 0,
+  autoClickNextCps: 0,
+  luckLevel: 0,
+  luckChance: 0,
+  luckMultiplier: 1,
+  luckNextCost: 0,
+}
 
 export function TreeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
@@ -35,6 +50,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const { promptSignIn } = useSignInPrompt()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
   const [isBuying, setIsBuying] = useState(false)
+  const [isBuyingLuck, setIsBuyingLuck] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -57,6 +73,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           autoClickCps: data.autoClickCps,
           autoClickNextCost: data.autoClickNextCost,
           autoClickNextCps: data.autoClickNextCps,
+          luckLevel: data.luckLevel,
+          luckChance: data.luckChance,
+          luckMultiplier: data.luckMultiplier,
+          luckNextCost: data.luckNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       }
@@ -102,12 +122,16 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       })
       const data = await res.json()
       if (!res.ok) return { ok: false, error: data.error ?? 'error' }
-      setState({
+      // Only autoClick/totalClicks fields come back from this endpoint —
+      // merge onto the existing state instead of replacing it wholesale,
+      // so the luck fields fetched separately aren't clobbered back to 0.
+      setState((prev) => ({
+        ...prev,
         autoClickLevel: data.autoClickLevel,
         autoClickCps: data.autoClickCps,
         autoClickNextCost: data.autoClickNextCost,
         autoClickNextCps: data.autoClickNextCps,
-      })
+      }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       return { ok: true }
     } catch (err) {
@@ -118,7 +142,42 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
-  return <TreeContext.Provider value={{ ...state, isBuying, buyAutoClick }}>{children}</TreeContext.Provider>
+  const buyLuck = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingLuck(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/luck/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        luckLevel: data.luckLevel,
+        luckChance: data.luckChance,
+        luckMultiplier: data.luckMultiplier,
+        luckNextCost: data.luckNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar la mejora de suerte', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingLuck(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  return (
+    <TreeContext.Provider value={{ ...state, isBuying, buyAutoClick, isBuyingLuck, buyLuck }}>
+      {children}
+    </TreeContext.Provider>
+  )
 }
 
 export function useTreeContext() {

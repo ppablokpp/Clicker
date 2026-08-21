@@ -1,9 +1,11 @@
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowUp, Bot, Lock, Minus, MousePointerClick, Plus, RotateCcw, Sparkles, X } from 'lucide-react'
+import { ArrowUp, Bot, Clover, Gem, Lock, Minus, MousePointerClick, Plus, RotateCcw, Sparkles, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
+import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
+import { useGemsContext } from '../context/GemsContext'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
 // them animate in first, farther ones follow a beat later, so a whole
@@ -43,27 +45,27 @@ const NODES: TreeNode[] = [
 
   // Branch A — long single chain curving up and to the right, with one
   // short side twig off the first node.
-  { id: 'a1', x: CENTER + 140, y: CENTER - 100, label: 'Rama A' },
+  { id: 'a1', x: CENTER + 140, y: CENTER - 100, label: 'Mejora' },
   { id: 'a1b', x: CENTER + 60, y: CENTER - 220, label: 'Mejora' },
   { id: 'a2', x: CENTER + 260, y: CENTER - 200, label: 'Mejora' },
   { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora+' },
 
   // Branch B — short reach left that forks into two.
-  { id: 'b1', x: CENTER - 170, y: CENTER + 20, label: 'Rama B' },
+  { id: 'b1', x: CENTER - 170, y: CENTER + 20, label: 'Mejora' },
   { id: 'b2a', x: CENTER - 320, y: CENTER - 60, label: 'Mejora' },
   { id: 'b2b', x: CENTER - 330, y: CENTER + 110, label: 'Mejora' },
   { id: 'b3', x: CENTER - 460, y: CENTER - 120, label: 'Mejora+' },
 
   // Branch C — one lone node straight down, nothing beyond it yet.
-  { id: 'c1', x: CENTER + 40, y: CENTER + 160, label: 'Rama C' },
+  { id: 'c1', x: CENTER + 40, y: CENTER + 160, label: 'Mejora' },
 
   // Branch D — long chain up and slightly left.
-  { id: 'd1', x: CENTER - 100, y: CENTER - 160, label: 'Rama D' },
+  { id: 'd1', x: CENTER - 100, y: CENTER - 160, label: 'Mejora' },
   { id: 'd2', x: CENTER - 170, y: CENTER - 310, label: 'Mejora' },
   { id: 'd3', x: CENTER - 80, y: CENTER - 440, label: 'Mejora+' },
 
   // Branch E — short reach down-right that forks into two.
-  { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Rama E' },
+  { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Mejora' },
   { id: 'e2a', x: CENTER + 280, y: CENTER + 60, label: 'Mejora' },
   { id: 'e2b', x: CENTER + 260, y: CENTER + 220, label: 'Mejora' },
 ]
@@ -90,39 +92,53 @@ const EDGES: TreeEdge[] = [
   { from: 'e1', to: 'e2b' },
 ]
 
-// BFS graph-distance from root, so each node's reveal state can be derived
-// from a single real number (root's level) instead of hand-set per node.
-function computeDistancesFromRoot(edges: TreeEdge[]): Record<string, number> {
+// BFS parent pointers from root — the only graph info the reveal rule
+// below needs, since it walks the chain itself rather than working off a
+// fixed distance cutoff.
+function computeParentsFromRoot(edges: TreeEdge[]): Record<string, string> {
   const adjacency: Record<string, string[]> = {}
   for (const { from, to } of edges) {
     ;(adjacency[from] ??= []).push(to)
     ;(adjacency[to] ??= []).push(from)
   }
-  const distances: Record<string, number> = { root: 0 }
+  const parentOf: Record<string, string> = {}
+  const visited = new Set(['root'])
   const queue = ['root']
   while (queue.length > 0) {
     const current = queue.shift() as string
     for (const neighbor of adjacency[current] ?? []) {
-      if (distances[neighbor] === undefined) {
-        distances[neighbor] = distances[current] + 1
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor)
+        parentOf[neighbor] = current
         queue.push(neighbor)
       }
     }
   }
-  return distances
+  return parentOf
 }
 
-const DISTANCE_FROM_ROOT = computeDistancesFromRoot(EDGES)
+const PARENT_OF = computeParentsFromRoot(EDGES)
 
-// The general rule: once a node passes level 0, its direct children (+1)
-// unlock and become purchasable, and its grandchildren (+2) become visible
-// as locked — nothing beyond that shows up yet. Only root has a real level
-// today, so this is only actually evaluated relative to root for now; once
-// more nodes are real, each one drives its own +1/+2 the same way.
-function getRevealState(distance: number, parentLevel: number): RevealState {
-  if (distance === 1) return parentLevel > 0 ? 'available' : 'locked'
-  if (distance === 2) return parentLevel > 0 ? 'locked' : 'hidden'
-  return 'hidden'
+// Recursive, so the same rule applies at every depth instead of a
+// hardcoded "distance 1 / distance 2" cutoff: a node becomes visible
+// ('locked') as soon as its parent is 'available', and gets promoted all
+// the way to 'available' itself only if that parent is a real node past
+// level 0. That's how root revealing a1/c1 works, and it's exactly the
+// same mechanism that makes leveling up a1 (luck) reveal a1's own
+// children, and would keep cascading into a3 once a2 ever becomes real.
+function getRevealState(nodeId: string, realLevelById: Record<string, number>): RevealState {
+  const parentId = PARENT_OF[nodeId]
+
+  // Root's direct children are a special case: always at least visible
+  // ('locked'), never hidden, even before root has any level at all —
+  // everything deeper only appears once its own parent is 'available'.
+  if (parentId === 'root') {
+    return (realLevelById.root ?? 0) > 0 ? 'available' : 'locked'
+  }
+
+  const parentState = getRevealState(parentId, realLevelById)
+  if (parentState !== 'available') return 'hidden'
+  return (realLevelById[parentId] ?? 0) > 0 ? 'available' : 'locked'
 }
 
 // 'available' echoes the subtle tinted-glass badges used for gem
@@ -135,6 +151,18 @@ const NODE_STYLES: Record<Exclude<RevealState, 'hidden'>, string> = {
   available: 'border-violet-400/20 bg-[#14101f] text-violet-200 shadow-black/20',
   locked: 'border-dashed border-neutral-700 bg-neutral-900 text-neutral-600 shadow-black/30',
 }
+
+// Branch C's node (the premium gem multiplier, moved here from the Store)
+// echoes the modal's own indigo buy-button color instead of the fuchsia
+// icon-badge gradient — opaque dark backing so the branch lines never show
+// through, color carried by the border/text; the Gem icon itself stays
+// fuchsia, matching the store's icon treatment.
+const PREMIUM_NODE_STYLE = 'border-indigo-400/25 bg-[#141a2e] text-indigo-200 shadow-black/20'
+
+// Branch A's node (the permanent luck upgrade, also moved here from the
+// Store) — green/Clover, matching the old "Suerte" card's color exactly,
+// same opaque-dark-backing recipe as the other two real nodes.
+const LUCK_NODE_STYLE = 'border-green-400/25 bg-[#0f1f16] text-green-200 shadow-black/20'
 
 const DEFAULT_SCALE = 0.85
 
@@ -152,10 +180,29 @@ export function Tree() {
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const { totalClicks } = useClickCounterContext()
-  const { autoClickLevel, autoClickCps, autoClickNextCost, autoClickNextCps, isBuying, buyAutoClick } = useTreeContext()
+  const {
+    autoClickLevel,
+    autoClickCps,
+    autoClickNextCost,
+    autoClickNextCps,
+    isBuying,
+    buyAutoClick,
+    luckLevel,
+    luckMultiplier,
+    luckNextCost,
+    isBuyingLuck,
+    buyLuck,
+  } = useTreeContext()
   const canAffordAutoClick = totalClicks >= autoClickNextCost
+  const canAffordLuck = totalClicks >= luckNextCost
+  const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
+    useGemUpgradesContext()
+  const { gems } = useGemsContext()
   const [transform, setTransform] = useState(centeredView)
   const [showAutoClickModal, setShowAutoClickModal] = useState(false)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showLuckModal, setShowLuckModal] = useState(false)
+  const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
   )
@@ -218,12 +265,38 @@ export function Tree() {
 
   const resetView = () => setTransform(centeredView())
 
+  // Same sequential-tier math the Store used to do — moved here as-is,
+  // just now rendered inside the tree's modal instead of a Store card.
+  const premiumOwnedCount = premiumCatalog.filter((u) => premiumOwned.has(u.id)).length
+  const nextPremiumUpgrade: GemUpgradeDef | undefined = premiumCatalog[premiumOwnedCount]
+  const isPremiumMaxed = !nextPremiumUpgrade
+  const canAffordPremium = nextPremiumUpgrade ? gems >= nextPremiumUpgrade.cost : false
+  const isBuyingThisPremium = nextPremiumUpgrade ? premiumBuyingId === nextPremiumUpgrade.id : false
+  const premiumLooksDisabled = premiumBuyingId !== null || !canAffordPremium
+
+  const handleBuyPremium = async () => {
+    if (!nextPremiumUpgrade) return
+    setPremiumError(null)
+    const result = await buyPremium(nextPremiumUpgrade)
+    if (!result.ok && result.error !== 'not-signed-in') {
+      setPremiumError(result.error === 'not-enough-gems' ? strings.store.notEnoughGems : strings.store.purchaseError)
+    }
+  }
+
   const nodeById = Object.fromEntries(NODES.map((n) => [n.id, n]))
-  // Recomputed each render off the real autoClickLevel — cheap for a graph
+  // Every node with a real, buyable level today — anything else defaults
+  // to 0 inside getRevealState, which is exactly right for placeholder
+  // branches that don't have a purchase system yet.
+  const realLevelById: Record<string, number> = {
+    root: autoClickLevel,
+    a1: luckLevel,
+    c1: premiumOwnedCount,
+  }
+  // Recomputed each render off the real levels above — cheap for a graph
   // this small, and keeps the reveal rule as the single source of truth
   // instead of duplicating "what's visible" as separate state.
   const revealStateById: Record<string, RevealState> = Object.fromEntries(
-    NODES.filter((n) => n.id !== 'root').map((n) => [n.id, getRevealState(DISTANCE_FROM_ROOT[n.id], autoClickLevel)]),
+    NODES.filter((n) => n.id !== 'root').map((n) => [n.id, getRevealState(n.id, realLevelById)]),
   )
   const isVisible = (id: string) => id === 'root' || revealStateById[id] !== 'hidden'
 
@@ -266,7 +339,10 @@ export function Tree() {
             })}
           </svg>
 
-          {NODES.filter((node) => node.id !== 'root' && revealStateById[node.id] !== 'hidden').map((node) => {
+          {NODES.filter(
+            (node) =>
+              node.id !== 'root' && node.id !== 'c1' && node.id !== 'a1' && revealStateById[node.id] !== 'hidden',
+          ).map((node) => {
             const revealState = revealStateById[node.id] as 'available' | 'locked'
             return (
               // Positioning (left/top + centering translate) lives on this
@@ -283,18 +359,124 @@ export function Tree() {
                   initial={{ opacity: 0, scale: 0.3 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(node, CENTER, CENTER) }}
-                  className={`flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES[revealState]}`}
+                  className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES[revealState]}`}
                 >
-                  {revealState === 'locked' ? (
-                    <Lock size={20} />
-                  ) : (
-                    <Sparkles size={20} className="text-violet-300" />
-                  )}
+                  <Sparkles size={20} className={revealState === 'available' ? 'text-violet-300' : ''} />
                   <span className="whitespace-nowrap text-xs font-semibold">{node.label}</span>
+                  {revealState === 'locked' && (
+                    <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                      <Lock size={14} />
+                    </span>
+                  )}
                 </motion.div>
               </div>
             )
           })}
+
+          {/* Branch C — the premium gem multiplier, moved here from the
+              Store (removed there entirely). Locked until root has a
+              level, same as the rest of root's direct children; once
+              unlocked it's a second real node, not a placeholder. */}
+          {revealStateById.c1 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.c1.x, top: nodeById.c1.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.c1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Gem size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {premiumOwnedCount}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.c1 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.c1.x, top: nodeById.c1.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowPremiumModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.c1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-indigo-400/40 ${PREMIUM_NODE_STYLE}`}
+              >
+                <Gem size={20} className="text-indigo-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {premiumOwnedCount}
+                </span>
+
+                {!isPremiumMaxed && canAffordPremium && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Branch A — the permanent luck upgrade, moved here from the
+              Store (removed there entirely). Same locked/available split
+              as branch C. */}
+          {revealStateById.a1 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a1.x, top: nodeById.a1.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Clover size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {luckLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.a1 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a1.x, top: nodeById.a1.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowLuckModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
+              >
+                <Clover size={20} className="text-green-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {luckLevel}
+                </span>
+
+                {canAffordLuck && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
 
           {/* Root — the only real node so far: a repeatable auto-click
               upgrade. Tap opens the info modal (with the actual buy
@@ -396,6 +578,132 @@ export function Tree() {
                 <span className="flex items-center justify-center gap-1.5">
                   <MousePointerClick size={14} className="opacity-70" />
                   <span className="tabular-nums">{autoClickNextCost.toLocaleString(locale)}</span>
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showPremiumModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowPremiumModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-2xl" />
+
+            <button
+              onClick={() => setShowPremiumModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="relative mb-3 flex items-center gap-2">
+              <Gem size={18} className="text-fuchsia-300" />
+              <p className="text-sm font-semibold text-white">{strings.store.moneyUpgradesTitle}</p>
+            </div>
+            <p className="relative mb-4 text-sm text-neutral-400">{strings.tree.premiumDesc}</p>
+
+            <div className="relative mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentMultiplier}{' '}
+                <span className="font-semibold text-white">
+                  {premiumBestOwned ? `×${premiumBestOwned.multiplier}` : strings.store.noUpgradeYet}
+                </span>
+              </span>
+              {!isPremiumMaxed && (
+                <span>
+                  {strings.tree.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{nextPremiumUpgrade.multiplier}</span>
+                </span>
+              )}
+            </div>
+
+            {isPremiumMaxed ? (
+              <div className="relative w-full rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-fuchsia-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <button
+                onClick={handleBuyPremium}
+                disabled={premiumLooksDisabled}
+                className={`relative w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                  premiumLooksDisabled
+                    ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                    : 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
+                }`}
+              >
+                {isBuyingThisPremium ? (
+                  strings.tree.upgrading
+                ) : (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Gem size={14} className="opacity-80" />
+                    <span className="text-base font-bold tabular-nums">{nextPremiumUpgrade.cost}</span>
+                  </span>
+                )}
+              </button>
+            )}
+
+            {premiumError && <p className="relative mt-2 text-xs text-red-400">{premiumError}</p>}
+          </div>
+        </div>
+      )}
+
+      {showLuckModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowLuckModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLuckModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Clover size={18} className="text-green-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.luckName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentMultiplier}{' '}
+                <span className="font-semibold text-white">×{luckMultiplier}</span>
+              </span>
+              <span>
+                {strings.tree.nextMultiplier}{' '}
+                <span className="font-semibold text-white">×{luckMultiplier + 1}</span>
+              </span>
+            </div>
+
+            <button
+              onClick={buyLuck}
+              disabled={isBuyingLuck || !canAffordLuck}
+              className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                isBuyingLuck || !canAffordLuck
+                  ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                  : 'bg-white text-neutral-900 hover:opacity-90'
+              }`}
+            >
+              {isBuyingLuck ? (
+                strings.tree.upgrading
+              ) : (
+                <span className="flex items-center justify-center gap-1.5">
+                  <MousePointerClick size={14} className="opacity-70" />
+                  <span className="tabular-nums">{luckNextCost.toLocaleString(locale)}</span>
                 </span>
               )}
             </button>

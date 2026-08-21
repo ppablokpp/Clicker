@@ -141,6 +141,11 @@ export interface TranslationStrings {
     currentRate: string
     nextLevelRate: string
     upgrading: string
+    premiumDesc: string
+    currentMultiplier: string
+    nextMultiplier: string
+    luckName: string
+    luckDesc: string
   }
 }
 
@@ -362,6 +367,11 @@ export const translations: Record<Language, TranslationStrings> = {
       currentRate: 'Producción actual:',
       nextLevelRate: 'Producción siguiente nivel:',
       upgrading: 'Mejorando…',
+      premiumDesc: 'Multiplicador permanente aplicado a todos tus clicks para siempre. No se acumula con otros niveles — solo cuenta el más alto que tengas.',
+      currentMultiplier: 'Multiplicador actual:',
+      nextMultiplier: 'Multiplicador siguiente nivel:',
+      luckName: 'Suerte',
+      luckDesc: 'Probabilidad de que un click cuente por el multiplicador.',
     },
   },
   en: {
@@ -581,6 +591,11 @@ export const translations: Record<Language, TranslationStrings> = {
       currentRate: 'Current output:',
       nextLevelRate: 'Next level output:',
       upgrading: 'Upgrading…',
+      premiumDesc: 'A permanent multiplier applied to every click, forever. Doesn\'t stack with other levels — only the highest one you own counts.',
+      currentMultiplier: 'Current multiplier:',
+      nextMultiplier: 'Next level multiplier:',
+      luckName: 'Luck',
+      luckDesc: 'Chance for a click to count for the multiplier instead.',
     },
   },
 }

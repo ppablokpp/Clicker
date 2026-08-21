@@ -3,8 +3,8 @@ import { MousePointerClick, Trophy, BarChart3, Store, Network } from 'lucide-rea
 import { useLanguage } from '../context/LanguageContext'
 
 const PILL_ITEMS = [
-  { to: '/clasificacion', key: 'leaderboard', icon: Trophy, end: false },
   { to: '/arbol', key: 'tree', icon: Network, end: false },
+  { to: '/clasificacion', key: 'leaderboard', icon: Trophy, end: false },
   { to: '/', key: 'home', icon: MousePointerClick, end: true },
   { to: '/estadisticas', key: 'stats', icon: BarChart3, end: false },
   { to: '/tienda', key: 'store', icon: Store, end: false },

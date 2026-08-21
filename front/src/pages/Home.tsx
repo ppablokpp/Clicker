@@ -26,14 +26,13 @@ import { useTimedLuckPowerupContext } from '../context/TimedLuckPowerupContext'
 import { useMagnetContext } from '../context/MagnetContext'
 import { useKeysContext } from '../context/KeysContext'
 import { useGemsContext } from '../context/GemsContext'
-import { useUpgradesContext } from '../context/UpgradesContext'
 import { useGemUpgradesContext } from '../context/GemUpgradesContext'
+import { useTreeContext } from '../context/TreeContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
 import { useDailyCaseContext } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
-import { useTreeContext } from '../context/TreeContext'
 import { playMagnetProc } from '../lib/caseSound'
 
 interface InfoModalData {
@@ -150,7 +149,7 @@ export function Home() {
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
-  const { autoClickCps } = useTreeContext()
+  const { autoClickCps, luckChance: permanentLuckChance, luckMultiplier: permanentLuckMultiplier } = useTreeContext()
   const { language, strings } = useLanguage()
   const {
     catalog: powerupCatalog,
@@ -191,7 +190,6 @@ export function Home() {
     ownedPowerups.length === 0 &&
     ownedLuckPowerups.length === 0 &&
     ownedMagnets.length === 0
-  const { bestOwned } = useUpgradesContext()
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
@@ -234,12 +232,13 @@ export function Home() {
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
   const totalMultiplier = heat.multiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
-  // Permanent Suerte and the timed one aren't two separate rolls — owning
-  // both multiplies together into a single number under one shared 1% roll,
-  // so buying the timed one actually amplifies the permanent tier you already have.
-  const hasLuck = Boolean(bestOwned || activeLuckPowerup)
-  const luckChance = activeLuckPowerup?.chance ?? bestOwned?.chance ?? 0
-  const combinedLuckMultiplier = (bestOwned?.multiplier ?? 1) * (activeLuckPowerup?.multiplier ?? 1)
+  // Permanent Suerte (now a tree node, branch A) and the timed one aren't
+  // two separate rolls — owning both multiplies together into a single
+  // number under one shared 1% roll, so buying the timed one actually
+  // amplifies the permanent level you already have.
+  const hasLuck = Boolean(permanentLuckChance > 0 || activeLuckPowerup)
+  const luckChance = activeLuckPowerup?.chance ?? permanentLuckChance
+  const combinedLuckMultiplier = permanentLuckMultiplier * (activeLuckPowerup?.multiplier ?? 1)
 
   const prestige = useMemo(
     () => ({
