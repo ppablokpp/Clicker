@@ -99,20 +99,21 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
 // zero, since this rewards *sustaining* the combo, not a lifetime total.
 // The first threshold (streakBase) and the per-fill bonus increase
 // (bonusStep) both come from the tree now — Reflejos/Impulso, Multiplicador's
-// two children — so they're parameters here, not fixed constants. The
-// bonus itself is hard-capped at x5 — uncapped it would eventually dwarf
-// every other multiplier in the game, no matter how hard the streak is to
-// sustain.
+// two children — so they're parameters here, not fixed constants. The bar
+// can only fill LEGENDARY_TIER_MAX times, period — a fixed cap on *how many
+// times* it can go up, not on the resulting value, so Impulso raising
+// bonusStep actually raises the ceiling instead of just getting there
+// faster.
 const LEGENDARY_STREAK_RATIO = 1.4
 const LEGENDARY_BONUS_BASE = 1.5
-const LEGENDARY_BONUS_MAX = 5
+const LEGENDARY_TIER_MAX = 5
 
 function legendaryStreakThreshold(tier: number, streakBase: number): number {
   return Math.ceil(streakBase * LEGENDARY_STREAK_RATIO ** tier)
 }
 
 function legendaryBonusForTier(tier: number, bonusStep: number): number {
-  return Math.min(LEGENDARY_BONUS_MAX, LEGENDARY_BONUS_BASE + bonusStep * tier)
+  return LEGENDARY_BONUS_BASE + bonusStep * Math.min(tier, LEGENDARY_TIER_MAX)
 }
 
 // First prestige threshold — reaching it is meant to be when prestige becomes
@@ -332,6 +333,9 @@ export function Home() {
       // itself reads from, so it can't be padded by auto-click ticks.
       if (heat.key === 'legendary') {
         setLegendaryStreak((prev) => {
+          // Already filled the max number of times — stop counting instead
+          // of endlessly refilling a bar that can't buy anything more.
+          if (prev.tier >= LEGENDARY_TIER_MAX) return prev
           const nextCount = prev.count + 1
           const threshold = legendaryStreakThreshold(prev.tier, legendaryStreakBase)
           return nextCount >= threshold ? { tier: prev.tier + 1, count: 0 } : { tier: prev.tier, count: nextCount }
@@ -418,12 +422,17 @@ export function Home() {
           {/* Legendary's combo bar — very subtle, purely a gray fill behind
               the text so everything stays readable; fills up with real taps
               landed while legendary, resets (and the bonus bumps) each time
-              it fills. */}
+              it fills. Once it's filled LEGENDARY_TIER_MAX times it just
+              shows full instead of continuing to fill/reset for no further
+              gain. */}
           {heat.key === 'legendary' && (
             <span
               className="pointer-events-none absolute inset-y-0 left-0 z-0 bg-white/[0.07] transition-[width] duration-200 ease-out"
               style={{
-                width: `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier, legendaryStreakBase)) * 100)}%`,
+                width:
+                  legendaryStreak.tier >= LEGENDARY_TIER_MAX
+                    ? '100%'
+                    : `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier, legendaryStreakBase)) * 100)}%`,
               }}
             />
           )}
@@ -434,7 +443,8 @@ export function Home() {
           {heatLabel && (
             <span className={`relative z-10 font-semibold uppercase tracking-wide ${heat.badge}`}>
               · {heatLabel}
-              {heat.key === 'legendary' && ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep)}`}
+              {heat.key === 'legendary' &&
+                ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep).toFixed(1)}`}
             </span>
           )}
         </span>
@@ -450,7 +460,7 @@ export function Home() {
         {totalMultiplier > 1 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
             <MousePointerClick size={12} className="text-violet-300" />
-            {strings.home.totalLabel} ×{totalMultiplier}
+            {strings.home.totalLabel} ×{totalMultiplier.toFixed(1)}
             {activePowerup && (
               <>
                 <Rocket size={12} className="text-violet-300" />
