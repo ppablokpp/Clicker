@@ -164,7 +164,7 @@ const PREMIUM_NODE_STYLE = 'border-indigo-400/25 bg-[#141a2e] text-indigo-200 sh
 // same opaque-dark-backing recipe as the other two real nodes.
 const LUCK_NODE_STYLE = 'border-green-400/25 bg-[#0f1f16] text-green-200 shadow-black/20'
 
-const DEFAULT_SCALE = 0.85
+const DEFAULT_SCALE = 0.68
 
 // Centers the root node (world coordinates CENTER, CENTER) in the middle of
 // whatever the viewport happens to be, at the default zoom level.
@@ -206,21 +206,81 @@ export function Tree() {
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
   )
+  // Every finger currently on the screen, keyed by pointerId — a second
+  // one landing while the first is still down turns the gesture into a
+  // pinch instead of a pan.
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinchRef = useRef<{
+    idA: number
+    idB: number
+    startDistance: number
+    startScale: number
+    startMidX: number
+    startMidY: number
+    originX: number
+    originY: number
+  } | null>(null)
 
   const clampScale = (scale: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
+  const distanceBetween = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y)
 
   const handlePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId)
-    dragRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: transform.x,
-      originY: transform.y,
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (pointersRef.current.size === 2) {
+      // Second finger just landed — switch from panning to a pinch,
+      // anchored on both fingers' current midpoint so nothing jumps.
+      dragRef.current = null
+      const [idA, idB] = pointersRef.current.keys()
+      const a = pointersRef.current.get(idA)!
+      const b = pointersRef.current.get(idB)!
+      pinchRef.current = {
+        idA,
+        idB,
+        startDistance: distanceBetween(a, b),
+        startScale: transform.scale,
+        startMidX: (a.x + b.x) / 2,
+        startMidY: (a.y + b.y) / 2,
+        originX: transform.x,
+        originY: transform.y,
+      }
+    } else if (pointersRef.current.size === 1) {
+      pinchRef.current = null
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: transform.x,
+        originY: transform.y,
+      }
     }
-  }, [transform.x, transform.y])
+  }, [transform.x, transform.y, transform.scale])
 
   const handlePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    }
+
+    const pinch = pinchRef.current
+    if (pinch) {
+      const a = pointersRef.current.get(pinch.idA)
+      const b = pointersRef.current.get(pinch.idB)
+      if (a && b) {
+        const distance = distanceBetween(a, b)
+        const scale = clampScale(pinch.startScale * (distance / pinch.startDistance))
+        const ratio = scale / pinch.startScale
+        const midX = (a.x + b.x) / 2
+        const midY = (a.y + b.y) / 2
+        setTransform({
+          x: midX - (pinch.startMidX - pinch.originX) * ratio,
+          y: midY - (pinch.startMidY - pinch.originY) * ratio,
+          scale,
+        })
+      }
+      return
+    }
+
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
     setTransform((prev) => ({
@@ -231,8 +291,29 @@ export function Tree() {
   }, [])
 
   const endDrag = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId)
+
+    const pinch = pinchRef.current
+    if (pinch && (e.pointerId === pinch.idA || e.pointerId === pinch.idB)) {
+      pinchRef.current = null
+      // One finger may still be down — hand off to a fresh single-finger
+      // pan anchored on its current position so it doesn't jump.
+      const [remainingId] = pointersRef.current.keys()
+      const remaining = remainingId !== undefined ? pointersRef.current.get(remainingId) : undefined
+      if (remaining) {
+        dragRef.current = {
+          pointerId: remainingId,
+          startX: remaining.x,
+          startY: remaining.y,
+          originX: transform.x,
+          originY: transform.y,
+        }
+      }
+      return
+    }
+
     if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null
-  }, [])
+  }, [transform.x, transform.y])
 
   // Keeps whatever's currently at the viewport center visually fixed while
   // the scale changes, instead of zooming toward the world's (0,0) origin

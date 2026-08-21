@@ -17,6 +17,7 @@ import {
   Info,
   X,
   Bot,
+  MousePointerClick,
   type LucideIcon,
 } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -343,6 +344,21 @@ export function Home() {
           </span>
         )}
 
+        {totalMultiplier > 1 && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
+            <MousePointerClick size={12} className="text-violet-300" />
+            {strings.home.totalLabel} ×{totalMultiplier}
+            {activePowerup && (
+              <>
+                <Rocket size={12} className="text-violet-300" />
+                <span className="tabular-nums text-violet-300">
+                  {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                </span>
+              </>
+            )}
+          </span>
+        )}
+
         {bestMoneyOwned && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-3 py-1.5 text-xs font-bold text-fuchsia-200 shadow-lg shadow-black/20">
             <Gem size={12} className="text-fuchsia-300" />×{bestMoneyOwned.multiplier}
@@ -357,20 +373,6 @@ export function Home() {
                 <Dices size={12} className="text-green-300" />
                 <span className="tabular-nums text-green-300">
                   {Math.floor(luckSecondsLeft / 60)}:{String(luckSecondsLeft % 60).padStart(2, '0')}
-                </span>
-              </>
-            )}
-          </span>
-        )}
-
-        {totalMultiplier > 1 && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
-            ×{totalMultiplier}
-            {activePowerup && (
-              <>
-                <Rocket size={12} className="text-violet-300" />
-                <span className="tabular-nums text-violet-300">
-                  {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
                 </span>
               </>
             )}

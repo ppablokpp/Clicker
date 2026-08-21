@@ -14,6 +14,7 @@ export interface TranslationStrings {
     changePrestige: string
     prestigeComingSoon: string
     cps: string
+    totalLabel: string
     heat: {
       onFire: string
       unstoppable: string
@@ -164,6 +165,7 @@ export const translations: Record<Language, TranslationStrings> = {
       changePrestige: 'Cambiar de prestigio',
       prestigeComingSoon: 'Próximamente...',
       cps: 'c/s',
+      totalLabel: 'Total:',
       heat: {
         onFire: 'En racha',
         unstoppable: 'Imparable',
@@ -388,6 +390,7 @@ export const translations: Record<Language, TranslationStrings> = {
       changePrestige: 'Change prestige',
       prestigeComingSoon: 'Coming soon',
       cps: 'c/s',
+      totalLabel: 'Total:',
       heat: {
         onFire: 'On fire',
         unstoppable: 'Unstoppable',
