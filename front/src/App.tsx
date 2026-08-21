@@ -22,56 +22,61 @@ import { GemUpgradesProvider } from './context/GemUpgradesContext'
 import { DailyCaseProvider } from './context/DailyCaseContext'
 import { GemCaseProvider } from './context/GemCaseContext'
 import { GemChestProvider } from './context/GemChestContext'
+import { TreeProvider } from './context/TreeContext'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
 import { Stats } from './pages/Stats'
+import { Tree } from './pages/Tree'
 
 function ClickerApp() {
   return (
     <SignInPromptProvider>
       <ClickCounterProvider>
-        <GemsProvider>
-          <KeysProvider>
-            <DailyKeyProvider>
-              <ClickPacksProvider>
-                <KeyPacksProvider>
-                  <GemPacksProvider>
-                    <InventoryProvider>
-                      <PowerupProvider>
-                        <TimedLuckPowerupProvider>
-                          <MagnetProvider>
-                            <MilestonesProvider>
-                              <UpgradesProvider>
-                                <GemUpgradesProvider>
-                                  <DailyCaseProvider>
-                                    <GemCaseProvider>
-                                      <GemChestProvider>
-                                        <Routes>
-                                          <Route path="/" element={<Home />} />
-                                          <Route path="/clasificacion" element={<Leaderboard />} />
-                                          <Route path="/estadisticas" element={<Stats />} />
-                                          <Route path="/tienda" element={<Store />} />
-                                        </Routes>
-                                        <Header />
-                                        <BottomNavPill />
-                                        <SignInModal />
-                                      </GemChestProvider>
-                                    </GemCaseProvider>
-                                  </DailyCaseProvider>
-                                </GemUpgradesProvider>
-                              </UpgradesProvider>
-                            </MilestonesProvider>
-                          </MagnetProvider>
-                        </TimedLuckPowerupProvider>
-                      </PowerupProvider>
-                    </InventoryProvider>
-                  </GemPacksProvider>
-                </KeyPacksProvider>
-              </ClickPacksProvider>
-            </DailyKeyProvider>
-          </KeysProvider>
-        </GemsProvider>
+        <TreeProvider>
+          <GemsProvider>
+            <KeysProvider>
+              <DailyKeyProvider>
+                <ClickPacksProvider>
+                  <KeyPacksProvider>
+                    <GemPacksProvider>
+                      <InventoryProvider>
+                        <PowerupProvider>
+                          <TimedLuckPowerupProvider>
+                            <MagnetProvider>
+                              <MilestonesProvider>
+                                <UpgradesProvider>
+                                  <GemUpgradesProvider>
+                                    <DailyCaseProvider>
+                                      <GemCaseProvider>
+                                        <GemChestProvider>
+                                          <Routes>
+                                            <Route path="/" element={<Home />} />
+                                            <Route path="/clasificacion" element={<Leaderboard />} />
+                                            <Route path="/estadisticas" element={<Stats />} />
+                                            <Route path="/tienda" element={<Store />} />
+                                            <Route path="/arbol" element={<Tree />} />
+                                          </Routes>
+                                          <Header />
+                                          <BottomNavPill />
+                                          <SignInModal />
+                                        </GemChestProvider>
+                                      </GemCaseProvider>
+                                    </DailyCaseProvider>
+                                  </GemUpgradesProvider>
+                                </UpgradesProvider>
+                              </MilestonesProvider>
+                            </MagnetProvider>
+                          </TimedLuckPowerupProvider>
+                        </PowerupProvider>
+                      </InventoryProvider>
+                    </GemPacksProvider>
+                  </KeyPacksProvider>
+                </ClickPacksProvider>
+              </DailyKeyProvider>
+            </KeysProvider>
+          </GemsProvider>
+        </TreeProvider>
       </ClickCounterProvider>
     </SignInPromptProvider>
   )

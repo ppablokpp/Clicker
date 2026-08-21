@@ -37,6 +37,12 @@ export function useClickCounter() {
   // with pendingRef, capped per-chunk at that chunk's amountSent so it can
   // never report more real taps than the multiplied total it rode along with.
   const pendingRealClicksRef = useRef(0)
+  // Purely a display prediction for auto-click production (see TreeContext)
+  // — ticks up locally between the infrequent real accrual polls so the
+  // number feels alive, then gets zeroed out by syncTotalClicks every time
+  // an authoritative total lands (that total already includes whatever was
+  // predicted, so keeping the local guess around after that would double-count it).
+  const autoPendingRef = useRef(0)
   const isFlushingRef = useRef(false)
   const peakCpsRef = useRef(0)
 
@@ -52,7 +58,7 @@ export function useClickCounter() {
         if (!cancelled && res.ok) {
           const data = await res.json()
           confirmedRef.current = data.totalClicks
-          setTotalClicks(confirmedRef.current + pendingRef.current)
+          setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
         }
       } catch (err) {
         console.error('No se pudo cargar el contador desde el servidor', err)
@@ -105,7 +111,7 @@ export function useClickCounter() {
         confirmedRef.current = data.totalClicks
         pendingRef.current -= amountSent
         pendingRealClicksRef.current -= realClicksSent
-        setTotalClicks(confirmedRef.current + pendingRef.current)
+        setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
         if (typeof data.keys === 'number') setLatestKeys(data.keys)
         if (typeof data.gems === 'number') setLatestGems(data.gems)
       }
@@ -137,7 +143,7 @@ export function useClickCounter() {
       recentClicksRef.current.push(Date.now())
       pendingRef.current += amount
       pendingRealClicksRef.current += 1
-      setTotalClicks(confirmedRef.current + pendingRef.current)
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
     },
     [userId],
   )
@@ -145,11 +151,34 @@ export function useClickCounter() {
   // Other places that spend clicks server-side (buying a powerup or a
   // permanent upgrade) return the fresh authoritative total — this folds it
   // in immediately instead of waiting for the next click-driven flush, which
-  // might never come if nothing gets clicked again right away.
+  // might never come if nothing gets clicked again right away. Also drops
+  // any predicted auto-click amount, since the new total already accounts
+  // for everything up to now.
   const syncTotalClicks = useCallback((newTotal: number) => {
     confirmedRef.current = newTotal
-    setTotalClicks(confirmedRef.current + pendingRef.current)
+    autoPendingRef.current = 0
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
   }, [])
 
-  return { totalClicks, clicksPerSecond, registerClick, syncTotalClicks, latestKeys, latestGems }
+  // Purely visual — ticks the displayed total up between the infrequent
+  // real auto-click accrual polls (see TreeContext) without touching
+  // pendingRef, so it's never sent to /increment and never mistaken for a
+  // real tap (real-clicks stat, streak, etc. stay untouched by this).
+  // autoPendingRef itself stays fractional (0.5 cps needs sub-1 precision
+  // between 100ms ticks to ever add up to anything) — only the exposed,
+  // displayed totalClicks gets floored.
+  const tickAutoClicks = useCallback((amount: number) => {
+    autoPendingRef.current += amount
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+  }, [])
+
+  return {
+    totalClicks,
+    clicksPerSecond,
+    registerClick,
+    syncTotalClicks,
+    tickAutoClicks,
+    latestKeys,
+    latestGems,
+  }
 }

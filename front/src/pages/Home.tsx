@@ -16,6 +16,7 @@ import {
   Backpack,
   Info,
   X,
+  Bot,
   type LucideIcon,
 } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -32,6 +33,7 @@ import { useDailyCaseContext } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
+import { useTreeContext } from '../context/TreeContext'
 import { playMagnetProc } from '../lib/caseSound'
 
 interface InfoModalData {
@@ -148,6 +150,7 @@ export function Home() {
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
   const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
+  const { autoClickCps } = useTreeContext()
   const { language, strings } = useLanguage()
   const {
     catalog: powerupCatalog,
@@ -332,6 +335,14 @@ export function Home() {
             <span className={`font-semibold uppercase tracking-wide ${heat.badge}`}>· {heatLabel}</span>
           )}
         </span>
+
+        {autoClickCps > 0 && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
+            <Bot size={12} className="text-zinc-400" />
+            {strings.tree.autoClickLabel} {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}{' '}
+            {strings.home.cps}
+          </span>
+        )}
 
         {bestMoneyOwned && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-3 py-1.5 text-xs font-bold text-fuchsia-200 shadow-lg shadow-black/20">

@@ -29,6 +29,7 @@ export interface TranslationStrings {
   nav: {
     home: string
     leaderboard: string
+    tree: string
     stats: string
     store: string
   }
@@ -128,6 +129,19 @@ export interface TranslationStrings {
       casesOpened: (amount: string) => string
     }
   }
+  tree: {
+    placeholder: string
+    zoomIn: string
+    zoomOut: string
+    resetView: string
+    level: string
+    autoClickLabel: string
+    autoClickName: string
+    autoClickDesc: string
+    currentRate: string
+    nextLevelRate: string
+    upgrading: string
+  }
 }
 
 export const translations: Record<Language, TranslationStrings> = {
@@ -160,6 +174,7 @@ export const translations: Record<Language, TranslationStrings> = {
     nav: {
       home: 'Inicio',
       leaderboard: 'Clasificación',
+      tree: 'Árbol',
       stats: 'Estadísticas',
       store: 'Tienda',
     },
@@ -335,6 +350,19 @@ export const translations: Record<Language, TranslationStrings> = {
         casesOpened: (amount) => `Abre ${amount} cofres`,
       },
     },
+    tree: {
+      placeholder: 'Vista previa del árbol de mejoras — mueve y haz zoom para explorarlo.',
+      zoomIn: 'Acercar',
+      zoomOut: 'Alejar',
+      resetView: 'Restablecer vista',
+      level: 'Nv.',
+      autoClickLabel: 'Auto',
+      autoClickName: 'Autoclick',
+      autoClickDesc: 'Genera clicks de forma automática cada segundo, incluso sin tocar la pantalla. Cada nivel aumenta la velocidad de producción.',
+      currentRate: 'Producción actual:',
+      nextLevelRate: 'Producción siguiente nivel:',
+      upgrading: 'Mejorando…',
+    },
   },
   en: {
     signIn: {
@@ -365,6 +393,7 @@ export const translations: Record<Language, TranslationStrings> = {
     nav: {
       home: 'Home',
       leaderboard: 'Leaderboard',
+      tree: 'Tree',
       stats: 'Stats',
       store: 'Store',
     },
@@ -539,6 +568,19 @@ export const translations: Record<Language, TranslationStrings> = {
         longestStreak: (amount) => `Click ${amount} days in a row`,
         casesOpened: (amount) => `Open ${amount} chests`,
       },
+    },
+    tree: {
+      placeholder: 'Preview of the upgrade tree — drag and zoom to explore it.',
+      zoomIn: 'Zoom in',
+      zoomOut: 'Zoom out',
+      resetView: 'Reset view',
+      level: 'Lv.',
+      autoClickLabel: 'Auto',
+      autoClickName: 'Autoclick',
+      autoClickDesc: 'Generates clicks automatically every second, even without tapping the screen. Each level increases the production rate.',
+      currentRate: 'Current output:',
+      nextLevelRate: 'Next level output:',
+      upgrading: 'Upgrading…',
     },
   },
 }
