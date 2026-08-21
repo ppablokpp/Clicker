@@ -1,6 +1,20 @@
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowUp, Asterisk, Bot, Clover, Gem, Lock, Minus, MousePointerClick, Plus, RotateCcw, Sparkles, X } from 'lucide-react'
+import {
+  ArrowUp,
+  Asterisk,
+  Bot,
+  Clover,
+  Gem,
+  Lock,
+  Minus,
+  MousePointerClick,
+  Percent,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
@@ -14,6 +28,11 @@ import { useGemsContext } from '../context/GemsContext'
 function revealDelay(node: { x: number; y: number }, originX: number, originY: number): number {
   const distance = Math.hypot(node.x - originX, node.y - originY)
   return Math.min(distance / 900, 0.5)
+}
+
+// 0.015 -> "1.5%", 0.01 -> "1%" — never a trailing ".0" for the whole steps.
+function formatChance(chance: number): string {
+  return `${(chance * 100).toFixed(1).replace(/\.0$/, '')}%`
 }
 
 const MIN_SCALE = 0.5
@@ -43,12 +62,14 @@ const CENTER = 500
 const NODES: TreeNode[] = [
   { id: 'root', x: CENTER, y: CENTER, label: 'Inicio' },
 
-  // Branch A — long single chain curving up and to the right, with one
-  // short side twig off the first node.
+  // Branch A — long chain up and to the right, with a short twig off the
+  // first node, and the second node (Probabilidad) forking into two.
   { id: 'a1', x: CENTER + 140, y: CENTER - 100, label: 'Mejora' },
   { id: 'a1b', x: CENTER + 60, y: CENTER - 220, label: 'Mejora' },
   { id: 'a2', x: CENTER + 260, y: CENTER - 200, label: 'Mejora' },
-  { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora+' },
+  { id: 'a2b', x: CENTER + 300, y: CENTER - 340, label: 'Mejora' },
+  { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora' },
+  { id: 'a4', x: CENTER + 540, y: CENTER - 280, label: 'Mejora+' },
 
   // Branch B — short reach left that forks into two.
   { id: 'b1', x: CENTER - 170, y: CENTER + 20, label: 'Mejora' },
@@ -75,7 +96,9 @@ const EDGES: TreeEdge[] = [
   { from: 'root', to: 'a1' },
   { from: 'a1', to: 'a1b' },
   { from: 'a1', to: 'a2' },
+  { from: 'a2', to: 'a2b' },
   { from: 'a2', to: 'a3' },
+  { from: 'a3', to: 'a4' },
 
   { from: 'root', to: 'b1' },
   { from: 'b1', to: 'b2a' },
@@ -198,6 +221,11 @@ export function Tree() {
     luckNextCost,
     isBuyingLuck,
     buyLuck,
+    luckChance,
+    luckChanceLevel,
+    luckChanceNextCost,
+    isBuyingLuckChance,
+    buyLuckChance,
     multiplierLevel,
     multiplierValue,
     multiplierNextCost,
@@ -206,6 +234,7 @@ export function Tree() {
   } = useTreeContext()
   const canAffordAutoClick = totalClicks >= autoClickNextCost
   const canAffordLuck = totalClicks >= luckNextCost
+  const canAffordLuckChance = totalClicks >= luckChanceNextCost
   const canAffordMultiplier = totalClicks >= multiplierNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
@@ -214,6 +243,7 @@ export function Tree() {
   const [showAutoClickModal, setShowAutoClickModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [showLuckModal, setShowLuckModal] = useState(false)
+  const [showLuckChanceModal, setShowLuckChanceModal] = useState(false)
   const [showMultiplierModal, setShowMultiplierModal] = useState(false)
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
@@ -384,6 +414,7 @@ export function Tree() {
   const realLevelById: Record<string, number> = {
     root: autoClickLevel,
     a1: luckLevel,
+    a2: luckChanceLevel,
     c1: premiumOwnedCount,
     e1: multiplierLevel,
   }
@@ -443,6 +474,7 @@ export function Tree() {
               node.id !== 'root' &&
               node.id !== 'c1' &&
               node.id !== 'a1' &&
+              node.id !== 'a2' &&
               node.id !== 'e1' &&
               revealStateById[node.id] !== 'hidden',
           ).map((node) => {
@@ -573,6 +605,59 @@ export function Tree() {
                 </span>
 
                 {canAffordLuck && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Suerte's own second node — raises the % chance itself
+              (Suerte raises the payout when it hits). Same green as Suerte
+              (same family), Percent icon instead of Clover to tell them
+              apart. Same locked/available split. */}
+          {revealStateById.a2 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a2.x, top: nodeById.a2.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Percent size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {luckChanceLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.a2 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a2.x, top: nodeById.a2.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowLuckChanceModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
+              >
+                <Percent size={20} className="text-green-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {luckChanceLevel}
+                </span>
+
+                {canAffordLuckChance && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -859,6 +944,62 @@ export function Tree() {
                 <span className="flex items-center justify-center gap-1.5">
                   <MousePointerClick size={14} className="opacity-70" />
                   <span className="tabular-nums">{luckNextCost.toLocaleString(locale)}</span>
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showLuckChanceModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowLuckChanceModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLuckChanceModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Percent size={18} className="text-green-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.luckChanceName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckChanceDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentChance}{' '}
+                <span className="font-semibold text-white">{formatChance(luckChance)}</span>
+              </span>
+              <span>
+                {strings.tree.nextChance}{' '}
+                <span className="font-semibold text-white">{formatChance(luckChance + 0.005)}</span>
+              </span>
+            </div>
+
+            <button
+              onClick={buyLuckChance}
+              disabled={isBuyingLuckChance || !canAffordLuckChance}
+              className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                isBuyingLuckChance || !canAffordLuckChance
+                  ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                  : 'bg-white text-neutral-900 hover:opacity-90'
+              }`}
+            >
+              {isBuyingLuckChance ? (
+                strings.tree.upgrading
+              ) : (
+                <span className="flex items-center justify-center gap-1.5">
+                  <MousePointerClick size={14} className="opacity-70" />
+                  <span className="tabular-nums">{luckChanceNextCost.toLocaleString(locale)}</span>
                 </span>
               )}
             </button>

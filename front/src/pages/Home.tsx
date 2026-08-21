@@ -76,12 +76,38 @@ const HEAT_LEVELS = [
   multiplier: number
 }[]
 
+// 0.015 -> "1.5%", 0.01 -> "1%" — never a trailing ".0" for the whole steps.
+// Suerte's own % now varies per player (the Probabilidad tree node), so the
+// pill can't just hardcode "1%" anymore.
+function formatChance(chance: number): string {
+  return `${(chance * 100).toFixed(1).replace(/\.0$/, '')}%`
+}
+
 function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
   let level: (typeof HEAT_LEVELS)[number] = HEAT_LEVELS[0]
   for (const l of HEAT_LEVELS) {
     if (cps >= l.min) level = l
   }
   return level
+}
+
+// Legendary's own combo meter: real taps landed *while* legendary (not
+// auto-click ticks) fill a bar; filling it once bumps the bonus from the
+// base x2 up by +0.5 and resets the bar for the next one, which takes more
+// taps than the last — same shape as the tree's cost curves (linear
+// reward, exponential requirement). Dropping out of legendary resets both
+// back to zero, since this rewards *sustaining* the combo, not a lifetime
+// total.
+const LEGENDARY_STREAK_BASE = 20
+const LEGENDARY_STREAK_RATIO = 1.4
+const LEGENDARY_BONUS_STEP = 0.5
+
+function legendaryStreakThreshold(tier: number): number {
+  return Math.ceil(LEGENDARY_STREAK_BASE * LEGENDARY_STREAK_RATIO ** tier)
+}
+
+function legendaryBonusForTier(tier: number): number {
+  return 2 + LEGENDARY_BONUS_STEP * tier
 }
 
 // First prestige threshold — reaching it is meant to be when prestige becomes
@@ -219,6 +245,12 @@ export function Home() {
   // another click landing rather than a separate notification.
   const lastPosRef = useRef({ x: 0, y: 0 })
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
+  const [legendaryStreak, setLegendaryStreak] = useState({ tier: 0, count: 0 })
+  // Falling out of legendary breaks the combo — back to the base x2 and an
+  // empty bar, so the bonus only ever reflects a *sustained* streak.
+  useEffect(() => {
+    if (heat.key !== 'legendary') setLegendaryStreak({ tier: 0, count: 0 })
+  }, [heat.key])
   useEffect(() => {
     if (prevKeysRef.current !== null && keys > prevKeysRef.current && activeMagnet?.currency === 'keys') {
       const amount = keys - prevKeysRef.current
@@ -247,7 +279,10 @@ export function Home() {
   // baseClickMultiplier (branch E, "Multiplicador") is the base value a
   // click starts from — everything else stacks on top of it the same way
   // it always has, order doesn't matter since it's all multiplication.
-  const totalMultiplier = baseClickMultiplier * heat.multiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
+  // Legendary's own multiplier grows with the sustained-combo streak
+  // instead of staying a flat x2 like the other heat tiers.
+  const heatMultiplier = heat.key === 'legendary' ? legendaryBonusForTier(legendaryStreak.tier) : heat.multiplier
+  const totalMultiplier = baseClickMultiplier * heatMultiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
   // two separate rolls — owning both multiplies together into a single
@@ -281,6 +316,16 @@ export function Home() {
       const luckMultiplier = hasLuck && Math.random() < luckChance ? combinedLuckMultiplier : 1
       const isLucky = luckMultiplier > 1
       const amount = totalMultiplier * luckMultiplier
+
+      // Only real taps feed the combo meter — same source clicksPerSecond
+      // itself reads from, so it can't be padded by auto-click ticks.
+      if (heat.key === 'legendary') {
+        setLegendaryStreak((prev) => {
+          const nextCount = prev.count + 1
+          const threshold = legendaryStreakThreshold(prev.tier)
+          return nextCount >= threshold ? { tier: prev.tier + 1, count: 0 } : { tier: prev.tier, count: nextCount }
+        })
+      }
 
       // The popup only ever shows the carried-forward whole part — see
       // popupCarryRef above. registerClick still gets the exact `amount`.
@@ -348,13 +393,28 @@ export function Home() {
 
       {/* CPS badge + combined multiplier (below the fixed header) */}
       <div className="pointer-events-none absolute left-4 top-20 z-10 flex flex-col gap-1.5 sm:left-6">
-        <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1.5 text-xs font-medium shadow-lg shadow-black/20 transition-colors">
-          <Zap size={13} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
-          <span className={clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}>
+        <span className="relative flex w-fit items-center gap-1.5 overflow-hidden rounded-full border border-white/5 bg-white/[0.03] px-3 py-1.5 text-xs font-medium shadow-lg shadow-black/20 transition-colors">
+          {/* Legendary's combo bar — very subtle, purely a gray fill behind
+              the text so everything stays readable; fills up with real taps
+              landed while legendary, resets (and the bonus bumps) each time
+              it fills. */}
+          {heat.key === 'legendary' && (
+            <span
+              className="pointer-events-none absolute inset-y-0 left-0 z-0 bg-white/[0.07] transition-[width] duration-200 ease-out"
+              style={{
+                width: `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier)) * 100)}%`,
+              }}
+            />
+          )}
+          <Zap size={13} className={`relative z-10 ${clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'}`} />
+          <span className={`relative z-10 ${clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}`}>
             {clicksPerSecond.toFixed(1)} {strings.home.cps}
           </span>
           {heatLabel && (
-            <span className={`font-semibold uppercase tracking-wide ${heat.badge}`}>· {heatLabel}</span>
+            <span className={`relative z-10 font-semibold uppercase tracking-wide ${heat.badge}`}>
+              · {heatLabel}
+              {heat.key === 'legendary' && ` ×${legendaryBonusForTier(legendaryStreak.tier)}`}
+            </span>
           )}
         </span>
 
@@ -390,6 +450,7 @@ export function Home() {
         {hasLuck && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-green-400/20 bg-green-500/[0.07] px-3 py-1.5 text-xs font-bold text-green-200 shadow-lg shadow-black/20">
             <Clover size={12} className="text-green-300" />×{combinedLuckMultiplier}
+            <span className="font-medium text-green-300/80">({formatChance(luckChance)})</span>
             {activeLuckPowerup && (
               <>
                 <Dices size={12} className="text-green-300" />

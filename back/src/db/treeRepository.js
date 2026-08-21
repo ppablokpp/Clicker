@@ -1,6 +1,7 @@
 import { database } from './pool.js'
 import { AUTOCLICK_NODE_ID, autoClickCost, autoClickCps } from '../tree/autoClick.js'
-import { LUCK_NODE_ID, LUCK_CHANCE, luckCost, luckMultiplier } from '../tree/luck.js'
+import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
+import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
 import { MULTIPLIER_NODE_ID, multiplierCost, multiplierValue } from '../tree/multiplier.js'
 
 export const treeRepository = {
@@ -60,6 +61,14 @@ export const treeRepository = {
       )
       const luckLevel = Number(luckRow.rows[0]?.level ?? 0)
 
+      // Branch A's second node — raises the % itself, same plain
+      // level-counter shape as luck.
+      const luckChanceRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LUCK_CHANCE_NODE_ID],
+      )
+      const luckChanceLevel = Number(luckChanceRow.rows[0]?.level ?? 0)
+
       // Same plain level-counter shape as luck — the base click-value
       // multiplier has no per-second output either.
       const multiplierRow = await client.query(
@@ -75,9 +84,11 @@ export const treeRepository = {
         autoClickNextCost: autoClickCost(level),
         autoClickNextCps: autoClickCps(level + 1),
         luckLevel,
-        luckChance: luckLevel > 0 ? LUCK_CHANCE : 0,
+        luckChance: luckLevel > 0 ? luckChanceValue(luckChanceLevel) : 0,
         luckMultiplier: luckMultiplier(luckLevel),
         luckNextCost: luckCost(luckLevel),
+        luckChanceLevel,
+        luckChanceNextCost: luckChanceCost(luckChanceLevel),
         multiplierLevel,
         multiplierValue: multiplierValue(multiplierLevel),
         multiplierNextCost: multiplierCost(multiplierLevel),
@@ -128,12 +139,21 @@ export const treeRepository = {
         [userId, LUCK_NODE_ID],
       )
 
+      // Buying Suerte itself doesn't touch the chance node's own level, but
+      // the chance is only ever nonzero once Suerte is owned, so the
+      // response needs to reflect it turning on for the first time here.
+      const luckChanceRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, LUCK_CHANCE_NODE_ID],
+      )
+      const luckChanceLevel = Number(luckChanceRow.rows[0]?.level ?? 0)
+
       await client.query('COMMIT')
       const newLevel = level + 1
       return {
         ok: true,
         luckLevel: newLevel,
-        luckChance: LUCK_CHANCE,
+        luckChance: luckChanceValue(luckChanceLevel),
         luckMultiplier: luckMultiplier(newLevel),
         luckNextCost: luckCost(newLevel),
         totalClicks: Number(spent.rows[0].total_clicks),
@@ -269,6 +289,71 @@ export const treeRepository = {
         multiplierLevel: newLevel,
         multiplierValue: multiplierValue(newLevel),
         multiplierNextCost: multiplierCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same level-counter shape as buyLuckLevel/buyMultiplierLevel. Requires
+  // Suerte (LUCK_NODE_ID) to already be owned — enforced by the reveal
+  // cascade on the frontend (this node isn't even shown until then), but
+  // checked here too since the client is never trusted.
+  async buyLuckChanceLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const luckRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, LUCK_NODE_ID],
+      )
+      if (Number(luckRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'luck-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LUCK_CHANCE_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = luckChanceCost(level)
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, LUCK_CHANCE_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        luckChanceLevel: newLevel,
+        luckChance: luckChanceValue(newLevel),
+        luckChanceNextCost: luckChanceCost(newLevel),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

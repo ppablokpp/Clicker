@@ -149,6 +149,10 @@ export interface TranslationStrings {
     luckDesc: string
     multiplierName: string
     multiplierDesc: string
+    luckChanceName: string
+    luckChanceDesc: string
+    currentChance: string
+    nextChance: string
   }
 }
 
@@ -378,6 +382,10 @@ export const translations: Record<Language, TranslationStrings> = {
       luckDesc: 'Probabilidad de que un click cuente por el multiplicador.',
       multiplierName: 'Multiplicador',
       multiplierDesc: 'Aumenta el valor base de cada click. Cada nivel lo sube un poco más.',
+      luckChanceName: 'Probabilidad',
+      luckChanceDesc: 'Sube la probabilidad de que un click cuente por el multiplicador de Suerte.',
+      currentChance: 'Probabilidad actual:',
+      nextChance: 'Probabilidad siguiente nivel:',
     },
   },
   en: {
@@ -605,6 +613,10 @@ export const translations: Record<Language, TranslationStrings> = {
       luckDesc: 'Chance for a click to count for the multiplier instead.',
       multiplierName: 'Multiplier',
       multiplierDesc: "Increases the base value of every click. Each level raises it a bit further.",
+      luckChanceName: 'Chance',
+      luckChanceDesc: "Raises the odds that a click counts for Suerte's multiplier.",
+      currentChance: 'Current chance:',
+      nextChance: 'Next level chance:',
     },
   },
 }
