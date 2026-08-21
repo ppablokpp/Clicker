@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowUp,
   Asterisk,
+  TrendingUp,
   Bot,
   Clover,
   ChevronsUp,
@@ -149,14 +150,18 @@ const NODES: TreeNode[] = [
   { id: 'd2', x: CENTER - 170, y: CENTER - 310, label: 'Mejora' },
   { id: 'd3', x: CENTER - 80, y: CENTER - 440, label: 'Mejora+' },
 
-  // Branch E — forks into two: Ritmo (e2a) goes on to its own child
-  // (Impulso, e2a1); Turbo (e2b) gets its own deeper placeholder (e2b1).
+  // Branch E — forks into three: Ritmo (e2a) goes on to its own child
+  // (Impulso, e2a1); Sobrecarga (e2b) gets its own deeper placeholder
+  // (e2b1); Multiplicador (e2c) sits between the two, its own +1 node off
+  // Productividad.
   { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Mejora' },
-  { id: 'e2a', x: CENTER + 280, y: CENTER + 60, label: 'Mejora' },
-  { id: 'e2b', x: CENTER + 260, y: CENTER + 220, label: 'Mejora' },
-  { id: 'e2a1', x: CENTER + 385, y: CENTER - 65, label: 'Mejora' },
-  { id: 'e3a', x: CENTER + 520, y: CENTER, label: 'Mejora+' },
-  { id: 'e2b1', x: CENTER + 350, y: CENTER + 310, label: 'Mejora+' },
+  { id: 'e2a', x: CENTER + 280, y: CENTER + 45, label: 'Mejora' },
+  { id: 'e2c', x: CENTER + 310, y: CENTER + 160, label: 'Mejora' },
+  { id: 'e2b', x: CENTER + 200, y: CENTER + 280, label: 'Mejora' },
+  { id: 'e2a1', x: CENTER + 370, y: CENTER - 80, label: 'Mejora' },
+  { id: 'e3a', x: CENTER + 505, y: CENTER - 15, label: 'Mejora+' },
+  { id: 'e2b1', x: CENTER + 320, y: CENTER + 400, label: 'Mejora+' },
+  { id: 'e2b2', x: CENTER + 80, y: CENTER + 400, label: 'Mejora+' },
 ]
 
 const EDGES: TreeEdge[] = [
@@ -183,9 +188,11 @@ const EDGES: TreeEdge[] = [
   { from: 'root', to: 'e1' },
   { from: 'e1', to: 'e2a' },
   { from: 'e1', to: 'e2b' },
+  { from: 'e1', to: 'e2c' },
   { from: 'e2a', to: 'e2a1' },
   { from: 'e2a1', to: 'e3a' },
   { from: 'e2b', to: 'e2b1' },
+  { from: 'e2b', to: 'e2b2' },
 ]
 
 // BFS parent pointers from root — the only graph info the reveal rule
@@ -290,6 +297,7 @@ export function Tree() {
     autoClickLevel,
     autoClickCps,
     autoClickNextCost,
+    autoClickNextCps,
     isBuying,
     buyAutoClick,
     luckLevel,
@@ -328,9 +336,15 @@ export function Tree() {
     isBuyingAutoLuckChance,
     buyAutoLuckChance,
     autoMultiplierLevel,
+    autoMultiplierValue,
     autoMultiplierNextCost,
     isBuyingAutoMultiplier,
     buyAutoMultiplier,
+    tapMultiplierLevel,
+    tapMultiplierValue,
+    tapMultiplierNextCost,
+    isBuyingTapMultiplier,
+    buyTapMultiplier,
   } = useTreeContext()
   const canAffordAutoClick = totalClicks >= autoClickNextCost
   const canAffordLuck = totalClicks >= luckNextCost
@@ -344,6 +358,7 @@ export function Tree() {
   const canAffordAutoLuckChance = totalClicks >= autoLuckChanceNextCost
   const isAutoMultiplierMaxed = autoMultiplierNextCost === null
   const canAffordAutoMultiplier = autoMultiplierNextCost !== null && totalClicks >= autoMultiplierNextCost
+  const canAffordTapMultiplier = totalClicks >= tapMultiplierNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
   const { gems } = useGemsContext()
@@ -358,6 +373,7 @@ export function Tree() {
   const [showAutoLuckModal, setShowAutoLuckModal] = useState(false)
   const [showAutoLuckChanceModal, setShowAutoLuckChanceModal] = useState(false)
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
+  const [showTapMultiplierModal, setShowTapMultiplierModal] = useState(false)
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
@@ -534,6 +550,7 @@ export function Tree() {
     e2a: legendaryEaseLevel,
     e2a1: legendaryGrowthLevel,
     e2b: autoMultiplierLevel,
+    e2c: tapMultiplierLevel,
   }
   // Recomputed each render off the real levels above — cheap for a graph
   // this small, and keeps the reveal rule as the single source of truth
@@ -598,6 +615,7 @@ export function Tree() {
               node.id !== 'e2a' &&
               node.id !== 'e2b' &&
               node.id !== 'e2a1' &&
+              node.id !== 'e2c' &&
               revealStateById[node.id] !== 'hidden',
           ).map((node) => {
             const revealState = revealStateById[node.id] as 'available' | 'locked'
@@ -891,7 +909,8 @@ export function Tree() {
             </div>
           )}
 
-          {/* Branch E — the base click-value multiplier, sitting angularly
+          {/* Branch E — Fuerza, the manual click's base value (additive,
+              same shape as autoclick's own production), sitting angularly
               between Suerte (a1) and Multiplicador premium (c1). Same
               locked/available split as the other two real branches. */}
           {revealStateById.e1 === 'locked' && (
@@ -905,7 +924,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Asterisk size={20} />
+                <TrendingUp size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {multiplierLevel}
                 </span>
@@ -929,7 +948,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
               >
-                <Asterisk size={20} className="text-red-300" />
+                <TrendingUp size={20} className="text-red-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {multiplierLevel}
                 </span>
@@ -1096,6 +1115,59 @@ export function Tree() {
             </div>
           )}
 
+          {/* Productividad's third child — Multiplicador, a genuine
+              ×multiplier stacked on top of the additive base click value.
+              Same red Legendary family, sits visually between Ritmo and
+              Sobrecarga. */}
+          {revealStateById.e2c === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2c.x, top: nodeById.e2c.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2c, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Asterisk size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {tapMultiplierLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.e2c === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2c.x, top: nodeById.e2c.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowTapMultiplierModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2c, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
+              >
+                <Asterisk size={20} className="text-red-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {tapMultiplierLevel}
+                </span>
+
+                {canAffordTapMultiplier && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
           {/* Root — the only real node so far: a repeatable auto-click
               upgrade. Tap opens the info modal (with the actual buy
               button inside it) instead of buying directly; everything
@@ -1180,7 +1252,7 @@ export function Tree() {
               <span>
                 {strings.tree.nextLevelRate}{' '}
                 <span className="font-semibold text-white">
-                  {(autoClickCps + 0.5).toLocaleString(locale, { maximumFractionDigits: 2 })} c/s
+                  {autoClickNextCps.toLocaleString(locale, { maximumFractionDigits: 2 })} c/s
                 </span>
               </span>
             </div>
@@ -1375,19 +1447,19 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Asterisk size={18} className="text-red-300" />
+              <TrendingUp size={18} className="text-red-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.multiplierName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.multiplierDesc}</p>
 
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
-                {strings.tree.currentMultiplier}{' '}
-                <span className="font-semibold text-white">×{multiplierValue}</span>
+                {strings.tree.currentClickValue}{' '}
+                <span className="font-semibold text-white">{multiplierValue}</span>
               </span>
               <span>
-                {strings.tree.nextMultiplier}{' '}
-                <span className="font-semibold text-white">×{multiplierValue + 0.25}</span>
+                {strings.tree.nextClickValue}{' '}
+                <span className="font-semibold text-white">{multiplierValue + 0.5}</span>
               </span>
             </div>
 
@@ -1638,17 +1710,13 @@ export function Tree() {
 
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
-                {strings.tree.currentRate}{' '}
-                <span className="font-semibold text-white">
-                  {autoClickCps.toLocaleString(locale, { maximumFractionDigits: 2 })} c/s
-                </span>
+                {strings.tree.currentMultiplier}{' '}
+                <span className="font-semibold text-white">×{autoMultiplierValue}</span>
               </span>
               {!isAutoMultiplierMaxed && (
                 <span>
-                  {strings.tree.nextLevelRate}{' '}
-                  <span className="font-semibold text-white">
-                    {(autoClickCps * 1.5).toLocaleString(locale, { maximumFractionDigits: 2 })} c/s
-                  </span>
+                  {strings.tree.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{autoMultiplierValue + 0.5}</span>
                 </span>
               )}
             </div>
@@ -1669,6 +1737,54 @@ export function Tree() {
                 currency="clicks"
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {showTapMultiplierModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowTapMultiplierModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowTapMultiplierModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Asterisk size={18} className="text-red-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.tapMultiplierName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.tapMultiplierDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentMultiplier}{' '}
+                <span className="font-semibold text-white">×{tapMultiplierValue}</span>
+              </span>
+              <span>
+                {strings.tree.nextMultiplier}{' '}
+                <span className="font-semibold text-white">×{tapMultiplierValue + 0.5}</span>
+              </span>
+            </div>
+
+            <TreeBuyButton
+              onClick={buyTapMultiplier}
+              isBuying={isBuyingTapMultiplier}
+              canAfford={canAffordTapMultiplier}
+              buyingLabel={strings.tree.upgrading}
+              cost={tapMultiplierNextCost}
+              balance={totalClicks}
+              locale={locale}
+              currency="clicks"
+            />
           </div>
         </div>
       )}

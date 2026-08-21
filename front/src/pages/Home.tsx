@@ -83,6 +83,12 @@ function formatChance(chance: number): string {
   return `${(chance * 100).toFixed(1).replace(/\.0$/, '')}%`
 }
 
+// 2.00 -> "2", 1.50 -> "1.5", 1.25 -> "1.25" — never a trailing zero-only
+// decimal tail.
+function formatMultiplier(value: number): string {
+  return value.toFixed(2).replace(/\.?0+$/, '')
+}
+
 function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
   let level: (typeof HEAT_LEVELS)[number] = HEAT_LEVELS[0]
   for (const l of HEAT_LEVELS) {
@@ -190,6 +196,7 @@ export function Home() {
     luckChance: permanentLuckChance,
     luckMultiplier: permanentLuckMultiplier,
     multiplierValue: baseClickMultiplier,
+    tapMultiplierValue,
     legendaryStreakBase,
     legendaryBonusStep,
   } = useTreeContext()
@@ -287,14 +294,17 @@ export function Home() {
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
-  // baseClickMultiplier (branch E, "Multiplicador") is the base value a
-  // click starts from — everything else stacks on top of it the same way
-  // it always has, order doesn't matter since it's all multiplication.
-  // Legendary's own multiplier grows with the sustained-combo streak
-  // instead of staying a flat x2 like the other heat tiers.
+  // baseClickMultiplier (branch E, "Productividad") is the base value a
+  // click starts from; tapMultiplierValue (branch E, "Multiplicador")
+  // stacks a genuine ×multiplier on top of it — everything else stacks on
+  // top the same way it always has, order doesn't matter since it's all
+  // multiplication. Legendary's own multiplier grows with the
+  // sustained-combo streak instead of staying a flat x2 like the other
+  // heat tiers.
   const heatMultiplier =
     heat.key === 'legendary' ? legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep) : heat.multiplier
-  const totalMultiplier = baseClickMultiplier * heatMultiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
+  const totalMultiplier =
+    baseClickMultiplier * tapMultiplierValue * heatMultiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
   // two separate rolls — owning both multiplies together into a single
@@ -438,7 +448,7 @@ export function Home() {
           )}
           <Zap size={13} className={`relative z-10 ${clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'}`} />
           <span className={`relative z-10 ${clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}`}>
-            {clicksPerSecond.toFixed(1)} {strings.home.cps}
+            {clicksPerSecond.toFixed(1)} {strings.home.tps}
           </span>
           {heatLabel && (
             <span className={`relative z-10 font-semibold uppercase tracking-wide ${heat.badge}`}>
@@ -449,19 +459,11 @@ export function Home() {
           )}
         </span>
 
-        {autoClickCps > 0 && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
-            <Bot size={12} className="text-zinc-400" />
-            {strings.tree.autoClickLabel}{' '}
-            {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}{' '}
-            {strings.home.cps}
-          </span>
-        )}
-
         {totalMultiplier > 1 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
             <MousePointerClick size={12} className="text-violet-300" />
-            {strings.home.totalLabel} ×{totalMultiplier.toFixed(1)}
+            {clicksPerSecond.toFixed(1)} {strings.home.tps} ×{formatMultiplier(totalMultiplier)} ={' '}
+            {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
             {activePowerup && (
               <>
                 <Rocket size={12} className="text-violet-300" />
@@ -470,6 +472,15 @@ export function Home() {
                 </span>
               </>
             )}
+          </span>
+        )}
+
+        {autoClickCps > 0 && (
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
+            <Bot size={12} className="text-zinc-400" />
+            {strings.tree.autoClickLabel}{' '}
+            {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}{' '}
+            {strings.home.cps}
           </span>
         )}
 

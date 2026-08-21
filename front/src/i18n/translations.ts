@@ -14,6 +14,7 @@ export interface TranslationStrings {
     changePrestige: string
     prestigeComingSoon: string
     cps: string
+    tps: string
     totalLabel: string
     heat: {
       onFire: string
@@ -149,6 +150,8 @@ export interface TranslationStrings {
     luckDesc: string
     multiplierName: string
     multiplierDesc: string
+    currentClickValue: string
+    nextClickValue: string
     luckChanceName: string
     luckChanceDesc: string
     currentChance: string
@@ -167,6 +170,8 @@ export interface TranslationStrings {
     azarDesc: string
     turboName: string
     turboDesc: string
+    tapMultiplierName: string
+    tapMultiplierDesc: string
   }
 }
 
@@ -185,6 +190,7 @@ export const translations: Record<Language, TranslationStrings> = {
       changePrestige: 'Cambiar de prestigio',
       prestigeComingSoon: 'Próximamente...',
       cps: 'c/s',
+      tps: 't/s',
       totalLabel: 'Total:',
       heat: {
         onFire: 'En racha',
@@ -359,8 +365,8 @@ export const translations: Record<Language, TranslationStrings> = {
       rewardClicks: (amount) => `+${amount} clicks`,
       rewardPermanent: (mult) => `×${mult} a todos tus clicks`,
       categories: {
-        totalClicks: { label: 'Clicks reales', unit: 'clicks' },
-        bestCps: { label: 'Velocidad máxima', unit: 'c/s' },
+        totalClicks: { label: 'Taps reales', unit: 'taps' },
+        bestCps: { label: 'Velocidad máxima', unit: 't/s' },
         longestStreak: { label: 'Racha más larga', unit: 'días' },
         casesOpened: { label: 'Cofres abiertos', unit: 'cofres' },
       },
@@ -371,8 +377,8 @@ export const translations: Record<Language, TranslationStrings> = {
         platinum: 'Platino',
       },
       milestoneDescriptions: {
-        totalClicks: (amount) => `Haz ${amount} clicks`,
-        bestCps: (amount) => `Alcanza ${amount} c/s`,
+        totalClicks: (amount) => `Haz ${amount} taps`,
+        bestCps: (amount) => `Alcanza ${amount} t/s`,
         longestStreak: (amount) => `Clica ${amount} días seguidos`,
         casesOpened: (amount) => `Abre ${amount} cofres`,
       },
@@ -394,8 +400,10 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiplier: 'Multiplicador siguiente nivel:',
       luckName: 'Suerte',
       luckDesc: 'Probabilidad de que un click cuente por el multiplicador.',
-      multiplierName: 'Multiplicador',
-      multiplierDesc: 'Aumenta el valor base de cada click. Cada nivel lo sube un poco más.',
+      multiplierName: 'Productividad',
+      multiplierDesc: 'Sube los clicks obtenidos por cada tap. Cada nivel suma encima del valor actual.',
+      currentClickValue: 'Clicks por tap actual:',
+      nextClickValue: 'Clicks por tap siguiente nivel:',
       luckChanceName: 'Probabilidad',
       luckChanceDesc: 'Sube la probabilidad de que un click cuente por el multiplicador de Suerte.',
       currentChance: 'Probabilidad actual:',
@@ -413,7 +421,9 @@ export const translations: Record<Language, TranslationStrings> = {
       azarName: 'Azar',
       azarDesc: 'Sube la probabilidad de Fortuna.',
       turboName: 'Sobrecarga',
-      turboDesc: 'Multiplica de golpe la producción actual del autoclick por ×1,5. El aumento se queda fijo: las siguientes mejoras de autoclick solo suman encima, no vuelven a multiplicarse.',
+      turboDesc: 'Multiplica la producción del autoclick de forma garantizada.',
+      tapMultiplierName: 'Multiplicador',
+      tapMultiplierDesc: 'Multiplica los clicks por tap. Cada nivel sube el multiplicador un poco más.',
     },
   },
   en: {
@@ -430,6 +440,7 @@ export const translations: Record<Language, TranslationStrings> = {
       changePrestige: 'Change prestige',
       prestigeComingSoon: 'Coming soon',
       cps: 'c/s',
+      tps: 't/s',
       totalLabel: 'Total:',
       heat: {
         onFire: 'On fire',
@@ -604,8 +615,8 @@ export const translations: Record<Language, TranslationStrings> = {
       rewardClicks: (amount) => `+${amount} clicks`,
       rewardPermanent: (mult) => `×${mult} to all your clicks`,
       categories: {
-        totalClicks: { label: 'Real clicks', unit: 'clicks' },
-        bestCps: { label: 'Peak speed', unit: 'c/s' },
+        totalClicks: { label: 'Real taps', unit: 'taps' },
+        bestCps: { label: 'Peak speed', unit: 't/s' },
         longestStreak: { label: 'Longest streak', unit: 'days' },
         casesOpened: { label: 'Chests opened', unit: 'chests' },
       },
@@ -616,8 +627,8 @@ export const translations: Record<Language, TranslationStrings> = {
         platinum: 'Platinum',
       },
       milestoneDescriptions: {
-        totalClicks: (amount) => `Make ${amount} clicks`,
-        bestCps: (amount) => `Reach ${amount} c/s`,
+        totalClicks: (amount) => `Make ${amount} taps`,
+        bestCps: (amount) => `Reach ${amount} t/s`,
         longestStreak: (amount) => `Click ${amount} days in a row`,
         casesOpened: (amount) => `Open ${amount} chests`,
       },
@@ -639,8 +650,10 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiplier: 'Next level multiplier:',
       luckName: 'Luck',
       luckDesc: 'Chance for a click to count for the multiplier instead.',
-      multiplierName: 'Multiplier',
-      multiplierDesc: "Increases the base value of every click. Each level raises it a bit further.",
+      multiplierName: 'Productivity',
+      multiplierDesc: "Raises the clicks earned per tap. Each level adds on top of the current value.",
+      currentClickValue: 'Current clicks per tap:',
+      nextClickValue: 'Next level clicks per tap:',
       luckChanceName: 'Chance',
       luckChanceDesc: "Raises the odds that a click counts for Suerte's multiplier.",
       currentChance: 'Current chance:',
@@ -658,7 +671,9 @@ export const translations: Record<Language, TranslationStrings> = {
       azarName: 'Odds',
       azarDesc: "Raises Fortune's chance.",
       turboName: 'Overload',
-      turboDesc: "Instantly multiplies auto-click's current production by ×1.5. The boost sticks — later auto-click levels only add on top, they don't get multiplied again.",
+      turboDesc: "Guaranteed multiplier on auto-click's production.",
+      tapMultiplierName: 'Multiplier',
+      tapMultiplierDesc: "Multiplies clicks per tap. Each level raises the multiplier a bit further.",
     },
   },
 }

@@ -98,7 +98,7 @@ export function Leaderboard() {
                 <span className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100">
                   {sortBy === 'cps' ? (
                     <>
-                      {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">c/s</span>
+                      {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
                     </>
                   ) : (
                     entry.totalClicks.toLocaleString(locale)

@@ -40,7 +40,11 @@ interface TreeState {
   legendaryBonusStep: number
   legendaryGrowthNextCost: number | null
   autoMultiplierLevel: number
+  autoMultiplierValue: number
   autoMultiplierNextCost: number | null
+  tapMultiplierLevel: number
+  tapMultiplierValue: number
+  tapMultiplierNextCost: number
 }
 
 interface TreeContextValue extends TreeState {
@@ -62,6 +66,8 @@ interface TreeContextValue extends TreeState {
   buyAutoLuckChance: () => Promise<{ ok: boolean; error?: string }>
   isBuyingAutoMultiplier: boolean
   buyAutoMultiplier: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingTapMultiplier: boolean
+  buyTapMultiplier: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -93,7 +99,11 @@ const EMPTY_STATE: TreeState = {
   legendaryBonusStep: 0.5,
   legendaryGrowthNextCost: 0,
   autoMultiplierLevel: 0,
+  autoMultiplierValue: 1,
   autoMultiplierNextCost: 0,
+  tapMultiplierLevel: 0,
+  tapMultiplierValue: 1,
+  tapMultiplierNextCost: 0,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -110,6 +120,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingAutoLuck, setIsBuyingAutoLuck] = useState(false)
   const [isBuyingAutoLuckChance, setIsBuyingAutoLuckChance] = useState(false)
   const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
+  const [isBuyingTapMultiplier, setIsBuyingTapMultiplier] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -154,7 +165,11 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           legendaryBonusStep: data.legendaryBonusStep,
           legendaryGrowthNextCost: data.legendaryGrowthNextCost,
           autoMultiplierLevel: data.autoMultiplierLevel,
+          autoMultiplierValue: data.autoMultiplierValue,
           autoMultiplierNextCost: data.autoMultiplierNextCost,
+          tapMultiplierLevel: data.tapMultiplierLevel,
+          tapMultiplierValue: data.tapMultiplierValue,
+          tapMultiplierNextCost: data.tapMultiplierNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       }
@@ -445,12 +460,13 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       })
       const data = await res.json()
       if (!res.ok) return { ok: false, error: data.error ?? 'error' }
-      // Sobrecarga multiplies auto-click's production in place, so this
-      // endpoint also reports the refreshed autoClickCps/NextCps — unlike
-      // Fortuna/Azar's buy responses.
+      // Sobrecarga is a guaranteed multiplier baked into the displayed cps
+      // directly, so this endpoint also reports the refreshed
+      // autoClickCps/NextCps — unlike Fortuna/Azar's buy responses.
       setState((prev) => ({
         ...prev,
         autoMultiplierLevel: data.autoMultiplierLevel,
+        autoMultiplierValue: data.autoMultiplierValue,
         autoMultiplierNextCost: data.autoMultiplierNextCost,
         autoClickCps: data.autoClickCps,
         autoClickNextCps: data.autoClickNextCps,
@@ -462,6 +478,36 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: 'error' }
     } finally {
       setIsBuyingAutoMultiplier(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyTapMultiplier = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingTapMultiplier(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/tap-multiplier/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        tapMultiplierLevel: data.tapMultiplierLevel,
+        tapMultiplierValue: data.tapMultiplierValue,
+        tapMultiplierNextCost: data.tapMultiplierNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar el multiplicador', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingTapMultiplier(false)
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
@@ -487,6 +533,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyAutoLuckChance,
         isBuyingAutoMultiplier,
         buyAutoMultiplier,
+        isBuyingTapMultiplier,
+        buyTapMultiplier,
       }}
     >
       {children}
