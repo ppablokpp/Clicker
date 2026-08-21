@@ -93,24 +93,22 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
 
 // Legendary's own combo meter: real taps landed *while* legendary (not
 // auto-click ticks) fill a bar; filling it once bumps the bonus from the
-// base x1.5 up by +0.5 and resets the bar for the next one, which takes
-// more taps than the last — same shape as the tree's cost curves (linear
-// reward, exponential requirement). Dropping out of legendary resets both
-// back to zero, since this rewards *sustaining* the combo, not a lifetime
-// total. First threshold deliberately steep (60 taps, ~3s even at the
-// legendary floor of 20 c/s) — an earlier 20-tap first bar filled in ~1s
-// and felt free.
-const LEGENDARY_STREAK_BASE = 60
+// base x1.5 up and resets the bar for the next one, which takes more taps
+// than the last — same shape as the tree's cost curves (linear reward,
+// exponential requirement). Dropping out of legendary resets both back to
+// zero, since this rewards *sustaining* the combo, not a lifetime total.
+// The first threshold (streakBase) and the per-fill bonus increase
+// (bonusStep) both come from the tree now — Reflejos/Impulso, Multiplicador's
+// two children — so they're parameters here, not fixed constants.
 const LEGENDARY_STREAK_RATIO = 1.4
 const LEGENDARY_BONUS_BASE = 1.5
-const LEGENDARY_BONUS_STEP = 0.5
 
-function legendaryStreakThreshold(tier: number): number {
-  return Math.ceil(LEGENDARY_STREAK_BASE * LEGENDARY_STREAK_RATIO ** tier)
+function legendaryStreakThreshold(tier: number, streakBase: number): number {
+  return Math.ceil(streakBase * LEGENDARY_STREAK_RATIO ** tier)
 }
 
-function legendaryBonusForTier(tier: number): number {
-  return LEGENDARY_BONUS_BASE + LEGENDARY_BONUS_STEP * tier
+function legendaryBonusForTier(tier: number, bonusStep: number): number {
+  return LEGENDARY_BONUS_BASE + bonusStep * tier
 }
 
 // First prestige threshold — reaching it is meant to be when prestige becomes
@@ -168,10 +166,13 @@ function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
 function counterTextSizeClass(value: number): string {
   const digits = Math.max(1, Math.floor(value)).toString().length
   if (digits <= 3) return 'text-7xl sm:text-8xl'
-  if (digits <= 6) return 'text-5xl sm:text-7xl'
-  if (digits <= 9) return 'text-4xl sm:text-6xl'
-  if (digits <= 12) return 'text-3xl sm:text-5xl'
-  return 'text-2xl sm:text-4xl'
+  if (digits <= 5) return 'text-6xl sm:text-7xl'
+  if (digits <= 7) return 'text-5xl sm:text-6xl'
+  if (digits <= 8) return 'text-4xl sm:text-6xl'
+  if (digits <= 9) return 'text-4xl sm:text-5xl'
+  if (digits <= 11) return 'text-3xl sm:text-4xl'
+  if (digits <= 13) return 'text-2xl sm:text-3xl'
+  return 'text-xl sm:text-2xl'
 }
 
 export function Home() {
@@ -184,6 +185,8 @@ export function Home() {
     luckChance: permanentLuckChance,
     luckMultiplier: permanentLuckMultiplier,
     multiplierValue: baseClickMultiplier,
+    legendaryStreakBase,
+    legendaryBonusStep,
   } = useTreeContext()
   const { language, strings } = useLanguage()
   const {
@@ -284,7 +287,8 @@ export function Home() {
   // it always has, order doesn't matter since it's all multiplication.
   // Legendary's own multiplier grows with the sustained-combo streak
   // instead of staying a flat x2 like the other heat tiers.
-  const heatMultiplier = heat.key === 'legendary' ? legendaryBonusForTier(legendaryStreak.tier) : heat.multiplier
+  const heatMultiplier =
+    heat.key === 'legendary' ? legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep) : heat.multiplier
   const totalMultiplier = baseClickMultiplier * heatMultiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
@@ -325,7 +329,7 @@ export function Home() {
       if (heat.key === 'legendary') {
         setLegendaryStreak((prev) => {
           const nextCount = prev.count + 1
-          const threshold = legendaryStreakThreshold(prev.tier)
+          const threshold = legendaryStreakThreshold(prev.tier, legendaryStreakBase)
           return nextCount >= threshold ? { tier: prev.tier + 1, count: 0 } : { tier: prev.tier, count: nextCount }
         })
       }
@@ -347,7 +351,17 @@ export function Home() {
         setEffects((prev) => prev.filter((fx) => fx.id !== id))
       }, 900)
     },
-    [userId, promptSignIn, registerClick, heat, totalMultiplier, hasLuck, luckChance, combinedLuckMultiplier],
+    [
+      userId,
+      promptSignIn,
+      registerClick,
+      heat,
+      totalMultiplier,
+      hasLuck,
+      luckChance,
+      combinedLuckMultiplier,
+      legendaryStreakBase,
+    ],
   )
 
   return (
@@ -405,7 +419,7 @@ export function Home() {
             <span
               className="pointer-events-none absolute inset-y-0 left-0 z-0 bg-white/[0.07] transition-[width] duration-200 ease-out"
               style={{
-                width: `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier)) * 100)}%`,
+                width: `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier, legendaryStreakBase)) * 100)}%`,
               }}
             />
           )}
@@ -416,7 +430,7 @@ export function Home() {
           {heatLabel && (
             <span className={`relative z-10 font-semibold uppercase tracking-wide ${heat.badge}`}>
               · {heatLabel}
-              {heat.key === 'legendary' && ` ×${legendaryBonusForTier(legendaryStreak.tier)}`}
+              {heat.key === 'legendary' && ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep)}`}
             </span>
           )}
         </span>

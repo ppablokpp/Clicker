@@ -153,6 +153,14 @@ export interface TranslationStrings {
     luckChanceDesc: string
     currentChance: string
     nextChance: string
+    legendaryEaseName: string
+    legendaryEaseDesc: string
+    currentStreakClicks: string
+    nextStreakClicks: string
+    legendaryGrowthName: string
+    legendaryGrowthDesc: string
+    currentBonusStep: string
+    nextBonusStep: string
   }
 }
 
@@ -386,6 +394,14 @@ export const translations: Record<Language, TranslationStrings> = {
       luckChanceDesc: 'Sube la probabilidad de que un click cuente por el multiplicador de Suerte.',
       currentChance: 'Probabilidad actual:',
       nextChance: 'Probabilidad siguiente nivel:',
+      legendaryEaseName: 'Ritmo',
+      legendaryEaseDesc: 'Reduce los clicks que hacen falta para subir de nivel en modo Legendario.',
+      currentStreakClicks: 'Clicks actuales:',
+      nextStreakClicks: 'Clicks siguiente nivel:',
+      legendaryGrowthName: 'Impulso',
+      legendaryGrowthDesc: 'Aumenta la subida del multiplicador de modo Legendario cada vez que sube de nivel.',
+      currentBonusStep: 'Subida actual:',
+      nextBonusStep: 'Subida siguiente nivel:',
     },
   },
   en: {
@@ -617,6 +633,14 @@ export const translations: Record<Language, TranslationStrings> = {
       luckChanceDesc: "Raises the odds that a click counts for Suerte's multiplier.",
       currentChance: 'Current chance:',
       nextChance: 'Next level chance:',
+      legendaryEaseName: 'Pace',
+      legendaryEaseDesc: 'Lowers how many clicks it takes to level up while in Legendary mode.',
+      currentStreakClicks: 'Current clicks:',
+      nextStreakClicks: 'Next level clicks:',
+      legendaryGrowthName: 'Boost',
+      legendaryGrowthDesc: "Raises how much Legendary's multiplier increases each time it levels up.",
+      currentBonusStep: 'Current increase:',
+      nextBonusStep: 'Next level increase:',
     },
   },
 }

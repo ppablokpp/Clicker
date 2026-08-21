@@ -3,6 +3,18 @@ import { AUTOCLICK_NODE_ID, autoClickCost, autoClickCps } from '../tree/autoClic
 import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
 import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
 import { MULTIPLIER_NODE_ID, multiplierCost, multiplierValue } from '../tree/multiplier.js'
+import {
+  LEGENDARY_EASE_NODE_ID,
+  LEGENDARY_EASE_MAX_LEVEL,
+  legendaryEaseCost,
+  legendaryEaseStreakBase,
+} from '../tree/legendaryEase.js'
+import {
+  LEGENDARY_GROWTH_NODE_ID,
+  LEGENDARY_GROWTH_MAX_LEVEL,
+  legendaryGrowthCost,
+  legendaryGrowthBonusStep,
+} from '../tree/legendaryGrowth.js'
 
 export const treeRepository = {
   // Credits whatever the auto-click node has produced since it was last
@@ -77,6 +89,20 @@ export const treeRepository = {
       )
       const multiplierLevel = Number(multiplierRow.rows[0]?.level ?? 0)
 
+      // Multiplicador's two children — same plain level-counter shape,
+      // just finite (see legendaryEase.js/legendaryGrowth.js for why).
+      const legendaryEaseRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LEGENDARY_EASE_NODE_ID],
+      )
+      const legendaryEaseLevel = Number(legendaryEaseRow.rows[0]?.level ?? 0)
+
+      const legendaryGrowthRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LEGENDARY_GROWTH_NODE_ID],
+      )
+      const legendaryGrowthLevel = Number(legendaryGrowthRow.rows[0]?.level ?? 0)
+
       await client.query('COMMIT')
       return {
         autoClickLevel: level,
@@ -92,6 +118,12 @@ export const treeRepository = {
         multiplierLevel,
         multiplierValue: multiplierValue(multiplierLevel),
         multiplierNextCost: multiplierCost(multiplierLevel),
+        legendaryEaseLevel,
+        legendaryStreakBase: legendaryEaseStreakBase(legendaryEaseLevel),
+        legendaryEaseNextCost: legendaryEaseCost(legendaryEaseLevel),
+        legendaryGrowthLevel,
+        legendaryBonusStep: legendaryGrowthBonusStep(legendaryGrowthLevel),
+        legendaryGrowthNextCost: legendaryGrowthCost(legendaryGrowthLevel),
         totalClicks,
       }
     } catch (err) {
@@ -354,6 +386,141 @@ export const treeRepository = {
         luckChanceLevel: newLevel,
         luckChance: luckChanceValue(newLevel),
         luckChanceNextCost: luckChanceCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same level-counter shape as buyMultiplierLevel, but finite (capped at
+  // LEGENDARY_EASE_MAX_LEVEL) and requires Multiplicador itself to already
+  // be owned — enforced by the reveal cascade on the frontend, checked
+  // again here since the client is never trusted.
+  async buyLegendaryEaseLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const multiplierRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, MULTIPLIER_NODE_ID],
+      )
+      if (Number(multiplierRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'multiplier-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LEGENDARY_EASE_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = legendaryEaseCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, LEGENDARY_EASE_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        legendaryEaseLevel: newLevel,
+        legendaryStreakBase: legendaryEaseStreakBase(newLevel),
+        legendaryEaseNextCost: legendaryEaseCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same shape as buyLegendaryEaseLevel — Multiplicador's other child.
+  async buyLegendaryGrowthLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const multiplierRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, MULTIPLIER_NODE_ID],
+      )
+      if (Number(multiplierRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'multiplier-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LEGENDARY_GROWTH_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = legendaryGrowthCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, LEGENDARY_GROWTH_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        legendaryGrowthLevel: newLevel,
+        legendaryBonusStep: legendaryGrowthBonusStep(newLevel),
+        legendaryGrowthNextCost: legendaryGrowthCost(newLevel),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

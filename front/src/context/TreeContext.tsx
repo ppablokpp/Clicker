@@ -27,6 +27,12 @@ interface TreeState {
   multiplierLevel: number
   multiplierValue: number
   multiplierNextCost: number
+  legendaryEaseLevel: number
+  legendaryStreakBase: number
+  legendaryEaseNextCost: number | null
+  legendaryGrowthLevel: number
+  legendaryBonusStep: number
+  legendaryGrowthNextCost: number | null
 }
 
 interface TreeContextValue extends TreeState {
@@ -38,6 +44,10 @@ interface TreeContextValue extends TreeState {
   buyLuckChance: () => Promise<{ ok: boolean; error?: string }>
   isBuyingMultiplier: boolean
   buyMultiplier: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingLegendaryEase: boolean
+  buyLegendaryEase: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingLegendaryGrowth: boolean
+  buyLegendaryGrowth: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -56,6 +66,12 @@ const EMPTY_STATE: TreeState = {
   multiplierLevel: 0,
   multiplierValue: 1,
   multiplierNextCost: 0,
+  legendaryEaseLevel: 0,
+  legendaryStreakBase: 100,
+  legendaryEaseNextCost: 0,
+  legendaryGrowthLevel: 0,
+  legendaryBonusStep: 0.5,
+  legendaryGrowthNextCost: 0,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -67,6 +83,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingLuck, setIsBuyingLuck] = useState(false)
   const [isBuyingLuckChance, setIsBuyingLuckChance] = useState(false)
   const [isBuyingMultiplier, setIsBuyingMultiplier] = useState(false)
+  const [isBuyingLegendaryEase, setIsBuyingLegendaryEase] = useState(false)
+  const [isBuyingLegendaryGrowth, setIsBuyingLegendaryGrowth] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -98,6 +116,12 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
           multiplierNextCost: data.multiplierNextCost,
+          legendaryEaseLevel: data.legendaryEaseLevel,
+          legendaryStreakBase: data.legendaryStreakBase,
+          legendaryEaseNextCost: data.legendaryEaseNextCost,
+          legendaryGrowthLevel: data.legendaryGrowthLevel,
+          legendaryBonusStep: data.legendaryBonusStep,
+          legendaryGrowthNextCost: data.legendaryGrowthNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       }
@@ -254,6 +278,66 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyLegendaryEase = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingLegendaryEase(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/legendary-ease/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        legendaryEaseLevel: data.legendaryEaseLevel,
+        legendaryStreakBase: data.legendaryStreakBase,
+        legendaryEaseNextCost: data.legendaryEaseNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Reflejos', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingLegendaryEase(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyLegendaryGrowth = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingLegendaryGrowth(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/legendary-growth/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        legendaryGrowthLevel: data.legendaryGrowthLevel,
+        legendaryBonusStep: data.legendaryBonusStep,
+        legendaryGrowthNextCost: data.legendaryGrowthNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Impulso', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingLegendaryGrowth(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   return (
     <TreeContext.Provider
       value={{
@@ -266,6 +350,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyLuckChance,
         isBuyingMultiplier,
         buyMultiplier,
+        isBuyingLegendaryEase,
+        buyLegendaryEase,
+        isBuyingLegendaryGrowth,
+        buyLegendaryGrowth,
       }}
     >
       {children}

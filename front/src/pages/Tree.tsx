@@ -5,6 +5,8 @@ import {
   Asterisk,
   Bot,
   Clover,
+  ChevronsUp,
+  Gauge,
   Gem,
   Lock,
   Minus,
@@ -189,9 +191,10 @@ const PREMIUM_NODE_STYLE = 'border-indigo-400/25 bg-[#141a2e] text-indigo-200 sh
 // same opaque-dark-backing recipe as the other two real nodes.
 const LUCK_NODE_STYLE = 'border-green-400/25 bg-[#0f1f16] text-green-200 shadow-black/20'
 
-// Branch E's node (the base click-value multiplier) — sky blue, unused by
-// anything else on this page, same opaque-dark-backing recipe.
-const MULTIPLIER_NODE_STYLE = 'border-sky-400/25 bg-[#0a1a24] text-sky-200 shadow-black/20'
+// Branch E's whole family (Multiplicador, Impulso, Reflejos) — red, same
+// tone as the Home page's Legendary heat badge, since all three feed that
+// one system. Same opaque-dark-backing recipe as the other real nodes.
+const LEGENDARY_NODE_STYLE = 'border-red-400/25 bg-[#1f0d0d] text-red-200 shadow-black/20'
 
 const DEFAULT_SCALE = 0.68
 
@@ -231,11 +234,25 @@ export function Tree() {
     multiplierNextCost,
     isBuyingMultiplier,
     buyMultiplier,
+    legendaryEaseLevel,
+    legendaryStreakBase,
+    legendaryEaseNextCost,
+    isBuyingLegendaryEase,
+    buyLegendaryEase,
+    legendaryGrowthLevel,
+    legendaryBonusStep,
+    legendaryGrowthNextCost,
+    isBuyingLegendaryGrowth,
+    buyLegendaryGrowth,
   } = useTreeContext()
   const canAffordAutoClick = totalClicks >= autoClickNextCost
   const canAffordLuck = totalClicks >= luckNextCost
   const canAffordLuckChance = totalClicks >= luckChanceNextCost
   const canAffordMultiplier = totalClicks >= multiplierNextCost
+  const isLegendaryEaseMaxed = legendaryEaseNextCost === null
+  const canAffordLegendaryEase = legendaryEaseNextCost !== null && totalClicks >= legendaryEaseNextCost
+  const isLegendaryGrowthMaxed = legendaryGrowthNextCost === null
+  const canAffordLegendaryGrowth = legendaryGrowthNextCost !== null && totalClicks >= legendaryGrowthNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
   const { gems } = useGemsContext()
@@ -245,6 +262,8 @@ export function Tree() {
   const [showLuckModal, setShowLuckModal] = useState(false)
   const [showLuckChanceModal, setShowLuckChanceModal] = useState(false)
   const [showMultiplierModal, setShowMultiplierModal] = useState(false)
+  const [showLegendaryEaseModal, setShowLegendaryEaseModal] = useState(false)
+  const [showLegendaryGrowthModal, setShowLegendaryGrowthModal] = useState(false)
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
@@ -417,6 +436,8 @@ export function Tree() {
     a2: luckChanceLevel,
     c1: premiumOwnedCount,
     e1: multiplierLevel,
+    e2a: legendaryGrowthLevel,
+    e2b: legendaryEaseLevel,
   }
   // Recomputed each render off the real levels above — cheap for a graph
   // this small, and keeps the reveal rule as the single source of truth
@@ -476,6 +497,8 @@ export function Tree() {
               node.id !== 'a1' &&
               node.id !== 'a2' &&
               node.id !== 'e1' &&
+              node.id !== 'e2a' &&
+              node.id !== 'e2b' &&
               revealStateById[node.id] !== 'hidden',
           ).map((node) => {
             const revealState = revealStateById[node.id] as 'available' | 'locked'
@@ -702,14 +725,116 @@ export function Tree() {
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e1, CENTER, CENTER) }}
-                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${MULTIPLIER_NODE_STYLE}`}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
               >
-                <Asterisk size={20} className="text-sky-300" />
+                <Asterisk size={20} className="text-red-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {multiplierLevel}
                 </span>
 
                 {canAffordMultiplier && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Multiplicador's two children — Impulso (grows the Legendary
+              bonus step) and Reflejos (shrinks the clicks it takes to
+              level up). Both finite (capped at level 10), same red family
+              as Multiplicador itself. */}
+          {revealStateById.e2a === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2a.x, top: nodeById.e2a.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2a, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <ChevronsUp size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryGrowthLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.e2a === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2a.x, top: nodeById.e2a.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowLegendaryGrowthModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2a, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
+              >
+                <ChevronsUp size={20} className="text-red-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryGrowthLevel}
+                </span>
+
+                {!isLegendaryGrowthMaxed && canAffordLegendaryGrowth && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.e2b === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2b.x, top: nodeById.e2b.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Gauge size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryEaseLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.e2b === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2b.x, top: nodeById.e2b.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowLegendaryEaseModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
+              >
+                <Gauge size={20} className="text-red-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryEaseLevel}
+                </span>
+
+                {!isLegendaryEaseMaxed && canAffordLegendaryEase && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -1025,7 +1150,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Asterisk size={18} className="text-sky-300" />
+              <Asterisk size={18} className="text-red-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.multiplierName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.multiplierDesc}</p>
@@ -1059,6 +1184,134 @@ export function Tree() {
                 </span>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showLegendaryGrowthModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowLegendaryGrowthModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLegendaryGrowthModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <ChevronsUp size={18} className="text-red-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.legendaryGrowthName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryGrowthDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentBonusStep}{' '}
+                <span className="font-semibold text-white">+{legendaryBonusStep.toFixed(1)}</span>
+              </span>
+              {!isLegendaryGrowthMaxed && (
+                <span>
+                  {strings.tree.nextBonusStep}{' '}
+                  <span className="font-semibold text-white">+{(legendaryBonusStep + 0.1).toFixed(1)}</span>
+                </span>
+              )}
+            </div>
+
+            {isLegendaryGrowthMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <button
+                onClick={buyLegendaryGrowth}
+                disabled={isBuyingLegendaryGrowth || !canAffordLegendaryGrowth}
+                className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                  isBuyingLegendaryGrowth || !canAffordLegendaryGrowth
+                    ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                    : 'bg-white text-neutral-900 hover:opacity-90'
+                }`}
+              >
+                {isBuyingLegendaryGrowth ? (
+                  strings.tree.upgrading
+                ) : (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <MousePointerClick size={14} className="opacity-70" />
+                    <span className="tabular-nums">{legendaryGrowthNextCost?.toLocaleString(locale)}</span>
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showLegendaryEaseModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowLegendaryEaseModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLegendaryEaseModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Gauge size={18} className="text-red-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.legendaryEaseName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryEaseDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentStreakClicks}{' '}
+                <span className="font-semibold text-white">{legendaryStreakBase}</span>
+              </span>
+              {!isLegendaryEaseMaxed && (
+                <span>
+                  {strings.tree.nextStreakClicks}{' '}
+                  <span className="font-semibold text-white">{legendaryStreakBase - 5}</span>
+                </span>
+              )}
+            </div>
+
+            {isLegendaryEaseMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <button
+                onClick={buyLegendaryEase}
+                disabled={isBuyingLegendaryEase || !canAffordLegendaryEase}
+                className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                  isBuyingLegendaryEase || !canAffordLegendaryEase
+                    ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                    : 'bg-white text-neutral-900 hover:opacity-90'
+                }`}
+              >
+                {isBuyingLegendaryEase ? (
+                  strings.tree.upgrading
+                ) : (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <MousePointerClick size={14} className="opacity-70" />
+                    <span className="tabular-nums">{legendaryEaseNextCost?.toLocaleString(locale)}</span>
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
