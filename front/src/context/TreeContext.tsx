@@ -67,7 +67,7 @@ const EMPTY_STATE: TreeState = {
   multiplierValue: 1,
   multiplierNextCost: 0,
   legendaryEaseLevel: 0,
-  legendaryStreakBase: 100,
+  legendaryStreakBase: 200,
   legendaryEaseNextCost: 0,
   legendaryGrowthLevel: 0,
   legendaryBonusStep: 0.5,

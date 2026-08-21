@@ -8,7 +8,7 @@
 export const LEGENDARY_EASE_NODE_ID = 'legendary_ease'
 export const LEGENDARY_EASE_MAX_LEVEL = 10
 
-export const LEGENDARY_EASE_BASE_STREAK = 100
+export const LEGENDARY_EASE_BASE_STREAK = 200
 export const LEGENDARY_EASE_STEP = 5
 
 export const LEGENDARY_EASE_BASE_COST = 2_000

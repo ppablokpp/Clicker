@@ -99,16 +99,20 @@ function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
 // zero, since this rewards *sustaining* the combo, not a lifetime total.
 // The first threshold (streakBase) and the per-fill bonus increase
 // (bonusStep) both come from the tree now — Reflejos/Impulso, Multiplicador's
-// two children — so they're parameters here, not fixed constants.
+// two children — so they're parameters here, not fixed constants. The
+// bonus itself is hard-capped at x5 — uncapped it would eventually dwarf
+// every other multiplier in the game, no matter how hard the streak is to
+// sustain.
 const LEGENDARY_STREAK_RATIO = 1.4
 const LEGENDARY_BONUS_BASE = 1.5
+const LEGENDARY_BONUS_MAX = 5
 
 function legendaryStreakThreshold(tier: number, streakBase: number): number {
   return Math.ceil(streakBase * LEGENDARY_STREAK_RATIO ** tier)
 }
 
 function legendaryBonusForTier(tier: number, bonusStep: number): number {
-  return LEGENDARY_BONUS_BASE + bonusStep * tier
+  return Math.min(LEGENDARY_BONUS_MAX, LEGENDARY_BONUS_BASE + bonusStep * tier)
 }
 
 // First prestige threshold — reaching it is meant to be when prestige becomes
