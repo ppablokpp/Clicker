@@ -16,6 +16,7 @@ import {
   Info,
   X,
   Diamond,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -469,10 +470,10 @@ export function Home() {
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
-  // Prestige UI state disabled along with its JSX further down.
-  // const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
-  // const [showPrestigeShop, setShowPrestigeShop] = useState(false)
-  // const [prestigeError, setPrestigeError] = useState<string | null>(null)
+  // The real reset flow (confirm/shop modals) is still parked — see the
+  // commented-out blocks further down — so the button just flashes a
+  // "coming soon" label instead of opening anything for now.
+  const [showComingSoon, setShowComingSoon] = useState(false)
   const [showInventory, setShowInventory] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -689,15 +690,18 @@ export function Home() {
         <div className="animate-twinkle absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsBright }} />
       </div>
 
-      {/* Prestige UI disabled for now (feedback: the maxed-ring state —
-          amber glow, "ready" banner, button — was rendering badly). The
-          ring itself still fills normally via `prestige.pct`; only the
-          isMaxed-triggered extras below are commented out. */}
-      {/* {prestige.isMaxed && (
+      {/* Prestige-ready ambient glow — a radial-gradient instead of the old
+          `blur-[140px]` div (same mobile Chromium flash-to-square bug fixed
+          on the asteroid's own glow, so it's built the filter-free way
+          from the start here). */}
+      {prestige.isMaxed && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="animate-pulse-glow absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[140px]" />
+          <div
+            className="animate-pulse-glow absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.35) 0%, transparent 65%)' }}
+          />
         </div>
-      )} */}
+      )}
 
       {/* Inventory button — mirrors the CPS badge's position on the right. */}
       <button
@@ -844,36 +848,39 @@ export function Home() {
           {/* Scaled down from the object's own box — the ring used to hug
               the object edge-to-edge, which read as oversized next to it. */}
           <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
-            {/* isMaxed forced false — the gold "ready" ring state is part
-                of the disabled prestige UI, the fill itself still tracks
-                pct normally. */}
-            <ProgressRing pct={prestige.pct} isMaxed={false} />
+            <ProgressRing pct={prestige.pct} isMaxed={prestige.isMaxed} />
           </div>
 
           <div className="absolute inset-0 flex items-center justify-center">
             <SpaceObject objectsBroken={objectsBroken} pct={objectPct} />
           </div>
-
-          {/* Prestige-ready banner + button disabled — see the other
-              commented-out prestige blocks above. */}
-          {/* {prestige.isMaxed && (
-            <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center px-3 sm:bottom-12">
-              <span className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
-                {strings.home.prestigeReady}
-              </span>
-              <div className="pointer-events-auto flex flex-col items-center gap-1.5">
-                <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => setShowPrestigeConfirm(true)}
-                  className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
-                >
-                  <Sparkles size={13} className="text-amber-300" />
-                  {strings.home.changePrestige}
-                </button>
-              </div>
-            </div>
-          )} */}
         </div>
+
+        {/* Prestige-ready banner + button — `absolute top-full`, not
+            static flow, so it hangs below the ring without adding to this
+            flex-col's own height. That mattered: as a normal-flow sibling
+            it was pushing the whole stack (ring included) upward to stay
+            centered on the page whenever it appeared. */}
+        {prestige.isMaxed && (
+          <div className="pointer-events-none absolute left-0 right-0 top-full mt-8 flex flex-col items-center px-3">
+            <span className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
+              {strings.home.prestigeReady}
+            </span>
+            <div className="pointer-events-auto flex flex-col items-center gap-1.5">
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setShowComingSoon(true)
+                  window.setTimeout(() => setShowComingSoon(false), 1800)
+                }}
+                className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
+              >
+                <Sparkles size={13} className="text-amber-300" />
+                {showComingSoon ? strings.home.prestigeComingSoon : strings.home.changePrestige}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* click ripples + floating +N */}
