@@ -9,6 +9,7 @@ import {
   Gem,
   Lock,
   Minus,
+  Pickaxe,
   Plus,
   Radar,
   Radio,
@@ -113,6 +114,11 @@ interface TreeEdge {
 }
 
 type RevealState = 'hidden' | 'locked' | 'available'
+
+// Mirrors back/src/tree/autoClick.js's own AUTOCLICK_CPS_PER_LEVEL — the
+// flat per-drone base rate, used to show Sobrecarga's production stat as
+// "per drone" instead of the fleet's grand total.
+const AUTOCLICK_CPS_PER_LEVEL = 0.5
 
 // Pure placeholder layout — no real upgrades wired up yet, just enough
 // nodes/branches to see how a pannable/zoomable incremental tech-tree
@@ -781,7 +787,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Sparkles size={20} />
+                <Pickaxe size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckLevel}
                 </span>
@@ -805,7 +811,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
               >
-                <Sparkles size={20} className="text-green-300" />
+                <Pickaxe size={20} className="text-green-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckLevel}
                 </span>
@@ -1427,7 +1433,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Sparkles size={18} className="text-green-300" />
+              <Pickaxe size={18} className="text-green-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.luckName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckDesc}</p>
@@ -1786,13 +1792,23 @@ export function Tree() {
 
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
-                {strings.tree.currentMultiplier}{' '}
-                <span className="font-semibold text-white">×{autoMultiplierValue}</span>
+                {strings.tree.currentProduction}{' '}
+                <span className="font-semibold text-white">
+                  {(AUTOCLICK_CPS_PER_LEVEL * autoMultiplierValue).toLocaleString(locale, {
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  {strings.home.cps}
+                </span>
               </span>
               {!isAutoMultiplierMaxed && (
                 <span>
-                  {strings.tree.nextMultiplier}{' '}
-                  <span className="font-semibold text-white">×{autoMultiplierValue + 0.5}</span>
+                  {strings.tree.nextProduction}{' '}
+                  <span className="font-semibold text-white">
+                    {(AUTOCLICK_CPS_PER_LEVEL * (autoMultiplierValue + 0.5)).toLocaleString(locale, {
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    {strings.home.cps}
+                  </span>
                 </span>
               )}
             </div>
