@@ -1,4 +1,4 @@
-import { MousePointerClick } from 'lucide-react'
+import { Diamond } from 'lucide-react'
 
 export function LoadingScreen() {
   return (
@@ -13,7 +13,7 @@ export function LoadingScreen() {
           style={{ animationDuration: '0.8s' }}
         />
         <div className="flex h-10 w-10 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
-          <MousePointerClick size={18} />
+          <Diamond size={18} />
         </div>
       </div>
     </div>

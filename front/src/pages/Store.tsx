@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Rocket, Dices, Magnet, Clock, MousePointerClick, Gift, Loader2, List, X, Gem, Key } from 'lucide-react'
+import { Rocket, Dices, Magnet, Clock, Gift, Loader2, List, X, Gem, Key, Diamond } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
@@ -43,7 +43,7 @@ export function Store() {
                 aria-label={strings.store.buyClicksTitle}
                 className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300 transition-colors hover:bg-white/[0.06]"
               >
-                <MousePointerClick size={12} className="opacity-70" />
+                <Diamond size={12} className="opacity-70" />
                 {totalClicks.toLocaleString(locale)}
               </button>
               <button
@@ -319,14 +319,14 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
   }
 
   return (
-    <PackModalShell title={strings.buyClicksTitle} icon={MousePointerClick} theme="neutral" onClose={onClose} error={error}>
+    <PackModalShell title={strings.buyClicksTitle} icon={Diamond} theme="neutral" onClose={onClose} error={error}>
       {catalog.map((pack, i) => {
         const unitPrice = pack.gemCost / pack.clicks
         const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
         return (
           <PackTile
             key={pack.id}
-            icon={MousePointerClick}
+            icon={Diamond}
             locale={locale}
             buttonClassName={PACK_BUTTON_CLASSES_INDIGO}
             tile={{
@@ -496,7 +496,7 @@ function TierTile({
             {currency === 'gems' ? (
               <Gem size={10} className="opacity-80" />
             ) : (
-              <MousePointerClick size={10} className="opacity-70" />
+              <Diamond size={10} className="opacity-70" />
             )}
             <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
           </span>
@@ -760,7 +760,7 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
                   strings.buying
                 ) : (
                   <span className="flex items-center justify-center gap-1">
-                    <MousePointerClick size={10} className="opacity-70" />
+                    <Diamond size={10} className="opacity-70" />
                     <span className="tabular-nums">{magnet.cost.toLocaleString(locale)}</span>
                   </span>
                 )}
@@ -823,7 +823,7 @@ function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
       {prize.currency === 'gems' ? (
         <Gem size={16} style={{ color: style.color }} />
       ) : (
-        <MousePointerClick size={16} style={{ color: style.color }} />
+        <Diamond size={16} style={{ color: style.color }} />
       )}
       <span className="mt-1 text-[11px] font-bold tabular-nums text-white">
         {prize.amount.toLocaleString(locale)}
@@ -1096,7 +1096,7 @@ function MiniCaseReel({
             className="flex items-center gap-1.5 text-lg font-bold"
             style={{ color: prizeStyle.color, textShadow: `0 0 20px ${prizeStyle.glow}` }}
           >
-            {revealed.currency === 'gems' ? <Gem size={16} /> : <MousePointerClick size={16} />}
+            {revealed.currency === 'gems' ? <Gem size={16} /> : <Diamond size={16} />}
             {revealed.currency === 'gems'
               ? strings.youWonGems(revealed.amount.toLocaleString(locale))
               : strings.youWon(revealed.amount.toLocaleString(locale))}
@@ -1209,7 +1209,7 @@ function CaseCatalogModal({ catalog, locale, strings, onClose, variant = 'groupe
                         {strings.casePrizeNames[prize.id] ?? prize.id}
                       </span>
                       <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
-                        <MousePointerClick size={12} className="opacity-70" />
+                        <Diamond size={12} className="opacity-70" />
                         {prize.amount.toLocaleString(locale)}
                       </span>
                     </div>
@@ -1366,7 +1366,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <>
-                <MousePointerClick size={12} className="opacity-70" />
+                <Diamond size={12} className="opacity-70" />
                 <span className="tabular-nums">{chestCost1.toLocaleString(locale)}</span>
               </>
             )}
@@ -1389,7 +1389,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <>
-                <MousePointerClick size={12} className="opacity-70" />
+                <Diamond size={12} className="opacity-70" />
                 <span className="tabular-nums">{chestCost2.toLocaleString(locale)}</span>
               </>
             )}

@@ -12,11 +12,10 @@ import {
   Key,
   Gift,
   TrendingUp,
-  Sparkles,
   Backpack,
   Info,
   X,
-  MousePointerClick,
+  Diamond,
   type LucideIcon,
 } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -85,6 +84,17 @@ let shotId = 0
 // +N effect waits this long before landing, so it appears exactly when the
 // shot visually arrives at the object instead of at an arbitrary offset.
 const SHOT_DURATION_MS = 280
+
+// The orbiting drones' distance from the ring's center. Plain `vmin` alone
+// looked right on mobile (where the viewport roughly matches the object
+// box's own size) but blew up on desktop — a wide, tall browser window
+// pushes vmin far past the object box's actual fixed size (h-72/sm:h-96),
+// sending the drones flying way out past the ring. Clamping bounds it to
+// roughly what the ring itself already spans across breakpoints, so it
+// still scales a little with viewport but can never drift far from "just
+// outside the ring" — mobile's own natural value already sits inside this
+// range, so it renders unchanged there.
+const DRONE_ORBIT_RADIUS = 'clamp(105px, 32vmin, 165px)'
 
 // Escalates the whole screen's feel with click speed — a free "combo meter"
 // with no server round trip, purely derived from clicksPerSecond. Legendario
@@ -258,9 +268,18 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
   const tier = OBJECT_TIERS[Math.floor(objectsBroken / 10) % OBJECT_TIERS.length]
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
+      {/* A radial-gradient glow instead of a blurred solid circle — some
+          mobile Chromium builds flash the pre-filter unblurred shape (a
+          hard-edged square, since `blur-lg` blurs the element's own box)
+          before the `filter: blur()` layer finishes compositing. A gradient
+          fades out on its own with no filter involved, so there's nothing
+          to flash. */}
       <div
-        className="absolute inset-2 rounded-full blur-lg transition-opacity duration-200"
-        style={{ backgroundColor: tier.glow, opacity: 0.22 + pct * 0.5 }}
+        className="absolute -inset-6 rounded-full transition-opacity duration-200"
+        style={{
+          background: `radial-gradient(circle, ${tier.glow} 0%, transparent 70%)`,
+          opacity: 0.22 + pct * 0.5,
+        }}
       />
       <motion.div
         key={objectsBroken}
@@ -287,9 +306,9 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
   )
 }
 
-// Autoclick's swarm — one little drone per level (capped so it stays
-// readable at high levels), orbiting just outside the prestige ring like
-// Cookie Clicker's cursors circling the cookie. Purely decorative: each
+// Autoclick's swarm — one little drone per level, uncapped, orbiting just
+// outside the prestige ring like Cookie Clicker's cursors circling the
+// cookie. Purely decorative: each
 // drone's orbit phase and pulse timing come from its own index, not real
 // production data, since this only exists to make "you own N levels of
 // autoclick" *feel* alive rather than to visualize the exact cps.
@@ -320,7 +339,10 @@ function OrbitingBots({ count }: { count: number }) {
                 sidesteps that entirely. The drone body itself also counter-
                 rotates against the orbit spin so it stays visually level
                 instead of tumbling around its own axis as it orbits. */}
-            <div className="absolute left-0 top-0" style={{ transform: 'translate(-50%, -50%) translateY(-32vmin)' }}>
+            <div
+              className="absolute left-0 top-0"
+              style={{ transform: `translate(-50%, -50%) translateY(calc(${DRONE_ORBIT_RADIUS} * -1))` }}
+            >
               <motion.div
                 animate={{
                   rotate: clockwise ? -360 : 360,
@@ -348,8 +370,8 @@ function OrbitingBots({ count }: { count: number }) {
               <motion.div
                 className="absolute left-1/2 top-1/2 w-[3px] rounded-full bg-gradient-to-b from-violet-300/0 via-violet-200 to-white shadow-[0_0_6px_1px_rgba(216,180,254,0.8)]"
                 style={{ height: 10, x: '-50%' }}
-                initial={{ y: '0vmin', opacity: 1 }}
-                animate={{ y: '32vmin', opacity: [1, 1, 0] }}
+                initial={{ y: 0, opacity: 1 }}
+                animate={{ y: DRONE_ORBIT_RADIUS, opacity: [1, 1, 0] }}
                 transition={{
                   duration: 0.4,
                   delay: pulseDelay,
@@ -370,12 +392,17 @@ function OrbitingBots({ count }: { count: number }) {
 // in the UI than a small pill) — smaller than the old full-width design
 // since it now shares the ring with the space object below it, but still
 // shrinks as digits pile up so it never overflows.
+// Sized to fit inside the ring alongside its icon (shrunk one tier from the
+// old standalone-number version, which had the whole screen width to work with).
+// Sized for the platino pill — noticeably bigger than every other pill's
+// text-xs, but still a pill (not the old giant standalone-number display),
+// shrinking as digits pile up so it never forces the pill to wrap.
 function clicksTextSizeClass(value: number): string {
   const digits = Math.max(1, Math.floor(value)).toString().length
-  if (digits <= 5) return 'text-4xl sm:text-5xl'
-  if (digits <= 8) return 'text-3xl sm:text-4xl'
-  if (digits <= 11) return 'text-2xl sm:text-3xl'
-  return 'text-xl sm:text-2xl'
+  if (digits <= 5) return 'text-lg sm:text-xl'
+  if (digits <= 8) return 'text-base sm:text-lg'
+  if (digits <= 11) return 'text-sm sm:text-base'
+  return 'text-xs sm:text-sm'
 }
 
 export function Home() {
@@ -393,8 +420,9 @@ export function Home() {
     legendaryStreakBase,
     legendaryBonusStep,
   } = useTreeContext()
-  const { prestigePoints, reactorValue, reactorLevel, reactorNextCost, isBuyingReactor, buyReactor, isResetting, resetPrestige } =
-    usePrestigeContext()
+  // Only the Reactor's permanent multiplier is still read here — the rest
+  // of the prestige UI (shop, reset flow) is disabled below.
+  const { reactorValue } = usePrestigeContext()
   const { language, strings } = useLanguage()
   const {
     catalog: powerupCatalog,
@@ -439,9 +467,10 @@ export function Home() {
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
-  const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
-  const [showPrestigeShop, setShowPrestigeShop] = useState(false)
-  const [prestigeError, setPrestigeError] = useState<string | null>(null)
+  // Prestige UI state disabled along with its JSX further down.
+  // const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
+  // const [showPrestigeShop, setShowPrestigeShop] = useState(false)
+  // const [prestigeError, setPrestigeError] = useState<string | null>(null)
   const [showInventory, setShowInventory] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -534,23 +563,27 @@ export function Home() {
   // ring above it) — this is what the ring around the object actually shows.
   const currentObjectCost = objectCost(objectsBroken)
   const objectPct = Math.min(1, objectProgress / currentObjectCost)
+  // Same tier lookup SpaceObject uses internally — pulled up here too so
+  // the platino pill's icon can be tinted to match whichever asteroid is
+  // currently active.
+  const currentTier = OBJECT_TIERS[Math.floor(objectsBroken / 10) % OBJECT_TIERS.length]
 
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
 
-  // A full reload after a successful reset is deliberate — every other
-  // context (ClickCounterContext, TreeContext) would otherwise need its own
-  // bespoke "zero everything out" logic; refetching from the server, which
-  // is already the reset's source of truth, is simpler and can't drift.
-  const handleConfirmPrestige = async () => {
-    setPrestigeError(null)
-    const result = await resetPrestige()
-    if (result.ok) {
-      window.location.reload()
-    } else if (result.error !== 'not-signed-in') {
-      setPrestigeError(result.error ?? 'error')
-    }
-  }
+  // Reset flow disabled along with the rest of the prestige UI — a full
+  // reload on success was deliberate here (every other context would need
+  // its own "zero everything out" logic otherwise), worth keeping in mind
+  // if this gets re-enabled.
+  // const handleConfirmPrestige = async () => {
+  //   setPrestigeError(null)
+  //   const result = await resetPrestige()
+  //   if (result.ok) {
+  //     window.location.reload()
+  //   } else if (result.error !== 'not-signed-in') {
+  //     setPrestigeError(result.error ?? 'error')
+  //   }
+  // }
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -658,25 +691,42 @@ export function Home() {
         <div className="animate-twinkle absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsBright }} />
       </div>
 
-      {/* prestige glow — the only ambient background glow left now (the
-          combo heat glow that used to intensify/recolor while clicking got
-          dropped, it read as visual noise once it was the sole gradient
-          left on screen). Rendered only when maxed, not just faded via
-          opacity, since the infinite pulse-glow keyframe would otherwise
-          keep animating its own opacity and fight an inline style meant to
-          hide it. */}
-      {prestige.isMaxed && (
+      {/* Prestige UI disabled for now (feedback: the maxed-ring state —
+          amber glow, "ready" banner, button — was rendering badly). The
+          ring itself still fills normally via `prestige.pct`; only the
+          isMaxed-triggered extras below are commented out. */}
+      {/* {prestige.isMaxed && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="animate-pulse-glow absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[140px]" />
         </div>
-      )}
+      )} */}
 
-      {/* Inventory button — mirrors the CPS badge's position on the right. */}
+      {/* Platino balance — bigger than the other stat pills, tinted to
+          whichever asteroid tier is currently active (icon + border/bg),
+          sitting right above the inventory button. */}
+      <div
+        className="pointer-events-none absolute right-4 top-20 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg shadow-black/20 sm:right-6"
+        style={{ borderColor: `${currentTier.fill}40`, backgroundColor: `${currentTier.fill}1a` }}
+      >
+        <Diamond size={15} className="shrink-0" style={{ color: currentTier.fill }} />
+        <motion.span
+          key={totalClicks}
+          initial={{ scale: 1 }}
+          animate={{ scale: [1.08, 1] }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className={`font-[Space_Grotesk] font-bold leading-none tabular-nums text-white ${clicksTextSizeClass(totalClicks)}`}
+        >
+          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+        </motion.span>
+      </div>
+
+      {/* Inventory button — mirrors the CPS badge's position on the right,
+          shifted down to make room for the platino pill above it. */}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setShowInventory(true)}
         aria-label={strings.home.inventory}
-        className="pointer-events-auto absolute right-4 top-20 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6"
+        className="pointer-events-auto absolute right-4 top-[8.5rem] z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6"
       >
         <Backpack size={16} />
       </button>
@@ -714,20 +764,18 @@ export function Home() {
           )}
         </span>
 
-        {totalMultiplier > 1 && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
-            <MousePointerClick size={12} className="text-violet-300" />
-            {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
-            {activePowerup && (
-              <>
-                <Rocket size={12} className="text-violet-300" />
-                <span className="tabular-nums text-violet-300">
-                  {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-                </span>
-              </>
-            )}
-          </span>
-        )}
+        <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
+          <Diamond size={12} className="text-violet-300" />
+          {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
+          {activePowerup && (
+            <>
+              <Rocket size={12} className="text-violet-300" />
+              <span className="tabular-nums text-violet-300">
+                {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+              </span>
+            </>
+          )}
+        </span>
 
         {autoClickCps > 0 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
@@ -781,10 +829,9 @@ export function Home() {
           </span>
         )}
 
-        {/* Banked prestige points persist across resets — reachable any
-            time you have any (or already own Reactor levels), not just
-            while a reset is available. */}
-        {(prestigePoints > 0 || reactorLevel > 0) && (
+        {/* Prestige points pill disabled along with the rest of the
+            prestige UI — see the other commented-out prestige blocks below. */}
+        {/* {(prestigePoints > 0 || reactorLevel > 0) && (
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setShowPrestigeShop(true)}
@@ -793,26 +840,7 @@ export function Home() {
             <Sparkles size={12} className="text-amber-300" />
             {prestigePoints}
           </button>
-        )}
-      </div>
-
-      {/* Clicks HUD — its own dedicated spot above the ring instead of
-          competing with it for space (that's what was throwing the object
-          off-center before): a game-style score readout, separate from the
-          object you're actually interacting with below. */}
-      <div className="pointer-events-none absolute left-0 right-0 top-20 z-10 flex flex-col items-center sm:top-24">
-        <span className="mb-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
-          {strings.home.yourClicks}
-        </span>
-        <motion.span
-          key={totalClicks}
-          initial={{ scale: 1 }}
-          animate={{ scale: [1.08, 1] }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 ${clicksTextSizeClass(totalClicks)}`}
-        >
-          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
-        </motion.span>
+        )} */}
       </div>
 
       {/* main counter — the space object you break with clicks. The big
@@ -820,18 +848,23 @@ export function Home() {
           PRESTIGE_OBJECT_TARGET). */}
       <div className="pointer-events-none relative z-10 flex flex-col items-center">
         <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
-          <OrbitingBots count={Math.min(10, autoClickLevel)} />
+          <OrbitingBots count={autoClickLevel} />
           {/* Scaled down from the object's own box — the ring used to hug
               the object edge-to-edge, which read as oversized next to it. */}
           <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.78)' }}>
-            <ProgressRing pct={prestige.pct} isMaxed={prestige.isMaxed} />
+            {/* isMaxed forced false — the gold "ready" ring state is part
+                of the disabled prestige UI, the fill itself still tracks
+                pct normally. */}
+            <ProgressRing pct={prestige.pct} isMaxed={false} />
           </div>
 
           <div className="absolute inset-0 flex items-center justify-center">
             <SpaceObject objectsBroken={objectsBroken} pct={objectPct} />
           </div>
 
-          {prestige.isMaxed && (
+          {/* Prestige-ready banner + button disabled — see the other
+              commented-out prestige blocks above. */}
+          {/* {prestige.isMaxed && (
             <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center px-3 sm:bottom-12">
               <span className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
                 {strings.home.prestigeReady}
@@ -847,7 +880,7 @@ export function Home() {
                 </button>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -1173,7 +1206,12 @@ export function Home() {
         </div>
       )}
 
-      {showPrestigeConfirm && (
+      {/* Prestige confirm + shop modals disabled along with the rest of the
+          prestige UI (feedback: the maxed-ring flow was rendering badly).
+          Neither can be reached anymore since every trigger above is
+          commented out too — kept here, disabled, instead of deleted, so
+          the whole feature is a quick uncomment away once it's revisited. */}
+      {/* {showPrestigeConfirm && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
@@ -1276,7 +1314,7 @@ export function Home() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   )
 }

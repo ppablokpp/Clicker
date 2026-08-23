@@ -8,7 +8,6 @@ export interface TranslationStrings {
     genericError: string
   }
   home: {
-    yourClicks: string
     objectLabel: (n: string) => string
     objectsProgress: (broken: string, target: string) => string
     prestigeReady: string
@@ -198,7 +197,6 @@ export const translations: Record<Language, TranslationStrings> = {
       genericError: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
     },
     home: {
-      yourClicks: 'Tu platino',
       objectLabel: (n) => `Objeto #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
       prestigeReady: '¡Prestigio disponible!',
@@ -463,7 +461,6 @@ export const translations: Record<Language, TranslationStrings> = {
       genericError: "Couldn't sign in with Google. Please try again.",
     },
     home: {
-      yourClicks: 'Your platinum',
       objectLabel: (n) => `Object #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} levels`,
       prestigeReady: 'Prestige available!',

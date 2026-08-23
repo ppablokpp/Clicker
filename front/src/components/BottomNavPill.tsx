@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { MousePointerClick, Trophy, BarChart3, Store, Network } from 'lucide-react'
+import { Trophy, BarChart3, Store, Network, MousePointerClick } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 
 const PILL_ITEMS = [

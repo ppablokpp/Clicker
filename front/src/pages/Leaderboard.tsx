@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Medal, User, MousePointerClick, Zap } from 'lucide-react'
+import { Medal, User, Zap, Diamond } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useLeaderboard, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
@@ -28,7 +28,7 @@ export function Leaderboard() {
               sortBy === 'clicks' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <MousePointerClick size={16} />
+            <Diamond size={16} />
           </button>
           <button
             onClick={() => setSortBy('cps')}

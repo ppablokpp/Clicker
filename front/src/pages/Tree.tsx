@@ -7,11 +7,11 @@ import {
   Clover,
   ChevronsUp,
   Dices,
+  Diamond,
   Gauge,
   Gem,
   Lock,
   Minus,
-  MousePointerClick,
   Percent,
   Plus,
   RotateCcw,
@@ -87,7 +87,7 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
             {currency === 'gems' ? (
               <Gem size={14} className="opacity-80" />
             ) : (
-              <MousePointerClick size={14} className="opacity-70" />
+              <Diamond size={14} className="opacity-70" />
             )}
             <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
           </>
