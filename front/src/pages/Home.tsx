@@ -397,17 +397,14 @@ function OrbitingBots({ count }: { count: number }) {
 // in the UI than a small pill) — smaller than the old full-width design
 // since it now shares the ring with the space object below it, but still
 // shrinks as digits pile up so it never overflows.
-// Sized to fit inside the ring alongside its icon (shrunk one tier from the
-// old standalone-number version, which had the whole screen width to work with).
-// Sized for the platino pill — noticeably bigger than every other pill's
-// text-xs, but still a pill (not the old giant standalone-number display),
-// shrinking as digits pile up so it never forces the pill to wrap.
+// Big standalone number again — shrinks as digits pile up so it never
+// overflows, same shape as every earlier version of this display.
 function clicksTextSizeClass(value: number): string {
   const digits = Math.max(1, Math.floor(value)).toString().length
-  if (digits <= 5) return 'text-lg sm:text-xl'
-  if (digits <= 8) return 'text-base sm:text-lg'
-  if (digits <= 11) return 'text-sm sm:text-base'
-  return 'text-xs sm:text-sm'
+  if (digits <= 5) return 'text-4xl sm:text-5xl'
+  if (digits <= 8) return 'text-3xl sm:text-4xl'
+  if (digits <= 11) return 'text-2xl sm:text-3xl'
+  return 'text-xl sm:text-2xl'
 }
 
 export function Home() {
@@ -568,10 +565,6 @@ export function Home() {
   // ring above it) — this is what the ring around the object actually shows.
   const currentObjectCost = objectCost(objectsBroken)
   const objectPct = Math.min(1, objectProgress / currentObjectCost)
-  // Same tier lookup SpaceObject uses internally — pulled up here too so
-  // the platino pill's icon can be tinted to match whichever asteroid is
-  // currently active.
-  const currentTier = OBJECT_TIERS[Math.floor(objectsBroken / 10) % OBJECT_TIERS.length]
 
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
@@ -706,32 +699,12 @@ export function Home() {
         </div>
       )} */}
 
-      {/* Platino balance — bigger than the other stat pills, tinted to
-          whichever asteroid tier is currently active (icon + border/bg),
-          sitting right above the inventory button. */}
-      <div
-        className="pointer-events-none absolute right-4 top-20 z-10 flex items-center gap-2 rounded-full border px-4 py-2 shadow-lg shadow-black/20 sm:right-6"
-        style={{ borderColor: `${currentTier.fill}40`, backgroundColor: `${currentTier.fill}1a` }}
-      >
-        <Diamond size={15} className="shrink-0" style={{ color: currentTier.fill }} />
-        <motion.span
-          key={totalClicks}
-          initial={{ scale: 1 }}
-          animate={{ scale: [1.08, 1] }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className={`font-[Space_Grotesk] font-bold leading-none tabular-nums text-white ${clicksTextSizeClass(totalClicks)}`}
-        >
-          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
-        </motion.span>
-      </div>
-
-      {/* Inventory button — mirrors the CPS badge's position on the right,
-          shifted down to make room for the platino pill above it. */}
+      {/* Inventory button — mirrors the CPS badge's position on the right. */}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setShowInventory(true)}
         aria-label={strings.home.inventory}
-        className="pointer-events-auto absolute right-4 top-[8.5rem] z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6"
+        className="pointer-events-auto absolute right-4 top-20 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6"
       >
         <Backpack size={16} />
       </button>
@@ -848,6 +821,20 @@ export function Home() {
         )} */}
       </div>
 
+      {/* Platino — big number at the top, nudged down a bit below the
+          header/pills row instead of sharing its exact top-20/24 line. */}
+      <div className="pointer-events-none absolute left-0 right-0 top-48 z-10 flex justify-center sm:top-52">
+        <motion.span
+          key={totalClicks}
+          initial={{ scale: 1 }}
+          animate={{ scale: [1.08, 1] }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 ${clicksTextSizeClass(totalClicks)}`}
+        >
+          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+        </motion.span>
+      </div>
+
       {/* main counter — the space object you break with clicks. The big
           ring tracks progress toward the *next prestige* (objectsBroken /
           PRESTIGE_OBJECT_TARGET). */}
@@ -856,7 +843,7 @@ export function Home() {
           <OrbitingBots count={autoClickLevel} />
           {/* Scaled down from the object's own box — the ring used to hug
               the object edge-to-edge, which read as oversized next to it. */}
-          <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.78)' }}>
+          <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
             {/* isMaxed forced false — the gold "ready" ring state is part
                 of the disabled prestige UI, the fill itself still tracks
                 pct normally. */}
