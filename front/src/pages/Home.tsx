@@ -15,7 +15,6 @@ import {
   Backpack,
   Info,
   X,
-  Diamond,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react'
@@ -37,6 +36,7 @@ import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
 import { objectCost } from '../lib/spaceObjects'
 import { DroneIcon } from '../components/DroneIcon'
+import { PlatinumIcon } from '../components/PlatinumIcon'
 
 interface InfoModalData {
   icon: LucideIcon
@@ -422,6 +422,7 @@ export function Home() {
     tapMultiplierValue,
     legendaryStreakBase,
     legendaryBonusStep,
+    multiShotValue,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
   // of the prestige UI (shop, reset flow) is disabled below.
@@ -496,6 +497,12 @@ export function Home() {
   // later), so its "+1" effect spawns from here instead, reading as just
   // another click landing rather than a separate notification.
   const lastPosRef = useRef({ x: 0, y: 0 })
+  // Every finger currently down, keyed by pointerId — Multidisparo raises
+  // how many of these can be active at once (level 0 = 1, the game's
+  // default). A new finger landing past the cap is ignored outright: no
+  // click, no shot, nothing — it doesn't even start "counting" until an
+  // existing one lifts and frees a slot.
+  const activePointersRef = useRef<Set<number>>(new Set())
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const [legendaryStreak, setLegendaryStreak] = useState({ tier: 0, count: 0 })
   // Falling out of legendary breaks the combo — back to the base x2 and an
@@ -591,6 +598,15 @@ export function Home() {
         return
       }
 
+      // Multidisparo's cap — a finger landing while the allowance is
+      // already full is ignored entirely, not queued for when a slot frees
+      // up, so it reads as "this tap just didn't register" rather than a
+      // delayed extra shot later.
+      if (!activePointersRef.current.has(e.pointerId) && activePointersRef.current.size >= multiShotValue) {
+        return
+      }
+      activePointersRef.current.add(e.pointerId)
+
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
       const x = e.clientX - rect.left
@@ -675,13 +691,23 @@ export function Home() {
       luckChance,
       combinedLuckMultiplier,
       legendaryStreakBase,
+      multiShotValue,
     ],
   )
+
+  // Frees the pointer's slot the moment it lifts (or the gesture is
+  // cancelled, e.g. an OS gesture taking over) so the next finger down can
+  // use it — a plain ref mutation, no re-render needed for either handler.
+  const handlePointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(e.pointerId)
+  }, [])
 
   return (
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
       {/* starfield — replaces the old scattered ambient glows entirely */}
@@ -747,7 +773,7 @@ export function Home() {
         </span>
 
         <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
-          <Diamond size={12} className="text-violet-300" />
+          <PlatinumIcon size={15} className="text-violet-300" />
           {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
           {activePowerup && (
             <>
@@ -894,19 +920,19 @@ export function Home() {
             <span
               className={`animate-float-up absolute flex select-none items-center gap-1 font-bold ${
                 fx.isLucky
-                  ? 'text-2xl text-green-300 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]'
+                  ? 'text-lg text-green-300 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]'
                   : fx.icon === 'key'
-                    ? 'text-lg text-amber-300'
+                    ? 'text-sm text-amber-300'
                     : fx.icon === 'gem'
-                      ? 'text-lg text-indigo-300'
-                      : 'text-lg text-white'
+                      ? 'text-sm text-indigo-300'
+                      : 'text-sm text-white'
               }`}
               style={{ left: fx.x, top: fx.y }}
             >
               +{fx.amount}
               {fx.isLucky && '!'}
-              {fx.icon === 'key' && <Key size={14} />}
-              {fx.icon === 'gem' && <Gem size={14} />}
+              {fx.icon === 'key' && <Key size={11} />}
+              {fx.icon === 'gem' && <Gem size={11} />}
             </span>
           </div>
         ))}

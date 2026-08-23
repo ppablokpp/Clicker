@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Rocket, Dices, Magnet, Clock, Gift, Loader2, List, X, Gem, Key, Diamond } from 'lucide-react'
+import { Rocket, Dices, Magnet, Clock, Gift, Loader2, List, X, Gem, Key } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import { PlatinumIcon } from '../components/PlatinumIcon'
+
+// Loose enough to accept both a Lucide icon (Gem, Key…) and our own
+// PlatinumIcon — every consumer here only ever passes size/className.
+type PackIcon = React.ComponentType<{ size?: number; className?: string }>
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
 import { useMagnetContext, type MagnetDef } from '../context/MagnetContext'
@@ -43,7 +48,7 @@ export function Store() {
                 aria-label={strings.store.buyClicksTitle}
                 className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300 transition-colors hover:bg-white/[0.06]"
               >
-                <Diamond size={12} className="opacity-70" />
+                <PlatinumIcon size={15} className="opacity-70" />
                 {totalClicks.toLocaleString(locale)}
               </button>
               <button
@@ -212,7 +217,7 @@ function PackTile({
   buttonClassName = PACK_BUTTON_CLASSES,
 }: {
   tile: PackTileData
-  icon: typeof Gem
+  icon: PackIcon
   locale: string
   /** Icon + amount side by side instead of stacked — reads better for small numbers like key/gem counts. */
   inline?: boolean
@@ -254,7 +259,7 @@ function PackTile({
 
 interface PackModalShellProps {
   title: string
-  icon: typeof Gem
+  icon: PackIcon
   theme: PackTheme
   onClose: () => void
   error?: string | null
@@ -319,14 +324,14 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
   }
 
   return (
-    <PackModalShell title={strings.buyClicksTitle} icon={Diamond} theme="neutral" onClose={onClose} error={error}>
+    <PackModalShell title={strings.buyClicksTitle} icon={PlatinumIcon} theme="neutral" onClose={onClose} error={error}>
       {catalog.map((pack, i) => {
         const unitPrice = pack.gemCost / pack.clicks
         const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
         return (
           <PackTile
             key={pack.id}
-            icon={Diamond}
+            icon={PlatinumIcon}
             locale={locale}
             buttonClassName={PACK_BUTTON_CLASSES_INDIGO}
             tile={{
@@ -496,7 +501,7 @@ function TierTile({
             {currency === 'gems' ? (
               <Gem size={10} className="opacity-80" />
             ) : (
-              <Diamond size={10} className="opacity-70" />
+              <PlatinumIcon size={13} className="opacity-70" />
             )}
             <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
           </span>
@@ -760,7 +765,7 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
                   strings.buying
                 ) : (
                   <span className="flex items-center justify-center gap-1">
-                    <Diamond size={10} className="opacity-70" />
+                    <PlatinumIcon size={13} className="opacity-70" />
                     <span className="tabular-nums">{magnet.cost.toLocaleString(locale)}</span>
                   </span>
                 )}
@@ -823,7 +828,7 @@ function CasePrizeCard({ prize, locale }: CasePrizeCardProps) {
       {prize.currency === 'gems' ? (
         <Gem size={16} style={{ color: style.color }} />
       ) : (
-        <Diamond size={16} style={{ color: style.color }} />
+        <PlatinumIcon size={19} style={{ color: style.color }} />
       )}
       <span className="mt-1 text-[11px] font-bold tabular-nums text-white">
         {prize.amount.toLocaleString(locale)}
@@ -1096,7 +1101,7 @@ function MiniCaseReel({
             className="flex items-center gap-1.5 text-lg font-bold"
             style={{ color: prizeStyle.color, textShadow: `0 0 20px ${prizeStyle.glow}` }}
           >
-            {revealed.currency === 'gems' ? <Gem size={16} /> : <Diamond size={16} />}
+            {revealed.currency === 'gems' ? <Gem size={16} /> : <PlatinumIcon size={19} />}
             {revealed.currency === 'gems'
               ? strings.youWonGems(revealed.amount.toLocaleString(locale))
               : strings.youWon(revealed.amount.toLocaleString(locale))}
@@ -1209,7 +1214,7 @@ function CaseCatalogModal({ catalog, locale, strings, onClose, variant = 'groupe
                         {strings.casePrizeNames[prize.id] ?? prize.id}
                       </span>
                       <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
-                        <Diamond size={12} className="opacity-70" />
+                        <PlatinumIcon size={15} className="opacity-70" />
                         {prize.amount.toLocaleString(locale)}
                       </span>
                     </div>
@@ -1366,7 +1371,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <>
-                <Diamond size={12} className="opacity-70" />
+                <PlatinumIcon size={15} className="opacity-70" />
                 <span className="tabular-nums">{chestCost1.toLocaleString(locale)}</span>
               </>
             )}
@@ -1389,7 +1394,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <>
-                <Diamond size={12} className="opacity-70" />
+                <PlatinumIcon size={15} className="opacity-70" />
                 <span className="tabular-nums">{chestCost2.toLocaleString(locale)}</span>
               </>
             )}

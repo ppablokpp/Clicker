@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Medal, User, Zap, Diamond } from 'lucide-react'
+import { Medal, User, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useLeaderboard, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
+import { PlatinumIcon } from '../components/PlatinumIcon'
 
 const RANK_STYLES: Record<number, string> = {
   1: 'text-amber-300 border-amber-400/30 bg-amber-400/10',
@@ -28,7 +29,7 @@ export function Leaderboard() {
               sortBy === 'clicks' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <Diamond size={16} />
+            <PlatinumIcon size={19} />
           </button>
           <button
             onClick={() => setSortBy('cps')}

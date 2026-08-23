@@ -3,20 +3,19 @@ import { motion } from 'framer-motion'
 import {
   ArrowUp,
   Asterisk,
-  TrendingUp,
-  Clover,
+  Crosshair,
   ChevronsUp,
-  Dices,
-  Diamond,
   Gauge,
   Gem,
   Lock,
   Minus,
-  Percent,
   Plus,
+  Radar,
+  Radio,
   RotateCcw,
+  Satellite,
   Sparkles,
-  Star,
+  Split,
   X,
   Zap,
 } from 'lucide-react'
@@ -26,6 +25,7 @@ import { useTreeContext } from '../context/TreeContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
 import { DroneIcon } from '../components/DroneIcon'
+import { PlatinumIcon } from '../components/PlatinumIcon'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
 // them animate in first, farther ones follow a beat later, so a whole
@@ -87,7 +87,7 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
             {currency === 'gems' ? (
               <Gem size={14} className="opacity-80" />
             ) : (
-              <Diamond size={14} className="opacity-70" />
+              <PlatinumIcon size={17} className="opacity-70" />
             )}
             <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
           </>
@@ -263,7 +263,7 @@ const NODE_STYLES: Record<Exclude<RevealState, 'hidden'>, string> = {
 const PREMIUM_NODE_STYLE = 'border-indigo-400/25 bg-[#141a2e] text-indigo-200 shadow-black/20'
 
 // Branch A's node (the permanent luck upgrade, also moved here from the
-// Store) — green/Clover, matching the old "Suerte" card's color exactly,
+// Store) — green/Sparkles, matching the old "Suerte" card's color exactly,
 // same opaque-dark-backing recipe as the other two real nodes.
 const LUCK_NODE_STYLE = 'border-green-400/25 bg-[#0f1f16] text-green-200 shadow-black/20'
 
@@ -276,6 +276,11 @@ const LEGENDARY_NODE_STYLE = 'border-red-400/25 bg-[#1f0d0d] text-red-200 shadow
 // of clicks. Amber, distinct from Suerte's green so the two don't blur
 // together despite sitting on the same branch.
 const AUTO_LUCK_NODE_STYLE = 'border-amber-400/25 bg-[#1f1608] text-amber-200 shadow-black/20'
+
+// Multidisparo — branch B's first real node (was an empty placeholder
+// branch). Cyan, distinct from every other branch's color so far, same
+// opaque-dark-backing recipe as the other real nodes.
+const MULTI_SHOT_NODE_STYLE = 'border-cyan-400/25 bg-[#08191c] text-cyan-200 shadow-black/20'
 
 const DEFAULT_SCALE = 0.68
 
@@ -343,6 +348,11 @@ export function Tree() {
     tapMultiplierNextCost,
     isBuyingTapMultiplier,
     buyTapMultiplier,
+    multiShotLevel,
+    multiShotValue,
+    multiShotNextCost,
+    isBuyingMultiShot,
+    buyMultiShot,
   } = useTreeContext()
   const canAffordAutoClick = totalClicks >= autoClickNextCost
   const canAffordLuck = totalClicks >= luckNextCost
@@ -357,6 +367,8 @@ export function Tree() {
   const isAutoMultiplierMaxed = autoMultiplierNextCost === null
   const canAffordAutoMultiplier = autoMultiplierNextCost !== null && totalClicks >= autoMultiplierNextCost
   const canAffordTapMultiplier = totalClicks >= tapMultiplierNextCost
+  const isMultiShotMaxed = multiShotNextCost === null
+  const canAffordMultiShot = multiShotNextCost !== null && totalClicks >= multiShotNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
   const { gems } = useGemsContext()
@@ -372,6 +384,7 @@ export function Tree() {
   const [showAutoLuckChanceModal, setShowAutoLuckChanceModal] = useState(false)
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
   const [showTapMultiplierModal, setShowTapMultiplierModal] = useState(false)
+  const [showMultiShotModal, setShowMultiShotModal] = useState(false)
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
@@ -543,6 +556,7 @@ export function Tree() {
     a1b: autoLuckLevel,
     a1b1: autoLuckChanceLevel,
     a2: luckChanceLevel,
+    b1: multiShotLevel,
     c1: premiumOwnedCount,
     e1: multiplierLevel,
     e2a: legendaryEaseLevel,
@@ -605,6 +619,7 @@ export function Tree() {
             (node) =>
               node.id !== 'root' &&
               node.id !== 'c1' &&
+              node.id !== 'b1' &&
               node.id !== 'a1' &&
               node.id !== 'a1b' &&
               node.id !== 'a1b1' &&
@@ -699,6 +714,59 @@ export function Tree() {
             </div>
           )}
 
+          {/* Branch B — Multidisparo, raises how many fingers can be firing
+              at once (the actual cap is enforced on Home's own pointer
+              handling). Same locked/available split as the other real
+              nodes. */}
+          {revealStateById.b1 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b1.x, top: nodeById.b1.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Split size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {multiShotLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.b1 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b1.x, top: nodeById.b1.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowMultiShotModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-cyan-400/40 ${MULTI_SHOT_NODE_STYLE}`}
+              >
+                <Split size={20} className="text-cyan-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {multiShotLevel}
+                </span>
+
+                {!isMultiShotMaxed && canAffordMultiShot && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
           {/* Branch A — the permanent luck upgrade, moved here from the
               Store (removed there entirely). Same locked/available split
               as branch C. */}
@@ -713,7 +781,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Clover size={20} />
+                <Sparkles size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckLevel}
                 </span>
@@ -737,7 +805,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
               >
-                <Clover size={20} className="text-green-300" />
+                <Sparkles size={20} className="text-green-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckLevel}
                 </span>
@@ -765,7 +833,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Star size={20} />
+                <Satellite size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoLuckLevel}
                 </span>
@@ -789,7 +857,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
               >
-                <Star size={20} className="text-amber-300" />
+                <Satellite size={20} className="text-amber-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoLuckLevel}
                 </span>
@@ -816,7 +884,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Dices size={20} />
+                <Radio size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoLuckChanceLevel}
                 </span>
@@ -840,7 +908,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
               >
-                <Dices size={20} className="text-amber-300" />
+                <Radio size={20} className="text-amber-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoLuckChanceLevel}
                 </span>
@@ -854,10 +922,10 @@ export function Tree() {
             </div>
           )}
 
-          {/* Suerte's own second node — raises the % chance itself
-              (Suerte raises the payout when it hits). Same green as Suerte
-              (same family), Percent icon instead of Clover to tell them
-              apart. Same locked/available split. */}
+          {/* Filón's own second node — raises the % chance itself (Filón
+              raises the payout when it hits). Same green as Filón (same
+              family), Radar icon instead of Sparkles to tell them apart.
+              Same locked/available split. */}
           {revealStateById.a2 === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -869,7 +937,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a2, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Percent size={20} />
+                <Radar size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckChanceLevel}
                 </span>
@@ -893,7 +961,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a2, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
               >
-                <Percent size={20} className="text-green-300" />
+                <Radar size={20} className="text-green-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckChanceLevel}
                 </span>
@@ -922,7 +990,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <TrendingUp size={20} />
+                <Crosshair size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {multiplierLevel}
                 </span>
@@ -946,7 +1014,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
               >
-                <TrendingUp size={20} className="text-red-300" />
+                <Crosshair size={20} className="text-red-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {multiplierLevel}
                 </span>
@@ -1359,7 +1427,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Clover size={18} className="text-green-300" />
+              <Sparkles size={18} className="text-green-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.luckName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckDesc}</p>
@@ -1407,7 +1475,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Percent size={18} className="text-green-300" />
+              <Radar size={18} className="text-green-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.luckChanceName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckChanceDesc}</p>
@@ -1455,7 +1523,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <TrendingUp size={18} className="text-red-300" />
+              <Crosshair size={18} className="text-red-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.multiplierName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.multiplierDesc}</p>
@@ -1615,7 +1683,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Star size={18} className="text-amber-300" />
+              <Satellite size={18} className="text-amber-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.fortunaName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.fortunaDesc}</p>
@@ -1663,7 +1731,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Dices size={18} className="text-amber-300" />
+              <Radio size={18} className="text-amber-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.azarName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.azarDesc}</p>
@@ -1793,6 +1861,62 @@ export function Tree() {
               locale={locale}
               currency="clicks"
             />
+          </div>
+        </div>
+      )}
+
+      {showMultiShotModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowMultiShotModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowMultiShotModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Split size={18} className="text-cyan-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.multiShotName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.multiShotDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentMultiShot}{' '}
+                <span className="font-semibold text-white">{multiShotValue}</span>
+              </span>
+              {!isMultiShotMaxed && (
+                <span>
+                  {strings.tree.nextMultiShot}{' '}
+                  <span className="font-semibold text-white">{multiShotValue + 1}</span>
+                </span>
+              )}
+            </div>
+
+            {isMultiShotMaxed ? (
+              <div className="relative w-full rounded-xl border border-cyan-400/20 bg-cyan-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-cyan-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyMultiShot}
+                isBuying={isBuyingMultiShot}
+                canAfford={canAffordMultiShot}
+                buyingLabel={strings.tree.upgrading}
+                cost={multiShotNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}

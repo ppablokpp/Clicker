@@ -45,6 +45,9 @@ interface TreeState {
   tapMultiplierLevel: number
   tapMultiplierValue: number
   tapMultiplierNextCost: number
+  multiShotLevel: number
+  multiShotValue: number
+  multiShotNextCost: number | null
 }
 
 interface TreeContextValue extends TreeState {
@@ -68,6 +71,8 @@ interface TreeContextValue extends TreeState {
   buyAutoMultiplier: () => Promise<{ ok: boolean; error?: string }>
   isBuyingTapMultiplier: boolean
   buyTapMultiplier: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingMultiShot: boolean
+  buyMultiShot: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -104,6 +109,9 @@ const EMPTY_STATE: TreeState = {
   tapMultiplierLevel: 0,
   tapMultiplierValue: 1,
   tapMultiplierNextCost: 0,
+  multiShotLevel: 0,
+  multiShotValue: 1,
+  multiShotNextCost: 0,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -121,6 +129,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingAutoLuckChance, setIsBuyingAutoLuckChance] = useState(false)
   const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
   const [isBuyingTapMultiplier, setIsBuyingTapMultiplier] = useState(false)
+  const [isBuyingMultiShot, setIsBuyingMultiShot] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -170,6 +179,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           tapMultiplierLevel: data.tapMultiplierLevel,
           tapMultiplierValue: data.tapMultiplierValue,
           tapMultiplierNextCost: data.tapMultiplierNextCost,
+          multiShotLevel: data.multiShotLevel,
+          multiShotValue: data.multiShotValue,
+          multiShotNextCost: data.multiShotNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
         if (typeof data.objectsBroken === 'number' && typeof data.objectProgress === 'number') {
@@ -517,6 +529,36 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyMultiShot = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingMultiShot(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/multi-shot/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        multiShotLevel: data.multiShotLevel,
+        multiShotValue: data.multiShotValue,
+        multiShotNextCost: data.multiShotNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Multidisparo', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingMultiShot(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   return (
     <TreeContext.Provider
       value={{
@@ -541,6 +583,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyAutoMultiplier,
         isBuyingTapMultiplier,
         buyTapMultiplier,
+        isBuyingMultiShot,
+        buyMultiShot,
       }}
     >
       {children}

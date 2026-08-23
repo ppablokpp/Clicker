@@ -19,6 +19,7 @@ import {
 } from '../tree/legendaryGrowth.js'
 import { AUTO_MULTIPLIER_NODE_ID, autoMultiplierCost, autoMultiplierValue } from '../tree/autoMultiplier.js'
 import { TAP_MULTIPLIER_NODE_ID, tapMultiplierCost, tapMultiplierValue } from '../tree/tapMultiplier.js'
+import { MULTI_SHOT_NODE_ID, multiShotCost, multiShotValue } from '../tree/multiShot.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
 
@@ -175,6 +176,14 @@ export const treeRepository = {
       )
       const tapMultiplierLevel = Number(tapMultiplierRow.rows[0]?.level ?? 0)
 
+      // Multidisparo — root's own child, same plain level-counter shape,
+      // finite like the Legendary pair (see multiShot.js).
+      const multiShotRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, MULTI_SHOT_NODE_ID],
+      )
+      const multiShotLevel = Number(multiShotRow.rows[0]?.level ?? 0)
+
       await client.query('COMMIT')
       return {
         autoClickLevel: level,
@@ -214,6 +223,9 @@ export const treeRepository = {
         tapMultiplierLevel,
         tapMultiplierValue: tapMultiplierValue(tapMultiplierLevel),
         tapMultiplierNextCost: tapMultiplierCost(tapMultiplierLevel),
+        multiShotLevel,
+        multiShotValue: multiShotValue(multiShotLevel),
+        multiShotNextCost: multiShotCost(multiShotLevel),
         totalClicks,
         objectsBroken,
         objectProgress,
@@ -946,6 +958,64 @@ export const treeRepository = {
         tapMultiplierLevel: newLevel,
         tapMultiplierValue: tapMultiplierValue(newLevel),
         tapMultiplierNextCost: tapMultiplierCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Multidisparo — root's own child (no prerequisite beyond root itself,
+  // same tier as Suerte/Productividad), finite like buyLegendaryEaseLevel.
+  async buyMultiShotLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, MULTI_SHOT_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = multiShotCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, MULTI_SHOT_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        multiShotLevel: newLevel,
+        multiShotValue: multiShotValue(newLevel),
+        multiShotNextCost: multiShotCost(newLevel),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
