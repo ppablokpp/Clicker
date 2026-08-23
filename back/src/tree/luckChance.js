@@ -6,13 +6,15 @@
  * than an independent upgrade.
  *
  * Level 0 (not owned) is the floor everyone gets just from owning any
- * Suerte level at all — 0.5%, not 0%, so Suerte alone still does
- * something before this node is ever touched.
+ * Suerte level at all — 1%, not 0%, so Suerte alone still does something
+ * before this node is ever touched. Each level after that adds another
+ * flat 1%, so the displayed chance reads as a clean level-1/level-2/level-3
+ * = 1%/2%/3% ladder.
  */
 export const LUCK_CHANCE_NODE_ID = 'luck_chance'
 
-export const LUCK_BASE_CHANCE = 0.005
-export const LUCK_CHANCE_STEP = 0.005
+export const LUCK_BASE_CHANCE = 0.01
+export const LUCK_CHANCE_STEP = 0.01
 export const LUCK_CHANCE_BASE_COST = 1_400
 export const LUCK_CHANCE_COST_RATIO = 1.16
 

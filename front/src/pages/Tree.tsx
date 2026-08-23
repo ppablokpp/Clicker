@@ -9,7 +9,6 @@ import {
   Gem,
   Lock,
   Minus,
-  Pickaxe,
   Plus,
   Radar,
   Radio,
@@ -787,7 +786,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Pickaxe size={20} />
+                <Sparkles size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckLevel}
                 </span>
@@ -811,7 +810,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
               >
-                <Pickaxe size={20} className="text-green-300" />
+                <Sparkles size={20} className="text-green-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckLevel}
                 </span>
@@ -928,8 +927,8 @@ export function Tree() {
             </div>
           )}
 
-          {/* Filón's own second node — raises the % chance itself (Filón
-              raises the payout when it hits). Same green as Filón (same
+          {/* Destello's own second node — raises the % chance itself (Destello
+              raises the payout when it hits). Same green as Destello (same
               family), Radar icon instead of Sparkles to tell them apart.
               Same locked/available split. */}
           {revealStateById.a2 === 'locked' && (
@@ -1433,7 +1432,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Pickaxe size={18} className="text-green-300" />
+              <Sparkles size={18} className="text-green-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.luckName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckDesc}</p>

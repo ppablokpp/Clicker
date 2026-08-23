@@ -5,7 +5,6 @@ import { useAuth } from '@clerk/clerk-react'
 import {
   Zap,
   Rocket,
-  Clover,
   Gem,
   Dices,
   Magnet,
@@ -38,7 +37,6 @@ import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
 import { objectCost } from '../lib/spaceObjects'
 import { DroneIcon } from '../components/DroneIcon'
-import { PlatinumIcon } from '../components/PlatinumIcon'
 
 interface InfoModalData {
   icon: LucideIcon
@@ -421,6 +419,16 @@ function OrbitingBots({ count }: { count: number }) {
       })}
     </div>
   )
+}
+
+// Big standalone number — shrinks as digits pile up so it never overflows,
+// same shape as every earlier version of this display.
+function clicksTextSizeClass(value: number): string {
+  const digits = Math.max(1, Math.floor(value)).toString().length
+  if (digits <= 5) return 'text-4xl sm:text-5xl'
+  if (digits <= 8) return 'text-3xl sm:text-4xl'
+  if (digits <= 11) return 'text-2xl sm:text-3xl'
+  return 'text-xl sm:text-2xl'
 }
 
 export function Home() {
@@ -838,7 +846,7 @@ export function Home() {
 
         {hasLuck && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-green-400/20 bg-green-500/[0.07] px-3 py-1.5 text-xs font-bold text-green-200 shadow-lg shadow-black/20">
-            <Clover size={12} className="text-green-300" />×{combinedLuckMultiplier}
+            <Sparkles size={12} className="text-green-300" />×{combinedLuckMultiplier}
             <span className="font-medium text-green-300/80">({formatChance(luckChance)})</span>
             {activeLuckPowerup && (
               <>
@@ -886,17 +894,16 @@ export function Home() {
         )} */}
       </div>
 
-      {/* Platino — same pill language as the Store header's badge, sitting
-          below the header/pills row instead of sharing its exact top-20/24 line. */}
-      <div className="pointer-events-none absolute left-0 right-0 top-44 z-10 flex justify-center sm:top-48">
+      {/* Platino — big number at the top, nudged down a bit below the
+          header/pills row instead of sharing its exact top-20/24 line. */}
+      <div className="pointer-events-none absolute left-0 right-0 top-48 z-10 flex justify-center sm:top-52">
         <motion.span
           key={totalClicks}
           initial={{ scale: 1 }}
           animate={{ scale: [1.08, 1] }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-5 py-2 text-sm font-semibold tabular-nums text-violet-200 shadow-lg shadow-black/20"
+          className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 ${clicksTextSizeClass(totalClicks)}`}
         >
-          <PlatinumIcon size={19} className="opacity-70" />
           {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
         </motion.span>
       </div>
