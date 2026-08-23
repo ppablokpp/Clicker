@@ -295,7 +295,12 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
           y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
         }}
       >
-        <svg viewBox="0 0 100 100" width={76} height={76} style={{ filter: `drop-shadow(0 0 20px ${tier.glow})` }}>
+        {/* No `filter: drop-shadow()` here on purpose — same mobile
+            Chromium flash-to-square bug as the old blurred glow div above,
+            just triggered by this SVG's own filter instead. The ambient
+            radial-gradient glow behind the rock already sells the "aura"
+            without needing a second, shape-hugging filtered glow on top. */}
+        <svg viewBox="0 0 100 100" width={76} height={76}>
           <polygon points={ASTEROID_POINTS} fill={tier.fill} stroke="rgba(0,0,0,0.25)" strokeWidth={2} strokeLinejoin="round" />
           {CRATERS.map((c, i) => (
             <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill="rgba(0,0,0,0.18)" />
