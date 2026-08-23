@@ -16,6 +16,7 @@ import {
   Info,
   X,
   Sparkles,
+  MousePointerClick,
   type LucideIcon,
 } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -422,20 +423,6 @@ function OrbitingBots({ count }: { count: number }) {
   )
 }
 
-// Total clicks is the prominent number again (feedback: needs more weight
-// in the UI than a small pill) — smaller than the old full-width design
-// since it now shares the ring with the space object below it, but still
-// shrinks as digits pile up so it never overflows.
-// Big standalone number again — shrinks as digits pile up so it never
-// overflows, same shape as every earlier version of this display.
-function clicksTextSizeClass(value: number): string {
-  const digits = Math.max(1, Math.floor(value)).toString().length
-  if (digits <= 5) return 'text-4xl sm:text-5xl'
-  if (digits <= 8) return 'text-3xl sm:text-4xl'
-  if (digits <= 11) return 'text-2xl sm:text-3xl'
-  return 'text-xl sm:text-2xl'
-}
-
 export function Home() {
   const { userId } = useAuth()
   const navigate = useNavigate()
@@ -821,7 +808,7 @@ export function Home() {
         </span>
 
         <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
-          <PlatinumIcon size={15} className="text-violet-300" />
+          <MousePointerClick size={15} className="text-violet-300" />
           {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
           {activePowerup && (
             <>
@@ -899,16 +886,17 @@ export function Home() {
         )} */}
       </div>
 
-      {/* Platino — big number at the top, nudged down a bit below the
-          header/pills row instead of sharing its exact top-20/24 line. */}
-      <div className="pointer-events-none absolute left-0 right-0 top-48 z-10 flex justify-center sm:top-52">
+      {/* Platino — same pill language as the Store header's badge, sitting
+          below the header/pills row instead of sharing its exact top-20/24 line. */}
+      <div className="pointer-events-none absolute left-0 right-0 top-44 z-10 flex justify-center sm:top-48">
         <motion.span
           key={totalClicks}
           initial={{ scale: 1 }}
           animate={{ scale: [1.08, 1] }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 ${clicksTextSizeClass(totalClicks)}`}
+          className="flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-5 py-2 text-sm font-semibold tabular-nums text-violet-200 shadow-lg shadow-black/20"
         >
+          <PlatinumIcon size={19} className="opacity-70" />
           {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
         </motion.span>
       </div>
