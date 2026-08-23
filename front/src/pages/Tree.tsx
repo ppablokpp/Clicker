@@ -4,7 +4,6 @@ import {
   ArrowUp,
   Asterisk,
   TrendingUp,
-  Bot,
   Clover,
   ChevronsUp,
   Dices,
@@ -26,6 +25,7 @@ import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
+import { DroneIcon } from '../components/DroneIcon'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
 // them animate in first, farther ones follow a beat later, so a whole
@@ -295,9 +295,7 @@ export function Tree() {
   const { totalClicks } = useClickCounterContext()
   const {
     autoClickLevel,
-    autoClickCps,
     autoClickNextCost,
-    autoClickNextCps,
     isBuying,
     buyAutoClick,
     luckLevel,
@@ -1178,7 +1176,9 @@ export function Tree() {
             className="absolute flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1.5 rounded-full border border-violet-400/20 bg-[#14101f] text-center text-violet-200 shadow-lg shadow-black/20 transition-colors hover:border-violet-400/35"
             style={{ left: CENTER, top: CENTER }}
           >
-            <Bot size={20} className="text-violet-300" />
+            <span className="text-violet-300">
+              <DroneIcon size={20} />
+            </span>
             <span className="whitespace-nowrap text-xs font-semibold">
               {strings.tree.level} {autoClickLevel}
             </span>
@@ -1237,22 +1237,30 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Bot size={18} className="text-violet-300" />
+              <span className="text-violet-300">
+                <DroneIcon size={18} />
+              </span>
               <p className="text-sm font-semibold text-white">{strings.tree.autoClickName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.autoClickDesc}</p>
 
+            {/* Buying this node literally buys one more drone — the stat
+                block shows the drone count itself (what the purchase adds),
+                not the resulting cps, which lives elsewhere (Home's own
+                "Auto" pill). Per-drone output (0.5 platino/s) is stated in
+                the description above; a future node raises that per-drone
+                rate instead of this one, which stays "buy another drone". */}
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
                 {strings.tree.currentRate}{' '}
                 <span className="font-semibold text-white">
-                  {autoClickCps.toLocaleString(locale, { maximumFractionDigits: 2 })} c/s
+                  {autoClickLevel.toLocaleString(locale)} {strings.tree.dronesUnit}
                 </span>
               </span>
               <span>
                 {strings.tree.nextLevelRate}{' '}
                 <span className="font-semibold text-white">
-                  {autoClickNextCps.toLocaleString(locale, { maximumFractionDigits: 2 })} c/s
+                  {(autoClickLevel + 1).toLocaleString(locale)} {strings.tree.dronesUnit}
                 </span>
               </span>
             </div>

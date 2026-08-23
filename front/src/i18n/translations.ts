@@ -9,7 +9,8 @@ export interface TranslationStrings {
   }
   home: {
     yourClicks: string
-    tapAnywhere: string
+    objectLabel: (n: string) => string
+    objectsProgress: (broken: string, target: string) => string
     prestigeReady: string
     changePrestige: string
     prestigeComingSoon: string
@@ -137,9 +138,9 @@ export interface TranslationStrings {
     zoomOut: string
     resetView: string
     level: string
-    autoClickLabel: string
     autoClickName: string
     autoClickDesc: string
+    dronesUnit: string
     currentRate: string
     nextLevelRate: string
     upgrading: string
@@ -173,6 +174,19 @@ export interface TranslationStrings {
     tapMultiplierName: string
     tapMultiplierDesc: string
   }
+  prestige: {
+    confirmTitle: string
+    confirmBody: (points: string) => string
+    confirmButton: string
+    cancelButton: string
+    shopTitle: string
+    pointsLabel: string
+    reactorName: string
+    reactorDesc: string
+    currentMultiplier: string
+    nextMultiplier: string
+    notEnoughPoints: string
+  }
 }
 
 export const translations: Record<Language, TranslationStrings> = {
@@ -184,12 +198,13 @@ export const translations: Record<Language, TranslationStrings> = {
       genericError: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
     },
     home: {
-      yourClicks: 'Tus clicks',
-      tapAnywhere: 'Toca en cualquier parte de la pantalla',
+      yourClicks: 'Tu platino',
+      objectLabel: (n) => `Objeto #${n}`,
+      objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
       prestigeReady: '¡Prestigio disponible!',
       changePrestige: 'Cambiar de prestigio',
       prestigeComingSoon: 'Próximamente...',
-      cps: 'c/s',
+      cps: 'pt/s',
       tps: 't/s',
       totalLabel: 'Total:',
       heat: {
@@ -213,23 +228,23 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     leaderboard: {
       title: 'Clasificación mundial',
-      subtitle: 'Compite con el resto de jugadores por clicks.',
+      subtitle: 'Compite con el resto de jugadores por platino.',
       empty: 'Nadie ha dado clicks todavía. ¡Sé el primero!',
       you: 'Tú',
       fallbackName: 'Jugador',
-      clicksTab: 'Ranking de clicks',
+      clicksTab: 'Ranking de platino',
       cpsTab: 'Ranking de velocidad',
     },
     store: {
       title: 'Tienda',
       subtitle: 'Mejora tus clicks con potenciadores y mejoras permanentes.',
-      costLabel: 'clicks',
+      costLabel: 'platino',
       buy: 'Comprar',
       buying: 'Comprando…',
       availableIn: (time) => `Disponible en ${time}`,
       active: 'Activo',
       owned: 'Comprado',
-      notEnoughClicks: 'Te faltan clicks',
+      notEnoughClicks: 'Te falta platino',
       lootSection: 'Premios',
       casesSection: 'Cofres',
       casesSubtitle: 'Compra cofres para poder abrirlos con las llaves y probar tu suerte.',
@@ -239,18 +254,18 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughGems: 'Te faltan gemas',
       notEnoughKeys: 'Te falta una llave',
       notEnoughChests: 'Compra un cofre primero',
-      notEnoughClicksForChest: 'Te faltan clicks',
+      notEnoughClicksForChest: 'Te falta platino',
       buyChest: 'Comprar cofre',
       chestLimitReached: 'Ya tienes el máximo de cofres',
       claimDailyKey: 'Reclamar llave gratis diaria',
       keyClaimedToday: 'Llave diaria reclamada',
       claimingKey: 'Reclamando…',
-      buyClicksTitle: 'Comprar clicks',
+      buyClicksTitle: 'Comprar platino',
       buyKeysTitle: 'Comprar llaves',
       buyGemsTitle: 'Comprar gemas',
       savingsBadge: (pct) => `Ahorra ${pct}%`,
       opening: 'Abriendo…',
-      youWon: (amount) => `+${amount} clicks`,
+      youWon: (amount) => `+${amount} platino`,
       youWonGems: (amount) => `+${amount} ${amount === '1' ? 'gema' : 'gemas'}`,
       casePrizeNames: {
         consumer: 'Común',
@@ -267,7 +282,7 @@ export const translations: Record<Language, TranslationStrings> = {
       caseCatalogButton: 'Ver catálogo',
       caseCatalogTitle: 'Premios posibles',
       caseMythicLabel: 'Mítico',
-      caseTitleClicks: 'Cofre de clicks',
+      caseTitleClicks: 'Cofre de platino',
       caseTitleGems: 'Cofre de gemas',
       powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
@@ -362,7 +377,7 @@ export const translations: Record<Language, TranslationStrings> = {
       claiming: 'Reclamando…',
       claimed: 'Reclamado',
       rewardPowerup: (name) => `Potenciador ${name}`,
-      rewardClicks: (amount) => `+${amount} clicks`,
+      rewardClicks: (amount) => `+${amount} platino`,
       rewardPermanent: (mult) => `×${mult} a todos tus clicks`,
       categories: {
         totalClicks: { label: 'Taps reales', unit: 'taps' },
@@ -389,11 +404,11 @@ export const translations: Record<Language, TranslationStrings> = {
       zoomOut: 'Alejar',
       resetView: 'Restablecer vista',
       level: 'Nv.',
-      autoClickLabel: 'Auto',
-      autoClickName: 'Autoclick',
-      autoClickDesc: 'Genera clicks de forma automática cada segundo, incluso sin tocar la pantalla. Cada nivel aumenta la velocidad de producción.',
-      currentRate: 'Producción actual:',
-      nextLevelRate: 'Producción siguiente nivel:',
+      autoClickName: 'Drones',
+      autoClickDesc: 'Cada dron produce 0.5 platino por segundo.',
+      dronesUnit: 'drones',
+      currentRate: 'Drones actuales:',
+      nextLevelRate: 'Drones siguiente nivel:',
       upgrading: 'Mejorando…',
       premiumDesc: 'Multiplicador permanente aplicado a todos tus clicks para siempre. No se acumula con otros niveles — solo cuenta el más alto que tengas.',
       currentMultiplier: 'Multiplicador actual:',
@@ -402,8 +417,8 @@ export const translations: Record<Language, TranslationStrings> = {
       luckDesc: 'Probabilidad de que un click cuente por el multiplicador.',
       multiplierName: 'Productividad',
       multiplierDesc: 'Sube los clicks obtenidos por cada tap. Cada nivel suma encima del valor actual.',
-      currentClickValue: 'Clicks por tap actual:',
-      nextClickValue: 'Clicks por tap siguiente nivel:',
+      currentClickValue: 'Platino por tap actual:',
+      nextClickValue: 'Platino por tap siguiente nivel:',
       luckChanceName: 'Probabilidad',
       luckChanceDesc: 'Sube la probabilidad de que un click cuente por el multiplicador de Suerte.',
       currentChance: 'Probabilidad actual:',
@@ -425,6 +440,20 @@ export const translations: Record<Language, TranslationStrings> = {
       tapMultiplierName: 'Multiplicador',
       tapMultiplierDesc: 'Multiplica los clicks por tap. Cada nivel sube el multiplicador un poco más.',
     },
+    prestige: {
+      confirmTitle: '¿Reiniciar y ganar puntos de prestigio?',
+      confirmBody: (points) =>
+        `Ganarás ${points} puntos de prestigio. Tu platino y todos los niveles del árbol volverán a 0 — tus estadísticas de por vida y los puntos de prestigio se quedan para siempre.`,
+      confirmButton: 'Reiniciar',
+      cancelButton: 'Cancelar',
+      shopTitle: 'Prestigio',
+      pointsLabel: 'Puntos de prestigio:',
+      reactorName: 'Reactor',
+      reactorDesc: 'Multiplicador permanente sobre toda tu producción. Sobrevive a cada reinicio.',
+      currentMultiplier: 'Multiplicador actual:',
+      nextMultiplier: 'Multiplicador siguiente nivel:',
+      notEnoughPoints: 'Te faltan puntos de prestigio',
+    },
   },
   en: {
     signIn: {
@@ -434,12 +463,13 @@ export const translations: Record<Language, TranslationStrings> = {
       genericError: "Couldn't sign in with Google. Please try again.",
     },
     home: {
-      yourClicks: 'Your clicks',
-      tapAnywhere: 'Tap anywhere on the screen',
+      yourClicks: 'Your platinum',
+      objectLabel: (n) => `Object #${n}`,
+      objectsProgress: (broken, target) => `${broken} / ${target} levels`,
       prestigeReady: 'Prestige available!',
       changePrestige: 'Change prestige',
       prestigeComingSoon: 'Coming soon',
-      cps: 'c/s',
+      cps: 'pt/s',
       tps: 't/s',
       totalLabel: 'Total:',
       heat: {
@@ -463,23 +493,23 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     leaderboard: {
       title: 'Global leaderboard',
-      subtitle: 'Compete with other players for clicks.',
+      subtitle: 'Compete with other players for platinum.',
       empty: 'No one has clicked yet. Be the first!',
       you: 'You',
       fallbackName: 'Player',
-      clicksTab: 'Clicks ranking',
+      clicksTab: 'Platinum ranking',
       cpsTab: 'Speed ranking',
     },
     store: {
       title: 'Store',
       subtitle: 'Boost your clicks with powerups and permanent upgrades.',
-      costLabel: 'clicks',
+      costLabel: 'platinum',
       buy: 'Buy',
       buying: 'Buying…',
       availableIn: (time) => `Available in ${time}`,
       active: 'Active',
       owned: 'Owned',
-      notEnoughClicks: "You're short on clicks",
+      notEnoughClicks: "You're short on platinum",
       lootSection: 'Prizes',
       casesSection: 'Chests',
       casesSubtitle: 'Buy chests to open them with keys and try your luck.',
@@ -489,18 +519,18 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughGems: "You're short on gems",
       notEnoughKeys: 'You need a key',
       notEnoughChests: 'Buy a chest first',
-      notEnoughClicksForChest: "You're short on clicks",
+      notEnoughClicksForChest: "You're short on platinum",
       buyChest: 'Buy chest',
       chestLimitReached: "You've hit the chest limit",
       claimDailyKey: 'Claim free daily key',
       keyClaimedToday: 'Daily key claimed',
       claimingKey: 'Claiming…',
-      buyClicksTitle: 'Buy clicks',
+      buyClicksTitle: 'Buy platinum',
       buyKeysTitle: 'Buy keys',
       buyGemsTitle: 'Buy gems',
       savingsBadge: (pct) => `Save ${pct}%`,
       opening: 'Opening…',
-      youWon: (amount) => `+${amount} clicks`,
+      youWon: (amount) => `+${amount} platinum`,
       youWonGems: (amount) => `+${amount} ${amount === '1' ? 'gem' : 'gems'}`,
       casePrizeNames: {
         consumer: 'Common',
@@ -517,7 +547,7 @@ export const translations: Record<Language, TranslationStrings> = {
       caseCatalogButton: 'View catalog',
       caseCatalogTitle: 'Possible prizes',
       caseMythicLabel: 'Mythic',
-      caseTitleClicks: 'Click chest',
+      caseTitleClicks: 'Platinum chest',
       caseTitleGems: 'Gem chest',
       powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
@@ -612,7 +642,7 @@ export const translations: Record<Language, TranslationStrings> = {
       claiming: 'Claiming…',
       claimed: 'Claimed',
       rewardPowerup: (name) => `${name} powerup`,
-      rewardClicks: (amount) => `+${amount} clicks`,
+      rewardClicks: (amount) => `+${amount} platinum`,
       rewardPermanent: (mult) => `×${mult} to all your clicks`,
       categories: {
         totalClicks: { label: 'Real taps', unit: 'taps' },
@@ -639,11 +669,11 @@ export const translations: Record<Language, TranslationStrings> = {
       zoomOut: 'Zoom out',
       resetView: 'Reset view',
       level: 'Lv.',
-      autoClickLabel: 'Auto',
-      autoClickName: 'Autoclick',
-      autoClickDesc: 'Generates clicks automatically every second, even without tapping the screen. Each level increases the production rate.',
-      currentRate: 'Current output:',
-      nextLevelRate: 'Next level output:',
+      autoClickName: 'Drones',
+      autoClickDesc: 'Each drone produces 0.5 platinum per second.',
+      dronesUnit: 'drones',
+      currentRate: 'Current drones:',
+      nextLevelRate: 'Next level drones:',
       upgrading: 'Upgrading…',
       premiumDesc: 'A permanent multiplier applied to every click, forever. Doesn\'t stack with other levels — only the highest one you own counts.',
       currentMultiplier: 'Current multiplier:',
@@ -652,8 +682,8 @@ export const translations: Record<Language, TranslationStrings> = {
       luckDesc: 'Chance for a click to count for the multiplier instead.',
       multiplierName: 'Productivity',
       multiplierDesc: "Raises the clicks earned per tap. Each level adds on top of the current value.",
-      currentClickValue: 'Current clicks per tap:',
-      nextClickValue: 'Next level clicks per tap:',
+      currentClickValue: 'Current platinum per tap:',
+      nextClickValue: 'Next level platinum per tap:',
       luckChanceName: 'Chance',
       luckChanceDesc: "Raises the odds that a click counts for Suerte's multiplier.",
       currentChance: 'Current chance:',
@@ -674,6 +704,20 @@ export const translations: Record<Language, TranslationStrings> = {
       turboDesc: "Guaranteed multiplier on auto-click's production.",
       tapMultiplierName: 'Multiplier',
       tapMultiplierDesc: "Multiplies clicks per tap. Each level raises the multiplier a bit further.",
+    },
+    prestige: {
+      confirmTitle: 'Reset and earn prestige points?',
+      confirmBody: (points) =>
+        `You'll earn ${points} prestige points. Your platinum and every tree level go back to 0 — lifetime stats and prestige points stay forever.`,
+      confirmButton: 'Reset',
+      cancelButton: 'Cancel',
+      shopTitle: 'Prestige',
+      pointsLabel: 'Prestige points:',
+      reactorName: 'Reactor',
+      reactorDesc: 'Permanent multiplier on all your production. Survives every reset.',
+      currentMultiplier: 'Current multiplier:',
+      nextMultiplier: 'Next level multiplier:',
+      notEnoughPoints: "You're short on prestige points",
     },
   },
 }

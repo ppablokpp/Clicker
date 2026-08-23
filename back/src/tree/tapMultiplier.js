@@ -8,7 +8,7 @@
 export const TAP_MULTIPLIER_NODE_ID = 'tap_multiplier'
 export const TAP_MULTIPLIER_STEP = 0.5
 export const TAP_MULTIPLIER_BASE_COST = 1_500
-export const TAP_MULTIPLIER_COST_RATIO = 1.6
+export const TAP_MULTIPLIER_COST_RATIO = 1.16
 
 export function tapMultiplierCost(level) {
   return Math.ceil(TAP_MULTIPLIER_BASE_COST * TAP_MULTIPLIER_COST_RATIO ** level)

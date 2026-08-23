@@ -19,6 +19,8 @@ import {
 } from '../tree/legendaryGrowth.js'
 import { AUTO_MULTIPLIER_NODE_ID, autoMultiplierCost, autoMultiplierValue } from '../tree/autoMultiplier.js'
 import { TAP_MULTIPLIER_NODE_ID, tapMultiplierCost, tapMultiplierValue } from '../tree/tapMultiplier.js'
+import { applyObjectProgress } from '../game/spaceObjects.js'
+import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
 
 export const treeRepository = {
   // Credits whatever the auto-click node has produced since it was last
@@ -30,11 +32,16 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query(
+        'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1 FOR UPDATE',
+        [userId],
+      )
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return null
       }
+      let objectsBroken = Number(userRow.rows[0].objects_broken)
+      let objectProgress = Number(userRow.rows[0].object_progress)
 
       const nodeRow = await client.query(
         `SELECT level, last_tick_at, remainder FROM user_permanent_upgrades
@@ -82,9 +89,21 @@ export const treeRepository = {
       const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
       const sobrecargaMultiplier = autoMultiplierValue(autoMultiplierLevel)
 
+      // Reactor — the one prestige upgrade so far, a permanent ×multiplier
+      // that survives every reset. Lives in its own table (never touched by
+      // the reset's DELETE FROM user_permanent_upgrades — see migration
+      // 026), applied the same way Sobrecarga is: real accrual AND display.
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
+      const reactorMultiplier = prestigeReactorValue(reactorLevel)
+
       const currentCps =
         effectiveAutoClickCps(autoClickCps(level), autoLuckLevel, autoLuckChanceValue(autoLuckChanceLevel)) *
-        sobrecargaMultiplier
+        sobrecargaMultiplier *
+        reactorMultiplier
 
       let totalClicks = Number(userRow.rows[0].total_clicks)
 
@@ -99,10 +118,25 @@ export const treeRepository = {
 
         if (whole > 0) {
           const updated = await client.query(
-            'UPDATE users SET total_clicks = total_clicks + $2 WHERE id = $1 RETURNING total_clicks',
+            `UPDATE users SET total_clicks = total_clicks + $2, object_progress = object_progress + $2
+             WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
             [userId, whole],
           )
           totalClicks = Number(updated.rows[0].total_clicks)
+          const objectResult = applyObjectProgress(
+            Number(updated.rows[0].objects_broken),
+            0,
+            Number(updated.rows[0].object_progress),
+          )
+          objectsBroken = objectResult.objectsBroken
+          objectProgress = objectResult.objectProgress
+          if (objectResult.broken > 0) {
+            await client.query('UPDATE users SET objects_broken = $2, object_progress = $3 WHERE id = $1', [
+              userId,
+              objectsBroken,
+              objectProgress,
+            ])
+          }
         }
         await client.query(
           `UPDATE user_permanent_upgrades SET last_tick_at = now(), remainder = $3
@@ -150,9 +184,9 @@ export const treeRepository = {
         // occasional bonus production over time. Sobrecarga, on the other
         // hand, is a guaranteed multiplier, so it's baked into the
         // displayed number directly.
-        autoClickCps: autoClickCps(level) * sobrecargaMultiplier,
+        autoClickCps: autoClickCps(level) * sobrecargaMultiplier * reactorMultiplier,
         autoClickNextCost: autoClickCost(level),
-        autoClickNextCps: autoClickCps(level + 1) * sobrecargaMultiplier,
+        autoClickNextCps: autoClickCps(level + 1) * sobrecargaMultiplier * reactorMultiplier,
         luckLevel,
         luckChance: luckLevel > 0 ? luckChanceValue(luckChanceLevel) : 0,
         luckMultiplier: luckMultiplier(luckLevel),
@@ -181,6 +215,8 @@ export const treeRepository = {
         tapMultiplierValue: tapMultiplierValue(tapMultiplierLevel),
         tapMultiplierNextCost: tapMultiplierCost(tapMultiplierLevel),
         totalClicks,
+        objectsBroken,
+        objectProgress,
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -262,11 +298,16 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query(
+        'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1 FOR UPDATE',
+        [userId],
+      )
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      let objectsBroken = Number(userRow.rows[0].objects_broken)
+      let objectProgress = Number(userRow.rows[0].object_progress)
 
       const nodeRow = await client.query(
         `SELECT level, last_tick_at, remainder FROM user_permanent_upgrades
@@ -297,6 +338,13 @@ export const treeRepository = {
       const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
       const sobrecargaMultiplier = autoMultiplierValue(autoMultiplierLevel)
 
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
+      const reactorMultiplier = prestigeReactorValue(reactorLevel)
+
       let totalClicks = Number(userRow.rows[0].total_clicks)
 
       if (level > 0 && node.last_tick_at) {
@@ -306,14 +354,32 @@ export const treeRepository = {
         const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
         const raw =
           Number(node.remainder) +
-          seconds * effectiveAutoClickCps(autoClickCps(level), autoLuckLevel, autoLuckChance) * sobrecargaMultiplier
+          seconds *
+            effectiveAutoClickCps(autoClickCps(level), autoLuckLevel, autoLuckChance) *
+            sobrecargaMultiplier *
+            reactorMultiplier
         const whole = Math.floor(raw)
         if (whole > 0) {
           const updated = await client.query(
-            'UPDATE users SET total_clicks = total_clicks + $2 WHERE id = $1 RETURNING total_clicks',
+            `UPDATE users SET total_clicks = total_clicks + $2, object_progress = object_progress + $2
+             WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
             [userId, whole],
           )
           totalClicks = Number(updated.rows[0].total_clicks)
+          const objectResult = applyObjectProgress(
+            Number(updated.rows[0].objects_broken),
+            0,
+            Number(updated.rows[0].object_progress),
+          )
+          objectsBroken = objectResult.objectsBroken
+          objectProgress = objectResult.objectProgress
+          if (objectResult.broken > 0) {
+            await client.query('UPDATE users SET objects_broken = $2, object_progress = $3 WHERE id = $1', [
+              userId,
+              objectsBroken,
+              objectProgress,
+            ])
+          }
         }
       }
 
@@ -343,10 +409,12 @@ export const treeRepository = {
       return {
         ok: true,
         autoClickLevel: newLevel,
-        autoClickCps: autoClickCps(newLevel) * sobrecargaMultiplier,
+        autoClickCps: autoClickCps(newLevel) * sobrecargaMultiplier * reactorMultiplier,
         autoClickNextCost: autoClickCost(newLevel),
-        autoClickNextCps: autoClickCps(newLevel + 1) * sobrecargaMultiplier,
+        autoClickNextCps: autoClickCps(newLevel + 1) * sobrecargaMultiplier * reactorMultiplier,
         totalClicks,
+        objectsBroken,
+        objectProgress,
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -797,6 +865,12 @@ export const treeRepository = {
       )
       const autoClickLevel = Number(autoClickRow.rows[0]?.level ?? 0)
 
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorMultiplier = prestigeReactorValue(Number(reactorRow.rows[0]?.level ?? 0))
+
       await client.query('COMMIT')
       const newLevel = level + 1
       const sobrecargaMultiplier = autoMultiplierValue(newLevel)
@@ -805,8 +879,8 @@ export const treeRepository = {
         autoMultiplierLevel: newLevel,
         autoMultiplierValue: sobrecargaMultiplier,
         autoMultiplierNextCost: autoMultiplierCost(newLevel),
-        autoClickCps: autoClickCps(autoClickLevel) * sobrecargaMultiplier,
-        autoClickNextCps: autoClickCps(autoClickLevel + 1) * sobrecargaMultiplier,
+        autoClickCps: autoClickCps(autoClickLevel) * sobrecargaMultiplier * reactorMultiplier,
+        autoClickNextCps: autoClickCps(autoClickLevel + 1) * sobrecargaMultiplier * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

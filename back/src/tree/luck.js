@@ -19,7 +19,7 @@
 export const LUCK_NODE_ID = 'luck'
 
 export const LUCK_BASE_COST = 1000
-export const LUCK_COST_RATIO = 1.6
+export const LUCK_COST_RATIO = 1.15
 
 // Cost to go from `level` owned to `level + 1`.
 export function luckCost(level) {

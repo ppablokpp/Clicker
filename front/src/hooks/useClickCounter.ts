@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { toLocalDateString } from '../lib/date'
+import { applyObjectProgress } from '../lib/spaceObjects'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const FLUSH_INTERVAL_MS = 1000
@@ -29,6 +30,16 @@ export function useClickCounter() {
   // it without this hook needing to know they exist.
   const [latestKeys, setLatestKeys] = useState<number | null>(null)
   const [latestGems, setLatestGems] = useState<number | null>(null)
+  // The space object on Home — how many have been broken (the new prestige
+  // driver) and how far into the current one. Predicted the exact same way
+  // totalClicks is (confirmed server value + whatever's pending locally),
+  // via applyObjectProgress rolling the pending amount through the same
+  // cost curve the backend uses — so the ring/object update instantly per
+  // tap instead of waiting for the next flush.
+  const [objectsBroken, setObjectsBroken] = useState(0)
+  const [objectProgress, setObjectProgress] = useState(0)
+  const objectsBrokenConfirmedRef = useRef(0)
+  const objectProgressConfirmedRef = useRef(0)
   const recentClicksRef = useRef<number[]>([])
   const confirmedRef = useRef(0)
   const pendingRef = useRef(0)
@@ -55,6 +66,20 @@ export function useClickCounter() {
   const suspendSyncCountRef = useRef(0)
   const pendingSyncTotalRef = useRef<number | null>(null)
 
+  // Recomputes the displayed object state from confirmed + pending, same
+  // shape as the totalClicks setter calls below — call this alongside every
+  // one of those instead of only on real server responses.
+  const updateObjectDisplay = useCallback(() => {
+    const totalPending = pendingRef.current + autoPendingRef.current
+    const predicted = applyObjectProgress(
+      objectsBrokenConfirmedRef.current,
+      0,
+      objectProgressConfirmedRef.current + totalPending,
+    )
+    setObjectsBroken(predicted.objectsBroken)
+    setObjectProgress(predicted.objectProgress)
+  }, [])
+
   useEffect(() => {
     if (!userId) return
     let cancelled = false
@@ -68,6 +93,9 @@ export function useClickCounter() {
           const data = await res.json()
           confirmedRef.current = data.totalClicks
           setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+          if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
+          if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
+          updateObjectDisplay()
         }
       } catch (err) {
         console.error('No se pudo cargar el contador desde el servidor', err)
@@ -76,7 +104,7 @@ export function useClickCounter() {
     return () => {
       cancelled = true
     }
-  }, [userId, getToken])
+  }, [userId, getToken, updateObjectDisplay])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -123,13 +151,16 @@ export function useClickCounter() {
         setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
         if (typeof data.keys === 'number') setLatestKeys(data.keys)
         if (typeof data.gems === 'number') setLatestGems(data.gems)
+        if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
+        if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
+        updateObjectDisplay()
       }
     } catch (err) {
       console.error('No se pudo guardar el progreso de clicks', err)
     } finally {
       isFlushingRef.current = false
     }
-  }, [userId, getToken])
+  }, [userId, getToken, updateObjectDisplay])
 
   useEffect(() => {
     const interval = setInterval(flush, FLUSH_INTERVAL_MS)
@@ -153,8 +184,9 @@ export function useClickCounter() {
       pendingRef.current += amount
       pendingRealClicksRef.current += 1
       setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+      updateObjectDisplay()
     },
-    [userId],
+    [userId, updateObjectDisplay],
   )
 
   // Other places that spend clicks server-side (buying a powerup or a
@@ -174,6 +206,19 @@ export function useClickCounter() {
     autoPendingRef.current = 0
     setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
   }, [])
+
+  // Other endpoints that credit clicks server-side (auto-click accrual in
+  // TreeContext) also return the fresh objectsBroken/objectProgress — folds
+  // that in as the new confirmed base, same as syncTotalClicks does for the
+  // currency total, then re-predicts on top of it.
+  const syncObjectState = useCallback(
+    (newObjectsBroken: number, newObjectProgress: number) => {
+      objectsBrokenConfirmedRef.current = newObjectsBroken
+      objectProgressConfirmedRef.current = newObjectProgress
+      updateObjectDisplay()
+    },
+    [updateObjectDisplay],
+  )
 
   const suspendSync = useCallback(() => {
     suspendSyncCountRef.current += 1
@@ -196,11 +241,16 @@ export function useClickCounter() {
   // real tap (real-clicks stat, streak, etc. stay untouched by this).
   // autoPendingRef itself stays fractional (0.5 cps needs sub-1 precision
   // between 100ms ticks to ever add up to anything) — only the exposed,
-  // displayed totalClicks gets floored.
-  const tickAutoClicks = useCallback((amount: number) => {
-    autoPendingRef.current += amount
-    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
-  }, [])
+  // displayed totalClicks gets floored. The object display gets the same
+  // fractional treatment via updateObjectDisplay/applyObjectProgress.
+  const tickAutoClicks = useCallback(
+    (amount: number) => {
+      autoPendingRef.current += amount
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+      updateObjectDisplay()
+    },
+    [updateObjectDisplay],
+  )
 
   return {
     totalClicks,
@@ -212,5 +262,8 @@ export function useClickCounter() {
     resumeSync,
     latestKeys,
     latestGems,
+    objectsBroken,
+    objectProgress,
+    syncObjectState,
   }
 }

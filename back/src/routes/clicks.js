@@ -17,8 +17,8 @@ clicksRouter.get('/me', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-  const totalClicks = await usersRepository.getTotalClicks(userId)
-  res.json({ totalClicks })
+  const state = await usersRepository.getClickState(userId)
+  res.json(state)
 })
 
 clicksRouter.post('/increment', async (req, res) => {
@@ -53,7 +53,7 @@ clicksRouter.post('/increment', async (req, res) => {
   const realClicks =
     Number.isInteger(rawRealClicks) && rawRealClicks >= 0 && rawRealClicks <= amount ? rawRealClicks : amount
 
-  const { totalClicks, keys, gems } = await usersRepository.incrementClicks(
+  const { totalClicks, keys, gems, objectsBroken, objectProgress } = await usersRepository.incrementClicks(
     userId,
     amount,
     peakCps,
@@ -61,5 +61,5 @@ clicksRouter.post('/increment', async (req, res) => {
     clientDate,
     realClicks,
   )
-  res.json({ totalClicks, keys, gems })
+  res.json({ totalClicks, keys, gems, objectsBroken, objectProgress })
 })

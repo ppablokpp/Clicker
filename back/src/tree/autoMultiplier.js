@@ -9,7 +9,7 @@
 export const AUTO_MULTIPLIER_NODE_ID = 'auto_multiplier'
 export const AUTO_MULTIPLIER_STEP = 0.5
 export const AUTO_MULTIPLIER_BASE_COST = 2_000
-export const AUTO_MULTIPLIER_COST_RATIO = 1.5
+export const AUTO_MULTIPLIER_COST_RATIO = 1.16
 
 export function autoMultiplierCost(level) {
   return Math.ceil(AUTO_MULTIPLIER_BASE_COST * AUTO_MULTIPLIER_COST_RATIO ** level)

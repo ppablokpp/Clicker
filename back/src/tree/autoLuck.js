@@ -15,7 +15,7 @@
 export const AUTO_LUCK_NODE_ID = 'auto_luck'
 
 export const AUTO_LUCK_BASE_COST = 2_000
-export const AUTO_LUCK_COST_RATIO = 1.7
+export const AUTO_LUCK_COST_RATIO = 1.16
 
 export function autoLuckCost(level) {
   return Math.ceil(AUTO_LUCK_BASE_COST * AUTO_LUCK_COST_RATIO ** level)

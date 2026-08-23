@@ -8,7 +8,7 @@
 export const MULTIPLIER_NODE_ID = 'click_multiplier'
 export const MULTIPLIER_STEP = 0.5
 export const MULTIPLIER_BASE_COST = 1_500
-export const MULTIPLIER_COST_RATIO = 1.45
+export const MULTIPLIER_COST_RATIO = 1.15
 
 export function multiplierCost(level) {
   return Math.ceil(MULTIPLIER_BASE_COST * MULTIPLIER_COST_RATIO ** level)

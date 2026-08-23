@@ -108,7 +108,7 @@ const EMPTY_STATE: TreeState = {
 
 export function TreeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks, tickAutoClicks } = useClickCounterContext()
+  const { syncTotalClicks, tickAutoClicks, syncObjectState } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
   const [isBuying, setIsBuying] = useState(false)
@@ -172,11 +172,14 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           tapMultiplierNextCost: data.tapMultiplierNextCost,
         })
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+        if (typeof data.objectsBroken === 'number' && typeof data.objectProgress === 'number') {
+          syncObjectState(data.objectsBroken, data.objectProgress)
+        }
       }
     } catch (err) {
       console.error('No se pudo cargar el estado del árbol', err)
     }
-  }, [userId, getToken, syncTotalClicks])
+  }, [userId, getToken, syncTotalClicks, syncObjectState])
 
   useEffect(() => {
     if (!userId) return
@@ -226,6 +229,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         autoClickNextCps: data.autoClickNextCps,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      if (typeof data.objectsBroken === 'number' && typeof data.objectProgress === 'number') {
+        syncObjectState(data.objectsBroken, data.objectProgress)
+      }
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la mejora', err)
@@ -233,7 +239,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuying(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, syncObjectState, promptSignIn])
 
   const buyLuck = useCallback(async () => {
     if (!userId) {

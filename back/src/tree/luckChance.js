@@ -14,7 +14,7 @@ export const LUCK_CHANCE_NODE_ID = 'luck_chance'
 export const LUCK_BASE_CHANCE = 0.005
 export const LUCK_CHANCE_STEP = 0.005
 export const LUCK_CHANCE_BASE_COST = 1_400
-export const LUCK_CHANCE_COST_RATIO = 1.65
+export const LUCK_CHANCE_COST_RATIO = 1.16
 
 // Cost to go from `level` owned to `level + 1`.
 export function luckChanceCost(level) {

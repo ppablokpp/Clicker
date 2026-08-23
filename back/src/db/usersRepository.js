@@ -1,4 +1,5 @@
 import { database } from './pool.js'
+import { applyObjectProgress } from '../game/spaceObjects.js'
 
 // Applies to both chest types — buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
@@ -40,9 +41,20 @@ export const usersRepository = {
     return result.rows[0] ?? null
   },
 
-  async getTotalClicks(id) {
-    const result = await database.query('SELECT total_clicks FROM users WHERE id = $1', [id])
-    return Number(result.rows[0]?.total_clicks ?? 0)
+  // Powers the initial /api/clicks/me sync — includes the space-object
+  // progress alongside the currency total so a page refresh doesn't
+  // visually reset the object back to 0 while the real state reloads.
+  async getClickState(id) {
+    const result = await database.query(
+      'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1',
+      [id],
+    )
+    const row = result.rows[0]
+    return {
+      totalClicks: Number(row?.total_clicks ?? 0),
+      objectsBroken: Number(row?.objects_broken ?? 0),
+      objectProgress: Number(row?.object_progress ?? 0),
+    }
   },
 
   // Upserts on the id alone (no email/username yet) so an increment that races
@@ -69,8 +81,11 @@ export const usersRepository = {
   //     total_clicks, which is the multiplied economy value. The caller
   //     (routes/clicks.js) is responsible for capping realClicks <= amount.
   async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0, clientDate = null, realClicks = 0) {
-    const result = await database.query(
-      `WITH effective_date AS (
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const result = await client.query(
+        `WITH effective_date AS (
          -- The client sends its own local calendar date (e.g. UTC+2 at
          -- 00:30 is already "tomorrow" locally while the DB server is still
          -- on yesterday's UTC date) — trusted only within one day of the
@@ -112,14 +127,20 @@ export const usersRepository = {
              ELSE 0 END AS gem_procs
        ),
        updated AS (
-         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak)
-         VALUES ($1, $2, $7, $3, 1, 1)
+         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak, object_progress)
+         VALUES ($1, $2, $7, $3, 1, 1, $2)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
                total_real_clicks = users.total_real_clicks + EXCLUDED.total_real_clicks,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
                keys = users.keys + (SELECT key_procs FROM magnet_procs),
                gems = users.gems + (SELECT gem_procs FROM magnet_procs),
+               -- Same raw click amount that credits total_clicks also
+               -- chips away at the current space object — see
+               -- game/spaceObjects.js for the break-threshold loop applied
+               -- to this in JS just below (objects_broken itself isn't
+               -- touched here, only the running progress toward it).
+               object_progress = users.object_progress + EXCLUDED.total_clicks,
                current_streak = CASE
                  WHEN (SELECT clicked_today FROM today_check) THEN users.current_streak
                  WHEN (SELECT clicked_yesterday FROM yesterday_check) THEN users.current_streak + 1
@@ -134,22 +155,46 @@ export const usersRepository = {
                  END
                ),
                updated_at = now()
-         RETURNING total_clicks, total_real_clicks, best_cps, keys, gems
+         RETURNING total_clicks, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress
        ),
        day_marked AS (
          INSERT INTO click_days (user_id, click_date)
          SELECT $1, (SELECT d FROM effective_date) FROM updated
          ON CONFLICT (user_id, click_date) DO NOTHING
        )
-       SELECT total_clicks, total_real_clicks, best_cps, keys, gems FROM updated`,
-      [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks],
-    )
-    return {
-      totalClicks: Number(result.rows[0].total_clicks),
-      totalRealClicks: Number(result.rows[0].total_real_clicks),
-      bestCps: Number(result.rows[0].best_cps),
-      keys: Number(result.rows[0].keys),
-      gems: Number(result.rows[0].gems),
+       SELECT total_clicks, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress FROM updated`,
+        [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks],
+      )
+
+      const row = result.rows[0]
+      const { objectsBroken, objectProgress, broken } = applyObjectProgress(
+        Number(row.objects_broken),
+        0,
+        Number(row.object_progress),
+      )
+      if (broken > 0) {
+        await client.query('UPDATE users SET objects_broken = $2, object_progress = $3 WHERE id = $1', [
+          id,
+          objectsBroken,
+          objectProgress,
+        ])
+      }
+
+      await client.query('COMMIT')
+      return {
+        totalClicks: Number(row.total_clicks),
+        totalRealClicks: Number(row.total_real_clicks),
+        bestCps: Number(row.best_cps),
+        keys: Number(row.keys),
+        gems: Number(row.gems),
+        objectsBroken,
+        objectProgress,
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
     }
   },
 

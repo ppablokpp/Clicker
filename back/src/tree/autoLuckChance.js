@@ -9,7 +9,7 @@ export const AUTO_LUCK_CHANCE_BASE = 0.005
 export const AUTO_LUCK_CHANCE_STEP = 0.005
 
 export const AUTO_LUCK_CHANCE_BASE_COST = 2_800
-export const AUTO_LUCK_CHANCE_COST_RATIO = 1.75
+export const AUTO_LUCK_CHANCE_COST_RATIO = 1.17
 
 export function autoLuckChanceCost(level) {
   return Math.ceil(AUTO_LUCK_CHANCE_BASE_COST * AUTO_LUCK_CHANCE_COST_RATIO ** level)

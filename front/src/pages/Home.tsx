@@ -16,7 +16,6 @@ import {
   Backpack,
   Info,
   X,
-  Bot,
   MousePointerClick,
   type LucideIcon,
 } from 'lucide-react'
@@ -29,12 +28,15 @@ import { useKeysContext } from '../context/KeysContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useTreeContext } from '../context/TreeContext'
+import { usePrestigeContext } from '../context/PrestigeContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
 import { useDailyCaseContext } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
+import { objectCost } from '../lib/spaceObjects'
+import { DroneIcon } from '../components/DroneIcon'
 
 interface InfoModalData {
   icon: LucideIcon
@@ -56,6 +58,33 @@ interface ClickEffect {
 }
 
 let effectId = 0
+
+// A short blaster bolt fired from the tap point to the space object on
+// every click — like the original travelling dot, just elongated and
+// rotated to face its own direction of travel. dx/dy/angleDeg are computed
+// once at creation time (positions never move mid-flight): rotate is set
+// as a Framer style prop (not a manual CSS transform string), so it
+// composes cleanly with the animated x/y translate on the very same
+// element — no need for the two-element split OrbitingBots' static offset
+// requires (that one sets transform via a literal string, which is what
+// Framer can't share the element with).
+interface ShotEffect {
+  id: number
+  startX: number
+  startY: number
+  dx: number
+  dy: number
+  angleDeg: number
+}
+
+const BOLT_LENGTH = 26
+const BOLT_THICKNESS = 3
+
+let shotId = 0
+// Must match the shot's own Framer transition duration below — the ripple/
+// +N effect waits this long before landing, so it appears exactly when the
+// shot visually arrives at the object instead of at an arbitrary offset.
+const SHOT_DURATION_MS = 280
 
 // Escalates the whole screen's feel with click speed — a free "combo meter"
 // with no server round trip, purely derived from clicksPerSecond. Legendario
@@ -81,12 +110,6 @@ const HEAT_LEVELS = [
 // pill can't just hardcode "1%" anymore.
 function formatChance(chance: number): string {
   return `${(chance * 100).toFixed(1).replace(/\.0$/, '')}%`
-}
-
-// 2.00 -> "2", 1.50 -> "1.5", 1.25 -> "1.25" — never a trailing zero-only
-// decimal tail.
-function formatMultiplier(value: number): string {
-  return value.toFixed(2).replace(/\.?0+$/, '')
 }
 
 function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
@@ -122,9 +145,25 @@ function legendaryBonusForTier(tier: number, bonusStep: number): number {
   return LEGENDARY_BONUS_BASE + bonusStep * Math.min(tier, LEGENDARY_TIER_MAX)
 }
 
+// A whole starfield from one 1x1px element — every star is just another
+// point in a single giant box-shadow list, so there's no per-star DOM cost.
+// Two layers (dim/static, bright/twinkling) give it a bit of depth.
+function generateStars(count: number, opacity: number): string {
+  const stars: string[] = []
+  for (let i = 0; i < count; i++) {
+    const x = (Math.random() * 100).toFixed(2)
+    const y = (Math.random() * 100).toFixed(2)
+    stars.push(`${x}vw ${y}vh 0 rgba(255,255,255,${opacity})`)
+  }
+  return stars.join(', ')
+}
+
 // First prestige threshold — reaching it is meant to be when prestige becomes
-// available (prestige itself isn't built yet, this is just the ring's target).
-const PRESTIGE_TARGET = 1_000_000
+// available (prestige itself isn't built yet, this is just the ring's
+// target). Driven by objectsBroken (how many space objects you've shattered)
+// instead of a raw click count now — roughly the same pacing as the old
+// 1,000,000-click target given the object cost curve in lib/spaceObjects.ts.
+const PRESTIGE_OBJECT_TARGET = 50
 
 // Glowing ring around the counter that fills up towards the prestige target.
 // Once maxed, it stops being a progress indicator and becomes a spinning gold
@@ -172,17 +211,170 @@ function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
   )
 }
 
-// Shrinks the counter as it grows more digits so it never overflows the
-// fixed-size ring around it (much tighter budget than the old full-width layout).
-function counterTextSizeClass(value: number): string {
+type Point = [number, number]
+
+// Deterministic wobble (not random) so the shape is stable across renders —
+// two overlapping sine waves at different frequencies read as an organic,
+// rounded rock instead of a perfect circle or the earlier jagged/spiky one.
+function buildRoundRockOutline(pointCount: number, baseRadius: number, jitter: number): Point[] {
+  const points: Point[] = []
+  for (let i = 0; i < pointCount; i++) {
+    const angle = (i / pointCount) * Math.PI * 2
+    const wobble = Math.sin(angle * 3) * jitter * 0.6 + Math.sin(angle * 5 + 1) * jitter * 0.4
+    const r = baseRadius + wobble
+    points.push([50 + Math.cos(angle) * r, 50 + Math.sin(angle) * r])
+  }
+  return points
+}
+
+const ASTEROID_POINTS = buildRoundRockOutline(20, 42, 5)
+  .map((p) => p.join(','))
+  .join(' ')
+
+const CRATERS = [
+  { cx: 38, cy: 38, r: 6 },
+  { cx: 63, cy: 55, r: 8 },
+  { cx: 68, cy: 32, r: 4 },
+  { cx: 42, cy: 66, r: 5 },
+]
+
+// Cosmetic color tier every 10 objects broken — same round rock throughout,
+// just recolored so a long session doesn't stare at the exact same one
+// forever. Per-object progress isn't shown visually at all right now (the
+// earlier cracking-apart version and the bar under it both got dropped) —
+// the rock just glows a little brighter as `pct` climbs.
+const OBJECT_TIERS = [
+  { fill: '#a78bfa', glow: 'rgba(168,85,247,0.6)' },
+  { fill: '#67e8f9', glow: 'rgba(34,211,238,0.6)' },
+  { fill: '#fda4af', glow: 'rgba(251,113,133,0.6)' },
+  { fill: '#fde68a', glow: 'rgba(251,191,36,0.6)' },
+  { fill: '#6ee7b7', glow: 'rgba(52,211,153,0.6)' },
+]
+
+// The thing you're actually clicking now, instead of a bare number — a
+// slowly bobbing/rotating rock with a one-shot white flash (replayed by
+// remounting on `objectsBroken` changing) when it's done.
+function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: number }) {
+  const tier = OBJECT_TIERS[Math.floor(objectsBroken / 10) % OBJECT_TIERS.length]
+  return (
+    <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
+      <div
+        className="absolute inset-2 rounded-full blur-lg transition-opacity duration-200"
+        style={{ backgroundColor: tier.glow, opacity: 0.22 + pct * 0.5 }}
+      />
+      <motion.div
+        key={objectsBroken}
+        className="absolute inset-0 rounded-full bg-white"
+        initial={{ opacity: 0.8, scale: 0.5 }}
+        animate={{ opacity: 0, scale: 2 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      />
+      <motion.div
+        animate={{ rotate: 360, y: [0, -6, 0] }}
+        transition={{
+          rotate: { duration: 26, repeat: Infinity, ease: 'linear' },
+          y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+        }}
+      >
+        <svg viewBox="0 0 100 100" width={76} height={76} style={{ filter: `drop-shadow(0 0 20px ${tier.glow})` }}>
+          <polygon points={ASTEROID_POINTS} fill={tier.fill} stroke="rgba(0,0,0,0.25)" strokeWidth={2} strokeLinejoin="round" />
+          {CRATERS.map((c, i) => (
+            <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill="rgba(0,0,0,0.18)" />
+          ))}
+        </svg>
+      </motion.div>
+    </div>
+  )
+}
+
+// Autoclick's swarm — one little drone per level (capped so it stays
+// readable at high levels), orbiting just outside the prestige ring like
+// Cookie Clicker's cursors circling the cookie. Purely decorative: each
+// drone's orbit phase and pulse timing come from its own index, not real
+// production data, since this only exists to make "you own N levels of
+// autoclick" *feel* alive rather than to visualize the exact cps.
+function OrbitingBots({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {Array.from({ length: count }, (_, i) => {
+        const orbitDuration = 18 + (i % 3) * 3
+        // Negative delay pre-advances the loop so drones start already
+        // spread around the circle instead of all bunched at angle 0.
+        const orbitDelay = -((i / count) * orbitDuration)
+        const pulseDelay = (i * 0.53) % 2.4
+        const clockwise = i % 2 === 0
+        return (
+          <motion.div
+            key={i}
+            className="absolute left-1/2 top-1/2"
+            animate={{ rotate: clockwise ? 360 : -360 }}
+            transition={{ duration: orbitDuration, delay: orbitDelay, repeat: Infinity, ease: 'linear' }}
+          >
+            {/* Static orbit-radius offset lives on a plain (non-motion) div
+                — Framer Motion owns the *whole* transform string on any
+                element it animates x/y/scale/rotate on, so a manually set
+                style.transform on that same element gets silently
+                overwritten (this is what was collapsing every drone onto
+                the exact center point). Keeping it on a separate plain div
+                sidesteps that entirely. The drone body itself also counter-
+                rotates against the orbit spin so it stays visually level
+                instead of tumbling around its own axis as it orbits. */}
+            <div className="absolute left-0 top-0" style={{ transform: 'translate(-50%, -50%) translateY(-32vmin)' }}>
+              <motion.div
+                animate={{
+                  rotate: clockwise ? -360 : 360,
+                  scale: [1, 1.12, 1],
+                  opacity: [0.75, 1, 0.75],
+                }}
+                transition={{
+                  rotate: { duration: orbitDuration, delay: orbitDelay, repeat: Infinity, ease: 'linear' },
+                  scale: { duration: 1.8, delay: pulseDelay, repeat: Infinity, ease: 'easeInOut' },
+                  opacity: { duration: 1.8, delay: pulseDelay, repeat: Infinity, ease: 'easeInOut' },
+                }}
+                className="text-violet-300"
+                style={{ filter: 'drop-shadow(0 0 6px rgba(168,85,247,0.65))' }}
+              >
+                <DroneIcon size={20} animated />
+              </motion.div>
+
+              {/* The shot — a short bolt fired straight at the counter every
+                  pulse (same travelling-dot shape the main click shot uses,
+                  just vertical since the drone's own orbit rotation,
+                  applied one level up, already points "down" at the ring
+                  center). `x: '-50%'` is a Framer style value, not a raw
+                  CSS transform string, so it composes with the animated y
+                  on this same element instead of fighting it. */}
+              <motion.div
+                className="absolute left-1/2 top-1/2 w-[3px] rounded-full bg-gradient-to-b from-violet-300/0 via-violet-200 to-white shadow-[0_0_6px_1px_rgba(216,180,254,0.8)]"
+                style={{ height: 10, x: '-50%' }}
+                initial={{ y: '0vmin', opacity: 1 }}
+                animate={{ y: '32vmin', opacity: [1, 1, 0] }}
+                transition={{
+                  duration: 0.4,
+                  delay: pulseDelay,
+                  repeat: Infinity,
+                  repeatDelay: 1.4,
+                  ease: 'easeIn',
+                }}
+              />
+            </div>
+          </motion.div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Total clicks is the prominent number again (feedback: needs more weight
+// in the UI than a small pill) — smaller than the old full-width design
+// since it now shares the ring with the space object below it, but still
+// shrinks as digits pile up so it never overflows.
+function clicksTextSizeClass(value: number): string {
   const digits = Math.max(1, Math.floor(value)).toString().length
-  if (digits <= 3) return 'text-7xl sm:text-8xl'
-  if (digits <= 5) return 'text-6xl sm:text-7xl'
-  if (digits <= 7) return 'text-5xl sm:text-6xl'
-  if (digits <= 8) return 'text-4xl sm:text-6xl'
-  if (digits <= 9) return 'text-4xl sm:text-5xl'
-  if (digits <= 11) return 'text-3xl sm:text-4xl'
-  if (digits <= 13) return 'text-2xl sm:text-3xl'
+  if (digits <= 5) return 'text-4xl sm:text-5xl'
+  if (digits <= 8) return 'text-3xl sm:text-4xl'
+  if (digits <= 11) return 'text-2xl sm:text-3xl'
   return 'text-xl sm:text-2xl'
 }
 
@@ -190,9 +382,10 @@ export function Home() {
   const { userId } = useAuth()
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
-  const { totalClicks, clicksPerSecond, registerClick } = useClickCounterContext()
+  const { totalClicks, clicksPerSecond, registerClick, objectsBroken, objectProgress } = useClickCounterContext()
   const {
     autoClickCps,
+    autoClickLevel,
     luckChance: permanentLuckChance,
     luckMultiplier: permanentLuckMultiplier,
     multiplierValue: baseClickMultiplier,
@@ -200,6 +393,8 @@ export function Home() {
     legendaryStreakBase,
     legendaryBonusStep,
   } = useTreeContext()
+  const { prestigePoints, reactorValue, reactorLevel, reactorNextCost, isBuyingReactor, buyReactor, isResetting, resetPrestige } =
+    usePrestigeContext()
   const { language, strings } = useLanguage()
   const {
     catalog: powerupCatalog,
@@ -243,10 +438,17 @@ export function Home() {
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
-  const [showPrestigeComingSoon, setShowPrestigeComingSoon] = useState(false)
+  const [shots, setShots] = useState<ShotEffect[]>([])
+  const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
+  const [showPrestigeShop, setShowPrestigeShop] = useState(false)
+  const [prestigeError, setPrestigeError] = useState<string | null>(null)
   const [showInventory, setShowInventory] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // The space object's own on-screen box — click shots animate from the tap
+  // point to this element's center, computed fresh on every click since the
+  // object stays centered in the viewport but the viewport itself can resize.
+  const objectRef = useRef<HTMLDivElement>(null)
   const prevKeysRef = useRef<number | null>(null)
   const prevGemsRef = useRef<number | null>(null)
   // Every click's *real* value can end up fractional once a non-integer
@@ -304,7 +506,13 @@ export function Home() {
   const heatMultiplier =
     heat.key === 'legendary' ? legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep) : heat.multiplier
   const totalMultiplier =
-    baseClickMultiplier * tapMultiplierValue * heatMultiplier * powerupMultiplier * bonusMultiplier * moneyMultiplier
+    baseClickMultiplier *
+    tapMultiplierValue *
+    heatMultiplier *
+    powerupMultiplier *
+    bonusMultiplier *
+    moneyMultiplier *
+    reactorValue
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
   // two separate rolls — owning both multiplies together into a single
@@ -316,11 +524,33 @@ export function Home() {
 
   const prestige = useMemo(
     () => ({
-      isMaxed: totalClicks >= PRESTIGE_TARGET,
-      pct: Math.min(1, totalClicks / PRESTIGE_TARGET),
+      isMaxed: objectsBroken >= PRESTIGE_OBJECT_TARGET,
+      pct: Math.min(1, objectsBroken / PRESTIGE_OBJECT_TARGET),
     }),
-    [totalClicks],
+    [objectsBroken],
   )
+
+  // The current space object's own progress (independent of the prestige
+  // ring above it) — this is what the ring around the object actually shows.
+  const currentObjectCost = objectCost(objectsBroken)
+  const objectPct = Math.min(1, objectProgress / currentObjectCost)
+
+  const starsDim = useMemo(() => generateStars(220, 0.5), [])
+  const starsBright = useMemo(() => generateStars(60, 0.9), [])
+
+  // A full reload after a successful reset is deliberate — every other
+  // context (ClickCounterContext, TreeContext) would otherwise need its own
+  // bespoke "zero everything out" logic; refetching from the server, which
+  // is already the reset's source of truth, is simpler and can't drift.
+  const handleConfirmPrestige = async () => {
+    setPrestigeError(null)
+    const result = await resetPrestige()
+    if (result.ok) {
+      window.location.reload()
+    } else if (result.error !== 'not-signed-in') {
+      setPrestigeError(result.error ?? 'error')
+    }
+  }
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -333,7 +563,15 @@ export function Home() {
       if (!rect) return
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      lastPosRef.current = { x, y }
+
+      // The impact point — the object's own center, not the tap — is what
+      // magnet-proc effects (which have no coordinates of their own) and
+      // the ripple/+N below now spawn from, so they all read as "hitting
+      // the object" instead of hovering over your finger.
+      const objectRect = objectRef.current?.getBoundingClientRect()
+      const objX = objectRect ? objectRect.left + objectRect.width / 2 - rect.left : x
+      const objY = objectRect ? objectRect.top + objectRect.height / 2 - rect.top : y
+      lastPosRef.current = { x: objX, y: objY }
 
       const luckMultiplier = hasLuck && Math.random() < luckChance ? combinedLuckMultiplier : 1
       const isLucky = luckMultiplier > 1
@@ -357,17 +595,43 @@ export function Home() {
       popupCarryRef.current += amount
       const displayAmount = Math.floor(popupCarryRef.current)
       popupCarryRef.current -= displayAmount
-
-      const id = effectId++
-      setEffects((prev) => [
-        ...prev,
-        { id, x, y, ripple: isLucky ? 'bg-green-400/70' : heat.ripple, amount: displayAmount, isLucky },
-      ])
       registerClick(amount)
 
+      // Fire a shot from the tap point at the space object, then land the
+      // ripple/+N there once the shot actually arrives instead of showing
+      // it instantly at the tap point — a small random offset around the
+      // object's center keeps rapid clicks from stacking on the exact same
+      // pixel.
+      setShots((prev) => {
+        const sId = shotId++
+        const dx = objX - x
+        const dy = objY - y
+        const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
+        window.setTimeout(() => {
+          setShots((current) => current.filter((s) => s.id !== sId))
+        }, SHOT_DURATION_MS)
+        return [...prev, { id: sId, startX: x, startY: y, dx, dy, angleDeg }]
+      })
+
       window.setTimeout(() => {
-        setEffects((prev) => prev.filter((fx) => fx.id !== id))
-      }, 900)
+        const jitterX = objX + (Math.random() - 0.5) * 28
+        const jitterY = objY + (Math.random() - 0.5) * 28
+        const id = effectId++
+        setEffects((prev) => [
+          ...prev,
+          {
+            id,
+            x: jitterX,
+            y: jitterY,
+            ripple: isLucky ? 'bg-green-400/70' : heat.ripple,
+            amount: displayAmount,
+            isLucky,
+          },
+        ])
+        window.setTimeout(() => {
+          setEffects((prev) => prev.filter((fx) => fx.id !== id))
+        }, 900)
+      }, SHOT_DURATION_MS)
     },
     [
       userId,
@@ -388,33 +652,24 @@ export function Home() {
       onPointerDown={handlePointerDown}
       className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
-      {/* ambient background glow */}
+      {/* starfield — replaces the old scattered ambient glows entirely */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="animate-pulse-glow absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-[100px]" />
-        <div
-          className="animate-pulse-glow absolute left-1/3 top-2/3 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-[100px]"
-          style={{ animationDelay: '1.2s' }}
-        />
-        <div
-          className="animate-pulse-glow absolute right-1/4 top-1/4 h-56 w-56 rounded-full bg-cyan-500/10 blur-[100px]"
-          style={{ animationDelay: '2s' }}
-        />
-        {/* combo heat glow — intensifies with clicksPerSecond, invisible at rest */}
-        <div
-          className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] transition-all duration-300"
-          style={{
-            backgroundColor: heat.glow,
-            opacity: heat.key ? 1 : 0,
-          }}
-        />
-        {/* prestige glow — replaces the ambient mood once you hit the target.
-            Rendered only when maxed (not just faded via opacity), since the
-            infinite pulse-glow keyframe would otherwise keep animating its
-            own opacity and fight the inline style meant to hide it. */}
-        {prestige.isMaxed && (
-          <div className="animate-pulse-glow absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[140px]" />
-        )}
+        <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsDim }} />
+        <div className="animate-twinkle absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsBright }} />
       </div>
+
+      {/* prestige glow — the only ambient background glow left now (the
+          combo heat glow that used to intensify/recolor while clicking got
+          dropped, it read as visual noise once it was the sole gradient
+          left on screen). Rendered only when maxed, not just faded via
+          opacity, since the infinite pulse-glow keyframe would otherwise
+          keep animating its own opacity and fight an inline style meant to
+          hide it. */}
+      {prestige.isMaxed && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="animate-pulse-glow absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[140px]" />
+        </div>
+      )}
 
       {/* Inventory button — mirrors the CPS badge's position on the right. */}
       <button
@@ -462,7 +717,6 @@ export function Home() {
         {totalMultiplier > 1 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
             <MousePointerClick size={12} className="text-violet-300" />
-            {clicksPerSecond.toFixed(1)} {strings.home.tps} ×{formatMultiplier(totalMultiplier)} ={' '}
             {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
             {activePowerup && (
               <>
@@ -477,8 +731,9 @@ export function Home() {
 
         {autoClickCps > 0 && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
-            <Bot size={12} className="text-zinc-400" />
-            {strings.tree.autoClickLabel}{' '}
+            <span className="text-zinc-400">
+              <DroneIcon size={12} />
+            </span>
             {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}{' '}
             {strings.home.cps}
           </span>
@@ -525,70 +780,75 @@ export function Home() {
             <TrendingUp size={12} className="text-emerald-300" />×{bonusMultiplier}
           </span>
         )}
+
+        {/* Banked prestige points persist across resets — reachable any
+            time you have any (or already own Reactor levels), not just
+            while a reset is available. */}
+        {(prestigePoints > 0 || reactorLevel > 0) && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setShowPrestigeShop(true)}
+            className="pointer-events-auto flex w-fit items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-500/[0.07] px-3 py-1.5 text-xs font-bold text-amber-200 shadow-lg shadow-black/20"
+          >
+            <Sparkles size={12} className="text-amber-300" />
+            {prestigePoints}
+          </button>
+        )}
       </div>
 
-      {/* main counter */}
+      {/* Clicks HUD — its own dedicated spot above the ring instead of
+          competing with it for space (that's what was throwing the object
+          off-center before): a game-style score readout, separate from the
+          object you're actually interacting with below. */}
+      <div className="pointer-events-none absolute left-0 right-0 top-20 z-10 flex flex-col items-center sm:top-24">
+        <span className="mb-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
+          {strings.home.yourClicks}
+        </span>
+        <motion.span
+          key={totalClicks}
+          initial={{ scale: 1 }}
+          animate={{ scale: [1.08, 1] }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 ${clicksTextSizeClass(totalClicks)}`}
+        >
+          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+        </motion.span>
+      </div>
+
+      {/* main counter — the space object you break with clicks. The big
+          ring tracks progress toward the *next prestige* (objectsBroken /
+          PRESTIGE_OBJECT_TARGET). */}
       <div className="pointer-events-none relative z-10 flex flex-col items-center">
-        <div className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
-          <ProgressRing pct={prestige.pct} isMaxed={prestige.isMaxed} />
+        <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
+          <OrbitingBots count={Math.min(10, autoClickLevel)} />
+          {/* Scaled down from the object's own box — the ring used to hug
+              the object edge-to-edge, which read as oversized next to it. */}
+          <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.78)' }}>
+            <ProgressRing pct={prestige.pct} isMaxed={prestige.isMaxed} />
+          </div>
 
-          <div className="flex flex-col items-center px-3">
-            <span
-              className={`mb-2 text-xs font-semibold uppercase tracking-[0.3em] transition-colors duration-300 ${
-                prestige.isMaxed ? 'text-amber-300' : 'text-neutral-500'
-              }`}
-            >
-              {prestige.isMaxed ? strings.home.prestigeReady : strings.home.yourClicks}
-            </span>
-            <motion.span
-              key={totalClicks}
-              initial={{ scale: 1 }}
-              animate={{ scale: [1.06, 1] }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent transition-[filter] duration-300 ${
-                prestige.isMaxed
-                  ? 'bg-gradient-to-b from-amber-200 via-yellow-300 to-amber-500'
-                  : 'bg-gradient-to-b from-white to-neutral-400'
-              } ${counterTextSizeClass(totalClicks)}`}
-              style={{
-                filter: prestige.isMaxed
-                  ? 'drop-shadow(0 0 40px rgba(245,158,11,0.55))'
-                  : `drop-shadow(0 0 40px ${heat.glow})`,
-              }}
-            >
-              {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
-            </motion.span>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <SpaceObject objectsBroken={objectsBroken} pct={objectPct} />
+          </div>
 
-            {prestige.isMaxed ? (
-              <div className="pointer-events-auto mt-4 flex flex-col items-center gap-1.5">
+          {prestige.isMaxed && (
+            <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center px-3 sm:bottom-12">
+              <span className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
+                {strings.home.prestigeReady}
+              </span>
+              <div className="pointer-events-auto flex flex-col items-center gap-1.5">
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => {
-                    setShowPrestigeComingSoon(true)
-                    window.setTimeout(() => setShowPrestigeComingSoon(false), 2000)
-                  }}
+                  onClick={() => setShowPrestigeConfirm(true)}
                   className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
                 >
                   <Sparkles size={13} className="text-amber-300" />
                   {strings.home.changePrestige}
                 </button>
-                {showPrestigeComingSoon && (
-                  <span className="text-[10px] font-medium text-amber-300/80">
-                    {strings.home.prestigeComingSoon}
-                  </span>
-                )}
               </div>
-            ) : (
-              <span className="mt-3 text-[11px] font-medium tabular-nums text-neutral-500">
-                {`${totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')} / ${PRESTIGE_TARGET.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}`}
-              </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
-        <span className="mt-8 text-xs font-medium tracking-wide text-neutral-600 sm:text-sm">
-          {strings.home.tapAnywhere}
-        </span>
       </div>
 
       {/* click ripples + floating +N */}
@@ -619,6 +879,27 @@ export function Home() {
           </div>
         ))}
       </AnimatePresence>
+
+      {/* shots — a short blaster bolt fired at the object per click, purely
+          visual. rotate is a Framer style prop (not a manual CSS transform
+          string), so it composes with the animated x/y translate on this
+          same element instead of fighting it. */}
+      {shots.map((shot) => (
+        <motion.div
+          key={shot.id}
+          className="pointer-events-none absolute z-20 rounded-full bg-gradient-to-r from-violet-300/0 via-violet-200 to-white shadow-[0_0_8px_2px_rgba(216,180,254,0.85)]"
+          style={{
+            left: shot.startX - BOLT_LENGTH / 2,
+            top: shot.startY - BOLT_THICKNESS / 2,
+            width: BOLT_LENGTH,
+            height: BOLT_THICKNESS,
+            rotate: shot.angleDeg,
+          }}
+          initial={{ x: 0, y: 0, opacity: 1 }}
+          animate={{ x: shot.dx, y: shot.dy, opacity: [1, 1, 0] }}
+          transition={{ duration: SHOT_DURATION_MS / 1000, ease: 'easeIn' }}
+        />
+      ))}
 
       {showInventory && (
         <div
@@ -888,6 +1169,111 @@ export function Home() {
             <p className="text-xs font-medium text-neutral-500">
               {strings.home.durationLabel(infoModal.durationSeconds)}
             </p>
+          </div>
+        </div>
+      )}
+
+      {showPrestigeConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowPrestigeConfirm(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-amber-400/20 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowPrestigeConfirm(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles size={18} className="text-amber-300" />
+              <p className="text-sm font-semibold text-white">{strings.prestige.confirmTitle}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">
+              {strings.prestige.confirmBody(objectsBroken.toLocaleString(language === 'en' ? 'en-US' : 'es-ES'))}
+            </p>
+            {prestigeError && <p className="mb-3 text-xs text-red-400">{prestigeError}</p>}
+            <div className="flex gap-2">
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowPrestigeConfirm(false)}
+                className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-neutral-300"
+              >
+                {strings.prestige.cancelButton}
+              </button>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={handleConfirmPrestige}
+                disabled={isResetting}
+                className="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 px-4 py-2.5 text-sm font-bold text-neutral-900 disabled:opacity-60"
+              >
+                {strings.prestige.confirmButton}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPrestigeShop && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowPrestigeShop(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-amber-400/20 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowPrestigeShop(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles size={18} className="text-amber-300" />
+              <p className="text-sm font-semibold text-white">{strings.prestige.shopTitle}</p>
+            </div>
+            <p className="mb-4 text-xs font-medium text-neutral-400">
+              {strings.prestige.pointsLabel} <span className="font-bold text-amber-200">{prestigePoints}</span>
+            </p>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <p className="mb-1 text-sm font-semibold text-white">{strings.prestige.reactorName}</p>
+              <p className="mb-3 text-xs text-neutral-400">{strings.prestige.reactorDesc}</p>
+              <div className="mb-3 flex flex-col gap-1 text-xs text-neutral-400">
+                <span>
+                  {strings.prestige.currentMultiplier}{' '}
+                  <span className="font-semibold text-white">×{reactorValue.toFixed(2)}</span>
+                </span>
+                <span>
+                  {strings.prestige.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{(reactorValue + 0.05).toFixed(2)}</span>
+                </span>
+              </div>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => buyReactor()}
+                disabled={isBuyingReactor || prestigePoints < reactorNextCost}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                  isBuyingReactor || prestigePoints < reactorNextCost
+                    ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+                    : 'bg-white text-neutral-900 hover:opacity-90'
+                }`}
+              >
+                <Sparkles size={14} className="opacity-70" />
+                {reactorNextCost}
+              </button>
+              {prestigePoints < reactorNextCost && (
+                <p className="mt-2 text-center text-[10px] text-neutral-500">{strings.prestige.notEnoughPoints}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
