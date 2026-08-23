@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@clerk/clerk-react'
 import { useGemsContext } from './GemsContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playTreeUpgrade } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -87,6 +88,7 @@ export function GemUpgradesProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           setOwned((prev) => new Set(prev).add(upgrade.id))
           if (typeof data.gems === 'number') syncGems(data.gems)
+          playTreeUpgrade()
           return { ok: true }
         }
         return { ok: false, error: data.error }

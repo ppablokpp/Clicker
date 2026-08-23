@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playTreeUpgrade } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 // Auto-click production only actually gets credited (persisted) when this
@@ -244,6 +245,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       if (typeof data.objectsBroken === 'number' && typeof data.objectProgress === 'number') {
         syncObjectState(data.objectsBroken, data.objectProgress)
       }
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la mejora', err)
@@ -275,6 +277,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         luckNextCost: data.luckNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la mejora de suerte', err)
@@ -305,6 +308,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         luckChanceNextCost: data.luckChanceNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la probabilidad de suerte', err)
@@ -335,6 +339,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         multiplierNextCost: data.multiplierNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar el multiplicador', err)
@@ -365,6 +370,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         legendaryEaseNextCost: data.legendaryEaseNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Reflejos', err)
@@ -395,6 +401,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         legendaryGrowthNextCost: data.legendaryGrowthNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Impulso', err)
@@ -425,6 +432,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         autoLuckNextCost: data.autoLuckNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Fortuna', err)
@@ -455,6 +463,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         autoLuckChanceNextCost: data.autoLuckChanceNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Azar', err)
@@ -490,6 +499,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         autoClickNextCps: data.autoClickNextCps,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Sobrecarga', err)
@@ -520,6 +530,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         tapMultiplierNextCost: data.tapMultiplierNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar el multiplicador', err)
@@ -550,6 +561,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         multiShotNextCost: data.multiShotNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Multidisparo', err)

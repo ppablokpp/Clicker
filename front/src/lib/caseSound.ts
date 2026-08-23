@@ -264,3 +264,53 @@ export function playMagnetProc(currency: 'keys' | 'gems') {
     // Audio is a nice-to-have — never let it break anything.
   }
 }
+
+/**
+ * "Bill flick" — two quick overlapping paper-rustle bursts (the
+ * characteristic "which-which" of riffling a bill between fingers) plus a
+ * soft landing snap, played when a tree upgrade is bought. Louder and more
+ * textured than the first pass at this (which turned out too quiet to
+ * actually hear), but still nowhere near playChestPurchase's full
+ * cha-ching — this fires constantly while grinding upgrades.
+ */
+export function playTreeUpgrade() {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
+
+    const rustleOffsets = [0, 0.035]
+    rustleOffsets.forEach((offset, i) => {
+      const start = now + offset
+      const rustle = audioCtx.createBufferSource()
+      rustle.buffer = getNoiseBuffer(audioCtx)
+      const bandpass = audioCtx.createBiquadFilter()
+      bandpass.type = 'bandpass'
+      bandpass.frequency.setValueAtTime(2600 + i * 900, start)
+      bandpass.frequency.exponentialRampToValueAtTime(1500 + i * 500, start + 0.05)
+      bandpass.Q.value = 0.9
+      const rustleGain = audioCtx.createGain()
+      rustleGain.gain.setValueAtTime(0.001, start)
+      rustleGain.gain.exponentialRampToValueAtTime(0.1 - i * 0.02, start + 0.006)
+      rustleGain.gain.exponentialRampToValueAtTime(0.001, start + 0.06)
+      rustle.connect(bandpass).connect(rustleGain).connect(output)
+      rustle.start(start)
+      rustle.stop(start + 0.07)
+    })
+
+    // A soft snap right as the bill lands.
+    const tick = audioCtx.createOscillator()
+    const tickGain = audioCtx.createGain()
+    tick.type = 'sine'
+    tick.frequency.setValueAtTime(1500, now + 0.05)
+    tickGain.gain.setValueAtTime(0.001, now + 0.05)
+    tickGain.gain.exponentialRampToValueAtTime(0.055, now + 0.054)
+    tickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09)
+    tick.connect(tickGain).connect(output)
+    tick.start(now + 0.05)
+    tick.stop(now + 0.1)
+  } catch {
+    // Audio is a nice-to-have — never let it break a purchase.
+  }
+}
