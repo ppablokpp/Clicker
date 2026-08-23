@@ -47,8 +47,8 @@ export function playLaserShot() {
     const osc = audioCtx.createOscillator()
     const gain = audioCtx.createGain()
     osc.type = 'sawtooth'
-    osc.frequency.setValueAtTime(1600 + Math.random() * 200, now)
-    osc.frequency.exponentialRampToValueAtTime(220, now + 0.09)
+    osc.frequency.setValueAtTime(1900 + Math.random() * 200, now)
+    osc.frequency.exponentialRampToValueAtTime(320, now + 0.09)
     gain.gain.setValueAtTime(0.001, now)
     gain.gain.exponentialRampToValueAtTime(0.12, now + 0.006)
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
@@ -60,8 +60,8 @@ export function playLaserShot() {
     const harmonic = audioCtx.createOscillator()
     const harmonicGain = audioCtx.createGain()
     harmonic.type = 'square'
-    harmonic.frequency.setValueAtTime(2400, now)
-    harmonic.frequency.exponentialRampToValueAtTime(500, now + 0.07)
+    harmonic.frequency.setValueAtTime(2800, now)
+    harmonic.frequency.exponentialRampToValueAtTime(650, now + 0.07)
     harmonicGain.gain.setValueAtTime(0.001, now)
     harmonicGain.gain.exponentialRampToValueAtTime(0.045, now + 0.004)
     harmonicGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08)
