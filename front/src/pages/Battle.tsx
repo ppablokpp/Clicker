@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { User } from 'lucide-react'
-import { useTreeContext } from '../context/TreeContext'
 import { useBattlesContext, type BattleDetail } from '../context/BattlesContext'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -98,7 +97,6 @@ export function Battle() {
   const battleId = Number(battleIdParam)
   const navigate = useNavigate()
   const { strings, language } = useLanguage()
-  const { multiShotValue } = useTreeContext()
   const { durationSeconds, getBattle, submitScore } = useBattlesContext()
 
   const [battle, setBattle] = useState<BattleDetail | null>(null)
@@ -198,7 +196,6 @@ export function Battle() {
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       if (phaseRef.current === 'submitting' || phaseRef.current === 'result') return
-      if (!activePointersRef.current.has(e.pointerId) && activePointersRef.current.size >= multiShotValue) return
       activePointersRef.current.add(e.pointerId)
 
       const rect = containerRef.current?.getBoundingClientRect()
@@ -231,7 +228,7 @@ export function Battle() {
         return [...prev, { id: sId, startX: x, startY: y, dx, dy, angleDeg }]
       })
     },
-    [multiShotValue],
+    [],
   )
 
   const handlePointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
