@@ -264,9 +264,13 @@ const OBJECT_TIERS = [
 
 // The thing you're actually clicking now, instead of a bare number — a
 // slowly bobbing/rotating rock with a one-shot white flash (replayed by
-// remounting on `objectsBroken` changing) when it's done.
+// remounting on `objectsBroken` changing) when it's done. Color no longer
+// cycles with `objectsBroken` (it used to change tier every 10 broken) —
+// it should only ever change on prestige, which isn't wired back up yet
+// (see the disabled prestige blocks elsewhere in this file), so it's
+// pinned to the first tier (violet) for now.
 function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: number }) {
-  const tier = OBJECT_TIERS[Math.floor(objectsBroken / 10) % OBJECT_TIERS.length]
+  const tier = OBJECT_TIERS[0]
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
       {/* A radial-gradient glow instead of a blurred solid circle — some

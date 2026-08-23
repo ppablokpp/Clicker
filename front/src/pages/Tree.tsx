@@ -71,7 +71,7 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
           ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
           : currency === 'gems'
             ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-            : 'bg-white text-neutral-900 hover:opacity-90'
+            : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
       }`}
     >
       {!isBuying && !canAfford && (

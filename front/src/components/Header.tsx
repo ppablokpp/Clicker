@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom'
 import { UserButton, SignedIn, SignedOut } from '@clerk/clerk-react'
 import { MousePointerClick, CircleUserRound } from 'lucide-react'
 import { LanguageToggle } from './LanguageToggle'
@@ -9,6 +10,10 @@ import { useSignInPrompt } from '../context/SignInPromptContext'
 export function Header() {
   const { strings } = useLanguage()
   const { promptSignIn } = useSignInPrompt()
+  const location = useLocation()
+  // The battle screen is deliberately chrome-free — no wordmark, no avatar,
+  // nothing but the fight itself for the full 30 seconds.
+  if (location.pathname.startsWith('/batalla')) return null
 
   return (
     <>

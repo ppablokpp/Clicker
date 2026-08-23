@@ -494,7 +494,7 @@ function TierTile({
             ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
             : currency === 'gems'
               ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-              : 'bg-white text-neutral-900 hover:opacity-90'
+              : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
         }`}
       >
         {isBuyingThis ? (
@@ -761,7 +761,7 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
                 className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
                   disabled
                     ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                    : 'bg-white text-neutral-900 hover:opacity-90'
+                    : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
                 }`}
               >
                 {isBuyingThis ? (
@@ -1367,7 +1367,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
             className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
               totalClicks < chestCost1 || ownedChests1 >= CHEST_LIMIT
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'bg-white text-neutral-900 hover:opacity-90'
+                : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
             }`}
           >
             {buyingChest === 'click' ? (
@@ -1390,7 +1390,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
             className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
               totalClicks < chestCost2 || ownedChests2 >= CHEST_LIMIT
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'bg-white text-neutral-900 hover:opacity-90'
+                : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
             }`}
           >
             {buyingChest === 'gem' ? (

@@ -192,6 +192,32 @@ export interface TranslationStrings {
     nextMultiplier: string
     notEnoughPoints: string
   }
+  battle: {
+    buttonLabel: string
+    modalTitle: string
+    description: (wager: string, seconds: number) => string
+    newBattle: string
+    incomingSection: string
+    historySection: string
+    noIncoming: string
+    noHistory: string
+    pickOpponent: string
+    challengeButton: (wager: string) => string
+    acceptButton: (wager: string) => string
+    notEnoughPlatinum: string
+    waitingForYou: string
+    waitingForOpponent: string
+    youWon: string
+    youLost: string
+    tieResult: string
+    vsLabel: (name: string) => string
+    tapToStart: string
+    yourTaps: string
+    submitting: string
+    sentResult: (taps: string) => string
+    backButton: string
+    resultTapsLine: (yours: string, theirs: string) => string
+  }
 }
 
 export const translations: Record<Language, TranslationStrings> = {
@@ -464,6 +490,33 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiplier: 'Multiplicador siguiente nivel:',
       notEnoughPoints: 'Te faltan puntos de prestigio',
     },
+    battle: {
+      buttonLabel: 'Duelo',
+      modalTitle: 'Duelo estelar',
+      description: (wager, seconds) =>
+        `Reta a quien quieras a un duelo de disparos. Tenéis ${seconds} segundos para clicar todo lo que podáis — quien haga más se lleva ${wager} de platino del otro.`,
+      newBattle: 'Nuevo duelo',
+      incomingSection: 'Duelos pendientes',
+      historySection: 'Historial',
+      noIncoming: 'No tienes duelos pendientes.',
+      noHistory: 'Todavía no has jugado ningún duelo.',
+      pickOpponent: 'Elige a tu rival',
+      challengeButton: (wager) => `Retar por ${wager}`,
+      acceptButton: (wager) => `Aceptar por ${wager}`,
+      notEnoughPlatinum: 'Te falta platino para esto',
+      waitingForYou: 'Esperando a que juegues tu ronda',
+      waitingForOpponent: 'Esperando a tu rival',
+      youWon: '¡Has ganado!',
+      youLost: 'Has perdido.',
+      tieResult: 'Empate — se ha devuelto tu apuesta.',
+      vsLabel: (name) => `vs ${name}`,
+      tapToStart: 'Toca para empezar',
+      yourTaps: 'Tus disparos:',
+      submitting: 'Enviando resultado…',
+      sentResult: (taps) => `¡Duelo enviado! ${taps} disparos. Esperando a tu rival.`,
+      backButton: 'Volver',
+      resultTapsLine: (yours, theirs) => `Tú: ${yours} · Rival: ${theirs}`,
+    },
   },
   en: {
     signIn: {
@@ -733,6 +786,33 @@ export const translations: Record<Language, TranslationStrings> = {
       currentMultiplier: 'Current multiplier:',
       nextMultiplier: 'Next level multiplier:',
       notEnoughPoints: "You're short on prestige points",
+    },
+    battle: {
+      buttonLabel: 'Duel',
+      modalTitle: 'Stellar Duel',
+      description: (wager, seconds) =>
+        `Challenge anyone to a shooting duel. You both get ${seconds} seconds to click as much as you can — whoever taps more takes ${wager} platinum from the other.`,
+      newBattle: 'New duel',
+      incomingSection: 'Pending duels',
+      historySection: 'History',
+      noIncoming: "You don't have any pending duels.",
+      noHistory: "You haven't played any duels yet.",
+      pickOpponent: 'Pick your rival',
+      challengeButton: (wager) => `Challenge for ${wager}`,
+      acceptButton: (wager) => `Accept for ${wager}`,
+      notEnoughPlatinum: "You're short on platinum for this",
+      waitingForYou: 'Waiting for you to play your round',
+      waitingForOpponent: "Waiting for your rival",
+      youWon: 'You won!',
+      youLost: 'You lost.',
+      tieResult: 'Tie — your wager was refunded.',
+      vsLabel: (name) => `vs ${name}`,
+      tapToStart: 'Tap to start',
+      yourTaps: 'Your shots:',
+      submitting: 'Sending result…',
+      sentResult: (taps) => `Duel sent! ${taps} shots. Waiting for your rival.`,
+      backButton: 'Back',
+      resultTapsLine: (yours, theirs) => `You: ${yours} · Rival: ${theirs}`,
     },
   },
 }

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { Trophy, BarChart3, Store, Network, MousePointerClick } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -14,6 +14,10 @@ const PILL_ITEMS = [
 // every destination — one accent color throughout, no per-tab coloring.
 export function BottomNavPill() {
   const { strings } = useLanguage()
+  const location = useLocation()
+  // No nav during a battle — the bottom of the screen is the countdown
+  // bar's spot instead.
+  if (location.pathname.startsWith('/batalla')) return null
 
   return (
     <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 sm:bottom-6">

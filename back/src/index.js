@@ -22,6 +22,7 @@ import { keyPacksRouter } from './routes/keyPacks.js'
 import { gemPacksRouter } from './routes/gemPacks.js'
 import { treeRouter } from './routes/tree.js'
 import { prestigeRouter } from './routes/prestige.js'
+import { battlesRouter } from './routes/battles.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -68,6 +69,7 @@ app.use('/api/key-packs', keyPacksRouter)
 app.use('/api/gem-packs', gemPacksRouter)
 app.use('/api/tree', treeRouter)
 app.use('/api/prestige', prestigeRouter)
+app.use('/api/battles', battlesRouter)
 
 // Próxima ruta: /api/leaderboard/monthly-winner.
 
