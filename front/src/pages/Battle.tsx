@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { User } from 'lucide-react'
 import { useBattlesContext, type BattleDetail } from '../context/BattlesContext'
 import { useLanguage } from '../context/LanguageContext'
+import { playLaserShot } from '../lib/battleSound'
 
 // Same green/red as Tree.tsx's LUCK_NODE_STYLE/LEGENDARY_NODE_STYLE, reused
 // here so a duel win/loss reads with the same "flow" language as the tree.
@@ -80,6 +81,24 @@ const BOLT_LENGTH = 26
 const BOLT_THICKNESS = 3
 const SHOT_DURATION_MS = 280
 
+// Small debris chips that burst outward from the asteroid on every hit —
+// each shot spawns a handful of them from the asteroid's own center, not
+// from the tap point, so they read as chunks breaking off on impact.
+interface ParticleChip {
+  angle: number
+  distance: number
+  size: number
+}
+interface ParticleBurst {
+  id: number
+  x: number
+  y: number
+  chips: ParticleChip[]
+}
+let particleId = 0
+const PARTICLE_DURATION_MS = 450
+const PARTICLE_COUNT = 6
+
 const TAPS_PER_SECOND_WINDOW_MS = 2000
 
 type Phase = 'idle' | 'playing' | 'submitting' | 'result'
@@ -107,6 +126,7 @@ export function Battle() {
   const [timeLeftPct, setTimeLeftPct] = useState(100)
   const [result, setResult] = useState<ResultState | null>(null)
   const [shots, setShots] = useState<ShotEffect[]>([])
+  const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const objectRef = useRef<HTMLDivElement>(null)
@@ -216,17 +236,30 @@ export function Battle() {
       recentTapsRef.current.push(now)
       tapsRef.current += 1
       setTaps(tapsRef.current)
+      playLaserShot()
 
-      setShots((prev) => {
-        const sId = shotId++
-        const dx = objX - x
-        const dy = objY - y
-        const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
+      const sId = shotId++
+      const dx = objX - x
+      const dy = objY - y
+      const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
+      setShots((prev) => [...prev, { id: sId, startX: x, startY: y, dx, dy, angleDeg }])
+
+      window.setTimeout(() => {
+        setShots((current) => current.filter((s) => s.id !== sId))
+
+        // Debris burst fires once the bolt actually reaches the asteroid,
+        // not on the tap itself.
+        const pId = particleId++
+        const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
+          angle: Math.random() * 360,
+          distance: 38 + Math.random() * 48,
+          size: 3.5 + Math.random() * 4,
+        }))
+        setParticleBursts((current) => [...current, { id: pId, x: objX, y: objY, chips }])
         window.setTimeout(() => {
-          setShots((current) => current.filter((s) => s.id !== sId))
-        }, SHOT_DURATION_MS)
-        return [...prev, { id: sId, startX: x, startY: y, dx, dy, angleDeg }]
-      })
+          setParticleBursts((current) => current.filter((b) => b.id !== pId))
+        }, PARTICLE_DURATION_MS)
+      }, SHOT_DURATION_MS)
     },
     [],
   )
@@ -333,6 +366,31 @@ export function Battle() {
           transition={{ duration: SHOT_DURATION_MS / 1000, ease: 'easeIn' }}
         />
       ))}
+
+      {/* Debris — small chips bursting off the asteroid on every hit. */}
+      {particleBursts.map((burst) =>
+        burst.chips.map((chip, i) => {
+          const rad = (chip.angle * Math.PI) / 180
+          const dx = Math.cos(rad) * chip.distance
+          const dy = Math.sin(rad) * chip.distance
+          return (
+            <motion.span
+              key={`${burst.id}-${i}`}
+              className="pointer-events-none absolute z-20 rounded-sm bg-violet-100"
+              style={{
+                left: burst.x - chip.size / 2,
+                top: burst.y - chip.size / 2,
+                width: chip.size,
+                height: chip.size,
+                boxShadow: '0 0 8px 1px rgba(233,213,255,0.9)',
+              }}
+              initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+              animate={{ x: dx, y: dy, opacity: 0, scale: 0.3 }}
+              transition={{ duration: PARTICLE_DURATION_MS / 1000, ease: 'easeOut' }}
+            />
+          )
+        }),
+      )}
 
       {/* Countdown bar — no tab bar on this screen, so the bottom of the
           viewport is free for it. Stays full until the first tap starts it. */}

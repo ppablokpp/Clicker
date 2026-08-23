@@ -34,6 +34,7 @@ import { useGemChestContext } from '../context/GemChestContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
+import { playLaserShot } from '../lib/battleSound'
 import { objectCost } from '../lib/spaceObjects'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
@@ -85,6 +86,24 @@ let shotId = 0
 // +N effect waits this long before landing, so it appears exactly when the
 // shot visually arrives at the object instead of at an arbitrary offset.
 const SHOT_DURATION_MS = 280
+
+// Small debris chips that burst outward from the object on every hit, same
+// recipe as Battle.tsx's duel screen — spawned from the object's own center
+// at impact time, not from the tap point.
+interface ParticleChip {
+  angle: number
+  distance: number
+  size: number
+}
+interface ParticleBurst {
+  id: number
+  x: number
+  y: number
+  chips: ParticleChip[]
+}
+let particleId = 0
+const PARTICLE_DURATION_MS = 450
+const PARTICLE_COUNT = 6
 
 // The orbiting drones' distance from the ring's center. Plain `vmin` alone
 // looked right on mobile (where the viewport roughly matches the object
@@ -475,6 +494,7 @@ export function Home() {
   const { bonusMultiplier } = useMilestonesContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
+  const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
   // The real reset flow (confirm/shop modals) is still parked — see the
   // commented-out blocks further down — so the button just flashes a
   // "coming soon" label instead of opening anything for now.
@@ -648,6 +668,7 @@ export function Home() {
       const displayAmount = Math.floor(popupCarryRef.current)
       popupCarryRef.current -= displayAmount
       registerClick(amount)
+      playLaserShot()
 
       // Fire a shot from the tap point at the space object, then land the
       // ripple/+N there once the shot actually arrives instead of showing
@@ -683,6 +704,18 @@ export function Home() {
         window.setTimeout(() => {
           setEffects((prev) => prev.filter((fx) => fx.id !== id))
         }, 900)
+
+        // Debris burst — same recipe as Battle.tsx's duel screen.
+        const pId = particleId++
+        const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
+          angle: Math.random() * 360,
+          distance: 38 + Math.random() * 48,
+          size: 3.5 + Math.random() * 4,
+        }))
+        setParticleBursts((current) => [...current, { id: pId, x: objX, y: objY, chips }])
+        window.setTimeout(() => {
+          setParticleBursts((current) => current.filter((b) => b.id !== pId))
+        }, PARTICLE_DURATION_MS)
       }, SHOT_DURATION_MS)
     },
     [
@@ -962,6 +995,31 @@ export function Home() {
           transition={{ duration: SHOT_DURATION_MS / 1000, ease: 'easeIn' }}
         />
       ))}
+
+      {/* Debris — small chips bursting off the object on every hit. */}
+      {particleBursts.map((burst) =>
+        burst.chips.map((chip, i) => {
+          const rad = (chip.angle * Math.PI) / 180
+          const dx = Math.cos(rad) * chip.distance
+          const dy = Math.sin(rad) * chip.distance
+          return (
+            <motion.span
+              key={`${burst.id}-${i}`}
+              className="pointer-events-none absolute z-20 rounded-sm bg-violet-100"
+              style={{
+                left: burst.x - chip.size / 2,
+                top: burst.y - chip.size / 2,
+                width: chip.size,
+                height: chip.size,
+                boxShadow: '0 0 8px 1px rgba(233,213,255,0.9)',
+              }}
+              initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+              animate={{ x: dx, y: dy, opacity: 0, scale: 0.3 }}
+              transition={{ duration: PARTICLE_DURATION_MS / 1000, ease: 'easeOut' }}
+            />
+          )
+        }),
+      )}
 
       {showInventory && (
         <div
