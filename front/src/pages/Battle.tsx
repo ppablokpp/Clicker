@@ -96,8 +96,13 @@ interface ParticleBurst {
   chips: ParticleChip[]
 }
 let particleId = 0
-const PARTICLE_DURATION_MS = 450
-const PARTICLE_COUNT = 6
+const PARTICLE_DURATION_MS = 380
+const PARTICLE_COUNT = 4
+// A fast tapper can fire well past 20-30 shots/second — spawning a burst on
+// every single one piles up too many simultaneously-animated elements and
+// visibly janks on mobile. Bursts are throttled independently of shots so
+// the laser bolts themselves stay perfectly responsive either way.
+const MIN_PARTICLE_INTERVAL_MS = 90
 
 const TAPS_PER_SECOND_WINDOW_MS = 2000
 
@@ -135,6 +140,7 @@ export function Battle() {
   const recentTapsRef = useRef<number[]>([])
   const tapsRef = useRef(0)
   const phaseRef = useRef<Phase>('idle')
+  const lastParticleAtRef = useRef(0)
 
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
@@ -248,17 +254,22 @@ export function Battle() {
         setShots((current) => current.filter((s) => s.id !== sId))
 
         // Debris burst fires once the bolt actually reaches the asteroid,
-        // not on the tap itself.
-        const pId = particleId++
-        const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
-          angle: Math.random() * 360,
-          distance: 38 + Math.random() * 48,
-          size: 3.5 + Math.random() * 4,
-        }))
-        setParticleBursts((current) => [...current, { id: pId, x: objX, y: objY, chips }])
-        window.setTimeout(() => {
-          setParticleBursts((current) => current.filter((b) => b.id !== pId))
-        }, PARTICLE_DURATION_MS)
+        // not on the tap itself — throttled separately from shots so a fast
+        // tapper doesn't pile up dozens of animated chips at once.
+        const impactAt = Date.now()
+        if (impactAt - lastParticleAtRef.current >= MIN_PARTICLE_INTERVAL_MS) {
+          lastParticleAtRef.current = impactAt
+          const pId = particleId++
+          const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
+            angle: Math.random() * 360,
+            distance: 38 + Math.random() * 48,
+            size: 3.5 + Math.random() * 4,
+          }))
+          setParticleBursts((current) => [...current, { id: pId, x: objX, y: objY, chips }])
+          window.setTimeout(() => {
+            setParticleBursts((current) => current.filter((b) => b.id !== pId))
+          }, PARTICLE_DURATION_MS)
+        }
       }, SHOT_DURATION_MS)
     },
     [],

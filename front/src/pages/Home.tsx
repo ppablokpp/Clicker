@@ -102,8 +102,13 @@ interface ParticleBurst {
   chips: ParticleChip[]
 }
 let particleId = 0
-const PARTICLE_DURATION_MS = 450
-const PARTICLE_COUNT = 6
+const PARTICLE_DURATION_MS = 380
+const PARTICLE_COUNT = 4
+// A fast tapper can fire well past 20-30 shots/second — spawning a burst on
+// every single one piles up too many simultaneously-animated elements and
+// visibly janks on mobile. Bursts are throttled independently of shots so
+// the laser bolts themselves stay perfectly responsive either way.
+const MIN_PARTICLE_INTERVAL_MS = 90
 
 // The orbiting drones' distance from the ring's center. Plain `vmin` alone
 // looked right on mobile (where the viewport roughly matches the object
@@ -527,6 +532,7 @@ export function Home() {
   // click, no shot, nothing — it doesn't even start "counting" until an
   // existing one lifts and frees a slot.
   const activePointersRef = useRef<Set<number>>(new Set())
+  const lastParticleAtRef = useRef(0)
   const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
   const [legendaryStreak, setLegendaryStreak] = useState({ tier: 0, count: 0 })
   // Falling out of legendary breaks the combo — back to the base x2 and an
@@ -705,7 +711,12 @@ export function Home() {
           setEffects((prev) => prev.filter((fx) => fx.id !== id))
         }, 900)
 
-        // Debris burst — same recipe as Battle.tsx's duel screen.
+        // Debris burst — same recipe as Battle.tsx's duel screen, throttled
+        // separately from shots so a fast tapper doesn't pile up dozens of
+        // animated chips at once.
+        const impactAt = Date.now()
+        if (impactAt - lastParticleAtRef.current < MIN_PARTICLE_INTERVAL_MS) return
+        lastParticleAtRef.current = impactAt
         const pId = particleId++
         const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
           angle: Math.random() * 360,
