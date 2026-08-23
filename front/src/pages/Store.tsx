@@ -46,7 +46,7 @@ export function Store() {
               <button
                 onClick={() => setShowClickPacks(true)}
                 aria-label={strings.store.buyClicksTitle}
-                className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-xs font-semibold tabular-nums text-neutral-300 transition-colors hover:bg-white/[0.06]"
+                className="flex items-center gap-1 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1 text-xs font-semibold tabular-nums text-violet-200 transition-colors hover:bg-violet-500/[0.14]"
               >
                 <PlatinumIcon size={15} className="opacity-70" />
                 {totalClicks.toLocaleString(locale)}
@@ -182,12 +182,15 @@ function computeSavingsPct(baseUnitPrice: number, unitPrice: number): number {
   return Math.round((1 - unitPrice / baseUnitPrice) * 100)
 }
 
-type PackTheme = 'neutral' | 'amber' | 'indigo'
+type PackTheme = 'neutral' | 'amber' | 'indigo' | 'violet'
 
 const PACK_THEME: Record<PackTheme, { iconWrap: string }> = {
   neutral: { iconWrap: 'bg-gradient-to-br from-white/25 to-white/10 text-white' },
   amber: { iconWrap: 'bg-gradient-to-br from-amber-400/30 to-yellow-500/20 text-amber-200' },
   indigo: { iconWrap: 'bg-gradient-to-br from-indigo-400/30 to-violet-500/20 text-indigo-200' },
+  // Matches the platino badge/pill's own violet everywhere else (Home's
+  // pt/s pill, the Store header badge).
+  violet: { iconWrap: 'bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200' },
 }
 
 // Same soft glass look by default — bordered, translucent, blurred, not the
@@ -324,7 +327,7 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
   }
 
   return (
-    <PackModalShell title={strings.buyClicksTitle} icon={PlatinumIcon} theme="neutral" onClose={onClose} error={error}>
+    <PackModalShell title={strings.buyClicksTitle} icon={PlatinumIcon} theme="violet" onClose={onClose} error={error}>
       {catalog.map((pack, i) => {
         const unitPrice = pack.gemCost / pack.clicks
         const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
