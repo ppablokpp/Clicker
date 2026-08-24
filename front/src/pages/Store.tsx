@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
-import { Rocket, Dices, Magnet, Clock, Gift, Loader2, List, X, Gem, Key } from 'lucide-react'
+import { Rocket, Dices, Magnet, Clock, Archive, Loader2, List, X, Gem, Key } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 
@@ -1332,7 +1332,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
 
       <div className="relative mb-1 flex items-center gap-2">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400/30 to-rose-500/20 text-red-200">
-          <Gift size={17} />
+          <Archive size={17} />
         </div>
         <div className="text-base font-semibold text-white">{strings.casesSection}</div>
         <button
@@ -1358,7 +1358,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
 
       <div className="relative mb-12 grid grid-cols-2 gap-3">
         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
-          <Gift size={18} className="text-neutral-400" />
+          <Archive size={18} className="text-neutral-400" />
           <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleClicks}</span>
           <button
             onClick={() => handleBuyChest('click')}
@@ -1381,7 +1381,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           </button>
         </div>
         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
-          <Gift size={18} className="text-indigo-300" />
+          <Archive size={18} className="text-indigo-300" />
           <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleGems}</span>
           <button
             onClick={() => handleBuyChest('gem')}

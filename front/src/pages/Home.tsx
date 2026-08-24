@@ -6,13 +6,17 @@ import {
   Zap,
   Rocket,
   Gem,
+  Archive,
   Dices,
   Magnet,
   Key,
-  Gift,
-  TrendingUp,
-  Backpack,
+  Package,
+  ClipboardList,
+  Crosshair,
   Info,
+  ChartNoAxesCombined,
+  Satellite,
+  Split,
   X,
   Sparkles,
   MousePointerClick,
@@ -459,6 +463,9 @@ export function Home() {
     legendaryStreakBase,
     legendaryBonusStep,
     multiShotValue,
+    autoLuckLevel,
+    autoLuckMultiplier,
+    autoMultiplierValue,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
   // of the prestige UI (shop, reset flow) is disabled below.
@@ -513,6 +520,8 @@ export function Home() {
   // "coming soon" label instead of opening anything for now.
   const [showComingSoon, setShowComingSoon] = useState(false)
   const [showInventory, setShowInventory] = useState(false)
+  const [showShip, setShowShip] = useState(false)
+  const [showTasks, setShowTasks] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // The space object's own on-screen box — click shots animate from the tap
@@ -788,15 +797,34 @@ export function Home() {
         </div>
       )}
 
-      {/* Inventory button — mirrors the CPS badge's position on the right. */}
-      <button
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => setShowInventory(true)}
-        aria-label={strings.home.inventory}
-        className="pointer-events-auto absolute right-4 top-20 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6"
-      >
-        <Backpack size={16} />
-      </button>
+      {/* Right-side button column — Tu nave above Inventory, Tareas below,
+          mirrors the CPS badge's position on the left. */}
+      <div className="pointer-events-auto absolute right-4 top-20 z-10 flex flex-col gap-2 sm:right-6">
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowShip(true)}
+          aria-label={strings.home.ship}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06]"
+        >
+          <Rocket size={16} />
+        </button>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowInventory(true)}
+          aria-label={strings.home.inventory}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06]"
+        >
+          <Package size={16} />
+        </button>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowTasks(true)}
+          aria-label={strings.home.tasks}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06]"
+        >
+          <ClipboardList size={16} />
+        </button>
+      </div>
 
       {/* CPS badge + combined multiplier (below the fixed header) */}
       <div className="pointer-events-none absolute left-4 top-20 z-10 flex flex-col gap-1.5 sm:left-6">
@@ -844,56 +872,9 @@ export function Home() {
           )}
         </span>
 
-        {autoClickCps > 0 && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-zinc-400/25 bg-zinc-500/30 px-3 py-1.5 text-xs font-medium text-zinc-300 shadow-lg shadow-black/20">
-            <span className="text-zinc-400">
-              <DroneIcon size={12} />
-            </span>
-            {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}{' '}
-            {strings.home.cps}
-          </span>
-        )}
-
-        {bestMoneyOwned && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-3 py-1.5 text-xs font-bold text-fuchsia-200 shadow-lg shadow-black/20">
-            <Gem size={12} className="text-fuchsia-300" />×{bestMoneyOwned.multiplier}
-          </span>
-        )}
-
-        {hasLuck && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-green-400/20 bg-green-500/[0.07] px-3 py-1.5 text-xs font-bold text-green-200 shadow-lg shadow-black/20">
-            <Sparkles size={12} className="text-green-300" />×{combinedLuckMultiplier}
-            {activeLuckPowerup && (
-              <>
-                <Dices size={12} className="text-green-300" />
-                <span className="tabular-nums text-green-300">
-                  {Math.floor(luckSecondsLeft / 60)}:{String(luckSecondsLeft % 60).padStart(2, '0')}
-                </span>
-              </>
-            )}
-          </span>
-        )}
-
-        {activeMagnet && (
-          <span
-            className={`flex w-fit items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-lg shadow-black/20 ${
-              activeMagnet.currency === 'keys'
-                ? 'border-amber-400/20 bg-amber-500/[0.07] text-amber-200'
-                : 'border-indigo-400/20 bg-indigo-500/[0.07] text-indigo-200'
-            }`}
-          >
-            <Magnet size={12} className={activeMagnet.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'} />
-            <span className="tabular-nums">
-              {Math.floor(magnetSecondsLeft / 60)}:{String(magnetSecondsLeft % 60).padStart(2, '0')}
-            </span>
-          </span>
-        )}
-
-        {bonusMultiplier > 1 && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/[0.07] px-3 py-1.5 text-xs font-bold text-emerald-200 shadow-lg shadow-black/20">
-            <TrendingUp size={12} className="text-emerald-300" />×{bonusMultiplier}
-          </span>
-        )}
+        {/* Every other status pill (drones, money multiplier, luck, magnet,
+            milestone bonus) moved into the "Tu nave" modal below — this
+            column now only ever shows the two live-rate pills. */}
 
         {/* Prestige points pill disabled along with the rest of the
             prestige UI — see the other commented-out prestige blocks below. */}
@@ -911,7 +892,7 @@ export function Home() {
 
       {/* Platino — big number at the top, nudged down a bit below the
           header/pills row instead of sharing its exact top-20/24 line. */}
-      <div className="pointer-events-none absolute left-0 right-0 top-48 z-10 flex justify-center sm:top-52">
+      <div className="pointer-events-none absolute left-0 right-0 top-[11.5rem] z-10 flex justify-center sm:top-[12.5rem]">
         <motion.span
           key={totalClicks}
           initial={{ scale: 1 }}
@@ -1049,25 +1030,30 @@ export function Home() {
           onClick={() => setShowInventory(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] py-6 pl-6 pr-2 shadow-2xl shadow-black/50"
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] shadow-2xl shadow-black/50"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => setShowInventory(false)}
-              aria-label="Close"
-              className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="mb-4 flex shrink-0 items-center gap-2 pr-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-sky-500/20 text-cyan-200">
-                <Backpack size={17} />
+            <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
+              <div
+                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.35) 0%, transparent 70%)' }}
+              />
+              <button
+                onClick={() => setShowInventory(false)}
+                aria-label="Close"
+                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+              >
+                <X size={16} />
+              </button>
+              <div className="relative flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-400/30 bg-gradient-to-br from-amber-400/30 to-orange-500/20 text-amber-200">
+                  <Package size={19} />
+                </div>
+                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.inventoryTitle}</p>
               </div>
-              <p className="text-sm font-semibold text-white">{strings.home.inventoryTitle}</p>
             </div>
 
-            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto pr-4">
+            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
             <div className="flex flex-col gap-4">
               {(ownedClickChests > 0 || ownedGemChests > 0) && (
                 <div>
@@ -1077,7 +1063,7 @@ export function Home() {
                   <div className="grid grid-cols-2 gap-2">
                     {ownedClickChests > 0 && (
                       <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
-                        <Gift size={18} className="text-neutral-400" />
+                        <Archive size={18} className="text-neutral-400" />
                         <span className="text-xs font-semibold text-white">{strings.store.caseTitleClicks}</span>
                         <span className="text-[10px] tabular-nums text-neutral-500">x{ownedClickChests}</span>
                         <button
@@ -1091,7 +1077,7 @@ export function Home() {
 
                     {ownedGemChests > 0 && (
                       <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
-                        <Gift size={18} className="text-indigo-300" />
+                        <Archive size={18} className="text-indigo-300" />
                         <span className="text-xs font-semibold text-white">{strings.store.caseTitleGems}</span>
                         <span className="text-[10px] tabular-nums text-neutral-500">x{ownedGemChests}</span>
                         <button
@@ -1279,6 +1265,204 @@ export function Home() {
                 <p className="py-6 text-center text-sm text-neutral-500">{strings.home.inventoryEmpty}</p>
               )}
             </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShip && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowShip(false)}
+        >
+          <div
+            className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cockpit-glow header strip — same radial-gradient trick as the
+                asteroid/prestige glows elsewhere (never a CSS `blur()`, which
+                flashes-to-square on some mobile Chromium builds). */}
+            <div className="relative overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
+              <div
+                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.35) 0%, transparent 70%)' }}
+              />
+              <button
+                onClick={() => setShowShip(false)}
+                aria-label="Close"
+                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+              >
+                <X size={16} />
+              </button>
+              <div className="relative flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-400/30 bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
+                  <Rocket size={19} />
+                </div>
+                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.commandCenterTitle}</p>
+              </div>
+            </div>
+
+            <div className="scroll-thin flex max-h-[60vh] flex-col gap-5 overflow-y-auto p-5">
+              <div>
+                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {strings.home.shipSection}
+                </p>
+                <div className="flex flex-col gap-2.5">
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-300">
+                        <Crosshair size={14} />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{strings.home.shipPower}</p>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      {strings.home.shipPowerDesc}{' '}
+                      <span className="font-semibold text-white">
+                        {(baseClickMultiplier * tapMultiplierValue).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300">
+                        <Split size={14} />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{strings.home.shipMultiShot}</p>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      {strings.home.shipMultiShotDesc} <span className="font-semibold text-white">{multiShotValue}</span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-300">
+                        <Sparkles size={14} />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{strings.home.shipLuckChance}</p>
+                    </div>
+                    {hasLuck ? (
+                      <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
+                        <p>
+                          {strings.home.shipLuckPowerDesc}{' '}
+                          <span className="font-semibold text-white">{combinedLuckMultiplier}</span>
+                        </p>
+                        <p>
+                          {strings.home.shipLuckChanceDesc}{' '}
+                          <span className="font-semibold text-white">{Math.round(luckChance * 100)}%</span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-medium text-neutral-600">{strings.home.shipNotInstalled}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {strings.home.fleetSection}
+                </p>
+                <div className="flex flex-col gap-2.5">
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-500/20 text-zinc-300">
+                        <ChartNoAxesCombined size={14} />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{strings.home.shipDroneProduction}</p>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      {strings.home.shipDroneProductionDesc}{' '}
+                      <span className="font-semibold text-white">
+                        {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}
+                      </span>{' '}
+                      {strings.home.cps}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-violet-300">
+                        <DroneIcon size={14} />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{strings.home.shipDroneCount}</p>
+                    </div>
+                    <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
+                      <p>
+                        {strings.home.shipDroneCountDesc}{' '}
+                        <span className="font-semibold text-white">{autoClickLevel}</span>
+                      </p>
+                      <p>
+                        {strings.home.shipDronePerUnitDesc}{' '}
+                        <span className="font-semibold text-white">
+                          {autoMultiplierValue.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>{' '}
+                        {strings.home.cps}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
+                        <Satellite size={14} />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{strings.home.shipScoutDrones}</p>
+                    </div>
+                    {autoLuckLevel > 0 ? (
+                      <p className="text-xs text-neutral-400">
+                        {strings.home.shipScoutDronesDesc}{' '}
+                        <span className="font-semibold text-white">{autoLuckMultiplier}</span>
+                      </p>
+                    ) : (
+                      <p className="text-xs font-medium text-neutral-600">{strings.home.shipNotInstalled}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTasks && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowTasks(false)}
+        >
+          <div
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
+              <div
+                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.35) 0%, transparent 70%)' }}
+              />
+              <button
+                onClick={() => setShowTasks(false)}
+                aria-label="Close"
+                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+              >
+                <X size={16} />
+              </button>
+              <div className="relative flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/30 bg-gradient-to-br from-emerald-400/30 to-teal-500/20 text-emerald-200">
+                  <ClipboardList size={19} />
+                </div>
+                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.tasksTitle}</p>
+              </div>
+            </div>
+
+            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
+              <p className="py-6 text-center text-sm text-neutral-500">{strings.home.tasksEmpty}</p>
             </div>
           </div>
         </div>

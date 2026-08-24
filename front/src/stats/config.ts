@@ -1,4 +1,4 @@
-import { MousePointerClick, Zap, Gift, Flame } from 'lucide-react'
+import { MousePointerClick, Zap, Archive, Flame } from 'lucide-react'
 
 /** Fixed rank order shared by every category's 4 milestone badges. */
 export const MILESTONE_TIER_KEYS = ['bronze', 'silver', 'gold', 'platinum'] as const
@@ -54,7 +54,7 @@ export const STAT_CATEGORIES = [
   {
     key: 'casesOpened' as const,
     statKey: 'casesOpened' as const,
-    icon: Gift,
+    icon: Archive,
     color: 'text-red-300',
     milestones: [5, 20, 50, 100],
   },

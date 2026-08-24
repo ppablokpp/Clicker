@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Flame, Medal } from 'lucide-react'
+import { CalendarCheck, Flame, Medal } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
 import { useClickDays } from '../hooks/useClickDays'
@@ -137,7 +137,7 @@ export function Stats() {
                       {monthFormatter.format(date)}
                     </span>
                   )}
-                  {clicked ? <Check size={18} /> : date.getDate()}
+                  {clicked ? <CalendarCheck size={18} /> : date.getDate()}
                 </div>
               )
             })}

@@ -27,6 +27,28 @@ export interface TranslationStrings {
     activateButton: string
     inventoryEmpty: string
     durationLabel: (seconds: number) => string
+    ship: string
+    commandCenterTitle: string
+    shipSection: string
+    fleetSection: string
+    shipDroneProduction: string
+    shipDroneProductionDesc: string
+    shipDroneCount: string
+    shipDroneCountDesc: string
+    shipDronePerUnitDesc: string
+    shipLuckChance: string
+    shipLuckPowerDesc: string
+    shipLuckChanceDesc: string
+    shipScoutDrones: string
+    shipScoutDronesDesc: string
+    shipPower: string
+    shipPowerDesc: string
+    shipMultiShot: string
+    shipMultiShotDesc: string
+    shipNotInstalled: string
+    tasks: string
+    tasksTitle: string
+    tasksEmpty: string
   }
   nav: {
     home: string
@@ -250,6 +272,28 @@ export const translations: Record<Language, TranslationStrings> = {
       activateButton: 'Activar',
       inventoryEmpty: 'Aquí se guardan tus objetos. Cuando consigas alguno, aparecerá aquí.',
       durationLabel: (seconds) => `Dura ${seconds}s`,
+      ship: 'Tu nave',
+      commandCenterTitle: 'Centro de mando',
+      shipSection: 'Tu nave',
+      fleetSection: 'Flota',
+      shipDroneProduction: 'Producción de la flota',
+      shipDroneProductionDesc: 'Producción total:',
+      shipDroneCount: 'Drones',
+      shipDroneCountDesc: 'Drones activos:',
+      shipDronePerUnitDesc: 'Producción de cada dron:',
+      shipLuckChance: 'Destello',
+      shipLuckPowerDesc: 'Potencia de destello:',
+      shipLuckChanceDesc: 'Probabilidad de destello:',
+      shipScoutDrones: 'Drones buscadores',
+      shipScoutDronesDesc: 'Multiplicador al encontrar un destello:',
+      shipPower: 'Potencia',
+      shipPowerDesc: 'Platino que se extrae por cada disparo:',
+      shipMultiShot: 'Multidisparo',
+      shipMultiShotDesc: 'Cañones de la nave principal:',
+      shipNotInstalled: 'No instalado',
+      tasks: 'Tareas',
+      tasksTitle: 'Tareas pendientes',
+      tasksEmpty: 'No tienes tareas pendientes.',
     },
     nav: {
       home: 'Inicio',
@@ -475,9 +519,9 @@ export const translations: Record<Language, TranslationStrings> = {
       tapMultiplierName: 'Amplificador',
       tapMultiplierDesc: 'Multiplica la potencia de cada disparo.',
       multiShotName: 'Multidisparo',
-      multiShotDesc: 'Aumenta cuántos disparos puedes tener activos a la vez.',
-      currentMultiShot: 'Disparos actuales:',
-      nextMultiShot: 'Disparos siguiente nivel:',
+      multiShotDesc: 'Aumenta los cañones de la nave principal.',
+      currentMultiShot: 'Cañones actuales:',
+      nextMultiShot: 'Cañones siguiente nivel:',
       currentProduction: 'Producción actual:',
       nextProduction: 'Producción siguiente nivel:',
     },
@@ -550,6 +594,28 @@ export const translations: Record<Language, TranslationStrings> = {
       activateButton: 'Activate',
       inventoryEmpty: "Your items live here. Once you get one, it'll show up here.",
       durationLabel: (seconds) => `Lasts ${seconds}s`,
+      ship: 'Your Ship',
+      commandCenterTitle: 'Command Center',
+      shipSection: 'Your Ship',
+      fleetSection: 'Fleet',
+      shipDroneProduction: 'Fleet production',
+      shipDroneProductionDesc: 'Total production:',
+      shipDroneCount: 'Drones',
+      shipDroneCountDesc: 'Active drones:',
+      shipDronePerUnitDesc: 'Production per drone:',
+      shipLuckChance: 'Glimmer',
+      shipLuckPowerDesc: 'Glimmer power:',
+      shipLuckChanceDesc: 'Glimmer odds:',
+      shipScoutDrones: 'Scout drones',
+      shipScoutDronesDesc: 'Multiplier when they find a glimmer:',
+      shipPower: 'Power',
+      shipPowerDesc: 'Platinum pulled out with every shot:',
+      shipMultiShot: 'Multi-shot',
+      shipMultiShotDesc: 'Main ship cannons:',
+      shipNotInstalled: 'Not installed',
+      tasks: 'Tasks',
+      tasksTitle: 'Pending tasks',
+      tasksEmpty: "You don't have any pending tasks.",
     },
     nav: {
       home: 'Home',
@@ -774,9 +840,9 @@ export const translations: Record<Language, TranslationStrings> = {
       tapMultiplierName: 'Amplifier',
       tapMultiplierDesc: "Multiplies the power of each shot.",
       multiShotName: 'Multi-shot',
-      multiShotDesc: 'Raises how many shots you can have active at once.',
-      currentMultiShot: "Current shots:",
-      nextMultiShot: "Next level shots:",
+      multiShotDesc: "Increases the main ship's cannons.",
+      currentMultiShot: 'Current cannons:',
+      nextMultiShot: 'Next level cannons:',
       currentProduction: 'Current production:',
       nextProduction: 'Next level production:',
     },
