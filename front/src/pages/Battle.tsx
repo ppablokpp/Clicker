@@ -42,14 +42,31 @@ function buildRoundRockOutline(pointCount: number, baseRadius: number, jitter: n
   }
   return points
 }
-const ASTEROID_POINTS = buildRoundRockOutline(20, 42, 5)
+const ASTEROID_POINTS = buildRoundRockOutline(20, 42, 3)
   .map((p) => p.join(','))
   .join(' ')
+// Same shading recipe as Home's SpaceObject (gradient body, crater depth,
+// grain, sunlit patch) — see that component for the long version of why.
+// Kept in sync by hand since there's no shared component between the two
+// screens; whenever the rock changes on Home, mirror it here too.
 const CRATERS = [
-  { cx: 38, cy: 38, r: 6 },
-  { cx: 63, cy: 55, r: 8 },
+  { cx: 38, cy: 38, r: 6.5 },
+  { cx: 63, cy: 55, r: 8.5 },
   { cx: 68, cy: 32, r: 4 },
-  { cx: 42, cy: 66, r: 5 },
+  { cx: 42, cy: 66, r: 5.5 },
+  { cx: 55, cy: 40, r: 3 },
+  { cx: 28, cy: 55, r: 3.5 },
+  { cx: 60, cy: 68, r: 2.5 },
+]
+const SPECKLES = [
+  { cx: 30, cy: 28, r: 1.4 },
+  { cx: 48, cy: 24, r: 1 },
+  { cx: 72, cy: 45, r: 1.2 },
+  { cx: 58, cy: 58, r: 1 },
+  { cx: 35, cy: 48, r: 0.9 },
+  { cx: 45, cy: 72, r: 1.3 },
+  { cx: 25, cy: 62, r: 1 },
+  { cx: 65, cy: 25, r: 0.9 },
 ]
 
 // Same starfield trick as Home — one element's box-shadow holding hundreds
@@ -344,11 +361,53 @@ export function Battle() {
               y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
             }}
           >
-            <svg viewBox="0 0 100 100" width={76} height={76} style={{ filter: 'drop-shadow(0 0 20px rgba(168,85,247,0.6))' }}>
-              <polygon points={ASTEROID_POINTS} fill="#a78bfa" stroke="rgba(0,0,0,0.25)" strokeWidth={2} strokeLinejoin="round" />
-              {CRATERS.map((c, i) => (
-                <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill="rgba(0,0,0,0.18)" />
-              ))}
+            <svg
+              viewBox="0 0 100 100"
+              width={76}
+              height={76}
+              style={{ filter: 'drop-shadow(0 0 20px rgba(168,85,247,0.6))' }}
+            >
+              <defs>
+                <radialGradient id="battleRockBody" cx="34%" cy="30%" r="80%">
+                  <stop offset="0%" stopColor="#ede9fe" />
+                  <stop offset="45%" stopColor="#a78bfa" />
+                  <stop offset="100%" stopColor="#3b0764" />
+                </radialGradient>
+                <radialGradient id="battleCraterWell" cx="50%" cy="38%" r="70%">
+                  <stop offset="0%" stopColor="rgba(0,0,0,0.6)" />
+                  <stop offset="75%" stopColor="rgba(0,0,0,0.32)" />
+                  <stop offset="100%" stopColor="rgba(0,0,0,0.05)" />
+                </radialGradient>
+                <clipPath id="battleRockSilhouette">
+                  <polygon points={ASTEROID_POINTS} />
+                </clipPath>
+              </defs>
+
+              <polygon
+                points={ASTEROID_POINTS}
+                fill="url(#battleRockBody)"
+                stroke="rgba(0,0,0,0.35)"
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+              />
+
+              <g clipPath="url(#battleRockSilhouette)">
+                {CRATERS.map((c, i) => (
+                  <g key={i}>
+                    <circle cx={c.cx} cy={c.cy} r={c.r} fill="url(#battleCraterWell)" />
+                    <circle
+                      cx={c.cx - c.r * 0.32}
+                      cy={c.cy - c.r * 0.32}
+                      r={c.r * 0.3}
+                      fill="rgba(255,255,255,0.16)"
+                    />
+                  </g>
+                ))}
+                {SPECKLES.map((s, i) => (
+                  <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="rgba(0,0,0,0.22)" />
+                ))}
+                <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
+              </g>
             </svg>
           </motion.div>
         </div>

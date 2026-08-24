@@ -53,6 +53,9 @@ export interface TranslationStrings {
     tasks: string
     tasksTitle: string
     tasksEmpty: string
+    log: string
+    logTitle: string
+    logEmpty: string
   }
   nav: {
     home: string
@@ -304,6 +307,9 @@ export const translations: Record<Language, TranslationStrings> = {
       tasks: 'Tareas',
       tasksTitle: 'Tareas pendientes',
       tasksEmpty: 'No tienes tareas pendientes.',
+      log: 'Trayectoria',
+      logTitle: 'Trayectoria',
+      logEmpty: 'Todavía no hay datos de trayectoria.',
     },
     nav: {
       home: 'Nave',
@@ -632,6 +638,9 @@ export const translations: Record<Language, TranslationStrings> = {
       tasks: 'Tasks',
       tasksTitle: 'Pending tasks',
       tasksEmpty: "You don't have any pending tasks.",
+      log: 'Trajectory',
+      logTitle: 'Trajectory',
+      logEmpty: 'No trajectory data yet.',
     },
     nav: {
       home: 'Ship',

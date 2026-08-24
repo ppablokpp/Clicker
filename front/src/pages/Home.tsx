@@ -17,6 +17,7 @@ import {
   Info,
   ChartNoAxesCombined,
   Split,
+  Route,
   X,
   Sparkles,
   MousePointerClick,
@@ -262,28 +263,52 @@ function buildRoundRockOutline(pointCount: number, baseRadius: number, jitter: n
   return points
 }
 
-const ASTEROID_POINTS = buildRoundRockOutline(20, 42, 5)
+const ASTEROID_POINTS = buildRoundRockOutline(20, 42, 3)
   .map((p) => p.join(','))
   .join(' ')
 
+// Craters vary in size and get their own tiny rim highlight (offset toward
+// the same upper-left "sun" the body gradient and sunlit patch below all
+// share) so each one reads as an actual dented impact instead of a flat
+// dark dot.
 const CRATERS = [
-  { cx: 38, cy: 38, r: 6 },
-  { cx: 63, cy: 55, r: 8 },
+  { cx: 38, cy: 38, r: 6.5 },
+  { cx: 63, cy: 55, r: 8.5 },
   { cx: 68, cy: 32, r: 4 },
-  { cx: 42, cy: 66, r: 5 },
+  { cx: 42, cy: 66, r: 5.5 },
+  { cx: 55, cy: 40, r: 3 },
+  { cx: 28, cy: 55, r: 3.5 },
+  { cx: 60, cy: 68, r: 2.5 },
+]
+
+// Fine surface grain — small dark speckles scattered across the body,
+// clipped to the rock's own silhouette, purely to break up the gradient
+// fill so it doesn't read as smooth/plasticky at this size.
+const SPECKLES = [
+  { cx: 30, cy: 28, r: 1.4 },
+  { cx: 48, cy: 24, r: 1 },
+  { cx: 72, cy: 45, r: 1.2 },
+  { cx: 58, cy: 58, r: 1 },
+  { cx: 35, cy: 48, r: 0.9 },
+  { cx: 45, cy: 72, r: 1.3 },
+  { cx: 25, cy: 62, r: 1 },
+  { cx: 65, cy: 25, r: 0.9 },
 ]
 
 // Cosmetic color tier every 10 objects broken — same round rock throughout,
 // just recolored so a long session doesn't stare at the exact same one
 // forever. Per-object progress isn't shown visually at all right now (the
 // earlier cracking-apart version and the bar under it both got dropped) —
-// the rock just glows a little brighter as `pct` climbs.
+// the rock just glows a little brighter as `pct` climbs. `light`/`dark` feed
+// a radial gradient (instead of the old flat `fill`) so the rock reads as a
+// lit, rounded body — brightest toward the upper-left "sun", falling off to
+// a near-black shadow at the opposite rim.
 const OBJECT_TIERS = [
-  { fill: '#a78bfa', glow: 'rgba(168,85,247,0.6)' },
-  { fill: '#67e8f9', glow: 'rgba(34,211,238,0.6)' },
-  { fill: '#fda4af', glow: 'rgba(251,113,133,0.6)' },
-  { fill: '#fde68a', glow: 'rgba(251,191,36,0.6)' },
-  { fill: '#6ee7b7', glow: 'rgba(52,211,153,0.6)' },
+  { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)' },
+  { light: '#cffafe', fill: '#67e8f9', dark: '#083344', glow: 'rgba(34,211,238,0.6)' },
+  { light: '#ffe4e6', fill: '#fda4af', dark: '#4c0519', glow: 'rgba(251,113,133,0.6)' },
+  { light: '#fef9c3', fill: '#fde68a', dark: '#451a03', glow: 'rgba(251,191,36,0.6)' },
+  { light: '#d1fae5', fill: '#6ee7b7', dark: '#022c22', glow: 'rgba(52,211,153,0.6)' },
 ]
 
 // The thing you're actually clicking now, instead of a bare number — a
@@ -330,10 +355,59 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
             radial-gradient glow behind the rock already sells the "aura"
             without needing a second, shape-hugging filtered glow on top. */}
         <svg viewBox="0 0 100 100" width={76} height={76}>
-          <polygon points={ASTEROID_POINTS} fill={tier.fill} stroke="rgba(0,0,0,0.25)" strokeWidth={2} strokeLinejoin="round" />
-          {CRATERS.map((c, i) => (
-            <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill="rgba(0,0,0,0.18)" />
-          ))}
+          <defs>
+            {/* Body shading — brightest toward the upper-left "sun", falling
+                off to a near-black shadow at the far rim, so the rock reads
+                as a lit, rounded body instead of a flat color-filled shape. */}
+            <radialGradient id="rockBody" cx="34%" cy="30%" r="80%">
+              <stop offset="0%" stopColor={tier.light} />
+              <stop offset="45%" stopColor={tier.fill} />
+              <stop offset="100%" stopColor={tier.dark} />
+            </radialGradient>
+            {/* Crater depth — dark well with a faint lighter rim, reused by
+                every crater below instead of a single flat dot each. */}
+            <radialGradient id="craterWell" cx="50%" cy="38%" r="70%">
+              <stop offset="0%" stopColor="rgba(0,0,0,0.6)" />
+              <stop offset="75%" stopColor="rgba(0,0,0,0.32)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.05)" />
+            </radialGradient>
+            <clipPath id="rockSilhouette">
+              <polygon points={ASTEROID_POINTS} />
+            </clipPath>
+          </defs>
+
+          <polygon
+            points={ASTEROID_POINTS}
+            fill="url(#rockBody)"
+            stroke="rgba(0,0,0,0.35)"
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+
+          {/* Everything below is clipped to the rock's own silhouette so
+              none of it ever pokes past the jagged outline. */}
+          <g clipPath="url(#rockSilhouette)">
+            {CRATERS.map((c, i) => (
+              <g key={i}>
+                <circle cx={c.cx} cy={c.cy} r={c.r} fill="url(#craterWell)" />
+                {/* Tiny rim highlight on each crater's own sunlit edge —
+                    sells the "dent", not just a dark smudge. */}
+                <circle
+                  cx={c.cx - c.r * 0.32}
+                  cy={c.cy - c.r * 0.32}
+                  r={c.r * 0.3}
+                  fill="rgba(255,255,255,0.16)"
+                />
+              </g>
+            ))}
+            {SPECKLES.map((s, i) => (
+              <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="rgba(0,0,0,0.22)" />
+            ))}
+            {/* Sunlit patch — a soft highlight blob, same corner as the body
+                gradient's own bright spot, layered on top for a bit more
+                punch without needing a second light source to fake. */}
+            <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
+          </g>
         </svg>
       </motion.div>
     </div>
@@ -464,13 +538,13 @@ function formatPlatino(value: number, language: 'es' | 'en'): string {
   return `${scaled.toFixed(2)}${suffix}`
 }
 
-// One of the three "switches" on the cockpit console (Tu nave/Inventario/
-// Tareas) — icon, tiny uppercase mono label, and a permanently-lit LED dot
-// (just flavor — every switch reads as "powered", not tied to any state)
-// in the button's own accent color.
-function CockpitButton({
+// One of the four "switches" flanking the platino screen (two stacked on
+// each side) — icon only now, small enough to fit two-high next to the
+// display, but the same chrome as before: bordered tinted box, permanently-
+// lit LED dot (flavor only, every switch reads as "powered") in the
+// button's own accent color.
+function CockpitIconButton({
   icon: Icon,
-  label,
   onClick,
   ariaLabel,
   iconClass,
@@ -478,7 +552,6 @@ function CockpitButton({
   borderClass,
 }: {
   icon: LucideIcon
-  label: string
   onClick: () => void
   ariaLabel: string
   iconClass: string
@@ -490,13 +563,10 @@ function CockpitButton({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`group relative flex flex-1 flex-col items-center gap-1 overflow-hidden rounded-[3px] border bg-white/[0.03] py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.09] ${borderClass}`}
+      className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[3px] border bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.09] sm:h-10 sm:w-10 ${borderClass}`}
     >
-      <span className={`absolute right-1.5 top-1.5 h-1 w-1 rounded-full ${ledClass}`} />
-      <Icon size={17} className={iconClass} />
-      <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-neutral-500 group-hover:text-neutral-400">
-        {label}
-      </span>
+      <span className={`absolute right-1 top-1 h-1 w-1 rounded-full ${ledClass}`} />
+      <Icon size={15} className={iconClass} />
     </button>
   )
 }
@@ -603,6 +673,7 @@ export function Home() {
   const [showInventory, setShowInventory] = useState(false)
   const [showShip, setShowShip] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
+  const [showLog, setShowLog] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // The space object's own on-screen box — click shots animate from the tap
@@ -857,7 +928,7 @@ export function Home() {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className="relative flex h-[100dvh] w-full touch-none select-none flex-col overflow-hidden bg-[#08080c]"
+      className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
       {/* starfield — replaces the old scattered ambient glows entirely */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -881,15 +952,15 @@ export function Home() {
       {/* ============================================================
           Cockpit console — Home's own header, styled as the top instrument
           panel of a ship (pilot's-eye view of the asteroid out the
-          "windshield" below). Normal flow (not absolute) so it reserves
-          its own real height — the asteroid section below centers itself
-          in whatever's left between this and the bottom spacer that
-          reserves the tab bar's height, always landing dead center
-          between the two consoles instead of the full viewport. Only
-          Home gets this treatment; every other screen keeps the plain
-          global Header. The tab bar carries a matching cockpit look on
-          every screen. */}
-      <div className="pointer-events-none relative z-10 w-full flex-none pt-3 sm:pt-4">
+          "windshield" below). Absolute/overlaid — now that the console is
+          this compact (buttons moved to flank the platino screen instead
+          of their own row), there's no realistic viewport height where it'd
+          ever clip the asteroid section, which goes back to being truly
+          viewport-centered below instead of centering itself in the
+          leftover space. Only Home gets this treatment; every other screen
+          keeps the plain global Header. The tab bar carries a matching
+          cockpit look on every screen. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-3 sm:pt-4">
         <div className="relative mx-auto w-full max-w-md px-3 sm:max-w-lg sm:px-4">
           <div
             className="relative overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-[0_10px_34px_-10px_rgba(0,0,0,0.75)]"
@@ -981,66 +1052,76 @@ export function Home() {
               </div>
 
               {/* Row 2 — the main display screen: platino, front and center,
-                  like the ship's primary readout. Corner brackets + a slow
-                  scanline sweep sell the "active screen" feel. */}
-              <div className="relative overflow-hidden rounded-[3px] border border-white/10 bg-black/40 px-3 py-2.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.65)]">
-                <span className="pointer-events-none absolute left-1 top-1 h-2 w-2 border-l border-t border-violet-400/40" />
-                <span className="pointer-events-none absolute right-1 top-1 h-2 w-2 border-r border-t border-violet-400/40" />
-                <span className="pointer-events-none absolute bottom-1 left-1 h-2 w-2 border-b border-l border-violet-400/40" />
-                <span className="pointer-events-none absolute bottom-1 right-1 h-2 w-2 border-b border-r border-violet-400/40" />
-                <motion.div
-                  className="pointer-events-none absolute inset-x-0 h-10 bg-gradient-to-b from-white/[0.05] to-transparent"
-                  initial={{ y: '-2.5rem' }}
-                  animate={{ y: '8rem' }}
-                  transition={{ duration: 3.4, repeat: Infinity, ease: 'linear' }}
-                />
-                <div className="relative flex flex-col items-center">
-                  <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                    {strings.home.hudPlatinoLabel}
-                  </span>
-                  <motion.span
-                    key={totalClicks}
-                    initial={{ scale: 1 }}
-                    animate={{ scale: [1.06, 1] }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 [filter:drop-shadow(0_0_18px_rgba(167,139,250,0.25))] sm:text-5xl"
-                  >
-                    {formatPlatino(totalClicks, language)}
-                  </motion.span>
+                  like the ship's primary readout, now flanked by the four
+                  switches instead of racking them in their own row below —
+                  two stacked on each side, icon-only so they fit at this
+                  size. Corner brackets + a slow scanline sweep sell the
+                  "active screen" feel. */}
+              <div className="flex items-stretch gap-2">
+                <div className="pointer-events-auto flex flex-col justify-center gap-2">
+                  <CockpitIconButton
+                    icon={Joystick}
+                    ariaLabel={strings.home.commandCenterTitle}
+                    onClick={() => setShowShip(true)}
+                    iconClass="text-violet-300"
+                    ledClass="bg-violet-400 shadow-[0_0_3px_1px_rgba(167,139,250,0.9)]"
+                    borderClass="border-violet-400/20"
+                  />
+                  <CockpitIconButton
+                    icon={Package}
+                    ariaLabel={strings.home.inventory}
+                    onClick={() => setShowInventory(true)}
+                    iconClass="text-amber-300"
+                    ledClass="bg-amber-400 shadow-[0_0_3px_1px_rgba(251,191,36,0.9)]"
+                    borderClass="border-amber-400/20"
+                  />
                 </div>
-              </div>
 
-              {/* Row 3 — the three switches, each its own accent color
-                  matching the modal it opens (violet ship / amber cargo /
-                  emerald missions). */}
-              <div className="pointer-events-auto flex items-stretch gap-2">
-                <CockpitButton
-                  icon={Joystick}
-                  label={strings.home.commandCenterTitle}
-                  ariaLabel={strings.home.commandCenterTitle}
-                  onClick={() => setShowShip(true)}
-                  iconClass="text-violet-300"
-                  ledClass="bg-violet-400 shadow-[0_0_3px_1px_rgba(167,139,250,0.9)]"
-                  borderClass="border-violet-400/20"
-                />
-                <CockpitButton
-                  icon={Package}
-                  label={strings.home.inventory}
-                  ariaLabel={strings.home.inventory}
-                  onClick={() => setShowInventory(true)}
-                  iconClass="text-amber-300"
-                  ledClass="bg-amber-400 shadow-[0_0_3px_1px_rgba(251,191,36,0.9)]"
-                  borderClass="border-amber-400/20"
-                />
-                <CockpitButton
-                  icon={ClipboardList}
-                  label={strings.home.tasks}
-                  ariaLabel={strings.home.tasks}
-                  onClick={() => setShowTasks(true)}
-                  iconClass="text-emerald-300"
-                  ledClass="bg-emerald-400 shadow-[0_0_3px_1px_rgba(52,211,153,0.9)]"
-                  borderClass="border-emerald-400/20"
-                />
+                <div className="relative min-w-0 flex-1 overflow-hidden rounded-[3px] border border-white/10 bg-black/40 px-3 py-2.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.65)]">
+                  <span className="pointer-events-none absolute left-1 top-1 h-2 w-2 border-l border-t border-violet-400/40" />
+                  <span className="pointer-events-none absolute right-1 top-1 h-2 w-2 border-r border-t border-violet-400/40" />
+                  <span className="pointer-events-none absolute bottom-1 left-1 h-2 w-2 border-b border-l border-violet-400/40" />
+                  <span className="pointer-events-none absolute bottom-1 right-1 h-2 w-2 border-b border-r border-violet-400/40" />
+                  <motion.div
+                    className="pointer-events-none absolute inset-x-0 h-10 bg-gradient-to-b from-white/[0.05] to-transparent"
+                    initial={{ y: '-2.5rem' }}
+                    animate={{ y: '8rem' }}
+                    transition={{ duration: 3.4, repeat: Infinity, ease: 'linear' }}
+                  />
+                  <div className="relative flex flex-col items-center">
+                    <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                      {strings.home.hudPlatinoLabel}
+                    </span>
+                    <motion.span
+                      key={totalClicks}
+                      initial={{ scale: 1 }}
+                      animate={{ scale: [1.06, 1] }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 [filter:drop-shadow(0_0_18px_rgba(167,139,250,0.25))] sm:text-5xl"
+                    >
+                      {formatPlatino(totalClicks, language)}
+                    </motion.span>
+                  </div>
+                </div>
+
+                <div className="pointer-events-auto flex flex-col justify-center gap-2">
+                  <CockpitIconButton
+                    icon={ClipboardList}
+                    ariaLabel={strings.home.tasks}
+                    onClick={() => setShowTasks(true)}
+                    iconClass="text-emerald-300"
+                    ledClass="bg-emerald-400 shadow-[0_0_3px_1px_rgba(52,211,153,0.9)]"
+                    borderClass="border-emerald-400/20"
+                  />
+                  <CockpitIconButton
+                    icon={Route}
+                    ariaLabel={strings.home.log}
+                    onClick={() => setShowLog(true)}
+                    iconClass="text-sky-300"
+                    ledClass="bg-sky-400 shadow-[0_0_3px_1px_rgba(56,189,248,0.9)]"
+                    borderClass="border-sky-400/20"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1051,12 +1132,13 @@ export function Home() {
           the bottom spacer below (which reserves the tab bar's own real
           height) — always dead center between the two consoles, on any
           viewport, instead of the full page. */}
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center overflow-hidden">
-        {/* main counter — the space object you break with clicks. The big
-            ring tracks progress toward the *next prestige* (objectsBroken /
-            PRESTIGE_OBJECT_TARGET). */}
-        <div className="pointer-events-none relative flex flex-col items-center">
-          <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
+      {/* main counter — the space object you break with clicks. The big
+          ring tracks progress toward the *next prestige* (objectsBroken /
+          PRESTIGE_OBJECT_TARGET). Truly viewport-centered via the root's
+          own `justify-center` — the cockpit console above is an absolute
+          overlay, not flow content, so it never pushes this down. */}
+      <div className="pointer-events-none relative z-10 flex flex-col items-center">
+        <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
             <OrbitingBots count={autoClickLevel} />
           <OrbitingBots
             count={scoutDroneLevel}
@@ -1102,13 +1184,7 @@ export function Home() {
             </div>
           </div>
         )}
-        </div>
       </div>
-
-      {/* Bottom spacer — reserves the tab bar's own rendered height (see
-          BottomNavPill: nav h-14/h-16 + pb-3/pb-4) so the flex-1 region
-          above stops short of it instead of centering underneath it. */}
-      <div className="h-[4.25rem] w-full flex-none sm:h-[5rem]" aria-hidden="true" />
 
       {/* click ripples + floating +N */}
       <AnimatePresence>
@@ -1644,6 +1720,48 @@ export function Home() {
 
             <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
               <p className="py-6 text-center text-sm text-neutral-500">{strings.home.tasksEmpty}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trayectoria — same empty-state shell as Tareas, invented as a
+          fourth switch so the console's two side stacks come out even (two
+          each). Nothing behind it yet. */}
+      {showLog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowLog(false)}
+        >
+          <div
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
+            style={{ clipPath: MODAL_CLIP_PATH }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CockpitModalChrome />
+            <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
+              <div
+                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(56,189,248,0.35) 0%, transparent 70%)' }}
+              />
+              <button
+                onClick={() => setShowLog(false)}
+                aria-label="Close"
+                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+              >
+                <X size={16} />
+              </button>
+              <div className="relative flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-400/30 bg-gradient-to-br from-sky-400/30 to-cyan-500/20 text-sky-200">
+                  <Route size={19} />
+                </div>
+                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.logTitle}</p>
+              </div>
+            </div>
+
+            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
+              <p className="py-6 text-center text-sm text-neutral-500">{strings.home.logEmpty}</p>
             </div>
           </div>
         </div>
