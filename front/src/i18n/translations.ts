@@ -271,7 +271,7 @@ export const translations: Record<Language, TranslationStrings> = {
       hudHeatLabel: 'Ritmo',
       totalLabel: 'Total:',
       heat: {
-        onFire: 'En racha',
+        onFire: 'Moderado',
         unstoppable: 'Imparable',
         legendary: 'Legendario',
       },
@@ -599,7 +599,7 @@ export const translations: Record<Language, TranslationStrings> = {
       hudHeatLabel: 'Pace',
       totalLabel: 'Total:',
       heat: {
-        onFire: 'On fire',
+        onFire: 'Moderate',
         unstoppable: 'Unstoppable',
         legendary: 'Legendary',
       },

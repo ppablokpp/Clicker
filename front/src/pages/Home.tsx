@@ -929,25 +929,33 @@ export function Home() {
                       }}
                     />
                   )}
-                  <div className="relative z-10 flex items-center gap-1.5">
-                    <Zap size={11} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
-                    <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-neutral-500">
+                  <div className="relative z-10 flex items-center gap-1.5 overflow-hidden">
+                    <Zap size={11} className={`shrink-0 ${clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'}`} />
+                    <span className="shrink-0 whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-neutral-500">
                       {strings.home.hudHeatLabel}
                     </span>
-                  </div>
-                  <div className="relative z-10 mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
-                    <span
-                      className={`font-mono text-sm font-bold tabular-nums ${clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}`}
-                    >
-                      {clicksPerSecond.toFixed(1)} {strings.home.tps}
-                    </span>
+                    {/* Heat status ("en racha"/"imparable"/"legendario ×N")
+                        lives up here next to the micro-label — not down by
+                        the t/s value, which never has room to spare once
+                        Legendario's multiplier suffix joins in, and used to
+                        wrap onto a third line and grow the whole console
+                        every time the tier changed. */}
                     {heatLabel && (
-                      <span className={`text-[8px] font-bold uppercase tracking-wide ${heat.badge}`}>
+                      <span
+                        className={`truncate whitespace-nowrap text-[8px] font-bold uppercase tracking-wide ${heat.badge}`}
+                      >
                         {heatLabel}
                         {heat.key === 'legendary' &&
                           ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep).toFixed(1)}`}
                       </span>
                     )}
+                  </div>
+                  <div className="relative z-10 mt-0.5">
+                    <span
+                      className={`whitespace-nowrap font-mono text-sm font-bold tabular-nums ${clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}`}
+                    >
+                      {clicksPerSecond.toFixed(1)} {strings.home.tps}
+                    </span>
                   </div>
                 </div>
 

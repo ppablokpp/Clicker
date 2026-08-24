@@ -23,7 +23,7 @@ export function BottomNavPill() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40">
-      <div className="relative mx-auto w-full max-w-md px-3 pb-4 sm:max-w-lg sm:px-4 sm:pb-5">
+      <div className="relative mx-auto w-full max-w-md px-3 pb-5 sm:max-w-lg sm:px-4 sm:pb-6">
         <div
           className="relative overflow-hidden rounded-b-sm border border-white/10 bg-gradient-to-t from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-[0_-10px_34px_-10px_rgba(0,0,0,0.75)]"
           style={{
