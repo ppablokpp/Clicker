@@ -15,7 +15,6 @@ import {
   Crosshair,
   Info,
   ChartNoAxesCombined,
-  Satellite,
   Split,
   X,
   Sparkles,
@@ -345,8 +344,25 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
 // cookie. Purely decorative: each
 // drone's orbit phase and pulse timing come from its own index, not real
 // production data, since this only exists to make "you own N levels of
-// autoclick" *feel* alive rather than to visualize the exact cps.
-function OrbitingBots({ count }: { count: number }) {
+// autoclick" *feel* alive rather than to visualize the exact cps. Color
+// props default to the regular drones' violet so that call site stays
+// untouched; the scout-drone swarm passes its own amber palette plus a
+// `phaseOffset` so the two swarms don't spawn at identical angles.
+function OrbitingBots({
+  count,
+  colorClass = 'text-violet-300',
+  glowColor = 'rgba(168,85,247,0.65)',
+  beamClass = 'from-violet-300/0 via-violet-200 to-white',
+  beamShadow = 'rgba(216,180,254,0.8)',
+  phaseOffset = 0,
+}: {
+  count: number
+  colorClass?: string
+  glowColor?: string
+  beamClass?: string
+  beamShadow?: string
+  phaseOffset?: number
+}) {
   if (count <= 0) return null
   return (
     <div className="pointer-events-none absolute inset-0">
@@ -354,7 +370,7 @@ function OrbitingBots({ count }: { count: number }) {
         const orbitDuration = 18 + (i % 3) * 3
         // Negative delay pre-advances the loop so drones start already
         // spread around the circle instead of all bunched at angle 0.
-        const orbitDelay = -((i / count) * orbitDuration)
+        const orbitDelay = -((i / count + phaseOffset) * orbitDuration)
         const pulseDelay = (i * 0.53) % 2.4
         const clockwise = i % 2 === 0
         return (
@@ -388,8 +404,8 @@ function OrbitingBots({ count }: { count: number }) {
                   scale: { duration: 1.8, delay: pulseDelay, repeat: Infinity, ease: 'easeInOut' },
                   opacity: { duration: 1.8, delay: pulseDelay, repeat: Infinity, ease: 'easeInOut' },
                 }}
-                className="text-violet-300"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(168,85,247,0.65))' }}
+                className={colorClass}
+                style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}
               >
                 <DroneIcon size={20} animated />
               </motion.div>
@@ -402,8 +418,8 @@ function OrbitingBots({ count }: { count: number }) {
                   CSS transform string, so it composes with the animated y
                   on this same element instead of fighting it. */}
               <motion.div
-                className="absolute left-1/2 top-1/2 w-[3px] rounded-full bg-gradient-to-b from-violet-300/0 via-violet-200 to-white shadow-[0_0_6px_1px_rgba(216,180,254,0.8)]"
-                style={{ height: 10, x: '-50%' }}
+                className={`absolute left-1/2 top-1/2 w-[3px] rounded-full bg-gradient-to-b ${beamClass}`}
+                style={{ height: 10, x: '-50%', boxShadow: `0 0 6px 1px ${beamShadow}` }}
                 initial={{ y: 0, opacity: 1 }}
                 animate={{ y: DRONE_ORBIT_RADIUS, opacity: [1, 1, 0] }}
                 transition={{
@@ -463,8 +479,9 @@ export function Home() {
     legendaryStreakBase,
     legendaryBonusStep,
     multiShotValue,
-    autoLuckLevel,
-    autoLuckMultiplier,
+    scoutDroneLevel,
+    scoutDroneRate,
+    scoutDroneCps,
     autoMultiplierValue,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
@@ -892,7 +909,7 @@ export function Home() {
 
       {/* Platino — big number at the top, nudged down a bit below the
           header/pills row instead of sharing its exact top-20/24 line. */}
-      <div className="pointer-events-none absolute left-0 right-0 top-[11.5rem] z-10 flex justify-center sm:top-[12.5rem]">
+      <div className="pointer-events-none absolute left-0 right-0 top-[11.1875rem] z-10 flex justify-center sm:top-[12.1875rem]">
         <motion.span
           key={totalClicks}
           initial={{ scale: 1 }}
@@ -910,6 +927,14 @@ export function Home() {
       <div className="pointer-events-none relative z-10 flex flex-col items-center">
         <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
           <OrbitingBots count={autoClickLevel} />
+          <OrbitingBots
+            count={scoutDroneLevel}
+            colorClass="text-amber-300"
+            glowColor="rgba(251,191,36,0.65)"
+            beamClass="from-amber-300/0 via-amber-200 to-white"
+            beamShadow="rgba(252,211,77,0.8)"
+            phaseOffset={0.4}
+          />
           {/* Scaled down from the object's own box — the ring used to hug
               the object edge-to-edge, which read as oversized next to it. */}
           <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
@@ -1378,7 +1403,9 @@ export function Home() {
                     <p className="text-xs text-neutral-400">
                       {strings.home.shipDroneProductionDesc}{' '}
                       <span className="font-semibold text-white">
-                        {autoClickCps.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', { maximumFractionDigits: 2 })}
+                        {(autoClickCps + scoutDroneCps).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
+                          maximumFractionDigits: 2,
+                        })}
                       </span>{' '}
                       {strings.home.cps}
                     </p>
@@ -1411,15 +1438,26 @@ export function Home() {
                   <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
                     <div className="mb-1.5 flex items-center gap-2">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
-                        <Satellite size={14} />
+                        <DroneIcon size={14} />
                       </div>
                       <p className="text-sm font-semibold text-white">{strings.home.shipScoutDrones}</p>
                     </div>
-                    {autoLuckLevel > 0 ? (
-                      <p className="text-xs text-neutral-400">
-                        {strings.home.shipScoutDronesDesc}{' '}
-                        <span className="font-semibold text-white">{autoLuckMultiplier}</span>
-                      </p>
+                    {scoutDroneLevel > 0 ? (
+                      <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
+                        <p>
+                          {strings.home.shipScoutDronesCountDesc}{' '}
+                          <span className="font-semibold text-white">{scoutDroneLevel}</span>
+                        </p>
+                        <p>
+                          {strings.home.shipScoutDronesPerUnitDesc}{' '}
+                          <span className="font-semibold text-white">
+                            {scoutDroneRate.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>{' '}
+                          {strings.home.cps}
+                        </p>
+                      </div>
                     ) : (
                       <p className="text-xs font-medium text-neutral-600">{strings.home.shipNotInstalled}</p>
                     )}

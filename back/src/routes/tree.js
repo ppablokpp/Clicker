@@ -76,20 +76,20 @@ treeRouter.post('/legendary-growth/buy', async (req, res) => {
   res.json(result)
 })
 
-treeRouter.post('/auto-luck/buy', async (req, res) => {
+treeRouter.post('/scout-drone/buy', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-  const result = await treeRepository.buyAutoLuckLevel(userId)
+  const result = await treeRepository.buyScoutDroneLevel(userId)
   if (!result.ok) return res.status(400).json({ error: result.reason })
   res.json(result)
 })
 
-treeRouter.post('/auto-luck-chance/buy', async (req, res) => {
+treeRouter.post('/scout-frequency/buy', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-  const result = await treeRepository.buyAutoLuckChanceLevel(userId)
+  const result = await treeRepository.buyScoutFrequencyLevel(userId)
   if (!result.ok) return res.status(400).json({ error: result.reason })
   res.json(result)
 })

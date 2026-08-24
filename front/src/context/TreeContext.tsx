@@ -25,12 +25,12 @@ interface TreeState {
   luckNextCost: number | null
   luckChanceLevel: number
   luckChanceNextCost: number | null
-  autoLuckLevel: number
-  autoLuckMultiplier: number
-  autoLuckNextCost: number | null
-  autoLuckChanceLevel: number
-  autoLuckChance: number
-  autoLuckChanceNextCost: number | null
+  scoutDroneLevel: number
+  scoutDroneNextCost: number | null
+  scoutDroneRate: number
+  scoutDroneCps: number
+  scoutFrequencyLevel: number
+  scoutFrequencyNextCost: number | null
   multiplierLevel: number
   multiplierValue: number
   multiplierNextCost: number | null
@@ -68,10 +68,10 @@ interface TreeContextValue extends TreeState {
   buyLegendaryEase: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryGrowth: boolean
   buyLegendaryGrowth: () => Promise<{ ok: boolean; error?: string }>
-  isBuyingAutoLuck: boolean
-  buyAutoLuck: () => Promise<{ ok: boolean; error?: string }>
-  isBuyingAutoLuckChance: boolean
-  buyAutoLuckChance: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingScoutDrone: boolean
+  buyScoutDrone: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingScoutFrequency: boolean
+  buyScoutFrequency: () => Promise<{ ok: boolean; error?: string }>
   isBuyingAutoMultiplier: boolean
   buyAutoMultiplier: () => Promise<{ ok: boolean; error?: string }>
   isBuyingTapMultiplier: boolean
@@ -93,12 +93,12 @@ const EMPTY_STATE: TreeState = {
   luckNextCost: 0,
   luckChanceLevel: 0,
   luckChanceNextCost: 0,
-  autoLuckLevel: 0,
-  autoLuckMultiplier: 1,
-  autoLuckNextCost: 0,
-  autoLuckChanceLevel: 0,
-  autoLuckChance: 0,
-  autoLuckChanceNextCost: 0,
+  scoutDroneLevel: 0,
+  scoutDroneNextCost: 0,
+  scoutDroneRate: 2,
+  scoutDroneCps: 0,
+  scoutFrequencyLevel: 0,
+  scoutFrequencyNextCost: 0,
   multiplierLevel: 0,
   multiplierValue: 1,
   multiplierNextCost: 0,
@@ -133,8 +133,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingLegendaryUnlock, setIsBuyingLegendaryUnlock] = useState(false)
   const [isBuyingLegendaryEase, setIsBuyingLegendaryEase] = useState(false)
   const [isBuyingLegendaryGrowth, setIsBuyingLegendaryGrowth] = useState(false)
-  const [isBuyingAutoLuck, setIsBuyingAutoLuck] = useState(false)
-  const [isBuyingAutoLuckChance, setIsBuyingAutoLuckChance] = useState(false)
+  const [isBuyingScoutDrone, setIsBuyingScoutDrone] = useState(false)
+  const [isBuyingScoutFrequency, setIsBuyingScoutFrequency] = useState(false)
   const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
   const [isBuyingTapMultiplier, setIsBuyingTapMultiplier] = useState(false)
   const [isBuyingMultiShot, setIsBuyingMultiShot] = useState(false)
@@ -143,8 +143,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const cpsRef = useRef(0)
 
   useEffect(() => {
-    cpsRef.current = state.autoClickCps
-  }, [state.autoClickCps])
+    cpsRef.current = state.autoClickCps + state.scoutDroneCps
+  }, [state.autoClickCps, state.scoutDroneCps])
 
   const fetchState = useCallback(async () => {
     if (!userId) return
@@ -166,12 +166,12 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           luckNextCost: data.luckNextCost,
           luckChanceLevel: data.luckChanceLevel,
           luckChanceNextCost: data.luckChanceNextCost,
-          autoLuckLevel: data.autoLuckLevel,
-          autoLuckMultiplier: data.autoLuckMultiplier,
-          autoLuckNextCost: data.autoLuckNextCost,
-          autoLuckChanceLevel: data.autoLuckChanceLevel,
-          autoLuckChance: data.autoLuckChance,
-          autoLuckChanceNextCost: data.autoLuckChanceNextCost,
+          scoutDroneLevel: data.scoutDroneLevel,
+          scoutDroneNextCost: data.scoutDroneNextCost,
+          scoutDroneRate: data.scoutDroneRate,
+          scoutDroneCps: data.scoutDroneCps,
+          scoutFrequencyLevel: data.scoutFrequencyLevel,
+          scoutFrequencyNextCost: data.scoutFrequencyNextCost,
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
           multiplierNextCost: data.multiplierNextCost,
@@ -450,15 +450,15 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
-  const buyAutoLuck = useCallback(async () => {
+  const buyScoutDrone = useCallback(async () => {
     if (!userId) {
       promptSignIn()
       return { ok: false, error: 'not-signed-in' }
     }
-    setIsBuyingAutoLuck(true)
+    setIsBuyingScoutDrone(true)
     try {
       const token = await getToken()
-      const res = await fetch(`${API_URL}/api/tree/auto-luck/buy`, {
+      const res = await fetch(`${API_URL}/api/tree/scout-drone/buy`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -466,30 +466,31 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       if (!res.ok) return { ok: false, error: data.error ?? 'error' }
       setState((prev) => ({
         ...prev,
-        autoLuckLevel: data.autoLuckLevel,
-        autoLuckMultiplier: data.autoLuckMultiplier,
-        autoLuckNextCost: data.autoLuckNextCost,
+        scoutDroneLevel: data.scoutDroneLevel,
+        scoutDroneNextCost: data.scoutDroneNextCost,
+        scoutDroneRate: data.scoutDroneRate,
+        scoutDroneCps: data.scoutDroneCps,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
       return { ok: true }
     } catch (err) {
-      console.error('No se pudo comprar Fortuna', err)
+      console.error('No se pudo comprar el dron buscador', err)
       return { ok: false, error: 'error' }
     } finally {
-      setIsBuyingAutoLuck(false)
+      setIsBuyingScoutDrone(false)
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
-  const buyAutoLuckChance = useCallback(async () => {
+  const buyScoutFrequency = useCallback(async () => {
     if (!userId) {
       promptSignIn()
       return { ok: false, error: 'not-signed-in' }
     }
-    setIsBuyingAutoLuckChance(true)
+    setIsBuyingScoutFrequency(true)
     try {
       const token = await getToken()
-      const res = await fetch(`${API_URL}/api/tree/auto-luck-chance/buy`, {
+      const res = await fetch(`${API_URL}/api/tree/scout-frequency/buy`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -497,18 +498,19 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       if (!res.ok) return { ok: false, error: data.error ?? 'error' }
       setState((prev) => ({
         ...prev,
-        autoLuckChanceLevel: data.autoLuckChanceLevel,
-        autoLuckChance: data.autoLuckChance,
-        autoLuckChanceNextCost: data.autoLuckChanceNextCost,
+        scoutFrequencyLevel: data.scoutFrequencyLevel,
+        scoutFrequencyNextCost: data.scoutFrequencyNextCost,
+        scoutDroneRate: data.scoutDroneRate,
+        scoutDroneCps: data.scoutDroneCps,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
       return { ok: true }
     } catch (err) {
-      console.error('No se pudo comprar Azar', err)
+      console.error('No se pudo comprar Frecuencia', err)
       return { ok: false, error: 'error' }
     } finally {
-      setIsBuyingAutoLuckChance(false)
+      setIsBuyingScoutFrequency(false)
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
@@ -628,10 +630,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyLegendaryEase,
         isBuyingLegendaryGrowth,
         buyLegendaryGrowth,
-        isBuyingAutoLuck,
-        buyAutoLuck,
-        isBuyingAutoLuckChance,
-        buyAutoLuckChance,
+        isBuyingScoutDrone,
+        buyScoutDrone,
+        isBuyingScoutFrequency,
+        buyScoutFrequency,
         isBuyingAutoMultiplier,
         buyAutoMultiplier,
         isBuyingTapMultiplier,

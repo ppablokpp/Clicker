@@ -40,7 +40,8 @@ export interface TranslationStrings {
     shipLuckPowerDesc: string
     shipLuckChanceDesc: string
     shipScoutDrones: string
-    shipScoutDronesDesc: string
+    shipScoutDronesCountDesc: string
+    shipScoutDronesPerUnitDesc: string
     shipPower: string
     shipPowerDesc: string
     shipMultiShot: string
@@ -188,10 +189,12 @@ export interface TranslationStrings {
     legendaryGrowthDesc: string
     currentBonusStep: string
     nextBonusStep: string
-    fortunaName: string
-    fortunaDesc: string
-    azarName: string
-    azarDesc: string
+    scoutDroneName: string
+    scoutDroneDesc: string
+    scoutDroneCurrentLabel: string
+    scoutDroneNextLabel: string
+    scoutFrequencyName: string
+    scoutFrequencyDesc: string
     turboName: string
     turboDesc: string
     tapMultiplierName: string
@@ -285,7 +288,8 @@ export const translations: Record<Language, TranslationStrings> = {
       shipLuckPowerDesc: 'Potencia de destello:',
       shipLuckChanceDesc: 'Probabilidad de destello:',
       shipScoutDrones: 'Drones buscadores',
-      shipScoutDronesDesc: 'Multiplicador al encontrar un destello:',
+      shipScoutDronesCountDesc: 'Drones buscadores activos:',
+      shipScoutDronesPerUnitDesc: 'Producción de cada dron buscador:',
       shipPower: 'Potencia',
       shipPowerDesc: 'Platino que se extrae por cada disparo:',
       shipMultiShot: 'Multidisparo',
@@ -481,7 +485,7 @@ export const translations: Record<Language, TranslationStrings> = {
       resetView: 'Restablecer vista',
       level: 'Nv.',
       autoClickName: 'Drones',
-      autoClickDesc: 'Cada dron produce 0.5 platino por segundo.',
+      autoClickDesc: 'Cada dron produce 0.5 pt/s.',
       dronesUnit: 'drones',
       currentRate: 'Drones actuales:',
       nextLevelRate: 'Drones siguiente nivel:',
@@ -495,7 +499,7 @@ export const translations: Record<Language, TranslationStrings> = {
       multiplierDesc: 'Aumenta la potencia de cada disparo.',
       currentClickValue: 'Potencia actual:',
       nextClickValue: 'Potencia siguiente nivel:',
-      luckChanceName: 'Escáner',
+      luckChanceName: 'Telescopio',
       luckChanceDesc: 'Aumenta la probabilidad de detectar un destello al disparar.',
       currentChance: 'Probabilidad actual:',
       nextChance: 'Probabilidad siguiente nivel:',
@@ -510,10 +514,12 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryGrowthDesc: 'Aumenta la subida del multiplicador de modo Legendario cada vez que sube de nivel.',
       currentBonusStep: 'Subida actual:',
       nextBonusStep: 'Subida siguiente nivel:',
-      fortunaName: 'Dron buscador',
-      fortunaDesc: 'Tus drones tienen una probabilidad de encontrar un destello extra al minar.',
-      azarName: 'Frecuencia',
-      azarDesc: 'Sintoniza el radar de tus drones, aumentando la probabilidad de que encuentren un destello.',
+      scoutDroneName: 'Dron buscador',
+      scoutDroneDesc: 'Drones capaces de encontrar destellos para mejorar su producción.',
+      scoutDroneCurrentLabel: 'Drones buscadores actuales:',
+      scoutDroneNextLabel: 'Drones buscadores siguiente nivel:',
+      scoutFrequencyName: 'Frecuencia',
+      scoutFrequencyDesc: 'Sintoniza el radar de tus drones buscadores para aumentar su producción.',
       turboName: 'Sobrecarga',
       turboDesc: 'Sobrecarga el reactor de tus drones, aumentando su producción.',
       tapMultiplierName: 'Amplificador',
@@ -607,7 +613,8 @@ export const translations: Record<Language, TranslationStrings> = {
       shipLuckPowerDesc: 'Glimmer power:',
       shipLuckChanceDesc: 'Glimmer odds:',
       shipScoutDrones: 'Scout drones',
-      shipScoutDronesDesc: 'Multiplier when they find a glimmer:',
+      shipScoutDronesCountDesc: 'Active scout drones:',
+      shipScoutDronesPerUnitDesc: 'Production per scout drone:',
       shipPower: 'Power',
       shipPowerDesc: 'Platinum pulled out with every shot:',
       shipMultiShot: 'Multi-shot',
@@ -803,7 +810,7 @@ export const translations: Record<Language, TranslationStrings> = {
       resetView: 'Reset view',
       level: 'Lv.',
       autoClickName: 'Drones',
-      autoClickDesc: 'Each drone produces 0.5 platinum per second.',
+      autoClickDesc: 'Each drone produces 0.5 pt/s.',
       dronesUnit: 'drones',
       currentRate: 'Current drones:',
       nextLevelRate: 'Next level drones:',
@@ -817,7 +824,7 @@ export const translations: Record<Language, TranslationStrings> = {
       multiplierDesc: "Raises the power of each shot.",
       currentClickValue: 'Current power:',
       nextClickValue: 'Next level power:',
-      luckChanceName: 'Scanner',
+      luckChanceName: 'Telescope',
       luckChanceDesc: "Raises the odds of detecting a glimmer when you fire.",
       currentChance: 'Current chance:',
       nextChance: 'Next level chance:',
@@ -831,10 +838,12 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryGrowthDesc: "Raises how much Legendary's multiplier increases each time it levels up.",
       currentBonusStep: 'Current increase:',
       nextBonusStep: 'Next level increase:',
-      fortunaName: 'Scout Drone',
-      fortunaDesc: "Your drones have a chance to find an extra glimmer while mining.",
-      azarName: 'Frequency',
-      azarDesc: "Tunes your drones' radar, raising the odds they find a glimmer.",
+      scoutDroneName: 'Scout Drone',
+      scoutDroneDesc: 'Drones able to find glimmers to boost their production.',
+      scoutDroneCurrentLabel: 'Current scout drones:',
+      scoutDroneNextLabel: 'Next level scout drones:',
+      scoutFrequencyName: 'Frequency',
+      scoutFrequencyDesc: "Tunes your scout drones' radar to boost their production.",
       turboName: 'Overload',
       turboDesc: "Overloads your drones' reactor, increasing their production.",
       tapMultiplierName: 'Amplifier',

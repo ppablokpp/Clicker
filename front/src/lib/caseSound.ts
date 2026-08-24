@@ -292,7 +292,7 @@ export function playTreeUpgrade() {
       bandpass.Q.value = 0.9
       const rustleGain = audioCtx.createGain()
       rustleGain.gain.setValueAtTime(0.001, start)
-      rustleGain.gain.exponentialRampToValueAtTime(0.1 - i * 0.02, start + 0.006)
+      rustleGain.gain.exponentialRampToValueAtTime(0.12 - i * 0.02, start + 0.006)
       rustleGain.gain.exponentialRampToValueAtTime(0.001, start + 0.06)
       rustle.connect(bandpass).connect(rustleGain).connect(output)
       rustle.start(start)
@@ -305,7 +305,7 @@ export function playTreeUpgrade() {
     tick.type = 'sine'
     tick.frequency.setValueAtTime(1500, now + 0.05)
     tickGain.gain.setValueAtTime(0.001, now + 0.05)
-    tickGain.gain.exponentialRampToValueAtTime(0.055, now + 0.054)
+    tickGain.gain.exponentialRampToValueAtTime(0.065, now + 0.054)
     tickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09)
     tick.connect(tickGain).connect(output)
     tick.start(now + 0.05)

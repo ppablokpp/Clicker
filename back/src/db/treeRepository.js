@@ -2,8 +2,8 @@ import { database } from './pool.js'
 import { AUTOCLICK_NODE_ID, autoClickCost } from '../tree/autoClick.js'
 import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
 import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
-import { AUTO_LUCK_NODE_ID, autoLuckCost, autoLuckMultiplier, effectiveAutoClickCps } from '../tree/autoLuck.js'
-import { AUTO_LUCK_CHANCE_NODE_ID, autoLuckChanceCost, autoLuckChanceValue } from '../tree/autoLuckChance.js'
+import { SCOUT_DRONE_NODE_ID, scoutDroneCost } from '../tree/scoutDrone.js'
+import { SCOUT_FREQUENCY_NODE_ID, scoutFrequencyCost, scoutFrequencyValue } from '../tree/scoutFrequency.js'
 import { MULTIPLIER_NODE_ID, multiplierCost, multiplierValue } from '../tree/multiplier.js'
 import { LEGENDARY_UNLOCK_NODE_ID, legendaryUnlockCost } from '../tree/legendaryUnlock.js'
 import {
@@ -68,17 +68,21 @@ export const treeRepository = {
       )
       const luckChanceLevel = Number(luckChanceRow.rows[0]?.level ?? 0)
 
-      const autoLuckRow = await client.query(
+      // Drones buscadores — a second, independent production unit (level IS
+      // the count owned, same shape as Autoclick itself) plus Frecuencia,
+      // its own flat per-unit cps booster (mirrors Sobrecarga's shape).
+      const scoutDroneRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTO_LUCK_NODE_ID],
+        [userId, SCOUT_DRONE_NODE_ID],
       )
-      const autoLuckLevel = Number(autoLuckRow.rows[0]?.level ?? 0)
+      const scoutDroneLevel = Number(scoutDroneRow.rows[0]?.level ?? 0)
 
-      const autoLuckChanceRow = await client.query(
+      const scoutFrequencyRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTO_LUCK_CHANCE_NODE_ID],
+        [userId, SCOUT_FREQUENCY_NODE_ID],
       )
-      const autoLuckChanceLevel = Number(autoLuckChanceRow.rows[0]?.level ?? 0)
+      const scoutFrequencyLevel = Number(scoutFrequencyRow.rows[0]?.level ?? 0)
+      const scoutDroneRate = scoutFrequencyValue(scoutFrequencyLevel)
 
       // Sobrecarga — a flat per-drone cps rate (replacing the old flat 0.5),
       // so it feeds both the real accrual math below AND the displayed cps
@@ -102,9 +106,11 @@ export const treeRepository = {
       const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
       const reactorMultiplier = prestigeReactorValue(reactorLevel)
 
-      const currentCps =
-        effectiveAutoClickCps(level * sobrecargaPerDroneRate, autoLuckLevel, autoLuckChanceValue(autoLuckChanceLevel)) *
-        reactorMultiplier
+      // Regular drones and scout drones tick off the same shared timer
+      // below (see AUTOCLICK_NODE_ID's last_tick_at/remainder) — simplest
+      // way to accrue two independent production streams without a second
+      // set of timer columns, since they always advance together anyway.
+      const currentCps = (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
 
       let totalClicks = Number(userRow.rows[0].total_clicks)
 
@@ -196,12 +202,9 @@ export const treeRepository = {
       await client.query('COMMIT')
       return {
         autoClickLevel: level,
-        // Fortuna/Azar still change what actually gets credited (see
-        // currentCps above) — same as Suerte on regular clicks, that real
-        // effect just never shows up in the displayed rate/total, only as
-        // occasional bonus production over time. Sobrecarga, on the other
-        // hand, is a guaranteed per-drone bonus, so it's baked into the
-        // displayed number directly.
+        // Regular-drone cps only — scout drones are their own separate
+        // stream below, kept apart so the "Drones" card never mixes the two
+        // unit types' output.
         autoClickCps: level * sobrecargaPerDroneRate * reactorMultiplier,
         autoClickNextCost: autoClickCost(level),
         autoClickNextCps: (level + 1) * sobrecargaPerDroneRate * reactorMultiplier,
@@ -211,12 +214,12 @@ export const treeRepository = {
         luckNextCost: luckCost(luckLevel),
         luckChanceLevel,
         luckChanceNextCost: luckChanceCost(luckChanceLevel),
-        autoLuckLevel,
-        autoLuckMultiplier: autoLuckMultiplier(autoLuckLevel),
-        autoLuckNextCost: autoLuckCost(autoLuckLevel),
-        autoLuckChanceLevel,
-        autoLuckChance: autoLuckLevel > 0 ? autoLuckChanceValue(autoLuckChanceLevel) : 0,
-        autoLuckChanceNextCost: autoLuckChanceCost(autoLuckChanceLevel),
+        scoutDroneLevel,
+        scoutDroneNextCost: scoutDroneCost(scoutDroneLevel),
+        scoutDroneRate,
+        scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
+        scoutFrequencyLevel,
+        scoutFrequencyNextCost: scoutFrequencyCost(scoutFrequencyLevel),
         multiplierLevel,
         multiplierValue: multiplierValue(multiplierLevel),
         multiplierNextCost: multiplierCost(multiplierLevel),
@@ -345,19 +348,19 @@ export const treeRepository = {
       const node = nodeRow.rows[0] ?? { level: 0, last_tick_at: null, remainder: 0 }
       const level = Number(node.level)
 
-      // Fortuna/Azar affect the cps this credits at, same as accrueAndGetState.
-      const autoLuckRow = await client.query(
+      // Scout drones affect the cps this credits at, same as accrueAndGetState.
+      const scoutDroneRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, AUTO_LUCK_NODE_ID],
+        [userId, SCOUT_DRONE_NODE_ID],
       )
-      const autoLuckLevel = Number(autoLuckRow.rows[0]?.level ?? 0)
+      const scoutDroneLevel = Number(scoutDroneRow.rows[0]?.level ?? 0)
 
-      const autoLuckChanceRow = await client.query(
+      const scoutFrequencyRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, AUTO_LUCK_CHANCE_NODE_ID],
+        [userId, SCOUT_FREQUENCY_NODE_ID],
       )
-      const autoLuckChanceLevel = Number(autoLuckChanceRow.rows[0]?.level ?? 0)
-      const autoLuckChance = autoLuckChanceValue(autoLuckChanceLevel)
+      const scoutFrequencyLevel = Number(scoutFrequencyRow.rows[0]?.level ?? 0)
+      const scoutDroneRate = scoutFrequencyValue(scoutFrequencyLevel)
 
       const autoMultiplierRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -382,9 +385,7 @@ export const treeRepository = {
         const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
         const raw =
           Number(node.remainder) +
-          seconds *
-            effectiveAutoClickCps(level * sobrecargaPerDroneRate, autoLuckLevel, autoLuckChance) *
-            reactorMultiplier
+          seconds * (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
         const whole = Math.floor(raw)
         if (whole > 0) {
           const updated = await client.query(
@@ -787,12 +788,13 @@ export const treeRepository = {
     }
   },
 
-  // Same level-counter shape as buyLuckLevel (infinite, no accrual of its
-  // own) — Suerte's other child, so it requires Suerte to already be
-  // owned, same check buyLuckChanceLevel does. Reports the freshly
-  // boosted autoClickCps back so the UI updates immediately instead of
-  // waiting for the next poll.
-  async buyAutoLuckLevel(userId) {
+  // Drones buscadores — same level-counter shape as buyAutoClickLevel
+  // (level IS the count owned), no accrual of its own to credit here since
+  // it shares Autoclick's timer (see accrueAndGetState). Now Sobrecarga's
+  // child (Sobrecarga leads this branch), so it requires Sobrecarga owned,
+  // same check shape as buyScoutFrequencyLevel. Reports the freshly
+  // boosted scoutDroneCps back so the UI updates immediately.
+  async buyScoutDroneLevel(userId) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -803,21 +805,21 @@ export const treeRepository = {
         return { ok: false, reason: 'not-found' }
       }
 
-      const luckRow = await client.query(
+      const autoMultiplierRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, LUCK_NODE_ID],
+        [userId, AUTO_MULTIPLIER_NODE_ID],
       )
-      if (Number(luckRow.rows[0]?.level ?? 0) === 0) {
+      if (Number(autoMultiplierRow.rows[0]?.level ?? 0) === 0) {
         await client.query('ROLLBACK')
-        return { ok: false, reason: 'luck-required' }
+        return { ok: false, reason: 'overload-required' }
       }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTO_LUCK_NODE_ID],
+        [userId, SCOUT_DRONE_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = autoLuckCost(level)
+      const cost = scoutDroneCost(level)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -838,16 +840,29 @@ export const treeRepository = {
       await client.query(
         `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
          ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
-        [userId, AUTO_LUCK_NODE_ID],
+        [userId, SCOUT_DRONE_NODE_ID],
       )
+
+      const scoutFrequencyRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, SCOUT_FREQUENCY_NODE_ID],
+      )
+      const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0))
+
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorMultiplier = prestigeReactorValue(Number(reactorRow.rows[0]?.level ?? 0))
 
       await client.query('COMMIT')
       const newLevel = level + 1
       return {
         ok: true,
-        autoLuckLevel: newLevel,
-        autoLuckMultiplier: autoLuckMultiplier(newLevel),
-        autoLuckNextCost: autoLuckCost(newLevel),
+        scoutDroneLevel: newLevel,
+        scoutDroneNextCost: scoutDroneCost(newLevel),
+        scoutDroneRate,
+        scoutDroneCps: newLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -858,9 +873,11 @@ export const treeRepository = {
     }
   },
 
-  // Fortuna's own child (Azar) — requires Fortuna itself to be owned, same
-  // shape as buyAutoLuckLevel otherwise.
-  async buyAutoLuckChanceLevel(userId) {
+  // Frecuencia — Drones buscadores' own child, requires at least one scout
+  // drone owned, same shape as buyAutoMultiplierLevel otherwise (finite,
+  // reports the freshly boosted scoutDroneCps back since this per-unit
+  // bonus is guaranteed and shows up in the displayed rate immediately).
+  async buyScoutFrequencyLevel(userId) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -871,22 +888,22 @@ export const treeRepository = {
         return { ok: false, reason: 'not-found' }
       }
 
-      const autoLuckRow = await client.query(
+      const scoutDroneRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, AUTO_LUCK_NODE_ID],
+        [userId, SCOUT_DRONE_NODE_ID],
       )
-      const autoLuckLevel = Number(autoLuckRow.rows[0]?.level ?? 0)
-      if (autoLuckLevel === 0) {
+      const scoutDroneLevel = Number(scoutDroneRow.rows[0]?.level ?? 0)
+      if (scoutDroneLevel === 0) {
         await client.query('ROLLBACK')
-        return { ok: false, reason: 'auto-luck-required' }
+        return { ok: false, reason: 'scout-drone-required' }
       }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTO_LUCK_CHANCE_NODE_ID],
+        [userId, SCOUT_FREQUENCY_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = autoLuckChanceCost(level)
+      const cost = scoutFrequencyCost(level)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -907,16 +924,24 @@ export const treeRepository = {
       await client.query(
         `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
          ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
-        [userId, AUTO_LUCK_CHANCE_NODE_ID],
+        [userId, SCOUT_FREQUENCY_NODE_ID],
       )
+
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorMultiplier = prestigeReactorValue(Number(reactorRow.rows[0]?.level ?? 0))
 
       await client.query('COMMIT')
       const newLevel = level + 1
+      const scoutDroneRate = scoutFrequencyValue(newLevel)
       return {
         ok: true,
-        autoLuckChanceLevel: newLevel,
-        autoLuckChance: autoLuckChanceValue(newLevel),
-        autoLuckChanceNextCost: autoLuckChanceCost(newLevel),
+        scoutFrequencyLevel: newLevel,
+        scoutFrequencyNextCost: scoutFrequencyCost(newLevel),
+        scoutDroneRate,
+        scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -927,11 +952,13 @@ export const treeRepository = {
     }
   },
 
-  // Sobrecarga — Multiplicador's other child. Requires Multiplicador owned,
-  // same check buyLegendaryEaseLevel/buyLegendaryGrowthLevel do. Finite
-  // (see autoMultiplier.js) and reports the freshly boosted autoClickCps
-  // back too since this per-drone bonus — unlike Fortuna/Azar — is
-  // guaranteed and shows up in the displayed rate immediately.
+  // Sobrecarga — now leads Drones buscadores' branch itself (moved off
+  // Multiplicador, since it boosts this branch's own drones, not the
+  // regular ones), so it's root's own direct child, same as Autoclick/
+  // Multidisparo — no prerequisite required. Finite (see autoMultiplier.js)
+  // and reports the freshly boosted autoClickCps back too since this
+  // per-drone bonus — unlike Fortuna/Azar — is guaranteed and shows up in
+  // the displayed rate immediately.
   async buyAutoMultiplierLevel(userId) {
     const client = await database.getClient()
     try {
@@ -941,15 +968,6 @@ export const treeRepository = {
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
-      }
-
-      const multiplierRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, MULTIPLIER_NODE_ID],
-      )
-      if (Number(multiplierRow.rows[0]?.level ?? 0) === 0) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'multiplier-required' }
       }
 
       const nodeRow = await client.query(

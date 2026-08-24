@@ -14,9 +14,9 @@ import {
   Radiation,
   Radio,
   RotateCcw,
-  Satellite,
   Sparkles,
   Split,
+  Telescope,
   X,
   Zap,
 } from 'lucide-react'
@@ -125,53 +125,55 @@ const CENTER = 500
 const NODES: TreeNode[] = [
   { id: 'root', x: CENTER, y: CENTER, label: 'Inicio' },
 
-  // Branch A — Suerte's two children both go on to have their own chains:
-  // Probabilidad (a2) forks into two, and the other twig (a1b) becomes
-  // Fortuna/Azar — the same Suerte/Probabilidad pair, applied to Autoclick.
+  // Branch A — Suerte forks into Probabilidad (a2); Drones buscadores (a1b)
+  // used to hang off Suerte too but is now its own root branch, see below.
   { id: 'a1', x: CENTER + 140, y: CENTER - 100, label: 'Mejora' },
-  { id: 'a1b', x: CENTER + 60, y: CENTER - 220, label: 'Mejora' },
-  { id: 'a1b1', x: CENTER, y: CENTER - 330, label: 'Mejora' },
-  { id: 'a1b2', x: CENTER + 90, y: CENTER - 450, label: 'Mejora+' },
   { id: 'a2', x: CENTER + 260, y: CENTER - 200, label: 'Mejora' },
   { id: 'a2b', x: CENTER + 300, y: CENTER - 340, label: 'Mejora' },
   { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora' },
   { id: 'a4', x: CENTER + 540, y: CENTER - 280, label: 'Mejora+' },
 
   // Branch B — short reach left that forks into two.
-  { id: 'b1', x: CENTER - 170, y: CENTER + 20, label: 'Mejora' },
-  { id: 'b2a', x: CENTER - 320, y: CENTER - 60, label: 'Mejora' },
-  { id: 'b2b', x: CENTER - 330, y: CENTER + 110, label: 'Mejora' },
-  { id: 'b3', x: CENTER - 460, y: CENTER - 120, label: 'Mejora+' },
+  { id: 'b1', x: CENTER - 170, y: CENTER + 70, label: 'Mejora' },
+  { id: 'b2a', x: CENTER - 320, y: CENTER - 10, label: 'Mejora' },
+  { id: 'b2b', x: CENTER - 330, y: CENTER + 160, label: 'Mejora' },
+  { id: 'b3', x: CENTER - 460, y: CENTER - 70, label: 'Mejora+' },
 
   // Branch C — one lone node straight down, nothing beyond it yet.
-  { id: 'c1', x: CENTER + 10, y: CENTER + 165, label: 'Mejora' },
+  { id: 'c1', x: CENTER + 20, y: CENTER + 175, label: 'Mejora' },
 
-  // Branch D — long chain up and slightly left.
-  { id: 'd1', x: CENTER - 100, y: CENTER - 160, label: 'Mejora' },
-  { id: 'd2', x: CENTER - 170, y: CENTER - 310, label: 'Mejora' },
-  { id: 'd3', x: CENTER - 80, y: CENTER - 440, label: 'Mejora+' },
+  // Branch F — Sobrecarga/Drones buscadores/Frecuencia (e2b/a1b/a1b1), a
+  // second production unit moved off Suerte to be its own root branch.
+  // Sobrecarga (moved off Multiplicador, since it boosts this branch's own
+  // drones, not the regular ones) leads the chain, then Dron buscador,
+  // then Frecuencia — reusing the branch's existing 3 positions in that
+  // new order. Trailing placeholder leaf moved from Frecuencia's end over
+  // to Sobrecarga (e2b1) — nothing wired up on it yet.
+  { id: 'e2b', x: CENTER + 30, y: CENTER - 180, label: 'Mejora' },
+  { id: 'a1b', x: CENTER - 20, y: CENTER - 310, label: 'Mejora' },
+  { id: 'a1b1', x: CENTER + 100, y: CENTER - 440, label: 'Mejora' },
+  { id: 'e2b1', x: CENTER + 140, y: CENTER - 290, label: 'Mejora+' },
 
-  // Branch E — forks into three: Modo Legendario (e2a0) gates the heat
+  // Branch D — long chain up and slightly left, nothing wired up on it yet.
+  { id: 'd1', x: CENTER - 120, y: CENTER - 115, label: 'Mejora' },
+  { id: 'd2', x: CENTER - 190, y: CENTER - 265, label: 'Mejora' },
+  { id: 'd3', x: CENTER - 100, y: CENTER - 395, label: 'Mejora+' },
+
+  // Branch E — forks into two: Modo Legendario (e2a0) gates the heat
   // tier itself and fans out into its own two children (Reflejos/e2a and
   // Impulso/e2a1, Impulso going on to its own placeholder leaf e3a);
-  // Sobrecarga (e2b) gets its own deeper placeholder (e2b1); Multiplicador
-  // (e2c) sits between the two, its own +1 node off Productividad.
+  // Multiplicador (e2c) is the other child off Productividad. Sobrecarga
+  // used to live here too but now leads Branch F, its own root branch.
   { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Mejora' },
   { id: 'e2a0', x: 773, y: 524, label: 'Mejora' },
   { id: 'e2a', x: 892, y: 441, label: 'Mejora' },
   { id: 'e2a1', x: 909, y: 587, label: 'Mejora' },
   { id: 'e3a', x: 1054, y: 626, label: 'Mejora+' },
   { id: 'e2c', x: CENTER + 310, y: CENTER + 160, label: 'Mejora' },
-  { id: 'e2b', x: CENTER + 200, y: CENTER + 280, label: 'Mejora' },
-  { id: 'e2b1', x: CENTER + 320, y: CENTER + 400, label: 'Mejora+' },
-  { id: 'e2b2', x: CENTER + 80, y: CENTER + 400, label: 'Mejora+' },
 ]
 
 const EDGES: TreeEdge[] = [
   { from: 'root', to: 'a1' },
-  { from: 'a1', to: 'a1b' },
-  { from: 'a1b', to: 'a1b1' },
-  { from: 'a1b1', to: 'a1b2' },
   { from: 'a1', to: 'a2' },
   { from: 'a2', to: 'a2b' },
   { from: 'a2', to: 'a3' },
@@ -184,6 +186,11 @@ const EDGES: TreeEdge[] = [
 
   { from: 'root', to: 'c1' },
 
+  { from: 'root', to: 'e2b' },
+  { from: 'e2b', to: 'a1b' },
+  { from: 'a1b', to: 'a1b1' },
+  { from: 'e2b', to: 'e2b1' },
+
   { from: 'root', to: 'd1' },
   { from: 'd1', to: 'd2' },
   { from: 'd2', to: 'd3' },
@@ -193,10 +200,7 @@ const EDGES: TreeEdge[] = [
   { from: 'e2a0', to: 'e2a' },
   { from: 'e2a0', to: 'e2a1' },
   { from: 'e2a1', to: 'e3a' },
-  { from: 'e1', to: 'e2b' },
   { from: 'e1', to: 'e2c' },
-  { from: 'e2b', to: 'e2b1' },
-  { from: 'e2b', to: 'e2b2' },
 ]
 
 // BFS parent pointers from root — the only graph info the reveal rule
@@ -276,9 +280,8 @@ const LUCK_NODE_STYLE = 'border-green-400/25 bg-[#0f1f16] text-green-200 shadow-
 // one system. Same opaque-dark-backing recipe as the other real nodes.
 const LEGENDARY_NODE_STYLE = 'border-red-400/25 bg-[#1f0d0d] text-red-200 shadow-black/20'
 
-// Fortuna/Azar — Suerte's own luck mechanic applied to Autoclick instead
-// of clicks. Amber, distinct from Suerte's green so the two don't blur
-// together despite sitting on the same branch.
+// Drones buscadores/Frecuencia — a second production unit alongside the
+// regular drones. Amber, its own family, distinct from every other branch.
 const AUTO_LUCK_NODE_STYLE = 'border-amber-400/25 bg-[#1f1608] text-amber-200 shadow-black/20'
 
 // Multidisparo — branch B's first real node (was an empty placeholder
@@ -336,16 +339,15 @@ export function Tree() {
     legendaryGrowthNextCost,
     isBuyingLegendaryGrowth,
     buyLegendaryGrowth,
-    autoLuckLevel,
-    autoLuckMultiplier,
-    autoLuckNextCost,
-    isBuyingAutoLuck,
-    buyAutoLuck,
-    autoLuckChanceLevel,
-    autoLuckChance,
-    autoLuckChanceNextCost,
-    isBuyingAutoLuckChance,
-    buyAutoLuckChance,
+    scoutDroneLevel,
+    scoutDroneRate,
+    scoutDroneNextCost,
+    isBuyingScoutDrone,
+    buyScoutDrone,
+    scoutFrequencyLevel,
+    scoutFrequencyNextCost,
+    isBuyingScoutFrequency,
+    buyScoutFrequency,
     autoMultiplierLevel,
     autoMultiplierValue,
     autoMultiplierNextCost,
@@ -376,10 +378,10 @@ export function Tree() {
   const canAffordLegendaryEase = legendaryEaseNextCost !== null && totalClicks >= legendaryEaseNextCost
   const isLegendaryGrowthMaxed = legendaryGrowthNextCost === null
   const canAffordLegendaryGrowth = legendaryGrowthNextCost !== null && totalClicks >= legendaryGrowthNextCost
-  const isAutoLuckMaxed = autoLuckNextCost === null
-  const canAffordAutoLuck = autoLuckNextCost !== null && totalClicks >= autoLuckNextCost
-  const isAutoLuckChanceMaxed = autoLuckChanceNextCost === null
-  const canAffordAutoLuckChance = autoLuckChanceNextCost !== null && totalClicks >= autoLuckChanceNextCost
+  const isScoutDroneMaxed = scoutDroneNextCost === null
+  const canAffordScoutDrone = scoutDroneNextCost !== null && totalClicks >= scoutDroneNextCost
+  const isScoutFrequencyMaxed = scoutFrequencyNextCost === null
+  const canAffordScoutFrequency = scoutFrequencyNextCost !== null && totalClicks >= scoutFrequencyNextCost
   const isAutoMultiplierMaxed = autoMultiplierNextCost === null
   const canAffordAutoMultiplier = autoMultiplierNextCost !== null && totalClicks >= autoMultiplierNextCost
   const isTapMultiplierMaxed = tapMultiplierNextCost === null
@@ -398,8 +400,8 @@ export function Tree() {
   const [showLegendaryUnlockModal, setShowLegendaryUnlockModal] = useState(false)
   const [showLegendaryEaseModal, setShowLegendaryEaseModal] = useState(false)
   const [showLegendaryGrowthModal, setShowLegendaryGrowthModal] = useState(false)
-  const [showAutoLuckModal, setShowAutoLuckModal] = useState(false)
-  const [showAutoLuckChanceModal, setShowAutoLuckChanceModal] = useState(false)
+  const [showScoutDroneModal, setShowScoutDroneModal] = useState(false)
+  const [showScoutFrequencyModal, setShowScoutFrequencyModal] = useState(false)
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
   const [showTapMultiplierModal, setShowTapMultiplierModal] = useState(false)
   const [showMultiShotModal, setShowMultiShotModal] = useState(false)
@@ -571,8 +573,8 @@ export function Tree() {
   const realLevelById: Record<string, number> = {
     root: autoClickLevel,
     a1: luckLevel,
-    a1b: autoLuckLevel,
-    a1b1: autoLuckChanceLevel,
+    a1b: scoutDroneLevel,
+    a1b1: scoutFrequencyLevel,
     a2: luckChanceLevel,
     b1: multiShotLevel,
     c1: premiumOwnedCount,
@@ -838,9 +840,10 @@ export function Tree() {
             </div>
           )}
 
-          {/* Suerte's other child — Fortuna, the same luck-per-production
-              mechanic applied to Autoclick instead of clicks. Amber, its
-              own family (distinct from Suerte's green). */}
+          {/* Drones buscadores — a second, independent production unit, same
+              plain level-counter shape as the regular drones (root), just
+              stronger per-unit and pricier. Sobrecarga's own child now
+              (see Branch F above), amber family throughout. */}
           {revealStateById.a1b === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -852,9 +855,9 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Satellite size={20} />
+                <Radar size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
-                  {strings.tree.level} {autoLuckLevel}
+                  {strings.tree.level} {scoutDroneLevel}
                 </span>
                 <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
                   <Lock size={14} />
@@ -870,18 +873,18 @@ export function Tree() {
             >
               <motion.button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setShowAutoLuckModal(true)}
+                onClick={() => setShowScoutDroneModal(true)}
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
               >
-                <Satellite size={20} className="text-amber-300" />
+                <Radar size={20} className="text-amber-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
-                  {strings.tree.level} {autoLuckLevel}
+                  {strings.tree.level} {scoutDroneLevel}
                 </span>
 
-                {canAffordAutoLuck && (
+                {canAffordScoutDrone && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -890,8 +893,8 @@ export function Tree() {
             </div>
           )}
 
-          {/* Fortuna's own child — Azar, raises Fortuna's chance the same
-              way Probabilidad raises Suerte's. */}
+          {/* Drones buscadores' own child — Frecuencia, a flat per-unit cps
+              booster mirroring Sobrecarga but for scout drones. */}
           {revealStateById.a1b1 === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -905,7 +908,7 @@ export function Tree() {
               >
                 <Radio size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
-                  {strings.tree.level} {autoLuckChanceLevel}
+                  {strings.tree.level} {scoutFrequencyLevel}
                 </span>
                 <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
                   <Lock size={14} />
@@ -921,7 +924,7 @@ export function Tree() {
             >
               <motion.button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setShowAutoLuckChanceModal(true)}
+                onClick={() => setShowScoutFrequencyModal(true)}
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b1, CENTER, CENTER) }}
@@ -929,10 +932,10 @@ export function Tree() {
               >
                 <Radio size={20} className="text-amber-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
-                  {strings.tree.level} {autoLuckChanceLevel}
+                  {strings.tree.level} {scoutFrequencyLevel}
                 </span>
 
-                {canAffordAutoLuckChance && (
+                {canAffordScoutFrequency && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -943,8 +946,9 @@ export function Tree() {
 
           {/* Destello's own second node — raises the % chance itself (Destello
               raises the payout when it hits). Same green as Destello (same
-              family), Radar icon instead of Sparkles to tell them apart.
-              Same locked/available split. */}
+              family), Telescope icon instead of Sparkles to tell them apart
+              (Radar moved over to Dron buscador). Same locked/available
+              split. */}
           {revealStateById.a2 === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -956,7 +960,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a2, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Radar size={20} />
+                <Telescope size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckChanceLevel}
                 </span>
@@ -980,7 +984,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a2, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-green-400/40 ${LUCK_NODE_STYLE}`}
               >
-                <Radar size={20} className="text-green-300" />
+                <Telescope size={20} className="text-green-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {luckChanceLevel}
                 </span>
@@ -1051,9 +1055,9 @@ export function Tree() {
               single flat purchase gating the Legendary heat tier itself)
               fans out into Ritmo (e2a, shrinks the clicks it takes to level
               up) and Impulso (e2a1, grows the Legendary bonus step, with
-              its own placeholder leaf e3a); and Sobrecarga (e2b, a
-              guaranteed per-drone production bonus). All finite, same red
-              Legendary family as Multiplicador itself. */}
+              its own placeholder leaf e3a). All finite, same red Legendary
+              family as Multiplicador itself — Sobrecarga used to live here
+              too but now leads Branch F, its own root branch. */}
           {revealStateById.e2a0 === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -1234,9 +1238,9 @@ export function Tree() {
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b, CENTER, CENTER) }}
-                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
               >
-                <Atom size={20} className="text-red-300" />
+                <Atom size={20} className="text-amber-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoMultiplierLevel}
                 </span>
@@ -1250,10 +1254,9 @@ export function Tree() {
             </div>
           )}
 
-          {/* Productividad's third child — Multiplicador, a genuine
-              ×multiplier stacked on top of the additive base click value.
-              Same red Legendary family, sits visually between Ritmo and
-              Sobrecarga. */}
+          {/* Multiplicador's other direct child (besides Modo Legendario) —
+              Amplificador, a genuine ×multiplier stacked on top of the
+              additive base click value. Same red Legendary family. */}
           {revealStateById.e2c === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -1560,7 +1563,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Radar size={18} className="text-green-300" />
+              <Telescope size={18} className="text-green-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.luckChanceName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.luckChanceDesc}</p>
@@ -1809,17 +1812,17 @@ export function Tree() {
         </div>
       )}
 
-      {showAutoLuckModal && (
+      {showScoutDroneModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
-          onClick={() => setShowAutoLuckModal(false)}
+          onClick={() => setShowScoutDroneModal(false)}
         >
           <div
             className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setShowAutoLuckModal(false)}
+              onClick={() => setShowScoutDroneModal(false)}
               aria-label="Close"
               className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
             >
@@ -1827,35 +1830,39 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Satellite size={18} className="text-amber-300" />
-              <p className="text-sm font-semibold text-white">{strings.tree.fortunaName}</p>
+              <Radar size={18} className="text-amber-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.scoutDroneName}</p>
             </div>
-            <p className="mb-4 text-sm text-neutral-400">{strings.tree.fortunaDesc}</p>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.scoutDroneDesc}</p>
 
+            {/* Same shape as the regular Drones modal — buying this adds one
+                more scout drone; per-unit output (2 pt/s base) is stated in
+                the description above, Frecuencia raises that rate instead of
+                this node, which stays "buy another scout drone". */}
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
-                {strings.tree.currentMultiplier}{' '}
-                <span className="font-semibold text-white">×{autoLuckMultiplier}</span>
+                {strings.tree.scoutDroneCurrentLabel}{' '}
+                <span className="font-semibold text-white">{scoutDroneLevel.toLocaleString(locale)}</span>
               </span>
-              {!isAutoLuckMaxed && (
+              {!isScoutDroneMaxed && (
                 <span>
-                  {strings.tree.nextMultiplier}{' '}
-                  <span className="font-semibold text-white">×{autoLuckMultiplier + 1}</span>
+                  {strings.tree.scoutDroneNextLabel}{' '}
+                  <span className="font-semibold text-white">{(scoutDroneLevel + 1).toLocaleString(locale)}</span>
                 </span>
               )}
             </div>
 
-            {isAutoLuckMaxed ? (
+            {isScoutDroneMaxed ? (
               <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
                 {strings.store.maxLevel}
               </div>
             ) : (
               <TreeBuyButton
-                onClick={buyAutoLuck}
-                isBuying={isBuyingAutoLuck}
-                canAfford={canAffordAutoLuck}
+                onClick={buyScoutDrone}
+                isBuying={isBuyingScoutDrone}
+                canAfford={canAffordScoutDrone}
                 buyingLabel={strings.tree.upgrading}
-                cost={autoLuckNextCost ?? 0}
+                cost={scoutDroneNextCost ?? 0}
                 balance={totalClicks}
                 locale={locale}
                 currency="clicks"
@@ -1865,17 +1872,17 @@ export function Tree() {
         </div>
       )}
 
-      {showAutoLuckChanceModal && (
+      {showScoutFrequencyModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
-          onClick={() => setShowAutoLuckChanceModal(false)}
+          onClick={() => setShowScoutFrequencyModal(false)}
         >
           <div
             className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setShowAutoLuckChanceModal(false)}
+              onClick={() => setShowScoutFrequencyModal(false)}
               aria-label="Close"
               className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
             >
@@ -1884,34 +1891,38 @@ export function Tree() {
 
             <div className="mb-3 flex items-center gap-2">
               <Radio size={18} className="text-amber-300" />
-              <p className="text-sm font-semibold text-white">{strings.tree.azarName}</p>
+              <p className="text-sm font-semibold text-white">{strings.tree.scoutFrequencyName}</p>
             </div>
-            <p className="mb-4 text-sm text-neutral-400">{strings.tree.azarDesc}</p>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.scoutFrequencyDesc}</p>
 
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
-                {strings.tree.currentChance}{' '}
-                <span className="font-semibold text-white">{formatChance(autoLuckChance)}</span>
+                {strings.tree.currentProduction}{' '}
+                <span className="font-semibold text-white">
+                  {scoutDroneRate.toLocaleString(locale, { maximumFractionDigits: 2 })} {strings.home.cps}
+                </span>
               </span>
-              {!isAutoLuckChanceMaxed && (
+              {!isScoutFrequencyMaxed && (
                 <span>
-                  {strings.tree.nextChance}{' '}
-                  <span className="font-semibold text-white">{formatChance(autoLuckChance + 0.01)}</span>
+                  {strings.tree.nextProduction}{' '}
+                  <span className="font-semibold text-white">
+                    {(scoutDroneRate + 1).toLocaleString(locale, { maximumFractionDigits: 2 })} {strings.home.cps}
+                  </span>
                 </span>
               )}
             </div>
 
-            {isAutoLuckChanceMaxed ? (
+            {isScoutFrequencyMaxed ? (
               <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
                 {strings.store.maxLevel}
               </div>
             ) : (
               <TreeBuyButton
-                onClick={buyAutoLuckChance}
-                isBuying={isBuyingAutoLuckChance}
-                canAfford={canAffordAutoLuckChance}
+                onClick={buyScoutFrequency}
+                isBuying={isBuyingScoutFrequency}
+                canAfford={canAffordScoutFrequency}
                 buyingLabel={strings.tree.upgrading}
-                cost={autoLuckChanceNextCost ?? 0}
+                cost={scoutFrequencyNextCost ?? 0}
                 balance={totalClicks}
                 locale={locale}
                 currency="clicks"
@@ -1939,7 +1950,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Atom size={18} className="text-red-300" />
+              <Atom size={18} className="text-amber-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.turboName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.turboDesc}</p>
