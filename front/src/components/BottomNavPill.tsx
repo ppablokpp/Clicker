@@ -23,7 +23,7 @@ export function BottomNavPill() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40">
-      <div className="relative mx-auto w-full max-w-md px-3 pb-3 sm:max-w-lg sm:px-4 sm:pb-4">
+      <div className="relative mx-auto w-full max-w-md px-3 pb-4 sm:max-w-lg sm:px-4 sm:pb-5">
         <div
           className="relative overflow-hidden rounded-b-sm border border-white/10 bg-gradient-to-t from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-[0_-10px_34px_-10px_rgba(0,0,0,0.75)]"
           style={{
@@ -61,7 +61,7 @@ export function BottomNavPill() {
                   {({ isActive }) =>
                     isHome ? (
                       <span
-                        className={`flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-full border shadow-lg transition-colors ${
+                        className={`flex h-[55px] w-[55px] flex-col items-center justify-center gap-1 rounded-full border shadow-lg transition-colors ${
                           isActive
                             ? 'border-violet-400/50 bg-[#171224] shadow-violet-500/30'
                             : 'border-violet-400/25 bg-[#12101a] shadow-violet-500/10'
