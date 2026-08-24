@@ -9,6 +9,7 @@
  * proper per-node config once more tree nodes stop being placeholders.
  */
 export const AUTOCLICK_NODE_ID = 'auto_click'
+export const AUTOCLICK_MAX_LEVEL = 30
 
 export const AUTOCLICK_BASE_COST = 300
 export const AUTOCLICK_COST_RATIO = 1.15
@@ -16,6 +17,7 @@ export const AUTOCLICK_CPS_PER_LEVEL = 0.5
 
 // Cost to go from `level` owned to `level + 1`.
 export function autoClickCost(level) {
+  if (level >= AUTOCLICK_MAX_LEVEL) return null
   return Math.ceil(AUTOCLICK_BASE_COST * AUTOCLICK_COST_RATIO ** level)
 }
 

@@ -49,6 +49,15 @@ treeRouter.post('/luck-chance/buy', async (req, res) => {
   res.json(result)
 })
 
+treeRouter.post('/legendary-unlock/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyLegendaryUnlockLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
 treeRouter.post('/legendary-ease/buy', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })

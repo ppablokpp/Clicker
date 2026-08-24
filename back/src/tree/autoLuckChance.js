@@ -5,6 +5,7 @@
  * amplifies a passive income stream.
  */
 export const AUTO_LUCK_CHANCE_NODE_ID = 'auto_luck_chance'
+export const AUTO_LUCK_CHANCE_MAX_LEVEL = 20
 
 export const AUTO_LUCK_CHANCE_BASE = 0.01
 export const AUTO_LUCK_CHANCE_STEP = 0.01
@@ -13,6 +14,7 @@ export const AUTO_LUCK_CHANCE_BASE_COST = 2_800
 export const AUTO_LUCK_CHANCE_COST_RATIO = 1.17
 
 export function autoLuckChanceCost(level) {
+  if (level >= AUTO_LUCK_CHANCE_MAX_LEVEL) return null
   return Math.ceil(AUTO_LUCK_CHANCE_BASE_COST * AUTO_LUCK_CHANCE_COST_RATIO ** level)
 }
 

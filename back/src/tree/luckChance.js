@@ -12,6 +12,7 @@
  * = 1%/2%/3% ladder.
  */
 export const LUCK_CHANCE_NODE_ID = 'luck_chance'
+export const LUCK_CHANCE_MAX_LEVEL = 20
 
 export const LUCK_BASE_CHANCE = 0.01
 export const LUCK_CHANCE_STEP = 0.01
@@ -20,6 +21,7 @@ export const LUCK_CHANCE_COST_RATIO = 1.16
 
 // Cost to go from `level` owned to `level + 1`.
 export function luckChanceCost(level) {
+  if (level >= LUCK_CHANCE_MAX_LEVEL) return null
   return Math.ceil(LUCK_CHANCE_BASE_COST * LUCK_CHANCE_COST_RATIO ** level)
 }
 

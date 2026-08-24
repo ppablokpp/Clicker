@@ -17,23 +17,25 @@ const TICK_INTERVAL_MS = 100
 interface TreeState {
   autoClickLevel: number
   autoClickCps: number
-  autoClickNextCost: number
+  autoClickNextCost: number | null
   autoClickNextCps: number
   luckLevel: number
   luckChance: number
   luckMultiplier: number
-  luckNextCost: number
+  luckNextCost: number | null
   luckChanceLevel: number
-  luckChanceNextCost: number
+  luckChanceNextCost: number | null
   autoLuckLevel: number
   autoLuckMultiplier: number
-  autoLuckNextCost: number
+  autoLuckNextCost: number | null
   autoLuckChanceLevel: number
   autoLuckChance: number
-  autoLuckChanceNextCost: number
+  autoLuckChanceNextCost: number | null
   multiplierLevel: number
   multiplierValue: number
-  multiplierNextCost: number
+  multiplierNextCost: number | null
+  legendaryUnlockLevel: number
+  legendaryUnlockNextCost: number | null
   legendaryEaseLevel: number
   legendaryStreakBase: number
   legendaryEaseNextCost: number | null
@@ -45,7 +47,7 @@ interface TreeState {
   autoMultiplierNextCost: number | null
   tapMultiplierLevel: number
   tapMultiplierValue: number
-  tapMultiplierNextCost: number
+  tapMultiplierNextCost: number | null
   multiShotLevel: number
   multiShotValue: number
   multiShotNextCost: number | null
@@ -60,6 +62,8 @@ interface TreeContextValue extends TreeState {
   buyLuckChance: () => Promise<{ ok: boolean; error?: string }>
   isBuyingMultiplier: boolean
   buyMultiplier: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingLegendaryUnlock: boolean
+  buyLegendaryUnlock: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryEase: boolean
   buyLegendaryEase: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryGrowth: boolean
@@ -98,6 +102,8 @@ const EMPTY_STATE: TreeState = {
   multiplierLevel: 0,
   multiplierValue: 1,
   multiplierNextCost: 0,
+  legendaryUnlockLevel: 0,
+  legendaryUnlockNextCost: 100_000,
   legendaryEaseLevel: 0,
   legendaryStreakBase: 200,
   legendaryEaseNextCost: 0,
@@ -105,7 +111,7 @@ const EMPTY_STATE: TreeState = {
   legendaryBonusStep: 0.5,
   legendaryGrowthNextCost: 0,
   autoMultiplierLevel: 0,
-  autoMultiplierValue: 1,
+  autoMultiplierValue: 0.5,
   autoMultiplierNextCost: 0,
   tapMultiplierLevel: 0,
   tapMultiplierValue: 1,
@@ -124,6 +130,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingLuck, setIsBuyingLuck] = useState(false)
   const [isBuyingLuckChance, setIsBuyingLuckChance] = useState(false)
   const [isBuyingMultiplier, setIsBuyingMultiplier] = useState(false)
+  const [isBuyingLegendaryUnlock, setIsBuyingLegendaryUnlock] = useState(false)
   const [isBuyingLegendaryEase, setIsBuyingLegendaryEase] = useState(false)
   const [isBuyingLegendaryGrowth, setIsBuyingLegendaryGrowth] = useState(false)
   const [isBuyingAutoLuck, setIsBuyingAutoLuck] = useState(false)
@@ -168,6 +175,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
           multiplierNextCost: data.multiplierNextCost,
+          legendaryUnlockLevel: data.legendaryUnlockLevel,
+          legendaryUnlockNextCost: data.legendaryUnlockNextCost,
           legendaryEaseLevel: data.legendaryEaseLevel,
           legendaryStreakBase: data.legendaryStreakBase,
           legendaryEaseNextCost: data.legendaryEaseNextCost,
@@ -346,6 +355,36 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: 'error' }
     } finally {
       setIsBuyingMultiplier(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyLegendaryUnlock = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingLegendaryUnlock(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/legendary-unlock/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        legendaryUnlockLevel: data.legendaryUnlockLevel,
+        legendaryUnlockNextCost: data.legendaryUnlockNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Modo Legendario', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingLegendaryUnlock(false)
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
@@ -583,6 +622,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyLuckChance,
         isBuyingMultiplier,
         buyMultiplier,
+        isBuyingLegendaryUnlock,
+        buyLegendaryUnlock,
         isBuyingLegendaryEase,
         buyLegendaryEase,
         isBuyingLegendaryGrowth,

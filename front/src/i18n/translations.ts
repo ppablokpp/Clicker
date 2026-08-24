@@ -156,6 +156,8 @@ export interface TranslationStrings {
     luckChanceDesc: string
     currentChance: string
     nextChance: string
+    legendaryUnlockName: string
+    legendaryUnlockDesc: string
     legendaryEaseName: string
     legendaryEaseDesc: string
     currentStreakClicks: string
@@ -453,8 +455,11 @@ export const translations: Record<Language, TranslationStrings> = {
       luckChanceDesc: 'Aumenta la probabilidad de detectar un destello al disparar.',
       currentChance: 'Probabilidad actual:',
       nextChance: 'Probabilidad siguiente nivel:',
-      legendaryEaseName: 'Refrigeración',
-      legendaryEaseDesc: 'Reduce los disparos necesarios para sobrecalentar el cañón y activar el modo Legendario.',
+      legendaryUnlockName: 'Modo Legendario',
+      legendaryUnlockDesc:
+        'Desbloquea un multiplicador de la potencia de cada disparo al sobrecalentar el cañón a 20 disparos por segundo.',
+      legendaryEaseName: 'Catalizador',
+      legendaryEaseDesc: 'Reduce los disparos necesarios para sobrecalentar el cañón y subir de nivel en modo Legendario.',
       currentStreakClicks: 'Disparos actuales:',
       nextStreakClicks: 'Disparos siguiente nivel:',
       legendaryGrowthName: 'Impulso',
@@ -466,7 +471,7 @@ export const translations: Record<Language, TranslationStrings> = {
       azarName: 'Frecuencia',
       azarDesc: 'Sintoniza el radar de tus drones, aumentando la probabilidad de que encuentren un destello.',
       turboName: 'Sobrecarga',
-      turboDesc: 'Sobrecarga el reactor de tus drones, multiplicando su producción de forma garantizada.',
+      turboDesc: 'Sobrecarga el reactor de tus drones, aumentando su producción.',
       tapMultiplierName: 'Amplificador',
       tapMultiplierDesc: 'Multiplica la potencia de cada disparo.',
       multiShotName: 'Multidisparo',
@@ -750,8 +755,10 @@ export const translations: Record<Language, TranslationStrings> = {
       luckChanceDesc: "Raises the odds of detecting a glimmer when you fire.",
       currentChance: 'Current chance:',
       nextChance: 'Next level chance:',
-      legendaryEaseName: 'Cooling',
-      legendaryEaseDesc: 'Lowers how many shots it takes to overheat the cannon and trigger Legendary mode.',
+      legendaryUnlockName: 'Legendary Mode',
+      legendaryUnlockDesc: 'Unlocks a multiplier on the power of every shot by overheating the cannon at 20 shots per second.',
+      legendaryEaseName: 'Catalyst',
+      legendaryEaseDesc: 'Lowers how many shots it takes to overheat the cannon and level up within Legendary mode.',
       currentStreakClicks: 'Current shots:',
       nextStreakClicks: 'Next level shots:',
       legendaryGrowthName: 'Boost',
@@ -763,7 +770,7 @@ export const translations: Record<Language, TranslationStrings> = {
       azarName: 'Frequency',
       azarDesc: "Tunes your drones' radar, raising the odds they find a glimmer.",
       turboName: 'Overload',
-      turboDesc: "Overloads your drones' reactor, guaranteeing a multiplier on their production.",
+      turboDesc: "Overloads your drones' reactor, increasing their production.",
       tapMultiplierName: 'Amplifier',
       tapMultiplierDesc: "Multiplies the power of each shot.",
       multiShotName: 'Multi-shot',

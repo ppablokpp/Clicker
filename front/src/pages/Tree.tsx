@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, 
 import { motion } from 'framer-motion'
 import {
   ArrowUp,
-  Asterisk,
+  Atom,
   Crosshair,
   ChevronsUp,
   Gauge,
@@ -11,6 +11,7 @@ import {
   Minus,
   Plus,
   Radar,
+  Radiation,
   Radio,
   RotateCcw,
   Satellite,
@@ -114,11 +115,6 @@ interface TreeEdge {
 
 type RevealState = 'hidden' | 'locked' | 'available'
 
-// Mirrors back/src/tree/autoClick.js's own AUTOCLICK_CPS_PER_LEVEL — the
-// flat per-drone base rate, used to show Sobrecarga's production stat as
-// "per drone" instead of the fleet's grand total.
-const AUTOCLICK_CPS_PER_LEVEL = 0.5
-
 // Pure placeholder layout — no real upgrades wired up yet, just enough
 // nodes/branches to see how a pannable/zoomable incremental tech-tree
 // screen could look and feel. Root sits dead center of the world, but each
@@ -155,16 +151,18 @@ const NODES: TreeNode[] = [
   { id: 'd2', x: CENTER - 170, y: CENTER - 310, label: 'Mejora' },
   { id: 'd3', x: CENTER - 80, y: CENTER - 440, label: 'Mejora+' },
 
-  // Branch E — forks into three: Ritmo (e2a) goes on to its own child
-  // (Impulso, e2a1); Sobrecarga (e2b) gets its own deeper placeholder
-  // (e2b1); Multiplicador (e2c) sits between the two, its own +1 node off
-  // Productividad.
+  // Branch E — forks into three: Modo Legendario (e2a0) gates the heat
+  // tier itself and fans out into its own two children (Reflejos/e2a and
+  // Impulso/e2a1, Impulso going on to its own placeholder leaf e3a);
+  // Sobrecarga (e2b) gets its own deeper placeholder (e2b1); Multiplicador
+  // (e2c) sits between the two, its own +1 node off Productividad.
   { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Mejora' },
-  { id: 'e2a', x: CENTER + 280, y: CENTER + 45, label: 'Mejora' },
+  { id: 'e2a0', x: 773, y: 524, label: 'Mejora' },
+  { id: 'e2a', x: 892, y: 441, label: 'Mejora' },
+  { id: 'e2a1', x: 909, y: 587, label: 'Mejora' },
+  { id: 'e3a', x: 1054, y: 626, label: 'Mejora+' },
   { id: 'e2c', x: CENTER + 310, y: CENTER + 160, label: 'Mejora' },
   { id: 'e2b', x: CENTER + 200, y: CENTER + 280, label: 'Mejora' },
-  { id: 'e2a1', x: CENTER + 370, y: CENTER - 80, label: 'Mejora' },
-  { id: 'e3a', x: CENTER + 505, y: CENTER - 15, label: 'Mejora+' },
   { id: 'e2b1', x: CENTER + 320, y: CENTER + 400, label: 'Mejora+' },
   { id: 'e2b2', x: CENTER + 80, y: CENTER + 400, label: 'Mejora+' },
 ]
@@ -191,11 +189,12 @@ const EDGES: TreeEdge[] = [
   { from: 'd2', to: 'd3' },
 
   { from: 'root', to: 'e1' },
-  { from: 'e1', to: 'e2a' },
+  { from: 'e1', to: 'e2a0' },
+  { from: 'e2a0', to: 'e2a' },
+  { from: 'e2a0', to: 'e2a1' },
+  { from: 'e2a1', to: 'e3a' },
   { from: 'e1', to: 'e2b' },
   { from: 'e1', to: 'e2c' },
-  { from: 'e2a', to: 'e2a1' },
-  { from: 'e2a1', to: 'e3a' },
   { from: 'e2b', to: 'e2b1' },
   { from: 'e2b', to: 'e2b2' },
 ]
@@ -323,6 +322,10 @@ export function Tree() {
     multiplierNextCost,
     isBuyingMultiplier,
     buyMultiplier,
+    legendaryUnlockLevel,
+    legendaryUnlockNextCost,
+    isBuyingLegendaryUnlock,
+    buyLegendaryUnlock,
     legendaryEaseLevel,
     legendaryStreakBase,
     legendaryEaseNextCost,
@@ -359,19 +362,28 @@ export function Tree() {
     isBuyingMultiShot,
     buyMultiShot,
   } = useTreeContext()
-  const canAffordAutoClick = totalClicks >= autoClickNextCost
-  const canAffordLuck = totalClicks >= luckNextCost
-  const canAffordLuckChance = totalClicks >= luckChanceNextCost
-  const canAffordMultiplier = totalClicks >= multiplierNextCost
+  const isAutoClickMaxed = autoClickNextCost === null
+  const canAffordAutoClick = autoClickNextCost !== null && totalClicks >= autoClickNextCost
+  const isLuckMaxed = luckNextCost === null
+  const canAffordLuck = luckNextCost !== null && totalClicks >= luckNextCost
+  const isLuckChanceMaxed = luckChanceNextCost === null
+  const canAffordLuckChance = luckChanceNextCost !== null && totalClicks >= luckChanceNextCost
+  const isMultiplierMaxed = multiplierNextCost === null
+  const canAffordMultiplier = multiplierNextCost !== null && totalClicks >= multiplierNextCost
+  const isLegendaryUnlockMaxed = legendaryUnlockNextCost === null
+  const canAffordLegendaryUnlock = legendaryUnlockNextCost !== null && totalClicks >= legendaryUnlockNextCost
   const isLegendaryEaseMaxed = legendaryEaseNextCost === null
   const canAffordLegendaryEase = legendaryEaseNextCost !== null && totalClicks >= legendaryEaseNextCost
   const isLegendaryGrowthMaxed = legendaryGrowthNextCost === null
   const canAffordLegendaryGrowth = legendaryGrowthNextCost !== null && totalClicks >= legendaryGrowthNextCost
-  const canAffordAutoLuck = totalClicks >= autoLuckNextCost
-  const canAffordAutoLuckChance = totalClicks >= autoLuckChanceNextCost
+  const isAutoLuckMaxed = autoLuckNextCost === null
+  const canAffordAutoLuck = autoLuckNextCost !== null && totalClicks >= autoLuckNextCost
+  const isAutoLuckChanceMaxed = autoLuckChanceNextCost === null
+  const canAffordAutoLuckChance = autoLuckChanceNextCost !== null && totalClicks >= autoLuckChanceNextCost
   const isAutoMultiplierMaxed = autoMultiplierNextCost === null
   const canAffordAutoMultiplier = autoMultiplierNextCost !== null && totalClicks >= autoMultiplierNextCost
-  const canAffordTapMultiplier = totalClicks >= tapMultiplierNextCost
+  const isTapMultiplierMaxed = tapMultiplierNextCost === null
+  const canAffordTapMultiplier = tapMultiplierNextCost !== null && totalClicks >= tapMultiplierNextCost
   const isMultiShotMaxed = multiShotNextCost === null
   const canAffordMultiShot = multiShotNextCost !== null && totalClicks >= multiShotNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
@@ -383,6 +395,7 @@ export function Tree() {
   const [showLuckModal, setShowLuckModal] = useState(false)
   const [showLuckChanceModal, setShowLuckChanceModal] = useState(false)
   const [showMultiplierModal, setShowMultiplierModal] = useState(false)
+  const [showLegendaryUnlockModal, setShowLegendaryUnlockModal] = useState(false)
   const [showLegendaryEaseModal, setShowLegendaryEaseModal] = useState(false)
   const [showLegendaryGrowthModal, setShowLegendaryGrowthModal] = useState(false)
   const [showAutoLuckModal, setShowAutoLuckModal] = useState(false)
@@ -564,6 +577,7 @@ export function Tree() {
     b1: multiShotLevel,
     c1: premiumOwnedCount,
     e1: multiplierLevel,
+    e2a0: legendaryUnlockLevel,
     e2a: legendaryEaseLevel,
     e2a1: legendaryGrowthLevel,
     e2b: autoMultiplierLevel,
@@ -1033,12 +1047,62 @@ export function Tree() {
             </div>
           )}
 
-          {/* Multiplicador's two direct children — Ritmo (e2a, shrinks the
-              clicks it takes to level up), whose own child is Impulso
-              (e2a1, grows the Legendary bonus step); and Sobrecarga (e2b, a
-              guaranteed multiplier on Autoclick's production). All finite
-              (capped at level 10), same red Legendary family as
-              Multiplicador itself. */}
+          {/* Multiplicador's direct children — Modo Legendario (e2a0, a
+              single flat purchase gating the Legendary heat tier itself)
+              fans out into Ritmo (e2a, shrinks the clicks it takes to level
+              up) and Impulso (e2a1, grows the Legendary bonus step, with
+              its own placeholder leaf e3a); and Sobrecarga (e2b, a
+              guaranteed per-drone production bonus). All finite, same red
+              Legendary family as Multiplicador itself. */}
+          {revealStateById.e2a0 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2a0.x, top: nodeById.e2a0.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2a0, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Zap size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryUnlockLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.e2a0 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2a0.x, top: nodeById.e2a0.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowLegendaryUnlockModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2a0, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
+              >
+                <Zap size={20} className="text-red-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryUnlockLevel}
+                </span>
+
+                {!isLegendaryUnlockMaxed && canAffordLegendaryUnlock && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
           {revealStateById.e2a === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -1148,7 +1212,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Zap size={20} />
+                <Atom size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoMultiplierLevel}
                 </span>
@@ -1172,7 +1236,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
               >
-                <Zap size={20} className="text-red-300" />
+                <Atom size={20} className="text-red-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {autoMultiplierLevel}
                 </span>
@@ -1201,7 +1265,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2c, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Asterisk size={20} />
+                <Radiation size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {tapMultiplierLevel}
                 </span>
@@ -1225,7 +1289,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2c, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
               >
-                <Asterisk size={20} className="text-red-300" />
+                <Radiation size={20} className="text-red-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {tapMultiplierLevel}
                 </span>
@@ -1330,24 +1394,32 @@ export function Tree() {
                   {autoClickLevel.toLocaleString(locale)} {strings.tree.dronesUnit}
                 </span>
               </span>
-              <span>
-                {strings.tree.nextLevelRate}{' '}
-                <span className="font-semibold text-white">
-                  {(autoClickLevel + 1).toLocaleString(locale)} {strings.tree.dronesUnit}
+              {!isAutoClickMaxed && (
+                <span>
+                  {strings.tree.nextLevelRate}{' '}
+                  <span className="font-semibold text-white">
+                    {(autoClickLevel + 1).toLocaleString(locale)} {strings.tree.dronesUnit}
+                  </span>
                 </span>
-              </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyAutoClick}
-              isBuying={isBuying}
-              canAfford={canAffordAutoClick}
-              buyingLabel={strings.tree.upgrading}
-              cost={autoClickNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isAutoClickMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyAutoClick}
+                isBuying={isBuying}
+                canAfford={canAffordAutoClick}
+                buyingLabel={strings.tree.upgrading}
+                cost={autoClickNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1442,22 +1514,30 @@ export function Tree() {
                 {strings.tree.currentMultiplier}{' '}
                 <span className="font-semibold text-white">×{luckMultiplier}</span>
               </span>
-              <span>
-                {strings.tree.nextMultiplier}{' '}
-                <span className="font-semibold text-white">×{luckMultiplier + 1}</span>
-              </span>
+              {!isLuckMaxed && (
+                <span>
+                  {strings.tree.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{luckMultiplier + 1}</span>
+                </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyLuck}
-              isBuying={isBuyingLuck}
-              canAfford={canAffordLuck}
-              buyingLabel={strings.tree.upgrading}
-              cost={luckNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isLuckMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyLuck}
+                isBuying={isBuyingLuck}
+                canAfford={canAffordLuck}
+                buyingLabel={strings.tree.upgrading}
+                cost={luckNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1490,22 +1570,30 @@ export function Tree() {
                 {strings.tree.currentChance}{' '}
                 <span className="font-semibold text-white">{formatChance(luckChance)}</span>
               </span>
-              <span>
-                {strings.tree.nextChance}{' '}
-                <span className="font-semibold text-white">{formatChance(luckChance + 0.005)}</span>
-              </span>
+              {!isLuckChanceMaxed && (
+                <span>
+                  {strings.tree.nextChance}{' '}
+                  <span className="font-semibold text-white">{formatChance(luckChance + 0.01)}</span>
+                </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyLuckChance}
-              isBuying={isBuyingLuckChance}
-              canAfford={canAffordLuckChance}
-              buyingLabel={strings.tree.upgrading}
-              cost={luckChanceNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isLuckChanceMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyLuckChance}
+                isBuying={isBuyingLuckChance}
+                canAfford={canAffordLuckChance}
+                buyingLabel={strings.tree.upgrading}
+                cost={luckChanceNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1538,22 +1626,30 @@ export function Tree() {
                 {strings.tree.currentClickValue}{' '}
                 <span className="font-semibold text-white">{multiplierValue}</span>
               </span>
-              <span>
-                {strings.tree.nextClickValue}{' '}
-                <span className="font-semibold text-white">{multiplierValue + 0.5}</span>
-              </span>
+              {!isMultiplierMaxed && (
+                <span>
+                  {strings.tree.nextClickValue}{' '}
+                  <span className="font-semibold text-white">{multiplierValue + 1}</span>
+                </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyMultiplier}
-              isBuying={isBuyingMultiplier}
-              canAfford={canAffordMultiplier}
-              buyingLabel={strings.tree.upgrading}
-              cost={multiplierNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isMultiplierMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyMultiplier}
+                isBuying={isBuyingMultiplier}
+                canAfford={canAffordMultiplier}
+                buyingLabel={strings.tree.upgrading}
+                cost={multiplierNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1605,6 +1701,49 @@ export function Tree() {
                 canAfford={canAffordLegendaryGrowth}
                 buyingLabel={strings.tree.upgrading}
                 cost={legendaryGrowthNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showLegendaryUnlockModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowLegendaryUnlockModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLegendaryUnlockModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Zap size={18} className="text-red-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.legendaryUnlockName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryUnlockDesc}</p>
+
+            {isLegendaryUnlockMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyLegendaryUnlock}
+                isBuying={isBuyingLegendaryUnlock}
+                canAfford={canAffordLegendaryUnlock}
+                buyingLabel={strings.tree.upgrading}
+                cost={legendaryUnlockNextCost ?? 0}
                 balance={totalClicks}
                 locale={locale}
                 currency="clicks"
@@ -1698,22 +1837,30 @@ export function Tree() {
                 {strings.tree.currentMultiplier}{' '}
                 <span className="font-semibold text-white">×{autoLuckMultiplier}</span>
               </span>
-              <span>
-                {strings.tree.nextMultiplier}{' '}
-                <span className="font-semibold text-white">×{autoLuckMultiplier + 1}</span>
-              </span>
+              {!isAutoLuckMaxed && (
+                <span>
+                  {strings.tree.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{autoLuckMultiplier + 1}</span>
+                </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyAutoLuck}
-              isBuying={isBuyingAutoLuck}
-              canAfford={canAffordAutoLuck}
-              buyingLabel={strings.tree.upgrading}
-              cost={autoLuckNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isAutoLuckMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyAutoLuck}
+                isBuying={isBuyingAutoLuck}
+                canAfford={canAffordAutoLuck}
+                buyingLabel={strings.tree.upgrading}
+                cost={autoLuckNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1746,22 +1893,30 @@ export function Tree() {
                 {strings.tree.currentChance}{' '}
                 <span className="font-semibold text-white">{formatChance(autoLuckChance)}</span>
               </span>
-              <span>
-                {strings.tree.nextChance}{' '}
-                <span className="font-semibold text-white">{formatChance(autoLuckChance + 0.005)}</span>
-              </span>
+              {!isAutoLuckChanceMaxed && (
+                <span>
+                  {strings.tree.nextChance}{' '}
+                  <span className="font-semibold text-white">{formatChance(autoLuckChance + 0.01)}</span>
+                </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyAutoLuckChance}
-              isBuying={isBuyingAutoLuckChance}
-              canAfford={canAffordAutoLuckChance}
-              buyingLabel={strings.tree.upgrading}
-              cost={autoLuckChanceNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isAutoLuckChanceMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyAutoLuckChance}
+                isBuying={isBuyingAutoLuckChance}
+                canAfford={canAffordAutoLuckChance}
+                buyingLabel={strings.tree.upgrading}
+                cost={autoLuckChanceNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}
@@ -1784,7 +1939,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Zap size={18} className="text-red-300" />
+              <Atom size={18} className="text-red-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.turboName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.turboDesc}</p>
@@ -1793,7 +1948,7 @@ export function Tree() {
               <span>
                 {strings.tree.currentProduction}{' '}
                 <span className="font-semibold text-white">
-                  {(AUTOCLICK_CPS_PER_LEVEL * autoMultiplierValue).toLocaleString(locale, {
+                  {autoMultiplierValue.toLocaleString(locale, {
                     maximumFractionDigits: 2,
                   })}{' '}
                   {strings.home.cps}
@@ -1803,7 +1958,7 @@ export function Tree() {
                 <span>
                   {strings.tree.nextProduction}{' '}
                   <span className="font-semibold text-white">
-                    {(AUTOCLICK_CPS_PER_LEVEL * (autoMultiplierValue + 0.5)).toLocaleString(locale, {
+                    {(autoMultiplierValue + 0.5).toLocaleString(locale, {
                       maximumFractionDigits: 2,
                     })}{' '}
                     {strings.home.cps}
@@ -1850,7 +2005,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Asterisk size={18} className="text-red-300" />
+              <Radiation size={18} className="text-red-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.tapMultiplierName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.tapMultiplierDesc}</p>
@@ -1860,22 +2015,30 @@ export function Tree() {
                 {strings.tree.currentMultiplier}{' '}
                 <span className="font-semibold text-white">×{tapMultiplierValue}</span>
               </span>
-              <span>
-                {strings.tree.nextMultiplier}{' '}
-                <span className="font-semibold text-white">×{tapMultiplierValue + 0.5}</span>
-              </span>
+              {!isTapMultiplierMaxed && (
+                <span>
+                  {strings.tree.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{tapMultiplierValue + 1}</span>
+                </span>
+              )}
             </div>
 
-            <TreeBuyButton
-              onClick={buyTapMultiplier}
-              isBuying={isBuyingTapMultiplier}
-              canAfford={canAffordTapMultiplier}
-              buyingLabel={strings.tree.upgrading}
-              cost={tapMultiplierNextCost}
-              balance={totalClicks}
-              locale={locale}
-              currency="clicks"
-            />
+            {isTapMultiplierMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyTapMultiplier}
+                isBuying={isBuyingTapMultiplier}
+                canAfford={canAffordTapMultiplier}
+                buyingLabel={strings.tree.upgrading}
+                cost={tapMultiplierNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
           </div>
         </div>
       )}

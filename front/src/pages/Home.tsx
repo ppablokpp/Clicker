@@ -139,16 +139,13 @@ const HEAT_LEVELS = [
   multiplier: number
 }[]
 
-// 0.015 -> "1.5%", 0.01 -> "1%" — never a trailing ".0" for the whole steps.
-// Suerte's own % now varies per player (the Probabilidad tree node), so the
-// pill can't just hardcode "1%" anymore.
-function formatChance(chance: number): string {
-  return `${(chance * 100).toFixed(1).replace(/\.0$/, '')}%`
-}
-
-function getHeatLevel(cps: number): (typeof HEAT_LEVELS)[number] {
+// Legendary itself is gated behind the "Modo Legendario" tree node —
+// without it, hitting 20 t/s caps out at Imparable instead (no combo meter,
+// no per-tier multiplier past ×1 from heat).
+function getHeatLevel(cps: number, legendaryUnlocked: boolean): (typeof HEAT_LEVELS)[number] {
   let level: (typeof HEAT_LEVELS)[number] = HEAT_LEVELS[0]
   for (const l of HEAT_LEVELS) {
+    if (l.key === 'legendary' && !legendaryUnlocked) continue
     if (cps >= l.min) level = l
   }
   return level
@@ -421,14 +418,29 @@ function OrbitingBots({ count }: { count: number }) {
   )
 }
 
-// Big standalone number — shrinks as digits pile up so it never overflows,
-// same shape as every earlier version of this display.
-function clicksTextSizeClass(value: number): string {
-  const digits = Math.max(1, Math.floor(value)).toString().length
-  if (digits <= 5) return 'text-4xl sm:text-5xl'
-  if (digits <= 8) return 'text-3xl sm:text-4xl'
-  if (digits <= 11) return 'text-2xl sm:text-3xl'
-  return 'text-xl sm:text-2xl'
+// Below 1M, the exact number — it's short enough to read at a glance and
+// watching the digits climb is part of the fun. From 1M up it switches to a
+// 2-decimal + suffix form (1.23M, 999.90M, 1.00B, 1.00T…) since a raw digit
+// string past that point is just noise; the suffix keeps the display length
+// short and constant instead of needing to keep shrinking the font forever.
+// The decimal point here is always a literal "." regardless of language —
+// unlike the plain-number branch below, this is a compact game-style unit
+// suffix, not a localized number, so it stays consistent either way.
+function formatPlatino(value: number, language: 'es' | 'en'): string {
+  const locale = language === 'en' ? 'en-US' : 'es-ES'
+  const floored = Math.floor(value)
+  const abs = Math.abs(floored)
+  if (abs < 1_000_000) return floored.toLocaleString(locale)
+  const tiers: [number, string][] = [
+    [1e12, 'T'],
+    [1e9, 'B'],
+    [1e6, 'M'],
+  ]
+  const [threshold, suffix] = tiers.find(([t]) => abs >= t) ?? tiers[tiers.length - 1]
+  // Truncated, not rounded — a rounded-up decimal would flash a number
+  // slightly bigger than what's actually owned.
+  const scaled = Math.floor((floored / threshold) * 100) / 100
+  return `${scaled.toFixed(2)}${suffix}`
 }
 
 export function Home() {
@@ -443,6 +455,7 @@ export function Home() {
     luckMultiplier: permanentLuckMultiplier,
     multiplierValue: baseClickMultiplier,
     tapMultiplierValue,
+    legendaryUnlockLevel,
     legendaryStreakBase,
     legendaryBonusStep,
     multiShotValue,
@@ -528,7 +541,10 @@ export function Home() {
   // existing one lifts and frees a slot.
   const activePointersRef = useRef<Set<number>>(new Set())
   const lastParticleAtRef = useRef(0)
-  const heat = useMemo(() => getHeatLevel(clicksPerSecond), [clicksPerSecond])
+  const heat = useMemo(
+    () => getHeatLevel(clicksPerSecond, legendaryUnlockLevel > 0),
+    [clicksPerSecond, legendaryUnlockLevel],
+  )
   const [legendaryStreak, setLegendaryStreak] = useState({ tier: 0, count: 0 })
   // Falling out of legendary breaks the combo — back to the base x2 and an
   // empty bar, so the bonus only ever reflects a *sustained* streak.
@@ -847,7 +863,6 @@ export function Home() {
         {hasLuck && (
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-green-400/20 bg-green-500/[0.07] px-3 py-1.5 text-xs font-bold text-green-200 shadow-lg shadow-black/20">
             <Sparkles size={12} className="text-green-300" />×{combinedLuckMultiplier}
-            <span className="font-medium text-green-300/80">({formatChance(luckChance)})</span>
             {activeLuckPowerup && (
               <>
                 <Dices size={12} className="text-green-300" />
@@ -902,9 +917,9 @@ export function Home() {
           initial={{ scale: 1 }}
           animate={{ scale: [1.08, 1] }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className={`bg-clip-text text-center font-[Space_Grotesk] font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 ${clicksTextSizeClass(totalClicks)}`}
+          className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 sm:text-5xl"
         >
-          {totalClicks.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+          {formatPlatino(totalClicks, language)}
         </motion.span>
       </div>
 
