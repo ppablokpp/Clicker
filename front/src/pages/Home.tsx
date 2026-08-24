@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/clerk-react'
 import {
   Zap,
   Rocket,
+  Joystick,
   Gem,
   Archive,
   Dices,
@@ -463,6 +464,69 @@ function formatPlatino(value: number, language: 'es' | 'en'): string {
   return `${scaled.toFixed(2)}${suffix}`
 }
 
+// One of the three "switches" on the cockpit console (Tu nave/Inventario/
+// Tareas) — icon, tiny uppercase mono label, and a permanently-lit LED dot
+// (just flavor — every switch reads as "powered", not tied to any state)
+// in the button's own accent color.
+function CockpitButton({
+  icon: Icon,
+  label,
+  onClick,
+  ariaLabel,
+  iconClass,
+  ledClass,
+  borderClass,
+}: {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  ariaLabel: string
+  iconClass: string
+  ledClass: string
+  borderClass: string
+}) {
+  return (
+    <button
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={`group relative flex flex-1 flex-col items-center gap-1 overflow-hidden rounded-[3px] border bg-white/[0.03] py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.09] ${borderClass}`}
+    >
+      <span className={`absolute right-1.5 top-1.5 h-1 w-1 rounded-full ${ledClass}`} />
+      <Icon size={17} className={iconClass} />
+      <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-neutral-500 group-hover:text-neutral-400">
+        {label}
+      </span>
+    </button>
+  )
+}
+
+// Exactly the cockpit header's own shape — square top corners, bottom
+// corners cut — reused as-is by the three cockpit-styled modals below
+// (Centro de mando, Inventario, Tareas) so they all read as panels off the
+// same console.
+const MODAL_CLIP_PATH =
+  'polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))'
+
+// The scanline texture + corner rivets from the cockpit header/tab bar,
+// dropped into a modal's own outer card unchanged — everything else about
+// these three modals (header strip, glow, icon badge, body content) stays
+// exactly as it already was.
+function CockpitModalChrome() {
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute inset-0 z-10 opacity-[0.04]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(180deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px)',
+        }}
+      />
+      <span className="pointer-events-none absolute left-1.5 top-1.5 z-10 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
+      <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
+    </>
+  )
+}
+
 export function Home() {
   const { userId } = useAuth()
   const navigate = useNavigate()
@@ -793,7 +857,7 @@ export function Home() {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
+      className="relative flex h-[100dvh] w-full touch-none select-none flex-col overflow-hidden bg-[#08080c]"
     >
       {/* starfield — replaces the old scattered ambient glows entirely */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -814,119 +878,178 @@ export function Home() {
         </div>
       )}
 
-      {/* Right-side button column — Tu nave above Inventory, Tareas below,
-          mirrors the CPS badge's position on the left. */}
-      <div className="pointer-events-auto absolute right-4 top-20 z-10 flex flex-col gap-2 sm:right-6">
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setShowShip(true)}
-          aria-label={strings.home.ship}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06]"
-        >
-          <Rocket size={16} />
-        </button>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setShowInventory(true)}
-          aria-label={strings.home.inventory}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06]"
-        >
-          <Package size={16} />
-        </button>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setShowTasks(true)}
-          aria-label={strings.home.tasks}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06]"
-        >
-          <ClipboardList size={16} />
-        </button>
-      </div>
-
-      {/* CPS badge + combined multiplier (below the fixed header) */}
-      <div className="pointer-events-none absolute left-4 top-20 z-10 flex flex-col gap-1.5 sm:left-6">
-        <span className="relative flex w-fit items-center gap-1.5 overflow-hidden rounded-full border border-white/5 bg-white/[0.03] px-3 py-1.5 text-xs font-medium shadow-lg shadow-black/20 transition-colors">
-          {/* Legendary's combo bar — very subtle, purely a gray fill behind
-              the text so everything stays readable; fills up with real taps
-              landed while legendary, resets (and the bonus bumps) each time
-              it fills. Once it's filled LEGENDARY_TIER_MAX times it just
-              shows full instead of continuing to fill/reset for no further
-              gain. */}
-          {heat.key === 'legendary' && (
-            <span
-              className="pointer-events-none absolute inset-y-0 left-0 z-0 bg-white/[0.07] transition-[width] duration-200 ease-out"
+      {/* ============================================================
+          Cockpit console — Home's own header, styled as the top instrument
+          panel of a ship (pilot's-eye view of the asteroid out the
+          "windshield" below). Normal flow (not absolute) so it reserves
+          its own real height — the asteroid section below centers itself
+          in whatever's left between this and the bottom spacer that
+          reserves the tab bar's height, always landing dead center
+          between the two consoles instead of the full viewport. Only
+          Home gets this treatment; every other screen keeps the plain
+          global Header. The tab bar carries a matching cockpit look on
+          every screen. */}
+      <div className="pointer-events-none relative z-10 w-full flex-none pt-3 sm:pt-4">
+        <div className="relative mx-auto w-full max-w-md px-3 sm:max-w-lg sm:px-4">
+          <div
+            className="relative overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-[0_10px_34px_-10px_rgba(0,0,0,0.75)]"
+            style={{
+              clipPath:
+                'polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))',
+            }}
+          >
+            {/* top edge light strip */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent" />
+            {/* fine scanline texture — pure flavor, very low opacity */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.04]"
               style={{
-                width:
-                  legendaryStreak.tier >= LEGENDARY_TIER_MAX
-                    ? '100%'
-                    : `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier, legendaryStreakBase)) * 100)}%`,
+                backgroundImage:
+                  'repeating-linear-gradient(180deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px)',
               }}
             />
-          )}
-          <Zap size={13} className={`relative z-10 ${clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'}`} />
-          <span className={`relative z-10 ${clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}`}>
-            {clicksPerSecond.toFixed(1)} {strings.home.tps}
-          </span>
-          {heatLabel && (
-            <span className={`relative z-10 font-semibold uppercase tracking-wide ${heat.badge}`}>
-              · {heatLabel}
-              {heat.key === 'legendary' &&
-                ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep).toFixed(1)}`}
-            </span>
-          )}
-        </span>
+            {/* corner rivets */}
+            <span className="pointer-events-none absolute left-1.5 top-1.5 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
+            <span className="pointer-events-none absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
 
-        <span className="flex w-fit items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1.5 text-xs font-bold text-violet-200 shadow-lg shadow-black/20">
-          <MousePointerClick size={15} className="text-violet-300" />
-          {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
-          {activePowerup && (
-            <>
-              <Rocket size={12} className="text-violet-300" />
-              <span className="tabular-nums text-violet-300">
-                {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-              </span>
-            </>
-          )}
-        </span>
+            <div className="relative flex flex-col gap-2 p-2.5 sm:gap-2.5 sm:p-3">
+              {/* Row 1 — twin gauges: heat/tempo on the left (tier-colored,
+                  same HEAT_LEVELS data as before), production rate on the
+                  right (violet, unchanged theme). */}
+              <div className="flex items-stretch gap-2">
+                <div className="relative flex-1 overflow-hidden rounded-[3px] border border-white/10 bg-black/30 px-2.5 py-1.5">
+                  {heat.key === 'legendary' && (
+                    <span
+                      className="pointer-events-none absolute inset-y-0 left-0 z-0 bg-white/[0.08] transition-[width] duration-200 ease-out"
+                      style={{
+                        width:
+                          legendaryStreak.tier >= LEGENDARY_TIER_MAX
+                            ? '100%'
+                            : `${Math.min(100, (legendaryStreak.count / legendaryStreakThreshold(legendaryStreak.tier, legendaryStreakBase)) * 100)}%`,
+                      }}
+                    />
+                  )}
+                  <div className="relative z-10 flex items-center gap-1.5">
+                    <Zap size={11} className={clicksPerSecond > 0 ? heat.icon : 'text-neutral-600'} />
+                    <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-neutral-500">
+                      {strings.home.hudHeatLabel}
+                    </span>
+                  </div>
+                  <div className="relative z-10 mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
+                    <span
+                      className={`font-mono text-sm font-bold tabular-nums ${clicksPerSecond > 0 ? heat.badge : 'text-neutral-300'}`}
+                    >
+                      {clicksPerSecond.toFixed(1)} {strings.home.tps}
+                    </span>
+                    {heatLabel && (
+                      <span className={`text-[8px] font-bold uppercase tracking-wide ${heat.badge}`}>
+                        {heatLabel}
+                        {heat.key === 'legendary' &&
+                          ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep).toFixed(1)}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-        {/* Every other status pill (drones, money multiplier, luck, magnet,
-            milestone bonus) moved into the "Tu nave" modal below — this
-            column now only ever shows the two live-rate pills. */}
+                <div className="relative flex-1 overflow-hidden rounded-[3px] border border-violet-400/20 bg-violet-500/[0.06] px-2.5 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <MousePointerClick size={11} className="text-violet-300" />
+                    <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-violet-400/70">
+                      {strings.home.hudProdLabel}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                    <span className="font-mono text-sm font-bold tabular-nums text-violet-200">
+                      {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
+                    </span>
+                    {activePowerup && (
+                      <span className="flex items-center gap-0.5 text-[9px] tabular-nums text-violet-300">
+                        <Rocket size={9} />
+                        {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-        {/* Prestige points pill disabled along with the rest of the
-            prestige UI — see the other commented-out prestige blocks below. */}
-        {/* {(prestigePoints > 0 || reactorLevel > 0) && (
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setShowPrestigeShop(true)}
-            className="pointer-events-auto flex w-fit items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-500/[0.07] px-3 py-1.5 text-xs font-bold text-amber-200 shadow-lg shadow-black/20"
-          >
-            <Sparkles size={12} className="text-amber-300" />
-            {prestigePoints}
-          </button>
-        )} */}
+              {/* Row 2 — the main display screen: platino, front and center,
+                  like the ship's primary readout. Corner brackets + a slow
+                  scanline sweep sell the "active screen" feel. */}
+              <div className="relative overflow-hidden rounded-[3px] border border-white/10 bg-black/40 px-3 py-2.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.65)]">
+                <span className="pointer-events-none absolute left-1 top-1 h-2 w-2 border-l border-t border-violet-400/40" />
+                <span className="pointer-events-none absolute right-1 top-1 h-2 w-2 border-r border-t border-violet-400/40" />
+                <span className="pointer-events-none absolute bottom-1 left-1 h-2 w-2 border-b border-l border-violet-400/40" />
+                <span className="pointer-events-none absolute bottom-1 right-1 h-2 w-2 border-b border-r border-violet-400/40" />
+                <motion.div
+                  className="pointer-events-none absolute inset-x-0 h-10 bg-gradient-to-b from-white/[0.05] to-transparent"
+                  initial={{ y: '-2.5rem' }}
+                  animate={{ y: '8rem' }}
+                  transition={{ duration: 3.4, repeat: Infinity, ease: 'linear' }}
+                />
+                <div className="relative flex flex-col items-center">
+                  <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                    {strings.home.hudPlatinoLabel}
+                  </span>
+                  <motion.span
+                    key={totalClicks}
+                    initial={{ scale: 1 }}
+                    animate={{ scale: [1.06, 1] }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 [filter:drop-shadow(0_0_18px_rgba(167,139,250,0.25))] sm:text-5xl"
+                  >
+                    {formatPlatino(totalClicks, language)}
+                  </motion.span>
+                </div>
+              </div>
+
+              {/* Row 3 — the three switches, each its own accent color
+                  matching the modal it opens (violet ship / amber cargo /
+                  emerald missions). */}
+              <div className="pointer-events-auto flex items-stretch gap-2">
+                <CockpitButton
+                  icon={Joystick}
+                  label={strings.home.commandCenterTitle}
+                  ariaLabel={strings.home.commandCenterTitle}
+                  onClick={() => setShowShip(true)}
+                  iconClass="text-violet-300"
+                  ledClass="bg-violet-400 shadow-[0_0_3px_1px_rgba(167,139,250,0.9)]"
+                  borderClass="border-violet-400/20"
+                />
+                <CockpitButton
+                  icon={Package}
+                  label={strings.home.inventory}
+                  ariaLabel={strings.home.inventory}
+                  onClick={() => setShowInventory(true)}
+                  iconClass="text-amber-300"
+                  ledClass="bg-amber-400 shadow-[0_0_3px_1px_rgba(251,191,36,0.9)]"
+                  borderClass="border-amber-400/20"
+                />
+                <CockpitButton
+                  icon={ClipboardList}
+                  label={strings.home.tasks}
+                  ariaLabel={strings.home.tasks}
+                  onClick={() => setShowTasks(true)}
+                  iconClass="text-emerald-300"
+                  ledClass="bg-emerald-400 shadow-[0_0_3px_1px_rgba(52,211,153,0.9)]"
+                  borderClass="border-emerald-400/20"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Platino — big number at the top, nudged down a bit below the
-          header/pills row instead of sharing its exact top-20/24 line. */}
-      <div className="pointer-events-none absolute left-0 right-0 top-[11.1875rem] z-10 flex justify-center sm:top-[12.1875rem]">
-        <motion.span
-          key={totalClicks}
-          initial={{ scale: 1 }}
-          animate={{ scale: [1.08, 1] }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 sm:text-5xl"
-        >
-          {formatPlatino(totalClicks, language)}
-        </motion.span>
-      </div>
-
-      {/* main counter — the space object you break with clicks. The big
-          ring tracks progress toward the *next prestige* (objectsBroken /
-          PRESTIGE_OBJECT_TARGET). */}
-      <div className="pointer-events-none relative z-10 flex flex-col items-center">
-        <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
-          <OrbitingBots count={autoClickLevel} />
+      {/* Centers in whatever's left between the cockpit console above and
+          the bottom spacer below (which reserves the tab bar's own real
+          height) — always dead center between the two consoles, on any
+          viewport, instead of the full page. */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center overflow-hidden">
+        {/* main counter — the space object you break with clicks. The big
+            ring tracks progress toward the *next prestige* (objectsBroken /
+            PRESTIGE_OBJECT_TARGET). */}
+        <div className="pointer-events-none relative flex flex-col items-center">
+          <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
+            <OrbitingBots count={autoClickLevel} />
           <OrbitingBots
             count={scoutDroneLevel}
             colorClass="text-amber-300"
@@ -971,7 +1094,13 @@ export function Home() {
             </div>
           </div>
         )}
+        </div>
       </div>
+
+      {/* Bottom spacer — reserves the tab bar's own rendered height (see
+          BottomNavPill: nav h-14/h-16 + pb-3/pb-4) so the flex-1 region
+          above stops short of it instead of centering underneath it. */}
+      <div className="h-[4.25rem] w-full flex-none sm:h-[5rem]" aria-hidden="true" />
 
       {/* click ripples + floating +N */}
       <AnimatePresence>
@@ -1055,9 +1184,11 @@ export function Home() {
           onClick={() => setShowInventory(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] shadow-2xl shadow-black/50"
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
+            style={{ clipPath: MODAL_CLIP_PATH }}
             onClick={(e) => e.stopPropagation()}
           >
+            <CockpitModalChrome />
             <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
               <div
                 className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
@@ -1302,9 +1433,11 @@ export function Home() {
           onClick={() => setShowShip(false)}
         >
           <div
-            className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] shadow-2xl shadow-black/50"
+            className="relative w-full max-w-sm overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
+            style={{ clipPath: MODAL_CLIP_PATH }}
             onClick={(e) => e.stopPropagation()}
           >
+            <CockpitModalChrome />
             {/* Cockpit-glow header strip — same radial-gradient trick as the
                 asteroid/prestige glows elsewhere (never a CSS `blur()`, which
                 flashes-to-square on some mobile Chromium builds). */}
@@ -1322,7 +1455,7 @@ export function Home() {
               </button>
               <div className="relative flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-400/30 bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
-                  <Rocket size={19} />
+                  <Joystick size={19} />
                 </div>
                 <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.commandCenterTitle}</p>
               </div>
@@ -1476,9 +1609,11 @@ export function Home() {
           onClick={() => setShowTasks(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] shadow-2xl shadow-black/50"
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
+            style={{ clipPath: MODAL_CLIP_PATH }}
             onClick={(e) => e.stopPropagation()}
           >
+            <CockpitModalChrome />
             <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
               <div
                 className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"

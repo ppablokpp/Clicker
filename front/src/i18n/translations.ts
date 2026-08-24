@@ -16,6 +16,9 @@ export interface TranslationStrings {
     cps: string
     tps: string
     totalLabel: string
+    hudPlatinoLabel: string
+    hudProdLabel: string
+    hudHeatLabel: string
     heat: {
       onFire: string
       unstoppable: string
@@ -263,6 +266,9 @@ export const translations: Record<Language, TranslationStrings> = {
       prestigeComingSoon: 'Próximamente...',
       cps: 'pt/s',
       tps: 't/s',
+      hudPlatinoLabel: 'Tu platino',
+      hudProdLabel: 'Producción',
+      hudHeatLabel: 'Ritmo',
       totalLabel: 'Total:',
       heat: {
         onFire: 'En racha',
@@ -300,9 +306,9 @@ export const translations: Record<Language, TranslationStrings> = {
       tasksEmpty: 'No tienes tareas pendientes.',
     },
     nav: {
-      home: 'Inicio',
+      home: 'Nave',
       leaderboard: 'Clasificación',
-      tree: 'Árbol',
+      tree: 'Progreso',
       stats: 'Estadísticas',
       store: 'Tienda',
     },
@@ -588,6 +594,9 @@ export const translations: Record<Language, TranslationStrings> = {
       prestigeComingSoon: 'Coming soon',
       cps: 'pt/s',
       tps: 't/s',
+      hudPlatinoLabel: 'Your platinum',
+      hudProdLabel: 'Production',
+      hudHeatLabel: 'Pace',
       totalLabel: 'Total:',
       heat: {
         onFire: 'On fire',
@@ -625,9 +634,9 @@ export const translations: Record<Language, TranslationStrings> = {
       tasksEmpty: "You don't have any pending tasks.",
     },
     nav: {
-      home: 'Home',
+      home: 'Ship',
       leaderboard: 'Leaderboard',
-      tree: 'Tree',
+      tree: 'Progress',
       stats: 'Stats',
       store: 'Store',
     },

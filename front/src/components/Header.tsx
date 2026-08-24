@@ -12,8 +12,10 @@ export function Header() {
   const { promptSignIn } = useSignInPrompt()
   const location = useLocation()
   // The battle screen is deliberately chrome-free — no wordmark, no avatar,
-  // nothing but the fight itself for the full 30 seconds.
-  if (location.pathname.startsWith('/batalla')) return null
+  // nothing but the fight itself for the full 30 seconds. Home is chrome-free
+  // too, but for a different reason — its own cockpit console (top of
+  // Home.tsx) is the only thing that gets to sit at the top of that screen.
+  if (location.pathname.startsWith('/batalla') || location.pathname === '/') return null
 
   return (
     <>
