@@ -117,7 +117,7 @@ export function Leaderboard() {
                       {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
                     </>
                   ) : (
-                    entry.totalClicks.toLocaleString(locale)
+                    entry.lifetimePlatino.toLocaleString(locale)
                   )}
                 </span>
               </li>

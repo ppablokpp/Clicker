@@ -46,12 +46,13 @@ export const usersRepository = {
   // visually reset the object back to 0 while the real state reloads.
   async getClickState(id) {
     const result = await database.query(
-      'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1',
+      'SELECT total_clicks, lifetime_platino, objects_broken, object_progress FROM users WHERE id = $1',
       [id],
     )
     const row = result.rows[0]
     return {
       totalClicks: Number(row?.total_clicks ?? 0),
+      lifetimePlatino: Number(row?.lifetime_platino ?? 0),
       objectsBroken: Number(row?.objects_broken ?? 0),
       objectProgress: Number(row?.object_progress ?? 0),
     }
@@ -127,10 +128,11 @@ export const usersRepository = {
              ELSE 0 END AS gem_procs
        ),
        updated AS (
-         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak, object_progress)
-         VALUES ($1, $2, $7, $3, 1, 1, $2)
+         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak, object_progress, lifetime_platino)
+         VALUES ($1, $2, $7, $3, 1, 1, $2, $2)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
+               lifetime_platino = users.lifetime_platino + EXCLUDED.lifetime_platino,
                total_real_clicks = users.total_real_clicks + EXCLUDED.total_real_clicks,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
                keys = users.keys + (SELECT key_procs FROM magnet_procs),
@@ -155,14 +157,14 @@ export const usersRepository = {
                  END
                ),
                updated_at = now()
-         RETURNING total_clicks, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress
+         RETURNING total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress
        ),
        day_marked AS (
          INSERT INTO click_days (user_id, click_date)
          SELECT $1, (SELECT d FROM effective_date) FROM updated
          ON CONFLICT (user_id, click_date) DO NOTHING
        )
-       SELECT total_clicks, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress FROM updated`,
+       SELECT total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress FROM updated`,
         [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks],
       )
 
@@ -183,6 +185,7 @@ export const usersRepository = {
       await client.query('COMMIT')
       return {
         totalClicks: Number(row.total_clicks),
+        lifetimePlatino: Number(row.lifetime_platino),
         totalRealClicks: Number(row.total_real_clicks),
         bestCps: Number(row.best_cps),
         keys: Number(row.keys),
@@ -614,6 +617,7 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
+             lifetime_platino = lifetime_platino + $2,
              gems = gems - $3,
              updated_at = now()
          WHERE id = $1
@@ -666,6 +670,7 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
+             lifetime_platino = lifetime_platino + $2,
              gems = gems + $3,
              keys = keys - $4,
              owned_click_chests = owned_click_chests - 1,
@@ -761,6 +766,7 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
+             lifetime_platino = lifetime_platino + $2,
              gems = gems + $3,
              cases_opened = cases_opened + 1,
              updated_at = now()
@@ -870,6 +876,7 @@ export const usersRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
+             lifetime_platino = lifetime_platino + $2,
              gems = gems - $3 + $4,
              cases_opened = cases_opened + 1,
              updated_at = now()
@@ -1022,10 +1029,13 @@ export const usersRepository = {
 
   // `sortBy` only ever picks between these two fixed column names — never
   // interpolates the raw query param — so there's no injection surface.
+  // The 'clicks' tab ranks by lifetime_platino (all-time earned), not
+  // total_clicks (spendable balance) — otherwise spending platino would
+  // drop you down the board.
   async getLeaderboard(limit = 100, sortBy = 'clicks') {
-    const column = sortBy === 'cps' ? 'best_cps' : 'total_clicks'
+    const column = sortBy === 'cps' ? 'best_cps' : 'lifetime_platino'
     const result = await database.query(
-      `SELECT id, username, avatar_url, total_clicks, best_cps
+      `SELECT id, username, avatar_url, lifetime_platino, best_cps
        FROM users
        WHERE ${column} > 0
        ORDER BY ${column} DESC
@@ -1036,7 +1046,7 @@ export const usersRepository = {
       id: row.id,
       username: row.username,
       avatarUrl: row.avatar_url,
-      totalClicks: Number(row.total_clicks),
+      lifetimePlatino: Number(row.lifetime_platino),
       bestCps: Number(row.best_cps),
     }))
   },

@@ -56,6 +56,12 @@ export interface TranslationStrings {
     log: string
     logTitle: string
     logEmpty: string
+    trajectoryTierNames: readonly [string, string, string, string, string]
+    trajectoryExtraction: (current: string, target: string) => string
+    trajectoryExtractionUnknown: string
+    trajectoryCurrent: string
+    trajectoryLocked: string
+    trajectoryComingSoon: string
   }
   nav: {
     home: string
@@ -310,6 +316,12 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
+      trajectoryTierNames: ['Platino', 'Amatista', 'Esmeralda', 'Oro', 'Diamante'],
+      trajectoryExtraction: (current, target) => `Extracción: ${current}/${target}`,
+      trajectoryExtractionUnknown: 'Extracción: ???',
+      trajectoryCurrent: 'Actual',
+      trajectoryLocked: 'Bloqueado',
+      trajectoryComingSoon: 'Próximamente',
     },
     nav: {
       home: 'Nave',
@@ -472,7 +484,7 @@ export const translations: Record<Language, TranslationStrings> = {
       rewardClicks: (amount) => `+${amount} platino`,
       rewardPermanent: (mult) => `×${mult} a todos tus clicks`,
       categories: {
-        totalClicks: { label: 'Taps reales', unit: 'taps' },
+        totalClicks: { label: 'Disparos', unit: 'disparos' },
         bestCps: { label: 'Velocidad máxima', unit: 't/s' },
         longestStreak: { label: 'Racha más larga', unit: 'días' },
         casesOpened: { label: 'Cofres abiertos', unit: 'cofres' },
@@ -484,7 +496,7 @@ export const translations: Record<Language, TranslationStrings> = {
         platinum: 'Platino',
       },
       milestoneDescriptions: {
-        totalClicks: (amount) => `Haz ${amount} taps`,
+        totalClicks: (amount) => `Dispara ${amount} veces`,
         bestCps: (amount) => `Alcanza ${amount} t/s`,
         longestStreak: (amount) => `Clica ${amount} días seguidos`,
         casesOpened: (amount) => `Abre ${amount} cofres`,
@@ -641,6 +653,12 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',
+      trajectoryTierNames: ['Platinum', 'Amethyst', 'Emerald', 'Gold', 'Diamond'],
+      trajectoryExtraction: (current, target) => `Extraction: ${current}/${target}`,
+      trajectoryExtractionUnknown: 'Extraction: ???',
+      trajectoryCurrent: 'Current',
+      trajectoryLocked: 'Locked',
+      trajectoryComingSoon: 'Coming soon',
     },
     nav: {
       home: 'Ship',
@@ -803,7 +821,7 @@ export const translations: Record<Language, TranslationStrings> = {
       rewardClicks: (amount) => `+${amount} platinum`,
       rewardPermanent: (mult) => `×${mult} to all your clicks`,
       categories: {
-        totalClicks: { label: 'Real taps', unit: 'taps' },
+        totalClicks: { label: 'Shots', unit: 'shots' },
         bestCps: { label: 'Peak speed', unit: 't/s' },
         longestStreak: { label: 'Longest streak', unit: 'days' },
         casesOpened: { label: 'Chests opened', unit: 'chests' },
@@ -815,7 +833,7 @@ export const translations: Record<Language, TranslationStrings> = {
         platinum: 'Platinum',
       },
       milestoneDescriptions: {
-        totalClicks: (amount) => `Make ${amount} taps`,
+        totalClicks: (amount) => `Fire ${amount} times`,
         bestCps: (amount) => `Reach ${amount} t/s`,
         longestStreak: (amount) => `Click ${amount} days in a row`,
         casesOpened: (amount) => `Open ${amount} chests`,

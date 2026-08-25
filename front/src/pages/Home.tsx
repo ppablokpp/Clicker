@@ -18,6 +18,7 @@ import {
   ChartNoAxesCombined,
   Split,
   Route,
+  Lock,
   X,
   Sparkles,
   MousePointerClick,
@@ -40,7 +41,6 @@ import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
-import { objectCost } from '../lib/spaceObjects'
 import { DroneIcon } from '../components/DroneIcon'
 
 interface InfoModalData {
@@ -194,13 +194,6 @@ function generateStars(count: number, opacity: number): string {
   return stars.join(', ')
 }
 
-// First prestige threshold — reaching it is meant to be when prestige becomes
-// available (prestige itself isn't built yet, this is just the ring's
-// target). Driven by objectsBroken (how many space objects you've shattered)
-// instead of a raw click count now — roughly the same pacing as the old
-// 1,000,000-click target given the object cost curve in lib/spaceObjects.ts.
-const PRESTIGE_OBJECT_TARGET = 50
-
 // Glowing ring around the counter that fills up towards the prestige target.
 // Once maxed, it stops being a progress indicator and becomes a spinning gold
 // halo instead — a visibly different state for "you've got something to do here".
@@ -303,23 +296,33 @@ const SPECKLES = [
 // a radial gradient (instead of the old flat `fill`) so the rock reads as a
 // lit, rounded body — brightest toward the upper-left "sun", falling off to
 // a near-black shadow at the opposite rim.
+const DEFAULT_SPECKLE_COLOR = 'rgba(0,0,0,0.22)'
 const OBJECT_TIERS = [
-  { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)' },
-  { light: '#cffafe', fill: '#67e8f9', dark: '#083344', glow: 'rgba(34,211,238,0.6)' },
-  { light: '#ffe4e6', fill: '#fda4af', dark: '#4c0519', glow: 'rgba(251,113,133,0.6)' },
-  { light: '#fef9c3', fill: '#fde68a', dark: '#451a03', glow: 'rgba(251,191,36,0.6)' },
-  { light: '#d1fae5', fill: '#6ee7b7', dark: '#022c22', glow: 'rgba(52,211,153,0.6)' },
+  // Platino — cool silvery-white metal.
+  { light: '#f8fafc', fill: '#cbd5e1', dark: '#334155', glow: 'rgba(203,213,225,0.55)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
+  // Amatista — the violet that used to be Platino's own color.
+  { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
+  // Esmeralda — green.
+  { light: '#d1fae5', fill: '#6ee7b7', dark: '#022c22', glow: 'rgba(52,211,153,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
+  // Oro — warm metallic gold.
+  { light: '#fef9c3', fill: '#facc15', dark: '#713f12', glow: 'rgba(250,204,21,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
+  // Diamante — placeholder cyan (Diamante's own real look TBD later).
+  { light: '#cffafe', fill: '#67e8f9', dark: '#083344', glow: 'rgba(34,211,238,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
 ]
 
-// The thing you're actually clicking now, instead of a bare number — a
-// slowly bobbing/rotating rock with a one-shot white flash (replayed by
-// remounting on `objectsBroken` changing) when it's done. Color no longer
-// cycles with `objectsBroken` (it used to change tier every 10 broken) —
-// it should only ever change on prestige, which isn't wired back up yet
-// (see the disabled prestige blocks elsewhere in this file), so it's
-// pinned to the first tier (violet) for now.
-function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: number }) {
-  const tier = OBJECT_TIERS[0]
+// Lifetime-platino threshold each OBJECT_TIERS entry unlocks at — a
+// placeholder order-of-magnitude ramp, easy to re-tune once the real curve
+// is designed. Index-aligned with OBJECT_TIERS (tier i spans
+// [threshold[i], threshold[i+1])).
+const TRAJECTORY_TIER_THRESHOLDS = [0, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000]
+
+// The thing you're actually clicking — a slowly bobbing/rotating rock,
+// no "breaking" moment anymore (that whole object/prestige-target loop is
+// gone; Trayectoria's platino tiers are prestige now). Its color follows
+// the real current tier, so the rock you click matches whichever
+// Trayectoria stop you're actually on instead of always being violet.
+function SpaceObject({ tierIndex, pct }: { tierIndex: number; pct: number }) {
+  const tier = OBJECT_TIERS[tierIndex]
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
       {/* A radial-gradient glow instead of a blurred solid circle — some
@@ -334,13 +337,6 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
           background: `radial-gradient(circle, ${tier.glow} 0%, transparent 70%)`,
           opacity: 0.22 + pct * 0.5,
         }}
-      />
-      <motion.div
-        key={objectsBroken}
-        className="absolute inset-0 rounded-full bg-white"
-        initial={{ opacity: 0.8, scale: 0.5 }}
-        animate={{ opacity: 0, scale: 2 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
       />
       <motion.div
         animate={{ rotate: 360, y: [0, -6, 0] }}
@@ -400,8 +396,8 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
                 />
               </g>
             ))}
-            {SPECKLES.map((s, i) => (
-              <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="rgba(0,0,0,0.22)" />
+            {tier.speckles.map((s, i) => (
+              <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={tier.speckleColor} />
             ))}
             {/* Sunlit patch — a soft highlight blob, same corner as the body
                 gradient's own bright spot, layered on top for a bit more
@@ -411,6 +407,61 @@ function SpaceObject({ objectsBroken, pct }: { objectsBroken: number; pct: numbe
         </svg>
       </motion.div>
     </div>
+  )
+}
+
+// A small rotating preview of one of the five OBJECT_TIERS rocks — same
+// shading recipe as SpaceObject (gradient body, crater depth, grain,
+// sunlit patch), just smaller and without the bob/glow/flash, for the
+// Trayectoria roadmap list. `tierIndex` feeds unique gradient/clip ids
+// (`traj...-${tierIndex}`) so five of these — plus SpaceObject's own fixed
+// ids — can all sit in the DOM at once without one instance's gradient
+// silently winning for every other rock on the page.
+function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolean }) {
+  const tier = OBJECT_TIERS[tierIndex]
+  const bodyId = `trajRockBody-${tierIndex}`
+  const craterId = `trajCraterWell-${tierIndex}`
+  const clipId = `trajRockSilhouette-${tierIndex}`
+  return (
+    <motion.div
+      className={`relative flex h-12 w-12 shrink-0 items-center justify-center transition-opacity ${dimmed ? 'opacity-60' : ''}`}
+      animate={{ rotate: 360 }}
+      transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
+    >
+      <svg viewBox="0 0 100 100" width={48} height={48}>
+        <defs>
+          <radialGradient id={bodyId} cx="34%" cy="30%" r="80%">
+            <stop offset="0%" stopColor={tier.light} />
+            <stop offset="45%" stopColor={tier.fill} />
+            <stop offset="100%" stopColor={tier.dark} />
+          </radialGradient>
+          <radialGradient id={craterId} cx="50%" cy="38%" r="70%">
+            <stop offset="0%" stopColor="rgba(0,0,0,0.6)" />
+            <stop offset="75%" stopColor="rgba(0,0,0,0.32)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0.05)" />
+          </radialGradient>
+          <clipPath id={clipId}>
+            <polygon points={ASTEROID_POINTS} />
+          </clipPath>
+        </defs>
+        <polygon
+          points={ASTEROID_POINTS}
+          fill={`url(#${bodyId})`}
+          stroke="rgba(0,0,0,0.35)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+        />
+        <g clipPath={`url(#${clipId})`}>
+          {CRATERS.map((c, i) => (
+            <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill={`url(#${craterId})`} />
+          ))}
+          {tier.speckles.map((s, i) => (
+            <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={tier.speckleColor} />
+          ))}
+          <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
+        </g>
+      </svg>
+    </motion.div>
   )
 }
 
@@ -601,7 +652,17 @@ export function Home() {
   const { userId } = useAuth()
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
-  const { totalClicks, clicksPerSecond, registerClick, objectsBroken, objectProgress } = useClickCounterContext()
+  const { totalClicks, lifetimePlatino, clicksPerSecond, registerClick } = useClickCounterContext()
+  // Trayectoria's roadmap — driven by lifetime platino earned (migration
+  // 028), not objectsBroken; a placeholder order-of-magnitude ramp (1M →
+  // 10M → 100M → 1B → 10B) until the real curve gets designed.
+  const currentTierIndex = (() => {
+    let idx = 0
+    for (let i = 0; i < TRAJECTORY_TIER_THRESHOLDS.length; i++) {
+      if (lifetimePlatino >= TRAJECTORY_TIER_THRESHOLDS[i]) idx = i
+    }
+    return idx
+  })()
   const {
     autoClickCps,
     autoClickLevel,
@@ -763,18 +824,19 @@ export function Home() {
   const luckChance = activeLuckPowerup?.chance ?? permanentLuckChance
   const combinedLuckMultiplier = permanentLuckMultiplier * (activeLuckPowerup?.multiplier ?? 1)
 
-  const prestige = useMemo(
-    () => ({
-      isMaxed: objectsBroken >= PRESTIGE_OBJECT_TARGET,
-      pct: Math.min(1, objectsBroken / PRESTIGE_OBJECT_TARGET),
-    }),
-    [objectsBroken],
-  )
-
-  // The current space object's own progress (independent of the prestige
-  // ring above it) — this is what the ring around the object actually shows.
-  const currentObjectCost = objectCost(objectsBroken)
-  const objectPct = Math.min(1, objectProgress / currentObjectCost)
+  // Prestige is tier-based now — each Trayectoria tier *is* a prestige
+  // level, driven by lifetime platino (see TRAJECTORY_TIER_THRESHOLDS), not
+  // by breaking objects. The ring shows progress within the *current* tier
+  // toward the next one; maxed once the last tier's own ceiling is cleared.
+  const prestige = useMemo(() => {
+    const tierFrom = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex]
+    const tierTo = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex + 1]
+    const lastThreshold = TRAJECTORY_TIER_THRESHOLDS[TRAJECTORY_TIER_THRESHOLDS.length - 1]
+    return {
+      isMaxed: lifetimePlatino >= lastThreshold,
+      pct: tierTo ? Math.min(1, (lifetimePlatino - tierFrom) / (tierTo - tierFrom)) : 1,
+    }
+  }, [lifetimePlatino, currentTierIndex])
 
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
@@ -1128,14 +1190,10 @@ export function Home() {
         </div>
       </div>
 
-      {/* Centers in whatever's left between the cockpit console above and
-          the bottom spacer below (which reserves the tab bar's own real
-          height) — always dead center between the two consoles, on any
-          viewport, instead of the full page. */}
-      {/* main counter — the space object you break with clicks. The big
-          ring tracks progress toward the *next prestige* (objectsBroken /
-          PRESTIGE_OBJECT_TARGET). Truly viewport-centered via the root's
-          own `justify-center` — the cockpit console above is an absolute
+      {/* main counter — the space object you click. The big ring tracks
+          progress within the *current* Trayectoria tier toward the next one
+          (see `prestige` above). Truly viewport-centered via the root's own
+          `justify-center` — the cockpit console above is an absolute
           overlay, not flow content, so it never pushes this down. */}
       <div className="pointer-events-none relative z-10 flex flex-col items-center">
         <div ref={objectRef} className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
@@ -1155,7 +1213,7 @@ export function Home() {
           </div>
 
           <div className="absolute inset-0 flex items-center justify-center">
-            <SpaceObject objectsBroken={objectsBroken} pct={objectPct} />
+            <SpaceObject tierIndex={currentTierIndex} pct={prestige.pct} />
           </div>
         </div>
 
@@ -1761,7 +1819,55 @@ export function Home() {
             </div>
 
             <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
-              <p className="py-6 text-center text-sm text-neutral-500">{strings.home.logEmpty}</p>
+              <div className="flex flex-col gap-2.5">
+                {OBJECT_TIERS.map((tier, i) => {
+                  const isCurrent = i === currentTierIndex
+                  const isLocked = i > currentTierIndex
+                  // Locked (future) tiers are a mystery — only the current
+                  // tier and the ones already cleared show real numbers,
+                  // the latter capped at their own ceiling instead of
+                  // ballooning to the full (much higher) lifetime total.
+                  const tierCeiling = TRAJECTORY_TIER_THRESHOLDS[i + 1]
+                  const extractionText = isLocked
+                    ? strings.home.trajectoryExtractionUnknown
+                    : strings.home.trajectoryExtraction(
+                        formatPlatino(Math.min(lifetimePlatino, tierCeiling), language),
+                        formatPlatino(tierCeiling, language),
+                      )
+                  return (
+                    <div
+                      key={i}
+                      className={`relative flex items-center gap-3 overflow-hidden rounded-[3px] border p-3 transition-colors ${
+                        isCurrent ? 'border-white/15 bg-white/[0.04]' : 'border-white/5 bg-white/[0.02]'
+                      }`}
+                      style={isCurrent ? { boxShadow: `0 0 0 1px ${tier.glow}` } : undefined}
+                    >
+                      <MiniAsteroid tierIndex={i} dimmed={isLocked} />
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className={`text-sm font-semibold ${isLocked ? 'text-neutral-500' : 'text-white'}`}>
+                            {strings.home.trajectoryTierNames[i]}
+                          </p>
+                          {isCurrent && (
+                            <span
+                              className="rounded-full border px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-widest"
+                              style={{ borderColor: tier.glow, color: tier.fill }}
+                            >
+                              {strings.home.trajectoryCurrent}
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-mono text-[10px] text-neutral-500">{extractionText}</p>
+                      </div>
+                      {isLocked && <Lock size={14} className="shrink-0 text-neutral-600" />}
+                    </div>
+                  )
+                })}
+
+                <div className="flex items-center justify-center rounded-[3px] border border-dashed border-white/10 py-3 font-mono text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
+                  {strings.home.trajectoryComingSoon}
+                </div>
+              </div>
             </div>
           </div>
         </div>

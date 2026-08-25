@@ -53,7 +53,7 @@ clicksRouter.post('/increment', async (req, res) => {
   const realClicks =
     Number.isInteger(rawRealClicks) && rawRealClicks >= 0 && rawRealClicks <= amount ? rawRealClicks : amount
 
-  const { totalClicks, keys, gems, objectsBroken, objectProgress } = await usersRepository.incrementClicks(
+  const { totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress } = await usersRepository.incrementClicks(
     userId,
     amount,
     peakCps,
@@ -61,5 +61,5 @@ clicksRouter.post('/increment', async (req, res) => {
     clientDate,
     realClicks,
   )
-  res.json({ totalClicks, keys, gems, objectsBroken, objectProgress })
+  res.json({ totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress })
 })

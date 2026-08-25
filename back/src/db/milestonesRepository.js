@@ -67,7 +67,7 @@ export const milestonesRepository = {
       } else if (reward.type === 'clicks') {
         updateResult = await client.query(
           `UPDATE users
-           SET total_clicks = total_clicks + $2, updated_at = now()
+           SET total_clicks = total_clicks + $2, lifetime_platino = lifetime_platino + $2, updated_at = now()
            WHERE id = $1
            RETURNING total_clicks, active_powerup, active_powerup_expires_at, milestone_bonus_multiplier`,
           [userId, reward.amount],

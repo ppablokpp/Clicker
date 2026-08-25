@@ -9,9 +9,10 @@ export const GEM_CHEST_KEY_COST = 10
 export const GEM_CHEST_GEM_COST = 2
 
 export const GEM_CHEST_PRIZES = [
-  { id: 'gem_1', amount: 1, currency: 'gems', weight: 65 },
-  { id: 'gem_2', amount: 2, currency: 'gems', weight: 30 },
-  { id: 'gem_3', amount: 3, currency: 'gems', weight: 5 },
+  { id: 'gem_1', amount: 1, currency: 'gems', weight: 45 },
+  { id: 'gem_2', amount: 2, currency: 'gems', weight: 35 },
+  { id: 'gem_3', amount: 3, currency: 'gems', weight: 15 },
+  { id: 'gem_5', amount: 5, currency: 'gems', weight: 5 },
 ]
 
 export function pickGemChestPrize() {

@@ -61,7 +61,7 @@ export function BottomNavPill() {
                   {({ isActive }) =>
                     isHome ? (
                       <span
-                        className={`flex h-[55px] w-[55px] flex-col items-center justify-center gap-1 rounded-full border shadow-lg transition-colors ${
+                        className={`flex h-[50px] w-[50px] flex-col items-center justify-center gap-1 rounded-full border shadow-lg transition-colors ${
                           isActive
                             ? 'border-violet-400/50 bg-[#171224] shadow-violet-500/30'
                             : 'border-violet-400/25 bg-[#12101a] shadow-violet-500/10'

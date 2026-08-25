@@ -125,7 +125,9 @@ export const treeRepository = {
 
         if (whole > 0) {
           const updated = await client.query(
-            `UPDATE users SET total_clicks = total_clicks + $2, object_progress = object_progress + $2
+            `UPDATE users
+             SET total_clicks = total_clicks + $2, object_progress = object_progress + $2,
+                 lifetime_platino = lifetime_platino + $2
              WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
             [userId, whole],
           )
@@ -389,7 +391,9 @@ export const treeRepository = {
         const whole = Math.floor(raw)
         if (whole > 0) {
           const updated = await client.query(
-            `UPDATE users SET total_clicks = total_clicks + $2, object_progress = object_progress + $2
+            `UPDATE users
+             SET total_clicks = total_clicks + $2, object_progress = object_progress + $2,
+                 lifetime_platino = lifetime_platino + $2
              WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
             [userId, whole],
           )

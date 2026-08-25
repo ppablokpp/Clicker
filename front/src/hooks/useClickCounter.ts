@@ -23,6 +23,12 @@ const MAX_CLICKS_PER_REQUEST = 5000
 export function useClickCounter() {
   const { userId, getToken } = useAuth()
   const [totalClicks, setTotalClicks] = useState(0)
+  // Trayectoria's own progress stat — cumulative platino ever earned, never
+  // reduced by spending (see migration 028). Unlike totalClicks this has no
+  // local pending/predicted overlay: it's a slow-moving achievement number,
+  // not something read in real time, so "whatever the last server response
+  // said" is close enough — just refreshed on mount and on every click flush.
+  const [lifetimePlatino, setLifetimePlatino] = useState(0)
   const [clicksPerSecond, setClicksPerSecond] = useState(0)
   // Every /increment response includes the current keys/gems totals (a
   // magnet powerup can silently grant either mid-flush) — exposed here so
@@ -93,6 +99,7 @@ export function useClickCounter() {
           const data = await res.json()
           confirmedRef.current = data.totalClicks
           setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+          if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
           if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
           if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
           updateObjectDisplay()
@@ -149,6 +156,7 @@ export function useClickCounter() {
         pendingRef.current -= amountSent
         pendingRealClicksRef.current -= realClicksSent
         setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+        if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
         if (typeof data.keys === 'number') setLatestKeys(data.keys)
         if (typeof data.gems === 'number') setLatestGems(data.gems)
         if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
@@ -254,6 +262,7 @@ export function useClickCounter() {
 
   return {
     totalClicks,
+    lifetimePlatino,
     clicksPerSecond,
     registerClick,
     syncTotalClicks,

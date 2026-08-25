@@ -9,7 +9,7 @@ export interface LeaderboardEntry {
   id: string
   username: string | null
   avatarUrl: string | null
-  totalClicks: number
+  lifetimePlatino: number
   bestCps: number
 }
 
@@ -26,9 +26,9 @@ export function useLeaderboard(sortBy: LeaderboardSort = 'clicks') {
         const res = await fetch(`${API_URL}/api/leaderboard?sortBy=${sortBy}`)
         if (!cancelled && res.ok) {
           const data: LeaderboardEntry[] = await res.json()
-          // total_clicks can carry a fractional remainder server-side (see
-          // click-value multipliers) — never shown as a decimal here.
-          setLeaderboard(data.map((entry) => ({ ...entry, totalClicks: Math.floor(entry.totalClicks) })))
+          // lifetime_platino can carry a fractional remainder server-side
+          // (see click-value multipliers) — never shown as a decimal here.
+          setLeaderboard(data.map((entry) => ({ ...entry, lifetimePlatino: Math.floor(entry.lifetimePlatino) })))
         }
       } catch (err) {
         console.error('No se pudo cargar la clasificación', err)

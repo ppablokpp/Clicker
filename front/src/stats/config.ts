@@ -35,7 +35,7 @@ export const STAT_CATEGORIES = [
     statKey: 'totalRealClicks' as const,
     icon: MousePointerClick,
     color: 'text-violet-300',
-    milestones: [10_000, 25_000, 50_000, 100_000],
+    milestones: [100_000, 250_000, 500_000, 1_000_000],
   },
   {
     key: 'bestCps' as const,

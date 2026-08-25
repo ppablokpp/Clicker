@@ -162,10 +162,13 @@ export function Stats() {
             const tierIndex = milestones.indexOf(target)
             const tierKey = MILESTONE_TIER_KEYS[tierIndex]
             const gradient = MILESTONE_TIER_GRADIENTS[tierKey]
+            const isLastTier = tierIndex === milestones.length - 1
             // Once a tier is reached, freeze the numerator at its own
             // threshold (e.g. "1.000 / 1.000") instead of the live stat
-            // value, which may already be well past it.
-            const displayValue = reachedTarget ? target : value
+            // value, which may already be well past it — except the very
+            // last tier, which has nothing above it to freeze toward, so
+            // its number just keeps climbing past the requirement instead.
+            const displayValue = reachedTarget && !isLastTier ? target : value
 
             return (
               <div

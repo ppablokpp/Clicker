@@ -235,20 +235,20 @@ export const battlesRepository = {
         }
 
         if (winnerId) {
-          await client.query('UPDATE users SET total_clicks = total_clicks + $2 WHERE id = $1', [
-            winnerId,
-            wager * 2,
-          ])
+          await client.query(
+            'UPDATE users SET total_clicks = total_clicks + $2, lifetime_platino = lifetime_platino + $2 WHERE id = $1',
+            [winnerId, wager * 2],
+          )
         } else {
           // Tie — refund both wagers rather than letting the pot vanish.
-          await client.query('UPDATE users SET total_clicks = total_clicks + $2 WHERE id = $1', [
-            battle.challenger_id,
-            wager,
-          ])
-          await client.query('UPDATE users SET total_clicks = total_clicks + $2 WHERE id = $1', [
-            battle.opponent_id,
-            wager,
-          ])
+          await client.query(
+            'UPDATE users SET total_clicks = total_clicks + $2, lifetime_platino = lifetime_platino + $2 WHERE id = $1',
+            [battle.challenger_id, wager],
+          )
+          await client.query(
+            'UPDATE users SET total_clicks = total_clicks + $2, lifetime_platino = lifetime_platino + $2 WHERE id = $1',
+            [battle.opponent_id, wager],
+          )
         }
 
         await client.query(
