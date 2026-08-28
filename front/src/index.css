@@ -158,3 +158,124 @@ body::before {
 .animate-rotor-blur {
   animation: rotor-blur 0.16s ease-in-out infinite;
 }
+
+/* Home's OrbitingBots swarm (autoclick + scout drones) — plain CSS
+   keyframes instead of Framer Motion. Uncapped, one drone per upgrade
+   level: with dozens/hundreds of them each running 3 independent infinite
+   animations, driving them from JS meant every single one got its
+   transition object recreated and reconciled by Framer on every Home
+   re-render — which happens ~10x/sec from the autoclick tick alone,
+   regardless of how many drones exist. That reconciliation cost, not the
+   raw drone count, was the actual lag source. CSS animations run on the
+   compositor and are entirely decoupled from React's render cycle, so
+   re-renders no longer touch them at all — combined with memoizing the
+   component (see Home.tsx), a running swarm's DOM is now fully inert to
+   everything except its own count actually changing. Per-drone variation
+   (duration/delay/spin direction) rides in as inline custom properties
+   instead of separate animation objects. */
+/* The orbiting drones' distance from the ring's center. Plain `vmin` alone
+   looked right on mobile (where the viewport roughly matches the object
+   box's own size) but blew up on desktop — a wide, tall browser window
+   pushes vmin far past the object box's actual fixed size (h-72/sm:h-96),
+   sending the drones flying way out past the ring. Clamping bounds it to
+   roughly what the ring itself already spans across breakpoints, so it
+   still scales a little with viewport but can never drift far from "just
+   outside the ring" — mobile's own natural value already sits inside this
+   range, so it renders unchanged there. */
+:root {
+  --drone-orbit-radius: clamp(105px, 32vmin, 165px);
+}
+
+@keyframes drone-spin-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes drone-spin-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.drone-orbit-anchor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.drone-spin-cw,
+.drone-spin-ccw {
+  animation-duration: var(--drone-orbit-duration, 18s);
+  animation-delay: var(--drone-orbit-delay, 0s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.drone-spin-cw {
+  animation-name: drone-spin-cw;
+}
+.drone-spin-ccw {
+  animation-name: drone-spin-ccw;
+}
+
+/* Static orbit-radius offset — a separate element from the spin above
+   since one CSS animation touching `transform` always wins the whole
+   property outright, it can't be layered with an unanimated transform on
+   the same element. */
+.drone-radius-offset {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%) translateY(calc(var(--drone-orbit-radius) * -1));
+}
+
+@keyframes drone-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+.drone-pulse {
+  animation: drone-pulse 1.8s ease-in-out infinite;
+  animation-delay: var(--drone-pulse-delay, 0s);
+}
+
+/* The drone's own laser tick fired at the counter — travels the same
+   radius the drone orbits at, then snaps invisibly back to start for the
+   next cycle (imperceptible since it happens at opacity 0). One keyframe
+   cycle covers a full pulse period (fire + rest) instead of Framer's
+   separate duration/repeatDelay pair. */
+@keyframes drone-beam {
+  0% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+    animation-timing-function: ease-in;
+  }
+  22.22% {
+    transform: translate(-50%, var(--drone-orbit-radius));
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0);
+    opacity: 0;
+  }
+}
+
+.drone-beam {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  animation: drone-beam 1.8s infinite;
+  animation-delay: var(--drone-pulse-delay, 0s);
+}

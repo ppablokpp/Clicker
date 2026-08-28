@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
@@ -113,17 +113,6 @@ const PARTICLE_COUNT = 4
 // visibly janks on mobile. Bursts are throttled independently of shots so
 // the laser bolts themselves stay perfectly responsive either way.
 const MIN_PARTICLE_INTERVAL_MS = 90
-
-// The orbiting drones' distance from the ring's center. Plain `vmin` alone
-// looked right on mobile (where the viewport roughly matches the object
-// box's own size) but blew up on desktop — a wide, tall browser window
-// pushes vmin far past the object box's actual fixed size (h-72/sm:h-96),
-// sending the drones flying way out past the ring. Clamping bounds it to
-// roughly what the ring itself already spans across breakpoints, so it
-// still scales a little with viewport but can never drift far from "just
-// outside the ring" — mobile's own natural value already sits inside this
-// range, so it renders unchanged there.
-const DRONE_ORBIT_RADIUS = 'clamp(105px, 32vmin, 165px)'
 
 // Escalates the whole screen's feel with click speed — a free "combo meter"
 // with no server round trip, purely derived from clicksPerSecond. Legendario
@@ -467,14 +456,28 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
 
 // Autoclick's swarm — one little drone per level, uncapped, orbiting just
 // outside the prestige ring like Cookie Clicker's cursors circling the
-// cookie. Purely decorative: each
-// drone's orbit phase and pulse timing come from its own index, not real
-// production data, since this only exists to make "you own N levels of
-// autoclick" *feel* alive rather than to visualize the exact cps. Color
-// props default to the regular drones' violet so that call site stays
-// untouched; the scout-drone swarm passes its own amber palette plus a
-// `phaseOffset` so the two swarms don't spawn at identical angles.
-function OrbitingBots({
+// cookie. Purely decorative: each drone's orbit phase and pulse timing
+// come from its own index, not real production data, since this only
+// exists to make "you own N levels of autoclick" *feel* alive rather than
+// to visualize the exact cps. Color props default to the regular drones'
+// violet so that call site stays untouched; the scout-drone swarm passes
+// its own amber palette plus a `phaseOffset` so the two swarms don't spawn
+// at identical angles.
+//
+// Every animation here is plain CSS (see the `drone-*` keyframes/classes
+// in index.css) instead of Framer Motion. With this swarm uncapped and
+// potentially in the hundreds, Framer was recreating each drone's
+// transition objects and reconciling all 3 of its per-drone animations on
+// every Home re-render — which happens ~10x/sec purely from the autoclick
+// tick, unrelated to the swarm itself — and that reconciliation cost is
+// what actually scaled with drone count into visible lag, not the raw
+// element count. CSS keyframes run on the compositor, fully decoupled
+// from React's render cycle, so re-renders no longer touch a mounted
+// drone at all. Wrapped in `memo` on top of that so React doesn't even
+// re-run this component's own render (rebuilding `count` elements' worth
+// of JSX) unless a prop here actually changed — which in practice means
+// only when the player buys another level, not on every click/tick.
+const OrbitingBots = memo(function OrbitingBots({
   count,
   colorClass = 'text-violet-300',
   glowColor = 'rgba(168,85,247,0.65)',
@@ -499,70 +502,55 @@ function OrbitingBots({
         const orbitDelay = -((i / count + phaseOffset) * orbitDuration)
         const pulseDelay = (i * 0.53) % 2.4
         const clockwise = i % 2 === 0
+        // `Record<string, string>` instead of CSSProperties — custom
+        // properties (--foo) aren't part of that type, and both wrappers
+        // below need the exact same pair, just to drive opposite keyframes.
+        const orbitVars: Record<string, string> = {
+          '--drone-orbit-duration': `${orbitDuration}s`,
+          '--drone-orbit-delay': `${orbitDelay}s`,
+        }
+        const pulseDelayVar: Record<string, string> = { '--drone-pulse-delay': `${pulseDelay}s` }
         return (
-          <motion.div
+          <div
             key={i}
-            className="absolute left-1/2 top-1/2"
-            animate={{ rotate: clockwise ? 360 : -360 }}
-            transition={{ duration: orbitDuration, delay: orbitDelay, repeat: Infinity, ease: 'linear' }}
+            className={`drone-orbit-anchor ${clockwise ? 'drone-spin-cw' : 'drone-spin-ccw'}`}
+            style={orbitVars}
           >
-            {/* Static orbit-radius offset lives on a plain (non-motion) div
-                — Framer Motion owns the *whole* transform string on any
-                element it animates x/y/scale/rotate on, so a manually set
-                style.transform on that same element gets silently
-                overwritten (this is what was collapsing every drone onto
-                the exact center point). Keeping it on a separate plain div
-                sidesteps that entirely. The drone body itself also counter-
-                rotates against the orbit spin so it stays visually level
-                instead of tumbling around its own axis as it orbits. */}
-            <div
-              className="absolute left-0 top-0"
-              style={{ transform: `translate(-50%, -50%) translateY(calc(${DRONE_ORBIT_RADIUS} * -1))` }}
-            >
-              <motion.div
-                animate={{
-                  rotate: clockwise ? -360 : 360,
-                  scale: [1, 1.12, 1],
-                  opacity: [0.75, 1, 0.75],
-                }}
-                transition={{
-                  rotate: { duration: orbitDuration, delay: orbitDelay, repeat: Infinity, ease: 'linear' },
-                  scale: { duration: 1.8, delay: pulseDelay, repeat: Infinity, ease: 'easeInOut' },
-                  opacity: { duration: 1.8, delay: pulseDelay, repeat: Infinity, ease: 'easeInOut' },
-                }}
-                className={colorClass}
-                style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}
-              >
-                <DroneIcon size={20} animated />
-              </motion.div>
+            {/* Static orbit-radius offset lives on a separate element from
+                the spin above — a single CSS animation touching `transform`
+                always wins that property outright on its element, so it
+                can't be layered with an unanimated transform the way the
+                old Framer version (which composes the whole transform
+                itself) could on one node. */}
+            <div className="drone-radius-offset">
+              {/* Counter-rotates opposite the parent orbit, same duration/
+                  delay, so the icon itself stays visually level instead of
+                  tumbling around its own axis as it orbits. */}
+              <div className={clockwise ? 'drone-spin-ccw' : 'drone-spin-cw'} style={orbitVars}>
+                <div
+                  className={`drone-pulse ${colorClass}`}
+                  style={{ ...pulseDelayVar, filter: `drop-shadow(0 0 6px ${glowColor})` }}
+                >
+                  <DroneIcon size={20} animated />
+                </div>
+              </div>
 
               {/* The shot — a short bolt fired straight at the counter every
                   pulse (same travelling-dot shape the main click shot uses,
                   just vertical since the drone's own orbit rotation,
                   applied one level up, already points "down" at the ring
-                  center). `x: '-50%'` is a Framer style value, not a raw
-                  CSS transform string, so it composes with the animated y
-                  on this same element instead of fighting it. */}
-              <motion.div
-                className={`absolute left-1/2 top-1/2 w-[3px] rounded-full bg-gradient-to-b ${beamClass}`}
-                style={{ height: 10, x: '-50%', boxShadow: `0 0 6px 1px ${beamShadow}` }}
-                initial={{ y: 0, opacity: 1 }}
-                animate={{ y: DRONE_ORBIT_RADIUS, opacity: [1, 1, 0] }}
-                transition={{
-                  duration: 0.4,
-                  delay: pulseDelay,
-                  repeat: Infinity,
-                  repeatDelay: 1.4,
-                  ease: 'easeIn',
-                }}
+                  center). */}
+              <div
+                className={`drone-beam w-[3px] rounded-full bg-gradient-to-b ${beamClass}`}
+                style={{ ...pulseDelayVar, height: 10, boxShadow: `0 0 6px 1px ${beamShadow}` }}
               />
             </div>
-          </motion.div>
+          </div>
         )
       })}
     </div>
   )
-}
+})
 
 // Below 1M, the exact number — it's short enough to read at a glance and
 // watching the digits climb is part of the fun. From 1M up it switches to a
