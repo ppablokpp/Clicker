@@ -12,7 +12,6 @@ export interface TranslationStrings {
     objectsProgress: (broken: string, target: string) => string
     prestigeReady: string
     changePrestige: string
-    prestigeComingSoon: string
     cps: string
     tps: string
     totalLabel: string
@@ -62,6 +61,10 @@ export interface TranslationStrings {
     trajectoryCurrent: string
     trajectoryLocked: string
     trajectoryComingSoon: string
+    trajectoryPrestigeTitle: string
+    trajectoryPrestigeBody: (nextTierName: string) => string
+    trajectoryPrestigeConfirm: string
+    trajectoryPrestigeCancel: string
   }
   nav: {
     home: string
@@ -272,7 +275,6 @@ export const translations: Record<Language, TranslationStrings> = {
       objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
       prestigeReady: '¡Prestigio disponible!',
       changePrestige: 'Cambiar de prestigio',
-      prestigeComingSoon: 'Próximamente...',
       cps: 'pt/s',
       tps: 't/s',
       hudPlatinoLabel: 'Tu platino',
@@ -322,6 +324,11 @@ export const translations: Record<Language, TranslationStrings> = {
       trajectoryCurrent: 'Actual',
       trajectoryLocked: 'Bloqueado',
       trajectoryComingSoon: 'Próximamente',
+      trajectoryPrestigeTitle: '¿Cambiar de prestigio?',
+      trajectoryPrestigeBody: (nextTierName) =>
+        `Tu platino actual se reseteará, se eliminará todo el progreso de tu árbol de mejoras, y tu nave viajará hacia otro asteroide para hacer una extracción de ${nextTierName}. Tu puntuación total de la clasificación nunca se pierde.`,
+      trajectoryPrestigeConfirm: 'Cambiar',
+      trajectoryPrestigeCancel: 'Cancelar',
     },
     nav: {
       home: 'Nave',
@@ -609,7 +616,6 @@ export const translations: Record<Language, TranslationStrings> = {
       objectsProgress: (broken, target) => `${broken} / ${target} levels`,
       prestigeReady: 'Prestige available!',
       changePrestige: 'Change prestige',
-      prestigeComingSoon: 'Coming soon',
       cps: 'pt/s',
       tps: 't/s',
       hudPlatinoLabel: 'Your platinum',
@@ -659,6 +665,11 @@ export const translations: Record<Language, TranslationStrings> = {
       trajectoryCurrent: 'Current',
       trajectoryLocked: 'Locked',
       trajectoryComingSoon: 'Coming soon',
+      trajectoryPrestigeTitle: 'Change prestige?',
+      trajectoryPrestigeBody: (nextTierName) =>
+        `Your current platino will reset, all of your upgrade tree progress will be wiped, and your ship will travel to another asteroid to mine ${nextTierName}. Your total leaderboard score is never lost.`,
+      trajectoryPrestigeConfirm: 'Change',
+      trajectoryPrestigeCancel: 'Cancel',
     },
     nav: {
       home: 'Ship',

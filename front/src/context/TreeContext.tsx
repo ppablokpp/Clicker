@@ -54,6 +54,9 @@ interface TreeState {
 }
 
 interface TreeContextValue extends TreeState {
+  // Pulls fresh tree levels immediately — used after a prestige confirm
+  // (Home.tsx) instead of waiting for the next background poll.
+  refetch: () => Promise<void>
   isBuying: boolean
   buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLuck: boolean
@@ -616,6 +619,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     <TreeContext.Provider
       value={{
         ...state,
+        // Exposed so a prestige confirm (Home.tsx) can pull the
+        // just-reset tree levels immediately instead of waiting up to
+        // POLL_INTERVAL_MS for the next background poll to catch up.
+        refetch: fetchState,
         isBuying,
         buyAutoClick,
         isBuyingLuck,

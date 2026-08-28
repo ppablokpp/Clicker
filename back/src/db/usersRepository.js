@@ -1,5 +1,6 @@
 import { database } from './pool.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
+import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT } from '../game/trajectory.js'
 
 // Applies to both chest types — buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
@@ -46,7 +47,7 @@ export const usersRepository = {
   // visually reset the object back to 0 while the real state reloads.
   async getClickState(id) {
     const result = await database.query(
-      'SELECT total_clicks, lifetime_platino, objects_broken, object_progress FROM users WHERE id = $1',
+      'SELECT total_clicks, lifetime_platino, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1',
       [id],
     )
     const row = result.rows[0]
@@ -55,6 +56,73 @@ export const usersRepository = {
       lifetimePlatino: Number(row?.lifetime_platino ?? 0),
       objectsBroken: Number(row?.objects_broken ?? 0),
       objectProgress: Number(row?.object_progress ?? 0),
+      prestigeTier: Number(row?.prestige_tier ?? 0),
+    }
+  },
+
+  // Trayectoria's manual prestige step — the player's confirmed tier
+  // (prestige_tier) only ever advances here, never automatically just from
+  // lifetime_platino crossing the next threshold, so they keep farming the
+  // current tier's material for as long as they want past that point.
+  // lifetime_platino itself is untouched (it never resets, by design — see
+  // migration 028); total_clicks (the current, spendable platino) zeroes
+  // out, same as a fresh tier's own extraction run starting at 0, and every
+  // tree node's owned level resets to 0 too (DELETE, not just zeroing —
+  // user_permanent_upgrades rows simply stop existing, same shape the old
+  // Reactor reset used). Only *progress* resets: every node's own cost
+  // curve and per-level output (tree/*.js) are pure functions of level, so
+  // they're completely unaffected — next run costs and produces exactly
+  // the same at level 1 as this run's level 1 did. user_prestige_upgrades
+  // (the old Reactor) is a deliberately separate table (see migration 026)
+  // so it's untouched by this DELETE, same as the old reset relied on.
+  async confirmPrestige(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query(
+        'SELECT lifetime_platino, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
+        [userId],
+      )
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const currentTier = Number(userRow.rows[0].prestige_tier)
+      const nextTier = currentTier + 1
+      if (nextTier >= TRAJECTORY_TIER_COUNT) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-maxed' }
+      }
+
+      const lifetimePlatino = Number(userRow.rows[0].lifetime_platino)
+      const requiredPlatino = TRAJECTORY_TIER_THRESHOLDS[nextTier]
+      if (lifetimePlatino < requiredPlatino) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-eligible' }
+      }
+
+      const updated = await client.query(
+        `UPDATE users SET total_clicks = 0, prestige_tier = $2 WHERE id = $1
+         RETURNING total_clicks, prestige_tier, lifetime_platino`,
+        [userId, nextTier],
+      )
+
+      await client.query('DELETE FROM user_permanent_upgrades WHERE user_id = $1', [userId])
+
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        prestigeTier: Number(updated.rows[0].prestige_tier),
+        lifetimePlatino: Number(updated.rows[0].lifetime_platino),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
     }
   },
 

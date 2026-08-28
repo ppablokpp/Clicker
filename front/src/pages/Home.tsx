@@ -640,17 +640,25 @@ export function Home() {
   const { userId } = useAuth()
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
-  const { totalClicks, lifetimePlatino, clicksPerSecond, registerClick } = useClickCounterContext()
+  const {
+    totalClicks,
+    lifetimePlatino,
+    prestigeTier,
+    isConfirmingPrestige,
+    confirmPrestige,
+    clicksPerSecond,
+    registerClick,
+  } = useClickCounterContext()
   // Trayectoria's roadmap — driven by lifetime platino earned (migration
   // 028), not objectsBroken; a placeholder order-of-magnitude ramp (1M →
   // 10M → 100M → 1B → 10B) until the real curve gets designed.
-  const currentTierIndex = (() => {
-    let idx = 0
-    for (let i = 0; i < TRAJECTORY_TIER_THRESHOLDS.length; i++) {
-      if (lifetimePlatino >= TRAJECTORY_TIER_THRESHOLDS[i]) idx = i
-    }
-    return idx
-  })()
+  //
+  // The *displayed* tier is prestigeTier (migration 029), not whatever
+  // lifetimePlatino's raw threshold position would imply — lifetimePlatino
+  // keeps climbing past the next tier's floor for as long as the player
+  // wants, still shown as the current material, until they explicitly
+  // confirm the prestige (see handleConfirmPrestige below).
+  const currentTierIndex = prestigeTier
   const {
     autoClickCps,
     autoClickLevel,
@@ -666,6 +674,7 @@ export function Home() {
     scoutDroneRate,
     scoutDroneCps,
     autoMultiplierValue,
+    refetch: refetchTree,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
   // of the prestige UI (shop, reset flow) is disabled below.
@@ -715,10 +724,8 @@ export function Home() {
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
   const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
-  // The real reset flow (confirm/shop modals) is still parked — see the
-  // commented-out blocks further down — so the button just flashes a
-  // "coming soon" label instead of opening anything for now.
-  const [showComingSoon, setShowComingSoon] = useState(false)
+  const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
+  const [prestigeError, setPrestigeError] = useState<string | null>(null)
   const [showInventory, setShowInventory] = useState(false)
   const [showShip, setShowShip] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
@@ -814,34 +821,43 @@ export function Home() {
 
   // Prestige is tier-based now — each Trayectoria tier *is* a prestige
   // level, driven by lifetime platino (see TRAJECTORY_TIER_THRESHOLDS), not
-  // by breaking objects. The ring shows progress within the *current* tier
-  // toward the next one; maxed once the last tier's own ceiling is cleared.
+  // by breaking objects. The ring shows progress within the *current*
+  // (confirmed) tier toward the next one — once lifetimePlatino clears that
+  // next tier's floor, `readyToPrestige` goes true and the ring stops
+  // filling (pct clamps at 1) but the asteroid/material stays exactly as-is
+  // until the player actually confirms (see handleConfirmPrestige):
+  // lifetimePlatino keeps climbing in the background for as long as they
+  // keep farming past that point. `isMaxed` is a separate, final state —
+  // true only once there's no tier left above the current one at all.
+  const hasNextTier = currentTierIndex < OBJECT_TIERS.length - 1
   const prestige = useMemo(() => {
     const tierFrom = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex]
     const tierTo = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex + 1]
-    const lastThreshold = TRAJECTORY_TIER_THRESHOLDS[TRAJECTORY_TIER_THRESHOLDS.length - 1]
     return {
-      isMaxed: lifetimePlatino >= lastThreshold,
+      isMaxed: !hasNextTier,
+      readyToPrestige: hasNextTier && lifetimePlatino >= tierTo,
       pct: tierTo ? Math.min(1, (lifetimePlatino - tierFrom) / (tierTo - tierFrom)) : 1,
     }
-  }, [lifetimePlatino, currentTierIndex])
+  }, [lifetimePlatino, currentTierIndex, hasNextTier])
 
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
 
-  // Reset flow disabled along with the rest of the prestige UI — a full
-  // reload on success was deliberate here (every other context would need
-  // its own "zero everything out" logic otherwise), worth keeping in mind
-  // if this gets re-enabled.
-  // const handleConfirmPrestige = async () => {
-  //   setPrestigeError(null)
-  //   const result = await resetPrestige()
-  //   if (result.ok) {
-  //     window.location.reload()
-  //   } else if (result.error !== 'not-signed-in') {
-  //     setPrestigeError(result.error ?? 'error')
-  //   }
-  // }
+  // total_clicks and every tree node's owned level reset server-side (see
+  // confirmPrestige/DELETE FROM user_permanent_upgrades) — refetching the
+  // tree here pulls those just-reset levels in immediately instead of
+  // showing stale ones for up to POLL_INTERVAL_MS. Keys/gems/inventory
+  // aren't touched by a prestige at all, so nothing else needs refreshing.
+  const handleConfirmPrestige = async () => {
+    setPrestigeError(null)
+    const result = await confirmPrestige()
+    if (result.ok) {
+      setShowPrestigeConfirm(false)
+      refetchTree()
+    } else if (result.error !== 'not-signed-in') {
+      setPrestigeError(result.error ?? 'error')
+    }
+  }
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -990,7 +1006,7 @@ export function Home() {
           `blur-[140px]` div (same mobile Chromium flash-to-square bug fixed
           on the asteroid's own glow, so it's built the filter-free way
           from the start here). */}
-      {prestige.isMaxed && (
+      {prestige.readyToPrestige && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
             className="animate-pulse-glow absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
@@ -1197,7 +1213,7 @@ export function Home() {
           {/* Scaled down from the object's own box — the ring used to hug
               the object edge-to-edge, which read as oversized next to it. */}
           <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
-            <ProgressRing pct={prestige.pct} isMaxed={prestige.isMaxed} />
+            <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} />
           </div>
 
           <div className="absolute inset-0 flex items-center justify-center">
@@ -1210,7 +1226,7 @@ export function Home() {
             flex-col's own height. That mattered: as a normal-flow sibling
             it was pushing the whole stack (ring included) upward to stay
             centered on the page whenever it appeared. */}
-        {prestige.isMaxed && (
+        {prestige.readyToPrestige && (
           <div className="pointer-events-none absolute left-0 right-0 top-full mt-8 flex flex-col items-center px-3">
             <span className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
               {strings.home.prestigeReady}
@@ -1218,14 +1234,11 @@ export function Home() {
             <div className="pointer-events-auto flex flex-col items-center gap-1.5">
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => {
-                  setShowComingSoon(true)
-                  window.setTimeout(() => setShowComingSoon(false), 1800)
-                }}
+                onClick={() => setShowPrestigeConfirm(true)}
                 className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
               >
                 <Sparkles size={13} className="text-amber-300" />
-                {showComingSoon ? strings.home.prestigeComingSoon : strings.home.changePrestige}
+                {strings.home.changePrestige}
               </button>
             </div>
           </div>
@@ -1811,15 +1824,18 @@ export function Home() {
                 {OBJECT_TIERS.map((tier, i) => {
                   const isCurrent = i === currentTierIndex
                   const isLocked = i > currentTierIndex
-                  // Locked (future) tiers are a mystery — only the current
-                  // tier and the ones already cleared show real numbers,
-                  // the latter capped at their own ceiling instead of
-                  // ballooning to the full (much higher) lifetime total.
+                  // Locked (future) tiers are a mystery. Cleared tiers cap
+                  // at their own ceiling instead of ballooning to the full
+                  // (much higher) lifetime total. The current tier is the
+                  // one exception — it shows the real, uncapped number even
+                  // once it's past its own ceiling, since the player keeps
+                  // farming it for as long as they want before confirming
+                  // the actual prestige (see handleConfirmPrestige).
                   const tierCeiling = TRAJECTORY_TIER_THRESHOLDS[i + 1]
                   const extractionText = isLocked
                     ? strings.home.trajectoryExtractionUnknown
                     : strings.home.trajectoryExtraction(
-                        formatPlatino(Math.min(lifetimePlatino, tierCeiling), language),
+                        formatPlatino(isCurrent ? lifetimePlatino : Math.min(lifetimePlatino, tierCeiling), language),
                         formatPlatino(tierCeiling, language),
                       )
                   return (
@@ -1891,12 +1907,7 @@ export function Home() {
         </div>
       )}
 
-      {/* Prestige confirm + shop modals disabled along with the rest of the
-          prestige UI (feedback: the maxed-ring flow was rendering badly).
-          Neither can be reached anymore since every trigger above is
-          commented out too — kept here, disabled, instead of deleted, so
-          the whole feature is a quick uncomment away once it's revisited. */}
-      {/* {showPrestigeConfirm && (
+      {showPrestigeConfirm && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
@@ -1915,10 +1926,10 @@ export function Home() {
             </button>
             <div className="mb-3 flex items-center gap-2">
               <Sparkles size={18} className="text-amber-300" />
-              <p className="text-sm font-semibold text-white">{strings.prestige.confirmTitle}</p>
+              <p className="text-sm font-semibold text-white">{strings.home.trajectoryPrestigeTitle}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">
-              {strings.prestige.confirmBody(objectsBroken.toLocaleString(language === 'en' ? 'en-US' : 'es-ES'))}
+              {strings.home.trajectoryPrestigeBody(strings.home.trajectoryTierNames[currentTierIndex + 1])}
             </p>
             {prestigeError && <p className="mb-3 text-xs text-red-400">{prestigeError}</p>}
             <div className="flex gap-2">
@@ -1927,22 +1938,28 @@ export function Home() {
                 onClick={() => setShowPrestigeConfirm(false)}
                 className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-neutral-300"
               >
-                {strings.prestige.cancelButton}
+                {strings.home.trajectoryPrestigeCancel}
               </button>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={handleConfirmPrestige}
-                disabled={isResetting}
+                disabled={isConfirmingPrestige}
                 className="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 px-4 py-2.5 text-sm font-bold text-neutral-900 disabled:opacity-60"
               >
-                {strings.prestige.confirmButton}
+                {strings.home.trajectoryPrestigeConfirm}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {showPrestigeShop && (
+      {/* The old prestige_points/Reactor shop — a separate, already-
+          disabled system (see PrestigeContext) kept dormant on purpose:
+          anyone with an existing Reactor level keeps its multiplier, but
+          there's no way to earn more points or reach this modal anymore.
+          Left commented instead of deleted per explicit instruction not to
+          touch it while it might still get reused later. */}
+      {/* {showPrestigeShop && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}

@@ -63,3 +63,16 @@ clicksRouter.post('/increment', async (req, res) => {
   )
   res.json({ totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress })
 })
+
+// Trayectoria's manual prestige confirm — advances prestige_tier by one and
+// zeroes total_clicks, but only once lifetime_platino has actually cleared
+// the next tier's own threshold (re-checked server-side, never trusting the
+// client's own idea of eligibility).
+clicksRouter.post('/prestige', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await usersRepository.confirmPrestige(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})

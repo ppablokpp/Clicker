@@ -29,6 +29,12 @@ export function useClickCounter() {
   // not something read in real time, so "whatever the last server response
   // said" is close enough — just refreshed on mount and on every click flush.
   const [lifetimePlatino, setLifetimePlatino] = useState(0)
+  // Trayectoria's *confirmed* tier — only ever advances via confirmPrestige
+  // below, never just from lifetimePlatino crossing the next threshold, so
+  // the player keeps their current tier's material until they explicitly
+  // choose to move on.
+  const [prestigeTier, setPrestigeTier] = useState(0)
+  const [isConfirmingPrestige, setIsConfirmingPrestige] = useState(false)
   const [clicksPerSecond, setClicksPerSecond] = useState(0)
   // Every /increment response includes the current keys/gems totals (a
   // magnet powerup can silently grant either mid-flush) — exposed here so
@@ -100,6 +106,7 @@ export function useClickCounter() {
           confirmedRef.current = data.totalClicks
           setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
           if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
+          if (typeof data.prestigeTier === 'number') setPrestigeTier(data.prestigeTier)
           if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
           if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
           updateObjectDisplay()
@@ -228,6 +235,38 @@ export function useClickCounter() {
     [updateObjectDisplay],
   )
 
+  // Trayectoria's manual prestige step. Server re-validates eligibility
+  // (never trust the client's own idea of "ready") and is the sole source
+  // of truth for total_clicks resetting to 0 here — this just folds that
+  // authoritative result straight in, same as syncTotalClicks does for a
+  // spend, rather than assuming success and zeroing locally first.
+  const confirmPrestige = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!userId) return { ok: false, error: 'not-signed-in' }
+    setIsConfirmingPrestige(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/clicks/prestige`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      confirmedRef.current = data.totalClicks
+      pendingRef.current = 0
+      pendingRealClicksRef.current = 0
+      autoPendingRef.current = 0
+      setTotalClicks(data.totalClicks)
+      setPrestigeTier(data.prestigeTier)
+      if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo cambiar de prestigio', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsConfirmingPrestige(false)
+    }
+  }, [userId, getToken])
+
   const suspendSync = useCallback(() => {
     suspendSyncCountRef.current += 1
   }, [])
@@ -263,6 +302,9 @@ export function useClickCounter() {
   return {
     totalClicks,
     lifetimePlatino,
+    prestigeTier,
+    isConfirmingPrestige,
+    confirmPrestige,
     clicksPerSecond,
     registerClick,
     syncTotalClicks,
