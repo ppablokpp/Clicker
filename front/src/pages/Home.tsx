@@ -84,6 +84,16 @@ interface ShotEffect {
   dx: number
   dy: number
   angleDeg: number
+  // Everything the ripple/+N popup and particle burst need once the bolt
+  // actually finishes — carried on the shot itself instead of a second,
+  // independent setTimeout(SHOT_DURATION_MS) racing the real animation
+  // (see the impact handler below for why that used to fall behind on a
+  // busy mobile thread).
+  impactX: number
+  impactY: number
+  displayAmount: number
+  isLucky: boolean
+  rippleClass: string
 }
 
 const BOLT_LENGTH = 26
@@ -907,6 +917,43 @@ export function Home() {
     }
   }
 
+  // Fires exactly when a bolt's own Framer animation reports finishing
+  // (see the shot's onAnimationComplete below) — never on a fixed timer,
+  // so the ripple/+N and particle burst can't land before, or after, the
+  // bolt has actually visually arrived regardless of how far behind a busy
+  // mobile thread's frame delivery has fallen.
+  const handleShotImpact = useCallback((shot: ShotEffect) => {
+    setShots((current) => current.filter((s) => s.id !== shot.id))
+
+    const jitterX = shot.impactX + (Math.random() - 0.5) * 28
+    const jitterY = shot.impactY + (Math.random() - 0.5) * 28
+    const id = effectId++
+    setEffects((prev) => [
+      ...prev,
+      { id, x: jitterX, y: jitterY, ripple: shot.rippleClass, amount: shot.displayAmount, isLucky: shot.isLucky },
+    ])
+    window.setTimeout(() => {
+      setEffects((prev) => prev.filter((fx) => fx.id !== id))
+    }, 900)
+
+    // Debris burst — same recipe as Battle.tsx's duel screen, throttled
+    // separately from shots so a fast tapper doesn't pile up dozens of
+    // animated chips at once.
+    const impactAt = Date.now()
+    if (impactAt - lastParticleAtRef.current < MIN_PARTICLE_INTERVAL_MS) return
+    lastParticleAtRef.current = impactAt
+    const pId = particleId++
+    const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
+      angle: Math.random() * 360,
+      distance: 38 + Math.random() * 48,
+      size: 3.5 + Math.random() * 4,
+    }))
+    setParticleBursts((current) => [...current, { id: pId, x: shot.impactX, y: shot.impactY, chips }])
+    window.setTimeout(() => {
+      setParticleBursts((current) => current.filter((b) => b.id !== pId))
+    }, PARTICLE_DURATION_MS)
+  }, [])
+
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       if (!userId) {
@@ -962,58 +1009,35 @@ export function Home() {
       registerClick(amount)
       playLaserShot()
 
-      // Fire a shot from the tap point at the space object, then land the
-      // ripple/+N there once the shot actually arrives instead of showing
-      // it instantly at the tap point — a small random offset around the
-      // object's center keeps rapid clicks from stacking on the exact same
-      // pixel.
-      setShots((prev) => {
-        const sId = shotId++
-        const dx = objX - x
-        const dy = objY - y
-        const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
-        window.setTimeout(() => {
-          setShots((current) => current.filter((s) => s.id !== sId))
-        }, SHOT_DURATION_MS)
-        return [...prev, { id: sId, startX: x, startY: y, dx, dy, angleDeg }]
-      })
-
-      window.setTimeout(() => {
-        const jitterX = objX + (Math.random() - 0.5) * 28
-        const jitterY = objY + (Math.random() - 0.5) * 28
-        const id = effectId++
-        setEffects((prev) => [
-          ...prev,
-          {
-            id,
-            x: jitterX,
-            y: jitterY,
-            ripple: isLucky ? 'bg-green-400/70' : heat.ripple,
-            amount: displayAmount,
-            isLucky,
-          },
-        ])
-        window.setTimeout(() => {
-          setEffects((prev) => prev.filter((fx) => fx.id !== id))
-        }, 900)
-
-        // Debris burst — same recipe as Battle.tsx's duel screen, throttled
-        // separately from shots so a fast tapper doesn't pile up dozens of
-        // animated chips at once.
-        const impactAt = Date.now()
-        if (impactAt - lastParticleAtRef.current < MIN_PARTICLE_INTERVAL_MS) return
-        lastParticleAtRef.current = impactAt
-        const pId = particleId++
-        const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
-          angle: Math.random() * 360,
-          distance: 38 + Math.random() * 48,
-          size: 3.5 + Math.random() * 4,
-        }))
-        setParticleBursts((current) => [...current, { id: pId, x: objX, y: objY, chips }])
-        window.setTimeout(() => {
-          setParticleBursts((current) => current.filter((b) => b.id !== pId))
-        }, PARTICLE_DURATION_MS)
-      }, SHOT_DURATION_MS)
+      // Fire a shot from the tap point at the space object — the ripple/+N
+      // and particle burst below only land once the bolt's own Framer
+      // animation actually reports finishing (see handleShotImpact), not
+      // after a fixed SHOT_DURATION_MS timer. A busy mobile thread can fall
+      // behind real time, so a wall-clock timer used to remove the bolt (and
+      // fire the impact effects) before the animation had visually caught
+      // up — bolts that looked like they stopped short of the object. A
+      // small random offset around the object's center keeps rapid clicks
+      // from stacking their ripple on the exact same pixel.
+      const sId = shotId++
+      const dx = objX - x
+      const dy = objY - y
+      const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
+      setShots((prev) => [
+        ...prev,
+        {
+          id: sId,
+          startX: x,
+          startY: y,
+          dx,
+          dy,
+          angleDeg,
+          impactX: objX,
+          impactY: objY,
+          displayAmount,
+          isLucky,
+          rippleClass: isLucky ? 'bg-green-400/70' : heat.ripple,
+        },
+      ])
     },
     [
       userId,
@@ -1340,6 +1364,7 @@ export function Home() {
           initial={{ x: 0, y: 0, opacity: 1 }}
           animate={{ x: shot.dx, y: shot.dy, opacity: [1, 1, 0] }}
           transition={{ duration: SHOT_DURATION_MS / 1000, ease: 'easeIn' }}
+          onAnimationComplete={() => handleShotImpact(shot)}
         />
       ))}
 
