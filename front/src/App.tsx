@@ -17,6 +17,7 @@ import { PowerupProvider } from './context/PowerupContext'
 import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
 import { MagnetProvider } from './context/MagnetContext'
 import { MilestonesProvider } from './context/MilestonesContext'
+import { TasksProvider } from './context/TasksContext'
 import { GemUpgradesProvider } from './context/GemUpgradesContext'
 import { DailyCaseProvider } from './context/DailyCaseContext'
 import { GemCaseProvider } from './context/GemCaseContext'
@@ -49,25 +50,27 @@ function ClickerApp() {
                               <TimedLuckPowerupProvider>
                                 <MagnetProvider>
                                   <MilestonesProvider>
-                                    <GemUpgradesProvider>
-                                      <DailyCaseProvider>
-                                        <GemCaseProvider>
-                                          <GemChestProvider>
-                                            <Routes>
-                                              <Route path="/" element={<Home />} />
-                                              <Route path="/clasificacion" element={<Leaderboard />} />
-                                              <Route path="/estadisticas" element={<Stats />} />
-                                              <Route path="/tienda" element={<Store />} />
-                                              <Route path="/arbol" element={<Tree />} />
-                                              <Route path="/batalla/:battleId" element={<Battle />} />
-                                            </Routes>
-                                            <Header />
-                                            <BottomNavPill />
-                                            <SignInModal />
-                                          </GemChestProvider>
-                                        </GemCaseProvider>
-                                      </DailyCaseProvider>
-                                    </GemUpgradesProvider>
+                                    <TasksProvider>
+                                      <GemUpgradesProvider>
+                                        <DailyCaseProvider>
+                                          <GemCaseProvider>
+                                            <GemChestProvider>
+                                              <Routes>
+                                                <Route path="/" element={<Home />} />
+                                                <Route path="/clasificacion" element={<Leaderboard />} />
+                                                <Route path="/estadisticas" element={<Stats />} />
+                                                <Route path="/tienda" element={<Store />} />
+                                                <Route path="/arbol" element={<Tree />} />
+                                                <Route path="/batalla/:battleId" element={<Battle />} />
+                                              </Routes>
+                                              <Header />
+                                              <BottomNavPill />
+                                              <SignInModal />
+                                            </GemChestProvider>
+                                          </GemCaseProvider>
+                                        </DailyCaseProvider>
+                                      </GemUpgradesProvider>
+                                    </TasksProvider>
                                   </MilestonesProvider>
                                 </MagnetProvider>
                               </TimedLuckPowerupProvider>

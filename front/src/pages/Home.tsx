@@ -22,6 +22,7 @@ import {
   X,
   Sparkles,
   MousePointerClick,
+  Check,
   type LucideIcon,
 } from 'lucide-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -35,6 +36,7 @@ import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useTreeContext } from '../context/TreeContext'
 import { usePrestigeContext } from '../context/PrestigeContext'
 import { useMilestonesContext } from '../context/MilestonesContext'
+import { useTasksContext } from '../context/TasksContext'
 import { useDailyCaseContext } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
 import { useInventoryContext } from '../context/InventoryContext'
@@ -43,6 +45,7 @@ import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { DroneIcon } from '../components/DroneIcon'
+import { PlatinumIcon } from '../components/PlatinumIcon'
 
 interface InfoModalData {
   icon: LucideIcon
@@ -666,6 +669,7 @@ export function Home() {
     legendaryStreakBase,
     legendaryBonusStep,
     multiShotValue,
+    multiShotLevel,
     scoutDroneLevel,
     scoutDroneRate,
     scoutDroneCps,
@@ -680,6 +684,52 @@ export function Home() {
   // this instead of hardcoding "platino", so it reads correctly after a
   // prestige moves the player onto Amatista, Esmeralda, etc.
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
+  // Onboarding tasks — completion reads straight off the tree's own live
+  // levels (no separate counter to keep in sync); the backend re-verifies
+  // the same level against user_permanent_upgrades before ever paying out
+  // (see tasksRepository.claim), so nothing here needs to be trusted.
+  const TASKS = [
+    {
+      id: 'first_drone',
+      // Same icon + badge color as Centro de mando's own "Drones" tile.
+      name: strings.home.taskFirstDroneName,
+      desc: strings.home.taskFirstDroneDesc,
+      reward: 1000,
+      icon: DroneIcon,
+      badgeClass: 'bg-violet-500/20 text-violet-300',
+      barClass: 'bg-violet-400',
+      progress: Math.min(autoClickLevel, 1),
+      required: 1,
+      completed: autoClickLevel >= 1,
+    },
+    {
+      id: 'second_cannon',
+      // Same icon + badge color as Centro de mando's own "Multidisparo" tile.
+      name: strings.home.taskSecondCannonName,
+      desc: strings.home.taskSecondCannonDesc,
+      reward: 2000,
+      icon: Split,
+      badgeClass: 'bg-cyan-500/20 text-cyan-300',
+      barClass: 'bg-cyan-400',
+      progress: Math.min(multiShotLevel, 1),
+      required: 1,
+      completed: multiShotLevel >= 1,
+    },
+    {
+      id: 'first_scout_drone',
+      // Same icon + badge color as Centro de mando's own "Drones
+      // buscadores" tile.
+      name: strings.home.taskFirstScoutDroneName,
+      desc: strings.home.taskFirstScoutDroneDesc,
+      reward: 5000,
+      icon: DroneIcon,
+      badgeClass: 'bg-amber-500/20 text-amber-300',
+      barClass: 'bg-amber-400',
+      progress: Math.min(scoutDroneLevel, 1),
+      required: 1,
+      completed: scoutDroneLevel >= 1,
+    },
+  ]
   const {
     catalog: powerupCatalog,
     active: activePowerup,
@@ -721,6 +771,7 @@ export function Home() {
     ownedMagnets.length === 0
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
+  const { claimed: claimedTasks, claimingId: claimingTaskId, claim: claimTask } = useTasksContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
   const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
@@ -1780,7 +1831,63 @@ export function Home() {
             </div>
 
             <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
-              <p className="py-6 text-center text-sm text-neutral-500">{strings.home.tasksEmpty}</p>
+              <div className="flex flex-col gap-2.5">
+                {TASKS.map((task) => {
+                  const isClaimed = claimedTasks.has(task.id)
+                  const isClaiming = claimingTaskId === task.id
+                  const Icon = task.icon
+                  return (
+                    <div
+                      key={task.id}
+                      className={`relative flex items-center gap-3 overflow-hidden rounded-[3px] border p-3 transition-colors ${
+                        isClaimed
+                          ? 'border-white/5 bg-white/[0.02] opacity-60'
+                          : task.completed
+                            ? 'border-white/15 bg-white/[0.04]'
+                            : 'border-white/5 bg-white/[0.02]'
+                      }`}
+                    >
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${task.badgeClass}`}>
+                        <Icon size={18} />
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <p className="text-sm font-semibold text-white">{task.name}</p>
+                        <p className="text-xs text-neutral-500">{task.desc}</p>
+                        {/* Always a bar, even for a 0/1 goal — reads as "in
+                            progress" instead of "locked", which felt too
+                            negative for something this achievable. */}
+                        <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
+                          <div
+                            className={`h-full rounded-full transition-all ${task.completed ? task.barClass : 'bg-white/20'}`}
+                            style={{ width: `${Math.min(1, task.progress / task.required) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        {isClaimed ? (
+                          <span className="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300">
+                            <Check size={13} />
+                          </span>
+                        ) : task.completed ? (
+                          <button
+                            onClick={() => claimTask(task.id)}
+                            disabled={isClaiming}
+                            className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-2.5 py-1.5 text-xs font-bold text-amber-200 transition-transform hover:scale-105 disabled:opacity-60"
+                          >
+                            <PlatinumIcon size={13} className="opacity-80" />
+                            {isClaiming ? strings.home.taskClaiming : strings.home.taskReward(task.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES'))}
+                          </button>
+                        ) : (
+                          <span className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-xs font-semibold text-neutral-600">
+                            <PlatinumIcon size={13} className="opacity-50" />
+                            {task.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </div>

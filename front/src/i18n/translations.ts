@@ -52,6 +52,17 @@ export interface TranslationStrings {
     tasks: string
     tasksTitle: string
     tasksEmpty: string
+    taskFirstDroneName: string
+    taskFirstDroneDesc: string
+    taskSecondCannonName: string
+    taskSecondCannonDesc: string
+    taskFirstScoutDroneName: string
+    taskFirstScoutDroneDesc: string
+    taskReward: (amount: string) => string
+    taskClaim: string
+    taskClaiming: string
+    taskClaimed: string
+    taskLocked: string
     log: string
     logTitle: string
     logEmpty: string
@@ -315,6 +326,17 @@ export const translations: Record<Language, TranslationStrings> = {
       tasks: 'Tareas',
       tasksTitle: 'Tareas pendientes',
       tasksEmpty: 'No tienes tareas pendientes.',
+      taskFirstDroneName: 'Primer dron',
+      taskFirstDroneDesc: 'Desbloquea tu primer dron',
+      taskSecondCannonName: 'Segundo cañón',
+      taskSecondCannonDesc: 'Consigue el segundo cañón de tu nave',
+      taskFirstScoutDroneName: 'Primer dron buscador',
+      taskFirstScoutDroneDesc: 'Consigue tu primer dron buscador',
+      taskReward: (amount) => `+${amount}`,
+      taskClaim: 'Reclamar',
+      taskClaiming: 'Reclamando…',
+      taskClaimed: 'Reclamado',
+      taskLocked: 'Bloqueado',
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
@@ -656,6 +678,17 @@ export const translations: Record<Language, TranslationStrings> = {
       tasks: 'Tasks',
       tasksTitle: 'Pending tasks',
       tasksEmpty: "You don't have any pending tasks.",
+      taskFirstDroneName: 'First drone',
+      taskFirstDroneDesc: 'Unlock your first drone',
+      taskSecondCannonName: 'Second cannon',
+      taskSecondCannonDesc: "Get your ship's second cannon",
+      taskFirstScoutDroneName: 'First scout drone',
+      taskFirstScoutDroneDesc: 'Get your first scout drone',
+      taskReward: (amount) => `+${amount}`,
+      taskClaim: 'Claim',
+      taskClaiming: 'Claiming…',
+      taskClaimed: 'Claimed',
+      taskLocked: 'Locked',
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',
