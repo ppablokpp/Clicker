@@ -120,3 +120,30 @@ treeRouter.post('/multi-shot/buy', async (req, res) => {
   if (!result.ok) return res.status(400).json({ error: result.reason })
   res.json(result)
 })
+
+treeRouter.post('/anomaly-unlock/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyAnomalyUnlockLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/anomaly-reward/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyAnomalyRewardLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/anomaly-frequency/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyAnomalyFrequencyLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})

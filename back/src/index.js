@@ -11,6 +11,7 @@ import { timedLuckPowerupsRouter } from './routes/timedLuckPowerups.js'
 import { magnetsRouter } from './routes/magnets.js'
 import { milestonesRouter } from './routes/milestones.js'
 import { tasksRouter } from './routes/tasks.js'
+import { eventsRouter } from './routes/events.js'
 import { dailyCaseRouter } from './routes/dailyCase.js'
 import { dailyKeyRouter } from './routes/dailyKey.js'
 import { moneyCaseRouter } from './routes/moneyCase.js'
@@ -59,6 +60,7 @@ app.use('/api/timed-luck-powerups', timedLuckPowerupsRouter)
 app.use('/api/magnets', magnetsRouter)
 app.use('/api/milestones', milestonesRouter)
 app.use('/api/tasks', tasksRouter)
+app.use('/api/events', eventsRouter)
 app.use('/api/daily-case', dailyCaseRouter)
 app.use('/api/daily-key', dailyKeyRouter)
 app.use('/api/money-case', moneyCaseRouter)

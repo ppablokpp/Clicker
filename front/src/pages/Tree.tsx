@@ -9,6 +9,8 @@ import {
   Gem,
   Lock,
   Minus,
+  Orbit,
+  Pickaxe,
   Plus,
   Radar,
   Radiation,
@@ -17,6 +19,7 @@ import {
   Sparkles,
   Split,
   Telescope,
+  Timer,
   X,
   Zap,
 } from 'lucide-react'
@@ -42,6 +45,7 @@ function revealDelay(node: { x: number; y: number }, originX: number, originY: n
 function formatChance(chance: number): string {
   return `${(chance * 100).toFixed(1).replace(/\.0$/, '')}%`
 }
+
 
 interface TreeBuyButtonProps {
   onClick: () => void
@@ -160,10 +164,15 @@ const NODES: TreeNode[] = [
   { id: 'a1b1', x: CENTER + 100, y: CENTER - 440, label: 'Mejora' },
   { id: 'e2b1', x: CENTER + 140, y: CENTER - 290, label: 'Mejora+' },
 
-  // Branch D — long chain up and slightly left, nothing wired up on it yet.
+  // Branch D — Anomalías (d1, a one-time gate on Home's "Anomalía" mini-
+  // event, same shape as Modo Legendario) forking into Extracción (d2,
+  // raises the material % it pays out) and Detección (d3, shrinks the
+  // wait between spawns). Both children sit at the same distance from d1
+  // and from each other as a straight up "V" would, just the whole V
+  // rotated 45° left (counterclockwise) so it opens toward the upper-left.
   { id: 'd1', x: CENTER - 120, y: CENTER - 115, label: 'Mejora' },
-  { id: 'd2', x: CENTER - 190, y: CENTER - 265, label: 'Mejora' },
-  { id: 'd3', x: CENTER - 100, y: CENTER - 395, label: 'Mejora+' },
+  { id: 'd2', x: CENTER - 276, y: CENTER - 172, label: 'Mejora' },
+  { id: 'd3', x: CENTER - 177, y: CENTER - 271, label: 'Mejora+' },
 
   // Branch E — forks into two: Modo Legendario (e2a0) gates the heat
   // tier itself and fans out into its own two children (Reflejos/e2a and
@@ -199,7 +208,7 @@ const EDGES: TreeEdge[] = [
 
   { from: 'root', to: 'd1' },
   { from: 'd1', to: 'd2' },
-  { from: 'd2', to: 'd3' },
+  { from: 'd1', to: 'd3' },
 
   { from: 'root', to: 'e1' },
   { from: 'e1', to: 'e2a0' },
@@ -298,6 +307,10 @@ const AUTO_LUCK_NODE_STYLE = 'border-amber-400/25 bg-[#1f1608] text-amber-200 sh
 // opaque-dark-backing recipe as the other real nodes.
 const MULTI_SHOT_NODE_STYLE = 'border-cyan-400/25 bg-[#08191c] text-cyan-200 shadow-black/20'
 
+// Branch D — Anomalías/Extracción/Frecuencia. Sky, its own family, distinct
+// from every other branch's color so far (including Multidisparo's cyan).
+const ANOMALY_NODE_STYLE = 'border-sky-400/25 bg-[#08141f] text-sky-200 shadow-black/20'
+
 const DEFAULT_SCALE = 0.68
 
 // Centers the root node (world coordinates CENTER, CENTER) in the middle of
@@ -313,7 +326,8 @@ function centeredView(): { x: number; y: number; scale: number } {
 export function Tree() {
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
-  const { totalClicks } = useClickCounterContext()
+  const { totalClicks, prestigeTier } = useClickCounterContext()
+  const currentMaterialName = strings.home.trajectoryTierNames[prestigeTier]
   const {
     autoClickLevel,
     autoClickNextCost,
@@ -372,6 +386,20 @@ export function Tree() {
     multiShotNextCost,
     isBuyingMultiShot,
     buyMultiShot,
+    anomalyUnlockLevel,
+    anomalyUnlockNextCost,
+    isBuyingAnomalyUnlock,
+    buyAnomalyUnlock,
+    anomalyRewardLevel,
+    anomalyRewardValue,
+    anomalyRewardNextCost,
+    isBuyingAnomalyReward,
+    buyAnomalyReward,
+    anomalyFrequencyLevel,
+    anomalyFrequencySeconds,
+    anomalyFrequencyNextCost,
+    isBuyingAnomalyFrequency,
+    buyAnomalyFrequency,
   } = useTreeContext()
   const isAutoClickMaxed = autoClickNextCost === null
   const canAffordAutoClick = autoClickNextCost !== null && totalClicks >= autoClickNextCost
@@ -397,6 +425,12 @@ export function Tree() {
   const canAffordTapMultiplier = tapMultiplierNextCost !== null && totalClicks >= tapMultiplierNextCost
   const isMultiShotMaxed = multiShotNextCost === null
   const canAffordMultiShot = multiShotNextCost !== null && totalClicks >= multiShotNextCost
+  const isAnomalyUnlockMaxed = anomalyUnlockNextCost === null
+  const canAffordAnomalyUnlock = anomalyUnlockNextCost !== null && totalClicks >= anomalyUnlockNextCost
+  const isAnomalyRewardMaxed = anomalyRewardNextCost === null
+  const canAffordAnomalyReward = anomalyRewardNextCost !== null && totalClicks >= anomalyRewardNextCost
+  const isAnomalyFrequencyMaxed = anomalyFrequencyNextCost === null
+  const canAffordAnomalyFrequency = anomalyFrequencyNextCost !== null && totalClicks >= anomalyFrequencyNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
   const { gems } = useGemsContext()
@@ -414,6 +448,9 @@ export function Tree() {
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
   const [showTapMultiplierModal, setShowTapMultiplierModal] = useState(false)
   const [showMultiShotModal, setShowMultiShotModal] = useState(false)
+  const [showAnomalyUnlockModal, setShowAnomalyUnlockModal] = useState(false)
+  const [showAnomalyRewardModal, setShowAnomalyRewardModal] = useState(false)
+  const [showAnomalyFrequencyModal, setShowAnomalyFrequencyModal] = useState(false)
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
@@ -593,6 +630,7 @@ export function Tree() {
     e2a1: legendaryGrowthLevel,
     e2b: autoMultiplierLevel,
     e2c: tapMultiplierLevel,
+    d1: anomalyUnlockLevel,
   }
   // Recomputed each render off the real levels above — cheap for a graph
   // this small, and keeps the reveal rule as the single source of truth
@@ -659,6 +697,9 @@ export function Tree() {
               node.id !== 'e2b' &&
               node.id !== 'e2a1' &&
               node.id !== 'e2c' &&
+              node.id !== 'd1' &&
+              node.id !== 'd2' &&
+              node.id !== 'd3' &&
               revealStateById[node.id] !== 'hidden',
           ).map((node) => {
             const revealState = revealStateById[node.id] as 'available' | 'locked'
@@ -1307,6 +1348,157 @@ export function Tree() {
                 </span>
 
                 {canAffordTapMultiplier && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Branch D — Anomalías, a one-time gate on Home's "Anomalía"
+              mini-event itself (same shape as Modo Legendario gating the
+              Legendary heat tier), forking into Extracción and Frecuencia.
+              Sky, its own family. */}
+          {revealStateById.d1 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.d1.x, top: nodeById.d1.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Orbit size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {anomalyUnlockLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.d1 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.d1.x, top: nodeById.d1.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowAnomalyUnlockModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${ANOMALY_NODE_STYLE}`}
+              >
+                <Orbit size={20} className="text-sky-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {anomalyUnlockLevel}
+                </span>
+
+                {!isAnomalyUnlockMaxed && canAffordAnomalyUnlock && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.d2 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.d2.x, top: nodeById.d2.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Pickaxe size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {anomalyRewardLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.d2 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.d2.x, top: nodeById.d2.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowAnomalyRewardModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${ANOMALY_NODE_STYLE}`}
+              >
+                <Pickaxe size={20} className="text-sky-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {anomalyRewardLevel}
+                </span>
+
+                {!isAnomalyRewardMaxed && canAffordAnomalyReward && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.d3 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.d3.x, top: nodeById.d3.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d3, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Timer size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {anomalyFrequencyLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.d3 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.d3.x, top: nodeById.d3.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowAnomalyFrequencyModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d3, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${ANOMALY_NODE_STYLE}`}
+              >
+                <Timer size={20} className="text-sky-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {anomalyFrequencyLevel}
+                </span>
+
+                {!isAnomalyFrequencyMaxed && canAffordAnomalyFrequency && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -2110,6 +2302,163 @@ export function Tree() {
                 canAfford={canAffordMultiShot}
                 buyingLabel={strings.tree.upgrading}
                 cost={multiShotNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAnomalyUnlockModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowAnomalyUnlockModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowAnomalyUnlockModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Orbit size={18} className="text-sky-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.anomalyUnlockName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyUnlockDesc(currentMaterialName)}</p>
+
+            {isAnomalyUnlockMaxed ? (
+              <div className="relative w-full rounded-xl border border-sky-400/20 bg-sky-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-sky-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyAnomalyUnlock}
+                isBuying={isBuyingAnomalyUnlock}
+                canAfford={canAffordAnomalyUnlock}
+                buyingLabel={strings.tree.upgrading}
+                cost={anomalyUnlockNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAnomalyRewardModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowAnomalyRewardModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowAnomalyRewardModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Pickaxe size={18} className="text-sky-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.anomalyRewardName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyRewardDesc(currentMaterialName)}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentAnomalyReward}{' '}
+                <span className="font-semibold text-white">{formatChance(anomalyRewardValue)}</span>
+              </span>
+              {!isAnomalyRewardMaxed && (
+                <span>
+                  {strings.tree.nextAnomalyReward}{' '}
+                  <span className="font-semibold text-white">{formatChance(anomalyRewardValue + 0.005)}</span>
+                </span>
+              )}
+            </div>
+
+            {isAnomalyRewardMaxed ? (
+              <div className="relative w-full rounded-xl border border-sky-400/20 bg-sky-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-sky-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyAnomalyReward}
+                isBuying={isBuyingAnomalyReward}
+                canAfford={canAffordAnomalyReward}
+                buyingLabel={strings.tree.upgrading}
+                cost={anomalyRewardNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAnomalyFrequencyModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowAnomalyFrequencyModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowAnomalyFrequencyModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Timer size={18} className="text-sky-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.anomalyFrequencyName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyFrequencyDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentAnomalyFrequency}{' '}
+                <span className="font-semibold text-white">{strings.tree.formatAnomalyWait(anomalyFrequencySeconds)}</span>
+              </span>
+              {!isAnomalyFrequencyMaxed && (
+                <span>
+                  {strings.tree.nextAnomalyFrequency}{' '}
+                  <span className="font-semibold text-white">
+                    {strings.tree.formatAnomalyWait(Math.max(30, anomalyFrequencySeconds - 30))}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {isAnomalyFrequencyMaxed ? (
+              <div className="relative w-full rounded-xl border border-sky-400/20 bg-sky-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-sky-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyAnomalyFrequency}
+                isBuying={isBuyingAnomalyFrequency}
+                canAfford={canAffordAnomalyFrequency}
+                buyingLabel={strings.tree.upgrading}
+                cost={anomalyFrequencyNextCost ?? 0}
                 balance={totalClicks}
                 locale={locale}
                 currency="clicks"

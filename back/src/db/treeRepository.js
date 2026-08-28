@@ -21,6 +21,9 @@ import {
 import { AUTO_MULTIPLIER_NODE_ID, autoMultiplierCost, autoMultiplierValue } from '../tree/autoMultiplier.js'
 import { TAP_MULTIPLIER_NODE_ID, tapMultiplierCost, tapMultiplierValue } from '../tree/tapMultiplier.js'
 import { MULTI_SHOT_NODE_ID, multiShotCost, multiShotValue } from '../tree/multiShot.js'
+import { ANOMALY_UNLOCK_NODE_ID, anomalyUnlockCost } from '../tree/anomalyUnlock.js'
+import { ANOMALY_REWARD_NODE_ID, anomalyRewardCost, anomalyRewardValue } from '../tree/anomalyReward.js'
+import { ANOMALY_FREQUENCY_NODE_ID, anomalyFrequencyCost, anomalyFrequencySeconds } from '../tree/anomalyFrequency.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
 
@@ -201,6 +204,26 @@ export const treeRepository = {
       )
       const multiShotLevel = Number(multiShotRow.rows[0]?.level ?? 0)
 
+      // Anomalías — root's own child, a one-time gate on the whole event
+      // (see anomalyUnlock.js), forking into Extracción and Frecuencia.
+      const anomalyUnlockRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, ANOMALY_UNLOCK_NODE_ID],
+      )
+      const anomalyUnlockLevel = Number(anomalyUnlockRow.rows[0]?.level ?? 0)
+
+      const anomalyRewardRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, ANOMALY_REWARD_NODE_ID],
+      )
+      const anomalyRewardLevel = Number(anomalyRewardRow.rows[0]?.level ?? 0)
+
+      const anomalyFrequencyRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, ANOMALY_FREQUENCY_NODE_ID],
+      )
+      const anomalyFrequencyLevel = Number(anomalyFrequencyRow.rows[0]?.level ?? 0)
+
       await client.query('COMMIT')
       return {
         autoClickLevel: level,
@@ -242,6 +265,14 @@ export const treeRepository = {
         multiShotLevel,
         multiShotValue: multiShotValue(multiShotLevel),
         multiShotNextCost: multiShotCost(multiShotLevel),
+        anomalyUnlockLevel,
+        anomalyUnlockNextCost: anomalyUnlockCost(anomalyUnlockLevel),
+        anomalyRewardLevel,
+        anomalyRewardValue: anomalyUnlockLevel > 0 ? anomalyRewardValue(anomalyRewardLevel) : 0,
+        anomalyRewardNextCost: anomalyRewardCost(anomalyRewardLevel),
+        anomalyFrequencyLevel,
+        anomalyFrequencySeconds: anomalyFrequencySeconds(anomalyFrequencyLevel),
+        anomalyFrequencyNextCost: anomalyFrequencyCost(anomalyFrequencyLevel),
         totalClicks,
         objectsBroken,
         objectProgress,
@@ -1154,6 +1185,204 @@ export const treeRepository = {
         multiShotLevel: newLevel,
         multiShotValue: multiShotValue(newLevel),
         multiShotNextCost: multiShotCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Anomalías — root's own child (no prerequisite beyond root itself, same
+  // tier as Suerte/Multidisparo), a one-time flat purchase (see
+  // anomalyUnlock.js) that gates the whole "Anomalía" mini-event on
+  // Home.tsx. Same level-counter shape as buyLegendaryUnlockLevel, just
+  // always maxed after the first buy.
+  async buyAnomalyUnlockLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, ANOMALY_UNLOCK_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = anomalyUnlockCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, ANOMALY_UNLOCK_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        anomalyUnlockLevel: newLevel,
+        anomalyUnlockNextCost: anomalyUnlockCost(newLevel),
+        // Both children read as "unlocked" (1% / base 5 min) the instant
+        // this is bought, even at their own level 0 — report them fresh so
+        // the UI doesn't need a full refetch to show that.
+        anomalyRewardValue: anomalyRewardValue(0),
+        anomalyFrequencySeconds: anomalyFrequencySeconds(0),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Extracción — Anomalías' first child, same shape as buyLegendaryEaseLevel
+  // (finite, requires the unlock node already owned).
+  async buyAnomalyRewardLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const anomalyUnlockRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, ANOMALY_UNLOCK_NODE_ID],
+      )
+      if (Number(anomalyUnlockRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'anomaly-unlock-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, ANOMALY_REWARD_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = anomalyRewardCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, ANOMALY_REWARD_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        anomalyRewardLevel: newLevel,
+        anomalyRewardValue: anomalyRewardValue(newLevel),
+        anomalyRewardNextCost: anomalyRewardCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Frecuencia — Anomalías' other child, same shape as buyAnomalyRewardLevel.
+  async buyAnomalyFrequencyLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const anomalyUnlockRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, ANOMALY_UNLOCK_NODE_ID],
+      )
+      if (Number(anomalyUnlockRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'anomaly-unlock-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, ANOMALY_FREQUENCY_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = anomalyFrequencyCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, ANOMALY_FREQUENCY_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        anomalyFrequencyLevel: newLevel,
+        anomalyFrequencySeconds: anomalyFrequencySeconds(newLevel),
+        anomalyFrequencyNextCost: anomalyFrequencyCost(newLevel),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

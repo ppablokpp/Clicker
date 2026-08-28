@@ -323,3 +323,43 @@ body::before {
 .debris-chip {
   animation: debris-fly var(--chip-duration, 0.38s) ease-out forwards;
 }
+
+/* Home's "Anomalía" event — a small asteroid sweeping across the whole
+   viewport like a shooting star (see components/Meteor.tsx). `linear`, not
+   ease-in/out: a real meteor doesn't slow down as it crosses. */
+@keyframes meteor-fly {
+  from {
+    transform: translate(var(--meteor-start-x), var(--meteor-start-y));
+  }
+  to {
+    transform: translate(var(--meteor-end-x), var(--meteor-end-y));
+  }
+}
+
+.meteor-fly {
+  animation: meteor-fly var(--meteor-duration, 3.2s) linear forwards;
+}
+
+@keyframes meteor-rock-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.meteor-rock-spin {
+  animation: meteor-rock-spin 2.2s linear infinite;
+}
+
+/* Extends backward from the rock along its own travel direction — the
+   parent it's absolutely positioned against is already rotated to match
+   that direction (see Meteor.tsx), so this only ever needs to point
+   "left" in that rotated local space. */
+.meteor-trail {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: 70px;
+  height: 3px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}

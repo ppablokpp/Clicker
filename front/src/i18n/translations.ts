@@ -232,6 +232,17 @@ export interface TranslationStrings {
     nextMultiShot: string
     currentProduction: string
     nextProduction: string
+    anomalyUnlockName: string
+    anomalyUnlockDesc: (materialName: string) => string
+    anomalyRewardName: string
+    anomalyRewardDesc: (materialName: string) => string
+    currentAnomalyReward: string
+    nextAnomalyReward: string
+    anomalyFrequencyName: string
+    anomalyFrequencyDesc: string
+    currentAnomalyFrequency: string
+    nextAnomalyFrequency: string
+    formatAnomalyWait: (seconds: number) => string
   }
   prestige: {
     confirmTitle: string
@@ -271,6 +282,15 @@ export interface TranslationStrings {
     sentResult: (taps: string) => string
     backButton: string
     resultTapsLine: (yours: string, theirs: string) => string
+  }
+  event: {
+    ariaLabel: string
+    title: string
+    subtitle: string
+    successTitle: string
+    successBody: (amount: string, materialName: string) => string
+    failureTitle: string
+    failureBody: string
   }
 }
 
@@ -585,6 +605,25 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiShot: 'Cañones siguiente nivel:',
       currentProduction: 'Producción actual:',
       nextProduction: 'Producción siguiente nivel:',
+      anomalyUnlockName: 'Anomalías',
+      anomalyUnlockDesc: (materialName) =>
+        `Desbloquea las anomalías: fenómenos espaciales que aparecen cerca de tu nave y desprenden ${materialName.toLowerCase()} al neutralizarlas.`,
+      anomalyRewardName: 'Extracción',
+      anomalyRewardDesc: (materialName) =>
+        `Aumenta el porcentaje de ${materialName.toLowerCase()} que obtienes al neutralizar una anomalía.`,
+      currentAnomalyReward: 'Extracción actual:',
+      nextAnomalyReward: 'Extracción siguiente nivel:',
+      anomalyFrequencyName: 'Detección',
+      anomalyFrequencyDesc: 'Reduce el tiempo de aparición de anomalías.',
+      currentAnomalyFrequency: 'Tiempo entre anomalías:',
+      nextAnomalyFrequency: 'Siguiente nivel:',
+      formatAnomalyWait: (seconds) => {
+        if (seconds < 60) return `${seconds} segundos`
+        const minutes = seconds / 60
+        if (minutes === 1) return '1 minuto'
+        const label = Number.isInteger(minutes) ? `${minutes}` : minutes.toFixed(1).replace('.', ',')
+        return `${label} minutos`
+      },
     },
     prestige: {
       confirmTitle: '¿Reiniciar y ganar puntos de prestigio?',
@@ -626,6 +665,15 @@ export const translations: Record<Language, TranslationStrings> = {
       sentResult: (taps) => `¡Duelo enviado! ${taps} disparos. Esperando a tu rival.`,
       backButton: 'Volver',
       resultTapsLine: (yours, theirs) => `Tú: ${yours} · Rival: ${theirs}`,
+    },
+    event: {
+      ariaLabel: 'Anomalía detectada',
+      title: 'Anomalía',
+      subtitle: 'Neutralízala antes de que escape',
+      successTitle: '¡Anomalía neutralizada!',
+      successBody: (amount, materialName) => `Has recibido ${amount} de ${materialName.toLowerCase()}.`,
+      failureTitle: 'Anomalía perdida',
+      failureBody: 'Se te ha escapado. La próxima vez irá mejor.',
     },
   },
   en: {
@@ -937,6 +985,24 @@ export const translations: Record<Language, TranslationStrings> = {
       nextMultiShot: 'Next level cannons:',
       currentProduction: 'Current production:',
       nextProduction: 'Next level production:',
+      anomalyUnlockName: 'Anomalies',
+      anomalyUnlockDesc: (materialName) =>
+        `Unlocks anomalies: space phenomena that appear near your ship and release ${materialName.toLowerCase()} when neutralized.`,
+      anomalyRewardName: 'Extraction',
+      anomalyRewardDesc: (materialName) =>
+        `Raises the percentage of ${materialName.toLowerCase()} you get for neutralizing an anomaly.`,
+      currentAnomalyReward: 'Current extraction:',
+      nextAnomalyReward: 'Next level extraction:',
+      anomalyFrequencyName: 'Detection',
+      anomalyFrequencyDesc: 'Shortens how often anomalies appear.',
+      currentAnomalyFrequency: 'Time between anomalies:',
+      nextAnomalyFrequency: 'Next level:',
+      formatAnomalyWait: (seconds) => {
+        if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`
+        const minutes = seconds / 60
+        const label = Number.isInteger(minutes) ? `${minutes}` : minutes.toFixed(1)
+        return `${label} minute${minutes === 1 ? '' : 's'}`
+      },
     },
     prestige: {
       confirmTitle: 'Reset and earn prestige points?',
@@ -978,6 +1044,15 @@ export const translations: Record<Language, TranslationStrings> = {
       sentResult: (taps) => `Duel sent! ${taps} shots. Waiting for your rival.`,
       backButton: 'Back',
       resultTapsLine: (yours, theirs) => `You: ${yours} · Rival: ${theirs}`,
+    },
+    event: {
+      ariaLabel: 'Anomaly detected',
+      title: 'Anomaly',
+      subtitle: 'Neutralize it before it escapes',
+      successTitle: 'Anomaly neutralized!',
+      successBody: (amount, materialName) => `You received ${amount} ${materialName.toLowerCase()}.`,
+      failureTitle: 'Anomaly lost',
+      failureBody: "It got away. You'll get it next time.",
     },
   },
 }

@@ -51,6 +51,14 @@ interface TreeState {
   multiShotLevel: number
   multiShotValue: number
   multiShotNextCost: number | null
+  anomalyUnlockLevel: number
+  anomalyUnlockNextCost: number | null
+  anomalyRewardLevel: number
+  anomalyRewardValue: number
+  anomalyRewardNextCost: number | null
+  anomalyFrequencyLevel: number
+  anomalyFrequencySeconds: number
+  anomalyFrequencyNextCost: number | null
 }
 
 interface TreeContextValue extends TreeState {
@@ -81,6 +89,12 @@ interface TreeContextValue extends TreeState {
   buyTapMultiplier: () => Promise<{ ok: boolean; error?: string }>
   isBuyingMultiShot: boolean
   buyMultiShot: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingAnomalyUnlock: boolean
+  buyAnomalyUnlock: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingAnomalyReward: boolean
+  buyAnomalyReward: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingAnomalyFrequency: boolean
+  buyAnomalyFrequency: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -122,6 +136,14 @@ const EMPTY_STATE: TreeState = {
   multiShotLevel: 0,
   multiShotValue: 1,
   multiShotNextCost: 0,
+  anomalyUnlockLevel: 0,
+  anomalyUnlockNextCost: 5_000,
+  anomalyRewardLevel: 0,
+  anomalyRewardValue: 0,
+  anomalyRewardNextCost: 0,
+  anomalyFrequencyLevel: 0,
+  anomalyFrequencySeconds: 300,
+  anomalyFrequencyNextCost: 0,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -141,6 +163,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
   const [isBuyingTapMultiplier, setIsBuyingTapMultiplier] = useState(false)
   const [isBuyingMultiShot, setIsBuyingMultiShot] = useState(false)
+  const [isBuyingAnomalyUnlock, setIsBuyingAnomalyUnlock] = useState(false)
+  const [isBuyingAnomalyReward, setIsBuyingAnomalyReward] = useState(false)
+  const [isBuyingAnomalyFrequency, setIsBuyingAnomalyFrequency] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -195,6 +220,14 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           multiShotLevel: data.multiShotLevel,
           multiShotValue: data.multiShotValue,
           multiShotNextCost: data.multiShotNextCost,
+          anomalyUnlockLevel: data.anomalyUnlockLevel,
+          anomalyUnlockNextCost: data.anomalyUnlockNextCost,
+          anomalyRewardLevel: data.anomalyRewardLevel,
+          anomalyRewardValue: data.anomalyRewardValue,
+          anomalyRewardNextCost: data.anomalyRewardNextCost,
+          anomalyFrequencyLevel: data.anomalyFrequencyLevel,
+          anomalyFrequencySeconds: data.anomalyFrequencySeconds,
+          anomalyFrequencyNextCost: data.anomalyFrequencyNextCost,
         })
         // A read-only poll, not a spend/earn action — never allowed to move
         // the total backwards (see syncTotalClicksIfNewer's own comment for
@@ -619,6 +652,100 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyAnomalyUnlock = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingAnomalyUnlock(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/anomaly-unlock/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        anomalyUnlockLevel: data.anomalyUnlockLevel,
+        anomalyUnlockNextCost: data.anomalyUnlockNextCost,
+        anomalyRewardValue: data.anomalyRewardValue,
+        anomalyFrequencySeconds: data.anomalyFrequencySeconds,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Anomalías', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingAnomalyUnlock(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyAnomalyReward = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingAnomalyReward(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/anomaly-reward/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        anomalyRewardLevel: data.anomalyRewardLevel,
+        anomalyRewardValue: data.anomalyRewardValue,
+        anomalyRewardNextCost: data.anomalyRewardNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Extracción', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingAnomalyReward(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
+  const buyAnomalyFrequency = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingAnomalyFrequency(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/anomaly-frequency/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        anomalyFrequencyLevel: data.anomalyFrequencyLevel,
+        anomalyFrequencySeconds: data.anomalyFrequencySeconds,
+        anomalyFrequencyNextCost: data.anomalyFrequencyNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Frecuencia', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingAnomalyFrequency(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   return (
     <TreeContext.Provider
       value={{
@@ -651,6 +778,12 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyTapMultiplier,
         isBuyingMultiShot,
         buyMultiShot,
+        isBuyingAnomalyUnlock,
+        buyAnomalyUnlock,
+        isBuyingAnomalyReward,
+        buyAnomalyReward,
+        isBuyingAnomalyFrequency,
+        buyAnomalyFrequency,
       }}
     >
       {children}

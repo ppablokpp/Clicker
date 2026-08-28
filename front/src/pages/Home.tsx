@@ -46,6 +46,9 @@ import { playLaserShot } from '../lib/battleSound'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
+import { EventChallenge } from '../components/EventChallenge'
+import { Meteor } from '../components/Meteor'
+import type { AsteroidColors } from '../components/Asteroid'
 
 interface InfoModalData {
   icon: LucideIcon
@@ -684,6 +687,8 @@ export function Home() {
     scoutDroneRate,
     scoutDroneCps,
     autoMultiplierValue,
+    anomalyUnlockLevel,
+    anomalyFrequencySeconds,
     refetch: refetchTree,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
@@ -789,6 +794,17 @@ export function Home() {
   const [showTasks, setShowTasks] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
+  // "Anomalía" event — a small asteroid that flies across the whole screen
+  // like a shooting star on its own timer (see the Meteor spawn effect
+  // below); tapping it opens EventChallenge (100 taps in 10s for a 5% cut
+  // of the *current* material). Its color is random per spawn purely for
+  // visual variety — unrelated to the player's actual current material,
+  // which is what the reward is still actually named/paid out in.
+  const [eventMeteor, setEventMeteor] = useState<{ colors: AsteroidColors; glow: string } | null>(null)
+  const [showEventChallenge, setShowEventChallenge] = useState(false)
+  const [eventChallengeColors, setEventChallengeColors] = useState<{ colors: AsteroidColors; glow: string } | null>(
+    null,
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   // The space object's own on-screen box — click shots animate from the tap
   // point to this element's center, computed fresh on every click since the
@@ -848,6 +864,43 @@ export function Home() {
     }
     prevGemsRef.current = gems
   }, [gems, activeMagnet, heat.ripple])
+  // Anomalía's own spawn timer — gated on the Anomalías tree node
+  // (anomalyUnlockLevel, see Tree.tsx's branch D): nothing spawns at all
+  // until that's bought, same as Modo Legendario gating the Legendary heat
+  // tier. Once unlocked, one meteor at a time flies across the whole
+  // screen (see <Meteor>, which self-manages its own on-screen lifetime and
+  // calls handleMeteorMiss if it isn't tapped in time); the wait between
+  // spawns is anomalyFrequencySeconds, which the Detección node shortens.
+  // Next spawn is scheduled fresh once this cycle ends, either by that miss
+  // or by the player capturing it and finishing the challenge. Every spawn
+  // picks a random material tier purely for color variety — decorative
+  // only, the actual reward material is always the player's real current
+  // tier.
+  useEffect(() => {
+    if (!userId || anomalyUnlockLevel <= 0 || showEventChallenge || eventMeteor) return
+    let cancelled = false
+    const spawnTimeout = window.setTimeout(() => {
+      if (cancelled) return
+      const tier = MATERIAL_TIER_COLORS[Math.floor(Math.random() * MATERIAL_TIER_COLORS.length)]
+      setEventMeteor({ colors: tier, glow: tier.glow })
+    }, anomalyFrequencySeconds * 1000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(spawnTimeout)
+    }
+  }, [userId, anomalyUnlockLevel, anomalyFrequencySeconds, showEventChallenge, eventMeteor])
+
+  const handleMeteorCapture = useCallback(() => {
+    setEventMeteor((current) => {
+      if (current) setEventChallengeColors(current)
+      return null
+    })
+    setShowEventChallenge(true)
+  }, [])
+
+  const handleMeteorMiss = useCallback(() => {
+    setEventMeteor(null)
+  }, [])
   const heatLabel = heat.key ? strings.home.heat[heat.key] : ''
   const powerupMultiplier = activePowerup?.multiplier ?? 1
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
@@ -1345,6 +1398,20 @@ export function Home() {
           </div>
         ))}
       </AnimatePresence>
+
+      {/* Anomalía spawn — a small asteroid flying across the whole screen
+          like a shooting star; stopPropagation inside Meteor's own button
+          keeps a capture tap from also counting as a real production click
+          on the object underneath. */}
+      {eventMeteor && (
+        <Meteor
+          colors={eventMeteor.colors}
+          glow={eventMeteor.glow}
+          label={strings.event.ariaLabel}
+          onCapture={handleMeteorCapture}
+          onMiss={handleMeteorMiss}
+        />
+      )}
 
       {/* shots — a short blaster bolt fired at the object per click, purely
           visual and plain CSS now (see .shot-bolt/@keyframes shot-fly) —
@@ -2186,6 +2253,17 @@ export function Home() {
           </div>
         </div>
       )} */}
+
+      {showEventChallenge && eventChallengeColors && (
+        <EventChallenge
+          colors={eventChallengeColors.colors}
+          glow={eventChallengeColors.glow}
+          onClose={() => {
+            setShowEventChallenge(false)
+            setEventChallengeColors(null)
+          }}
+        />
+      )}
     </div>
   )
 }
