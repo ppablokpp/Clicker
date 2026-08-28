@@ -90,7 +90,20 @@ function ClickerApp() {
 function App() {
   return (
     <Routes>
-      <Route path="/sso-callback" element={<AuthenticateWithRedirectCallback />} />
+      {/* Without these, a brand-new sign-up (as opposed to signing back in)
+          falls back to Clerk's own default redirect target — the bare
+          origin root, with no /Clicker/ prefix — which doesn't exist as a
+          GitHub Pages site and 404s. Both paths need to land back on
+          BASE_URL, same as SignInModal's own redirectUrlComplete. */}
+      <Route
+        path="/sso-callback"
+        element={
+          <AuthenticateWithRedirectCallback
+            signInFallbackRedirectUrl={import.meta.env.BASE_URL}
+            signUpFallbackRedirectUrl={import.meta.env.BASE_URL}
+          />
+        }
+      />
       <Route
         path="/*"
         element={
