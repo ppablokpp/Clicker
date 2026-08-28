@@ -15,7 +15,7 @@ export interface TranslationStrings {
     cps: string
     tps: string
     totalLabel: string
-    hudPlatinoLabel: string
+    hudPlatinoLabel: (materialName: string) => string
     hudProdLabel: string
     hudHeatLabel: string
     heat: {
@@ -45,7 +45,7 @@ export interface TranslationStrings {
     shipScoutDronesCountDesc: string
     shipScoutDronesPerUnitDesc: string
     shipPower: string
-    shipPowerDesc: string
+    shipPowerDesc: (materialName: string) => string
     shipMultiShot: string
     shipMultiShotDesc: string
     shipNotInstalled: string
@@ -62,7 +62,7 @@ export interface TranslationStrings {
     trajectoryLocked: string
     trajectoryComingSoon: string
     trajectoryPrestigeTitle: string
-    trajectoryPrestigeBody: (nextTierName: string) => string
+    trajectoryPrestigeBody: (currentTierName: string, nextTierName: string) => string
     trajectoryPrestigeConfirm: string
     trajectoryPrestigeCancel: string
   }
@@ -101,24 +101,24 @@ export interface TranslationStrings {
     notEnoughGems: string
     notEnoughKeys: string
     notEnoughChests: string
-    notEnoughClicksForChest: string
+    notEnoughClicksForChest: (materialName: string) => string
     buyChest: string
     chestLimitReached: string
     claimDailyKey: string
     keyClaimedToday: string
     claimingKey: string
-    buyClicksTitle: string
+    buyClicksTitle: (materialName: string) => string
     buyKeysTitle: string
     buyGemsTitle: string
     savingsBadge: (pct: number) => string
     opening: string
-    youWon: (amount: string) => string
+    youWon: (amount: string, materialName: string) => string
     youWonGems: (amount: string) => string
     casePrizeNames: Record<string, string>
     caseCatalogButton: string
     caseCatalogTitle: string
     caseMythicLabel: string
-    caseTitleClicks: string
+    caseTitleClicks: (materialName: string) => string
     caseTitleGems: string
     powerupsSection: string
     powerupsCardTitle: string
@@ -277,7 +277,7 @@ export const translations: Record<Language, TranslationStrings> = {
       changePrestige: 'Cambiar de prestigio',
       cps: 'pt/s',
       tps: 't/s',
-      hudPlatinoLabel: 'Tu platino',
+      hudPlatinoLabel: (materialName) => `Tu ${materialName.toLowerCase()}`,
       hudProdLabel: 'Producción',
       hudHeatLabel: 'Ritmo',
       totalLabel: 'Total:',
@@ -308,7 +308,7 @@ export const translations: Record<Language, TranslationStrings> = {
       shipScoutDronesCountDesc: 'Drones buscadores activos:',
       shipScoutDronesPerUnitDesc: 'Producción de cada dron buscador:',
       shipPower: 'Potencia',
-      shipPowerDesc: 'Platino que se extrae por cada disparo:',
+      shipPowerDesc: (materialName) => `${materialName} que se extrae por cada disparo:`,
       shipMultiShot: 'Multidisparo',
       shipMultiShotDesc: 'Cañones de la nave principal:',
       shipNotInstalled: 'No instalado',
@@ -318,15 +318,15 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
-      trajectoryTierNames: ['Platino', 'Amatista', 'Esmeralda', 'Oro', 'Diamante'],
+      trajectoryTierNames: ['Amatista', 'Platino', 'Esmeralda', 'Oro', 'Diamante'],
       trajectoryExtraction: (current, target) => `Extracción: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extracción: ???',
       trajectoryCurrent: 'Actual',
       trajectoryLocked: 'Bloqueado',
       trajectoryComingSoon: 'Próximamente',
       trajectoryPrestigeTitle: '¿Cambiar de prestigio?',
-      trajectoryPrestigeBody: (nextTierName) =>
-        `Tu platino actual se reseteará, se eliminará todo el progreso de tu árbol de mejoras, y tu nave viajará hacia otro asteroide para hacer una extracción de ${nextTierName}. Tu puntuación total de la clasificación nunca se pierde.`,
+      trajectoryPrestigeBody: (currentTierName, nextTierName) =>
+        `Tu ${currentTierName.toLowerCase()} actual se reseteará, se eliminará todo el progreso de tu árbol de mejoras, y tu nave viajará hacia otro asteroide para hacer una extracción de ${nextTierName}. Tu puntuación total de la clasificación nunca se pierde.`,
       trajectoryPrestigeConfirm: 'Cambiar',
       trajectoryPrestigeCancel: 'Cancelar',
     },
@@ -365,18 +365,18 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughGems: 'Te faltan gemas',
       notEnoughKeys: 'Te falta una llave',
       notEnoughChests: 'Compra un cofre primero',
-      notEnoughClicksForChest: 'Te falta platino',
+      notEnoughClicksForChest: (materialName) => `Te falta ${materialName.toLowerCase()}`,
       buyChest: 'Comprar cofre',
       chestLimitReached: 'Ya tienes el máximo de cofres',
       claimDailyKey: 'Reclamar llave gratis diaria',
       keyClaimedToday: 'Llave diaria reclamada',
       claimingKey: 'Reclamando…',
-      buyClicksTitle: 'Comprar platino',
+      buyClicksTitle: (materialName) => `Comprar ${materialName.toLowerCase()}`,
       buyKeysTitle: 'Comprar llaves',
       buyGemsTitle: 'Comprar gemas',
       savingsBadge: (pct) => `Ahorra ${pct}%`,
       opening: 'Abriendo…',
-      youWon: (amount) => `+${amount} platino`,
+      youWon: (amount, materialName) => `+${amount} ${materialName.toLowerCase()}`,
       youWonGems: (amount) => `+${amount} ${amount === '1' ? 'gema' : 'gemas'}`,
       casePrizeNames: {
         consumer: 'Común',
@@ -393,7 +393,7 @@ export const translations: Record<Language, TranslationStrings> = {
       caseCatalogButton: 'Ver catálogo',
       caseCatalogTitle: 'Premios posibles',
       caseMythicLabel: 'Mítico',
-      caseTitleClicks: 'Cofre de platino',
+      caseTitleClicks: (materialName) => `Cofre de ${materialName.toLowerCase()}`,
       caseTitleGems: 'Cofre de gemas',
       powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
@@ -580,7 +580,7 @@ export const translations: Record<Language, TranslationStrings> = {
       buttonLabel: 'Duelo',
       modalTitle: 'Duelo estelar',
       description: (wager, seconds) =>
-        `Reta a quien quieras a un duelo de disparos. Tenéis ${seconds} segundos para clicar todo lo que podáis — quien haga más se lleva ${wager} de platino del otro.`,
+        `Reta a quien quieras a un duelo de disparos. Tenéis ${seconds} segundos para clicar todo lo que podáis — quien haga más se lleva ${wager} de mineral del otro.`,
       newBattle: 'Nuevo duelo',
       incomingSection: 'Duelos pendientes',
       historySection: 'Historial',
@@ -589,7 +589,7 @@ export const translations: Record<Language, TranslationStrings> = {
       pickOpponent: 'Elige a tu rival',
       challengeButton: (wager) => `Retar por ${wager}`,
       acceptButton: (wager) => `Aceptar por ${wager}`,
-      notEnoughPlatinum: 'Te falta platino para esto',
+      notEnoughPlatinum: 'Te falta mineral para esto',
       waitingForYou: 'Esperando a que juegues tu ronda',
       waitingForOpponent: 'Esperando a tu rival',
       youWon: '¡Has ganado!',
@@ -618,7 +618,7 @@ export const translations: Record<Language, TranslationStrings> = {
       changePrestige: 'Change prestige',
       cps: 'pt/s',
       tps: 't/s',
-      hudPlatinoLabel: 'Your platinum',
+      hudPlatinoLabel: (materialName) => `Your ${materialName.toLowerCase()}`,
       hudProdLabel: 'Production',
       hudHeatLabel: 'Pace',
       totalLabel: 'Total:',
@@ -649,7 +649,7 @@ export const translations: Record<Language, TranslationStrings> = {
       shipScoutDronesCountDesc: 'Active scout drones:',
       shipScoutDronesPerUnitDesc: 'Production per scout drone:',
       shipPower: 'Power',
-      shipPowerDesc: 'Platinum pulled out with every shot:',
+      shipPowerDesc: (materialName) => `${materialName} pulled out with every shot:`,
       shipMultiShot: 'Multi-shot',
       shipMultiShotDesc: 'Main ship cannons:',
       shipNotInstalled: 'Not installed',
@@ -659,15 +659,15 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',
-      trajectoryTierNames: ['Platinum', 'Amethyst', 'Emerald', 'Gold', 'Diamond'],
+      trajectoryTierNames: ['Amethyst', 'Platinum', 'Emerald', 'Gold', 'Diamond'],
       trajectoryExtraction: (current, target) => `Extraction: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extraction: ???',
       trajectoryCurrent: 'Current',
       trajectoryLocked: 'Locked',
       trajectoryComingSoon: 'Coming soon',
       trajectoryPrestigeTitle: 'Change prestige?',
-      trajectoryPrestigeBody: (nextTierName) =>
-        `Your current platino will reset, all of your upgrade tree progress will be wiped, and your ship will travel to another asteroid to mine ${nextTierName}. Your total leaderboard score is never lost.`,
+      trajectoryPrestigeBody: (currentTierName, nextTierName) =>
+        `Your current ${currentTierName.toLowerCase()} will reset, all of your upgrade tree progress will be wiped, and your ship will travel to another asteroid to mine ${nextTierName}. Your total leaderboard score is never lost.`,
       trajectoryPrestigeConfirm: 'Change',
       trajectoryPrestigeCancel: 'Cancel',
     },
@@ -706,18 +706,18 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughGems: "You're short on gems",
       notEnoughKeys: 'You need a key',
       notEnoughChests: 'Buy a chest first',
-      notEnoughClicksForChest: "You're short on platinum",
+      notEnoughClicksForChest: (materialName) => `You're short on ${materialName.toLowerCase()}`,
       buyChest: 'Buy chest',
       chestLimitReached: "You've hit the chest limit",
       claimDailyKey: 'Claim free daily key',
       keyClaimedToday: 'Daily key claimed',
       claimingKey: 'Claiming…',
-      buyClicksTitle: 'Buy platinum',
+      buyClicksTitle: (materialName) => `Buy ${materialName.toLowerCase()}`,
       buyKeysTitle: 'Buy keys',
       buyGemsTitle: 'Buy gems',
       savingsBadge: (pct) => `Save ${pct}%`,
       opening: 'Opening…',
-      youWon: (amount) => `+${amount} platinum`,
+      youWon: (amount, materialName) => `+${amount} ${materialName.toLowerCase()}`,
       youWonGems: (amount) => `+${amount} ${amount === '1' ? 'gem' : 'gems'}`,
       casePrizeNames: {
         consumer: 'Common',
@@ -734,7 +734,7 @@ export const translations: Record<Language, TranslationStrings> = {
       caseCatalogButton: 'View catalog',
       caseCatalogTitle: 'Possible prizes',
       caseMythicLabel: 'Mythic',
-      caseTitleClicks: 'Platinum chest',
+      caseTitleClicks: (materialName) => `${materialName} chest`,
       caseTitleGems: 'Gem chest',
       powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
@@ -920,7 +920,7 @@ export const translations: Record<Language, TranslationStrings> = {
       buttonLabel: 'Duel',
       modalTitle: 'Stellar Duel',
       description: (wager, seconds) =>
-        `Challenge anyone to a shooting duel. You both get ${seconds} seconds to click as much as you can — whoever taps more takes ${wager} platinum from the other.`,
+        `Challenge anyone to a shooting duel. You both get ${seconds} seconds to click as much as you can — whoever taps more takes ${wager} ore from the other.`,
       newBattle: 'New duel',
       incomingSection: 'Pending duels',
       historySection: 'History',
@@ -929,7 +929,7 @@ export const translations: Record<Language, TranslationStrings> = {
       pickOpponent: 'Pick your rival',
       challengeButton: (wager) => `Challenge for ${wager}`,
       acceptButton: (wager) => `Accept for ${wager}`,
-      notEnoughPlatinum: "You're short on platinum for this",
+      notEnoughPlatinum: "You're short on ore for this",
       waitingForYou: 'Waiting for you to play your round',
       waitingForOpponent: "Waiting for your rival",
       youWon: 'You won!',

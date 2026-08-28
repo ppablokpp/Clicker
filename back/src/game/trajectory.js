@@ -7,5 +7,7 @@
  * "extraction" progress display even though there's no tier past it to
  * prestige into.
  */
-export const TRAJECTORY_TIER_THRESHOLDS = [0, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000]
+export const TRAJECTORY_TIER_THRESHOLDS = [
+  0, 10_000_000, 1_000_000_000, 100_000_000_000, 10_000_000_000_000, 1_000_000_000_000_000,
+]
 export const TRAJECTORY_TIER_COUNT = 5

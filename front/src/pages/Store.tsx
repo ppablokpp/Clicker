@@ -22,11 +22,16 @@ import { useClickPacksContext, type ClickPackDef } from '../context/ClickPacksCo
 import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
+import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
 import { playCaseReveal, playCaseTick, playChestPurchase } from '../lib/caseSound'
 
 export function Store() {
   const { language, strings } = useLanguage()
-  const { totalClicks } = useClickCounterContext()
+  const { totalClicks, prestigeTier } = useClickCounterContext()
+  // Whatever's currently being mined — every "your balance" label here
+  // follows this instead of hardcoding "platino" (see Home.tsx's own copy).
+  const currentMaterialName = strings.home.trajectoryTierNames[prestigeTier]
+  const materialTheme = MATERIAL_BUTTON_THEMES[prestigeTier]
   const { gems } = useGemsContext()
   const { keys } = useKeysContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
@@ -45,8 +50,8 @@ export function Store() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => setShowClickPacks(true)}
-                aria-label={strings.store.buyClicksTitle}
-                className="flex items-center gap-1 rounded-full border border-violet-400/20 bg-violet-500/[0.07] px-3 py-1 text-xs font-semibold tabular-nums text-violet-200 transition-colors hover:bg-violet-500/[0.14]"
+                aria-label={strings.store.buyClicksTitle(currentMaterialName)}
+                className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums transition-colors ${materialTheme.pill}`}
               >
                 <PlatinumIcon size={15} className="opacity-70" />
                 {totalClicks.toLocaleString(locale)}
@@ -73,20 +78,49 @@ export function Store() {
 
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.lootSection}</h2>
-          <CaseOpeningCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
+          <CaseOpeningCard
+            locale={locale}
+            totalClicks={totalClicks}
+            strings={strings.store}
+            currentMaterialName={currentMaterialName}
+            materialButtonClass={materialTheme.button}
+          />
         </section>
 
         <section>
           <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.powerupsSection}</h2>
           <div className="flex flex-col gap-4">
-            <PowerupGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
-            <TimedLuckGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
-            <MagnetGridCard locale={locale} totalClicks={totalClicks} strings={strings.store} />
+            <PowerupGridCard
+              locale={locale}
+              totalClicks={totalClicks}
+              strings={strings.store}
+              materialButtonClass={materialTheme.button}
+            />
+            <TimedLuckGridCard
+              locale={locale}
+              totalClicks={totalClicks}
+              strings={strings.store}
+              materialButtonClass={materialTheme.button}
+            />
+            <MagnetGridCard
+              locale={locale}
+              totalClicks={totalClicks}
+              strings={strings.store}
+              materialButtonClass={materialTheme.button}
+            />
           </div>
         </section>
       </div>
 
-      {showClickPacks && <ClickPacksModal locale={locale} strings={strings.store} onClose={() => setShowClickPacks(false)} />}
+      {showClickPacks && (
+        <ClickPacksModal
+          locale={locale}
+          strings={strings.store}
+          currentMaterialName={currentMaterialName}
+          iconWrapClassName={materialTheme.iconWrap}
+          onClose={() => setShowClickPacks(false)}
+        />
+      )}
       {showKeyPacks && <KeyPacksModal locale={locale} strings={strings.store} onClose={() => setShowKeyPacks(false)} />}
       {showGemPacks && <GemPacksModal locale={locale} strings={strings.store} onClose={() => setShowGemPacks(false)} />}
     </div>
@@ -110,24 +144,24 @@ interface StoreStrings {
   notEnoughGems: string
   notEnoughKeys: string
   notEnoughChests: string
-  notEnoughClicksForChest: string
+  notEnoughClicksForChest: (materialName: string) => string
   buyChest: string
   chestLimitReached: string
   claimDailyKey: string
   keyClaimedToday: string
   claimingKey: string
-  buyClicksTitle: string
+  buyClicksTitle: (materialName: string) => string
   buyKeysTitle: string
   buyGemsTitle: string
   savingsBadge: (pct: number) => string
   opening: string
-  youWon: (amount: string) => string
+  youWon: (amount: string, materialName: string) => string
   youWonGems: (amount: string) => string
   casePrizeNames: Record<string, string>
   caseCatalogButton: string
   caseCatalogTitle: string
   caseMythicLabel: string
-  caseTitleClicks: string
+  caseTitleClicks: (materialName: string) => string
   caseTitleGems: string
   powerupsSection: string
   powerupsCardTitle: string
@@ -264,12 +298,16 @@ interface PackModalShellProps {
   title: string
   icon: PackIcon
   theme: PackTheme
+  // Overrides PACK_THEME[theme]'s iconWrap — used by the click-pack modal
+  // so its badge follows the current material's color instead of always
+  // being violet's own fixed gradient.
+  iconWrapClassName?: string
   onClose: () => void
   error?: string | null
   children: React.ReactNode
 }
 
-function PackModalShell({ title, icon: Icon, theme, onClose, error, children }: PackModalShellProps) {
+function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, error, children }: PackModalShellProps) {
   const classes = PACK_THEME[theme]
   return (
     <div
@@ -289,7 +327,7 @@ function PackModalShell({ title, icon: Icon, theme, onClose, error, children }: 
         </button>
 
         <div className="mb-4 flex items-center gap-2">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-full ${classes.iconWrap}`}>
+          <div className={`flex h-9 w-9 items-center justify-center rounded-full ${iconWrapClassName ?? classes.iconWrap}`}>
             <Icon size={17} />
           </div>
           <p className="text-sm font-semibold text-white">{title}</p>
@@ -306,10 +344,12 @@ function PackModalShell({ title, icon: Icon, theme, onClose, error, children }: 
 interface ClickPacksModalProps {
   locale: string
   strings: StoreStrings
+  currentMaterialName: string
+  iconWrapClassName: string
   onClose: () => void
 }
 
-function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
+function ClickPacksModal({ locale, strings, currentMaterialName, iconWrapClassName, onClose }: ClickPacksModalProps) {
   const { catalog, buyingId, buy } = useClickPacksContext()
   const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
@@ -327,7 +367,14 @@ function ClickPacksModal({ locale, strings, onClose }: ClickPacksModalProps) {
   }
 
   return (
-    <PackModalShell title={strings.buyClicksTitle} icon={PlatinumIcon} theme="violet" onClose={onClose} error={error}>
+    <PackModalShell
+      title={strings.buyClicksTitle(currentMaterialName)}
+      icon={PlatinumIcon}
+      theme="violet"
+      iconWrapClassName={iconWrapClassName}
+      onClose={onClose}
+      error={error}
+    >
       {catalog.map((pack, i) => {
         const unitPrice = pack.gemCost / pack.clicks
         const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
@@ -458,6 +505,8 @@ interface TierTileProps {
   disabled: boolean
   buyingLabel: string
   onClick: () => void
+  /** Full class string for the "can afford, clicks-priced" button variant. */
+  materialButtonClass: string
 }
 
 // One tile = one freely-buyable tier: name, duration, and a price button —
@@ -477,6 +526,7 @@ function TierTile({
   disabled,
   buyingLabel,
   onClick,
+  materialButtonClass,
 }: TierTileProps) {
   return (
     <div className="flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.02] p-2.5 text-center">
@@ -494,7 +544,7 @@ function TierTile({
             ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
             : currency === 'gems'
               ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-              : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
+              : materialButtonClass
         }`}
       >
         {isBuyingThis ? (
@@ -518,12 +568,13 @@ interface PowerupGridCardProps {
   locale: string
   totalClicks: number
   strings: StoreStrings
+  materialButtonClass: string
 }
 
 // All 4 click-multiplier powerups in one card instead of 4 separate ones —
 // freely buyable in any order (only one can run at a time), each tile is its
 // own price button.
-function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps) {
+function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: PowerupGridCardProps) {
   const { userId } = useAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = usePowerupContext()
   const { gems } = useGemsContext()
@@ -589,6 +640,7 @@ function PowerupGridCard({ locale, totalClicks, strings }: PowerupGridCardProps)
               disabled={disabled}
               buyingLabel={strings.buying}
               onClick={() => handleBuy(powerup)}
+              materialButtonClass={materialButtonClass}
             />
           )
         })}
@@ -603,12 +655,13 @@ interface TimedLuckGridCardProps {
   locale: string
   totalClicks: number
   strings: StoreStrings
+  materialButtonClass: string
 }
 
 // Same freely-buyable grid as PowerupGridCard, but for the temporary,
 // high-variance version of the permanent Suerte upgrade — same 1% chance,
 // much bigger multiplier, only lasts a short while.
-function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardProps) {
+function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }: TimedLuckGridCardProps) {
   const { userId } = useAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
   const { gems } = useGemsContext()
@@ -672,6 +725,7 @@ function TimedLuckGridCard({ locale, totalClicks, strings }: TimedLuckGridCardPr
               disabled={disabled}
               buyingLabel={strings.buying}
               onClick={() => handleBuy(powerup)}
+              materialButtonClass={materialButtonClass}
             />
           )
         })}
@@ -686,13 +740,14 @@ interface MagnetGridCardProps {
   locale: string
   totalClicks: number
   strings: StoreStrings
+  materialButtonClass: string
 }
 
 // Only two items (not a 4-tier ladder), so its own compact 2-column layout
 // instead of reusing TierTile's grid — each tile keeps the currency it
 // grants visually distinct (amber for keys, indigo for gems, same language
 // as the Cofres card) since the icon alone is otherwise identical.
-function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
+function MagnetGridCard({ locale, totalClicks, strings, materialButtonClass }: MagnetGridCardProps) {
   const { userId } = useAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useMagnetContext()
   const [error, setError] = useState<string | null>(null)
@@ -761,7 +816,7 @@ function MagnetGridCard({ locale, totalClicks, strings }: MagnetGridCardProps) {
                 className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
                   disabled
                     ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                    : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
+                    : materialButtonClass
                 }`}
               >
                 {isBuyingThis ? (
@@ -865,6 +920,7 @@ interface MiniCaseReelProps {
   catalog: DailyCasePrize[]
   locale: string
   strings: StoreStrings
+  currentMaterialName: string
   accent: 'red' | 'indigo'
   primary: MiniCaseReelButtonConfig
   secondary: MiniCaseReelButtonConfig
@@ -890,6 +946,7 @@ function MiniCaseReel({
   catalog,
   locale,
   strings,
+  currentMaterialName,
   accent,
   primary,
   secondary,
@@ -1107,7 +1164,7 @@ function MiniCaseReel({
             {revealed.currency === 'gems' ? <Gem size={16} /> : <PlatinumIcon size={19} />}
             {revealed.currency === 'gems'
               ? strings.youWonGems(revealed.amount.toLocaleString(locale))
-              : strings.youWon(revealed.amount.toLocaleString(locale))}
+              : strings.youWon(revealed.amount.toLocaleString(locale), currentMaterialName)}
           </span>
         </motion.div>
       )}
@@ -1259,12 +1316,14 @@ interface CaseOpeningCardProps {
   locale: string
   totalClicks: number
   strings: StoreStrings
+  currentMaterialName: string
+  materialButtonClass: string
 }
 
 // Two cases live in this one card: the original (clicks or gems) and a
 // second one (keys or gems, pays out gems) — same reel mechanic, laid out
 // side by side.
-function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps) {
+function CaseOpeningCard({ locale, totalClicks, strings, currentMaterialName, materialButtonClass }: CaseOpeningCardProps) {
   const {
     catalog: catalog1,
     chestCost: chestCost1,
@@ -1314,7 +1373,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
     try {
       const result = type === 'click' ? await buyClickChest() : await buyGemChest()
       if (!result.ok) {
-        if (result.error === 'not-enough-clicks') setError(strings.notEnoughClicksForChest)
+        if (result.error === 'not-enough-clicks') setError(strings.notEnoughClicksForChest(currentMaterialName))
         else if (result.error === 'chest-limit-reached') setError(strings.chestLimitReached)
         else if (result.error && result.error !== 'not-signed-in') setError(strings.purchaseError)
         return
@@ -1359,15 +1418,15 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       <div className="relative mb-12 grid grid-cols-2 gap-3">
         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
           <Archive size={18} className="text-neutral-400" />
-          <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleClicks}</span>
+          <span className="text-[11px] font-semibold text-neutral-300">{strings.caseTitleClicks(currentMaterialName)}</span>
           <button
             onClick={() => handleBuyChest('click')}
             disabled={buyingChest !== null || totalClicks < chestCost1 || ownedChests1 >= CHEST_LIMIT}
-            aria-label={`${strings.buyChest} — ${strings.caseTitleClicks}`}
+            aria-label={`${strings.buyChest} — ${strings.caseTitleClicks(currentMaterialName)}`}
             className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
               totalClicks < chestCost1 || ownedChests1 >= CHEST_LIMIT
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
+                : materialButtonClass
             }`}
           >
             {buyingChest === 'click' ? (
@@ -1390,7 +1449,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
             className={`flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
               totalClicks < chestCost2 || ownedChests2 >= CHEST_LIMIT
                 ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
+                : materialButtonClass
             }`}
           >
             {buyingChest === 'gem' ? (
@@ -1408,7 +1467,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
       <div className="relative">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-semibold text-neutral-300">
-            {strings.caseTitleClicks}{' '}
+            {strings.caseTitleClicks(currentMaterialName)}{' '}
             <span className="ml-1 tabular-nums text-neutral-500">
               {ownedChests1}/{CHEST_LIMIT}
             </span>
@@ -1425,6 +1484,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           catalog={catalog1}
           locale={locale}
           strings={strings}
+          currentMaterialName={currentMaterialName}
           accent="red"
           syncTotalClicks={syncTotalClicks}
           syncGems={syncGems}
@@ -1491,6 +1551,7 @@ function CaseOpeningCard({ locale, totalClicks, strings }: CaseOpeningCardProps)
           catalog={catalog2}
           locale={locale}
           strings={strings}
+          currentMaterialName={currentMaterialName}
           accent="red"
           syncTotalClicks={() => {}}
           syncGems={syncGems}

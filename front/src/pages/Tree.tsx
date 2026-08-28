@@ -27,6 +27,7 @@ import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgrade
 import { useGemsContext } from '../context/GemsContext'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
+import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
 // them animate in first, farther ones follow a beat later, so a whole
@@ -62,6 +63,11 @@ interface TreeBuyButtonProps {
 function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balance, locale, currency }: TreeBuyButtonProps) {
   const disabled = isBuying || !canAfford
   const progressPct = cost > 0 ? Math.min(100, (balance / cost) * 100) : 100
+  // Reads its own current material straight from context instead of having
+  // it threaded through 13 call sites — this button is purely presentational
+  // otherwise, so a self-contained hook read is simpler than prop drilling.
+  const { prestigeTier } = useClickCounterContext()
+  const materialButtonClass = MATERIAL_BUTTON_THEMES[prestigeTier].button
   return (
     <button
       onClick={onClick}
@@ -71,7 +77,7 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
           ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
           : currency === 'gems'
             ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-            : 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
+            : materialButtonClass
       }`}
     >
       {!isBuying && !canAfford && (
@@ -258,6 +264,9 @@ function getRevealState(nodeId: string, realLevelById: Record<string, number>): 
 // since the dashed branch lines sit right underneath and would show
 // through actual transparency. Whether it's currently affordable shows up
 // separately, as the green up-arrow badge on root — not a color change.
+// Always violet regardless of the current material — only each node's own
+// buy button (TreeBuyButton) follows the material tier, not the node
+// circle itself.
 const NODE_STYLES: Record<Exclude<RevealState, 'hidden'>, string> = {
   available: 'border-violet-400/20 bg-[#14101f] text-violet-200 shadow-black/20',
   locked: 'border-dashed border-neutral-700 bg-neutral-900 text-neutral-600 shadow-black/30',

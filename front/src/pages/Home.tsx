@@ -41,6 +41,7 @@ import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
+import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { DroneIcon } from '../components/DroneIcon'
 
 interface InfoModalData {
@@ -286,24 +287,19 @@ const SPECKLES = [
 // lit, rounded body — brightest toward the upper-left "sun", falling off to
 // a near-black shadow at the opposite rim.
 const DEFAULT_SPECKLE_COLOR = 'rgba(0,0,0,0.22)'
-const OBJECT_TIERS = [
-  // Platino — cool silvery-white metal.
-  { light: '#f8fafc', fill: '#cbd5e1', dark: '#334155', glow: 'rgba(203,213,225,0.55)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
-  // Amatista — the violet that used to be Platino's own color.
-  { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
-  // Esmeralda — green.
-  { light: '#d1fae5', fill: '#6ee7b7', dark: '#022c22', glow: 'rgba(52,211,153,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
-  // Oro — warm metallic gold.
-  { light: '#fef9c3', fill: '#facc15', dark: '#713f12', glow: 'rgba(250,204,21,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
-  // Diamante — placeholder cyan (Diamante's own real look TBD later).
-  { light: '#cffafe', fill: '#67e8f9', dark: '#083344', glow: 'rgba(34,211,238,0.6)', speckleColor: DEFAULT_SPECKLE_COLOR, speckles: SPECKLES },
-]
+const OBJECT_TIERS = MATERIAL_TIER_COLORS.map((colors) => ({
+  ...colors,
+  speckleColor: DEFAULT_SPECKLE_COLOR,
+  speckles: SPECKLES,
+}))
 
-// Lifetime-platino threshold each OBJECT_TIERS entry unlocks at — a
-// placeholder order-of-magnitude ramp, easy to re-tune once the real curve
-// is designed. Index-aligned with OBJECT_TIERS (tier i spans
-// [threshold[i], threshold[i+1])).
-const TRAJECTORY_TIER_THRESHOLDS = [0, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000]
+// Lifetime-platino threshold each OBJECT_TIERS entry unlocks at — first
+// jump is 10M, then ×100 per tier after that. Index-aligned with
+// OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])). Must match
+// back/src/game/trajectory.js's own copy exactly (kept in sync by hand).
+const TRAJECTORY_TIER_THRESHOLDS = [
+  0, 10_000_000, 1_000_000_000, 100_000_000_000, 10_000_000_000_000, 1_000_000_000_000_000,
+]
 
 // The thing you're actually clicking — a slowly bobbing/rotating rock,
 // no "breaking" moment anymore (that whole object/prestige-target loop is
@@ -680,6 +676,10 @@ export function Home() {
   // of the prestige UI (shop, reset flow) is disabled below.
   const { reactorValue } = usePrestigeContext()
   const { language, strings } = useLanguage()
+  // Whatever's currently being mined — every "your balance" label follows
+  // this instead of hardcoding "platino", so it reads correctly after a
+  // prestige moves the player onto Amatista, Esmeralda, etc.
+  const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
   const {
     catalog: powerupCatalog,
     active: activePowerup,
@@ -1156,7 +1156,7 @@ export function Home() {
                   />
                   <div className="relative flex flex-col items-center">
                     <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                      {strings.home.hudPlatinoLabel}
+                      {strings.home.hudPlatinoLabel(currentMaterialName)}
                     </span>
                     <motion.span
                       key={totalClicks}
@@ -1363,7 +1363,9 @@ export function Home() {
                     {ownedClickChests > 0 && (
                       <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center">
                         <Archive size={18} className="text-neutral-400" />
-                        <span className="text-xs font-semibold text-white">{strings.store.caseTitleClicks}</span>
+                        <span className="text-xs font-semibold text-white">
+                          {strings.store.caseTitleClicks(currentMaterialName)}
+                        </span>
                         <span className="text-[10px] tabular-nums text-neutral-500">x{ownedClickChests}</span>
                         <button
                           onClick={() => navigate('/tienda')}
@@ -1618,7 +1620,7 @@ export function Home() {
                       <p className="text-sm font-semibold text-white">{strings.home.shipPower}</p>
                     </div>
                     <p className="text-xs text-neutral-400">
-                      {strings.home.shipPowerDesc}{' '}
+                      {strings.home.shipPowerDesc(currentMaterialName)}{' '}
                       <span className="font-semibold text-white">
                         {(baseClickMultiplier * tapMultiplierValue).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
                           maximumFractionDigits: 2,
@@ -1929,7 +1931,7 @@ export function Home() {
               <p className="text-sm font-semibold text-white">{strings.home.trajectoryPrestigeTitle}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">
-              {strings.home.trajectoryPrestigeBody(strings.home.trajectoryTierNames[currentTierIndex + 1])}
+              {strings.home.trajectoryPrestigeBody(currentMaterialName, strings.home.trajectoryTierNames[currentTierIndex + 1])}
             </p>
             {prestigeError && <p className="mb-3 text-xs text-red-400">{prestigeError}</p>}
             <div className="flex gap-2">
