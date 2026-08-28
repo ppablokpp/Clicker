@@ -63,6 +63,7 @@ export interface TranslationStrings {
     taskClaiming: string
     taskClaimed: string
     taskLocked: string
+    tasksProgress: (done: string, total: string) => string
     log: string
     logTitle: string
     logEmpty: string
@@ -337,6 +338,7 @@ export const translations: Record<Language, TranslationStrings> = {
       taskClaiming: 'Reclamando…',
       taskClaimed: 'Reclamado',
       taskLocked: 'Bloqueado',
+      tasksProgress: (done, total) => `${done}/${total} completadas`,
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
@@ -689,6 +691,7 @@ export const translations: Record<Language, TranslationStrings> = {
       taskClaiming: 'Claiming…',
       taskClaimed: 'Claimed',
       taskLocked: 'Locked',
+      tasksProgress: (done, total) => `${done}/${total} complete`,
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',

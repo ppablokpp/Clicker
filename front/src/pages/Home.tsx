@@ -697,7 +697,6 @@ export function Home() {
       reward: 1000,
       icon: DroneIcon,
       badgeClass: 'bg-violet-500/20 text-violet-300',
-      barClass: 'bg-violet-400',
       progress: Math.min(autoClickLevel, 1),
       required: 1,
       completed: autoClickLevel >= 1,
@@ -710,7 +709,6 @@ export function Home() {
       reward: 2000,
       icon: Split,
       badgeClass: 'bg-cyan-500/20 text-cyan-300',
-      barClass: 'bg-cyan-400',
       progress: Math.min(multiShotLevel, 1),
       required: 1,
       completed: multiShotLevel >= 1,
@@ -724,7 +722,6 @@ export function Home() {
       reward: 5000,
       icon: DroneIcon,
       badgeClass: 'bg-amber-500/20 text-amber-300',
-      barClass: 'bg-amber-400',
       progress: Math.min(scoutDroneLevel, 1),
       required: 1,
       completed: scoutDroneLevel >= 1,
@@ -1826,44 +1823,77 @@ export function Home() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/30 bg-gradient-to-br from-emerald-400/30 to-teal-500/20 text-emerald-200">
                   <ClipboardList size={19} />
                 </div>
-                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.tasksTitle}</p>
+                <div className="flex flex-col">
+                  <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.tasksTitle}</p>
+                  <span className="font-mono text-[9px] font-semibold uppercase tracking-widest text-emerald-400/70">
+                    {strings.home.tasksProgress(
+                      String(TASKS.filter((t) => claimedTasks.has(t.id)).length),
+                      String(TASKS.length),
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
-              <div className="flex flex-col gap-2.5">
-                {TASKS.map((task) => {
+            {/* Graph-paper texture — a manifest/clipboard feel distinct from
+                the scanline used everywhere else, just for this board. */}
+            <div
+              className="scroll-thin relative min-h-0 flex-1 overflow-y-auto p-5"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 22px), repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 22px)',
+              }}
+            >
+              <div className="flex flex-col gap-3">
+                {TASKS.map((task, i) => {
                   const isClaimed = claimedTasks.has(task.id)
                   const isClaiming = claimingTaskId === task.id
                   const Icon = task.icon
+                  const pct = Math.min(1, task.progress / task.required) * 100
                   return (
                     <div
                       key={task.id}
-                      className={`relative flex items-center gap-3 overflow-hidden rounded-[3px] border p-3 transition-colors ${
+                      className={`relative flex overflow-hidden rounded-lg border shadow-lg shadow-black/20 transition-colors ${
                         isClaimed
-                          ? 'border-white/5 bg-white/[0.02] opacity-60'
+                          ? 'border-white/5 bg-[#0d0d13]/80 opacity-50'
                           : task.completed
-                            ? 'border-white/15 bg-white/[0.04]'
-                            : 'border-white/5 bg-white/[0.02]'
+                            ? 'border-white/15 bg-[#12121a]'
+                            : 'border-white/5 bg-[#0d0d13]'
                       }`}
                     >
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${task.badgeClass}`}>
-                        <Icon size={18} />
+                      {/* Mission index tab — a small torn-off corner label,
+                          like a manifest sheet's own line numbers. */}
+                      <div className={`flex w-7 shrink-0 items-center justify-center ${task.badgeClass}`}>
+                        <span className="rotate-180 font-mono text-[9px] font-bold tracking-widest [writing-mode:vertical-rl]">
+                          M-0{i + 1}
+                        </span>
                       </div>
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <p className="text-sm font-semibold text-white">{task.name}</p>
-                        <p className="text-xs text-neutral-500">{task.desc}</p>
-                        {/* Always a bar, even for a 0/1 goal — reads as "in
-                            progress" instead of "locked", which felt too
-                            negative for something this achievable. */}
-                        <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
-                          <div
-                            className={`h-full rounded-full transition-all ${task.completed ? task.barClass : 'bg-white/20'}`}
-                            style={{ width: `${Math.min(1, task.progress / task.required) * 100}%` }}
-                          />
+
+                      <div className="flex flex-1 items-center gap-3 px-3.5 py-3">
+                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${task.badgeClass}`}>
+                          <Icon size={19} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-white">{task.name}</p>
+                          <p className="text-xs text-neutral-500">{task.desc}</p>
+                          {/* Always violet, same family as Stats' own
+                              progress rings — a task's own badge color
+                              stays on the icon/tab, not the bar. */}
+                          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
-                      <div className="shrink-0">
+
+                      {/* Perforated stub — the reward "ticket half", torn
+                          off from the objective by a dashed seam with a
+                          rivet dot at each end. */}
+                      <div className="relative flex w-[86px] shrink-0 flex-col items-center justify-center gap-1.5 border-l border-dashed border-white/15 py-2">
+                        <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-black/60" />
+                        <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-black/60" />
                         {isClaimed ? (
                           <span className="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300">
                             <Check size={13} />
