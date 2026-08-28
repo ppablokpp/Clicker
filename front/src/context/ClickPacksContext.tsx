@@ -3,6 +3,7 @@ import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useGemsContext } from './GemsContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -60,6 +61,7 @@ export function ClickPacksProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           if (typeof data.gems === 'number') syncGems(data.gems)
+          playChestPurchase()
           return { ok: true }
         }
         return { ok: false, error: data.error }

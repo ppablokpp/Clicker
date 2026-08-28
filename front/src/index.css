@@ -279,3 +279,47 @@ body::before {
   animation: drone-beam 1.8s infinite;
   animation-delay: var(--drone-pulse-delay, 0s);
 }
+
+/* Home's manual-tap shot bolt + impact debris — same CSS-over-Framer swap
+   as OrbitingBots above, and for the exact same reason: a fast tapper can
+   fire well past 10-20 bolts/second, and Home re-renders constantly (every
+   auto-click tick) regardless of tap rate — driving these from Framer meant
+   every in-flight bolt/chip got its animate/transition object rebuilt and
+   reconciled on each of those re-renders, which is what actually lagged on
+   mobile, not the raw element count. Per-shot values (direction, distance)
+   ride in as inline custom properties instead. Translate-then-rotate order
+   matters here: it must match Framer's own composition order (translate in
+   the parent's coordinate space, *then* rotate the bolt to face it) or the
+   bolt flies off in the wrong direction once rotated. */
+@keyframes shot-fly {
+  0% {
+    transform: translate(0, 0) rotate(var(--shot-angle));
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--shot-dx), var(--shot-dy)) rotate(var(--shot-angle));
+    opacity: 0;
+  }
+}
+
+.shot-bolt {
+  animation: shot-fly var(--shot-duration, 0.28s) ease-in forwards;
+}
+
+@keyframes debris-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--chip-dx), var(--chip-dy)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.debris-chip {
+  animation: debris-fly var(--chip-duration, 0.38s) ease-out forwards;
+}

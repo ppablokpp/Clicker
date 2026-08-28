@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useAuth } from '@clerk/clerk-react'
 import { useKeysContext } from './KeysContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -101,6 +102,7 @@ export function DailyKeyProvider({ children }: { children: ReactNode }) {
         setClaimedToday(true)
         setResetAt(Date.now() + msUntilNextUtcMidnight())
         if (typeof data.keys === 'number') syncKeys(data.keys)
+        playChestPurchase()
         return { ok: true }
       }
       if (data.error === 'already-claimed') {

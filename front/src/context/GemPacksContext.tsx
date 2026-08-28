@@ -11,6 +11,7 @@ import { useAuth } from '@clerk/clerk-react'
 import { Purchases, PurchasesError, ErrorCode, type Package } from '@revenuecat/purchases-js'
 import { useGemsContext } from './GemsContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
@@ -127,6 +128,7 @@ export function GemPacksProvider({ children }: { children: ReactNode }) {
         if (!res.ok) return { ok: false, error: data.error }
 
         if (typeof data.gems === 'number') syncGems(data.gems)
+        playChestPurchase()
         return { ok: true }
       } catch (err) {
         if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {

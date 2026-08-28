@@ -126,7 +126,7 @@ const EMPTY_STATE: TreeState = {
 
 export function TreeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks, tickAutoClicks, syncObjectState } = useClickCounterContext()
+  const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
   const [isBuying, setIsBuying] = useState(false)
@@ -196,7 +196,11 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           multiShotValue: data.multiShotValue,
           multiShotNextCost: data.multiShotNextCost,
         })
-        if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+        // A read-only poll, not a spend/earn action — never allowed to move
+        // the total backwards (see syncTotalClicksIfNewer's own comment for
+        // why a plain syncTotalClicks here could randomly yank the counter
+        // down mid-session).
+        if (typeof data.totalClicks === 'number') syncTotalClicksIfNewer(data.totalClicks)
         if (typeof data.objectsBroken === 'number' && typeof data.objectProgress === 'number') {
           syncObjectState(data.objectsBroken, data.objectProgress)
         }
@@ -204,7 +208,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('No se pudo cargar el estado del árbol', err)
     }
-  }, [userId, getToken, syncTotalClicks, syncObjectState])
+  }, [userId, getToken, syncTotalClicksIfNewer, syncObjectState])
 
   useEffect(() => {
     if (!userId) return

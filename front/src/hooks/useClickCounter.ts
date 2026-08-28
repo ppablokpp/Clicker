@@ -222,6 +222,33 @@ export function useClickCounter() {
     setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
   }, [])
 
+  // For read-only background polls (TreeContext's own periodic /api/tree/me,
+  // not a spend/earn action) — those race against the independent click
+  // flush cycle with no ordering guarantee between the two round trips. A
+  // poll response can carry a server snapshot taken *before* a flush that
+  // has since landed and already moved confirmedRef forward, and arrive
+  // *after* that flush's own response — blindly overwriting with it would
+  // yank the displayed total backwards mid-session even though nothing was
+  // ever actually spent (reported as the counter "dropping by 100" while
+  // still tapping). A genuine spend already goes through syncTotalClicks
+  // above via that action's own response, so it's safe for a passive poll
+  // to simply never move the total backwards: real forward progress (new
+  // accrual since the last poll) still gets adopted, a stale/out-of-order
+  // snapshot just gets dropped instead of winning a race it shouldn't be
+  // able to win.
+  const syncTotalClicksIfNewer = useCallback((newTotal: number) => {
+    if (suspendSyncCountRef.current > 0) {
+      if (pendingSyncTotalRef.current === null || newTotal > pendingSyncTotalRef.current) {
+        pendingSyncTotalRef.current = newTotal
+      }
+      return
+    }
+    if (newTotal <= confirmedRef.current) return
+    confirmedRef.current = newTotal
+    autoPendingRef.current = 0
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+  }, [])
+
   // Other endpoints that credit clicks server-side (auto-click accrual in
   // TreeContext) also return the fresh objectsBroken/objectProgress — folds
   // that in as the new confirmed base, same as syncTotalClicks does for the
@@ -308,6 +335,7 @@ export function useClickCounter() {
     clicksPerSecond,
     registerClick,
     syncTotalClicks,
+    syncTotalClicksIfNewer,
     tickAutoClicks,
     suspendSync,
     resumeSync,

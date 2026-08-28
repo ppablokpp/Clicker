@@ -10,6 +10,7 @@ import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -148,6 +149,7 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
           adjustInventory(magnet.id, 1)
           if (data.cooldownUntil) setCooldownUntil(new Date(data.cooldownUntil).getTime())
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+          playChestPurchase()
           return { ok: true }
         }
         if (data.error === 'cooldown' && data.cooldownUntil) {

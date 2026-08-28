@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
@@ -1347,24 +1347,27 @@ export function Home() {
       </AnimatePresence>
 
       {/* shots — a short blaster bolt fired at the object per click, purely
-          visual. rotate is a Framer style prop (not a manual CSS transform
-          string), so it composes with the animated x/y translate on this
-          same element instead of fighting it. */}
+          visual and plain CSS now (see .shot-bolt/@keyframes shot-fly) —
+          native onAnimationEnd still gates the impact effects on the bolt
+          actually finishing, same fix as before, just off the browser's own
+          animation event instead of Framer's. */}
       {shots.map((shot) => (
-        <motion.div
+        <div
           key={shot.id}
-          className="pointer-events-none absolute z-20 rounded-full bg-gradient-to-r from-violet-300/0 via-violet-200 to-white shadow-[0_0_8px_2px_rgba(216,180,254,0.85)]"
-          style={{
-            left: shot.startX - BOLT_LENGTH / 2,
-            top: shot.startY - BOLT_THICKNESS / 2,
-            width: BOLT_LENGTH,
-            height: BOLT_THICKNESS,
-            rotate: shot.angleDeg,
-          }}
-          initial={{ x: 0, y: 0, opacity: 1 }}
-          animate={{ x: shot.dx, y: shot.dy, opacity: [1, 1, 0] }}
-          transition={{ duration: SHOT_DURATION_MS / 1000, ease: 'easeIn' }}
-          onAnimationComplete={() => handleShotImpact(shot)}
+          className="shot-bolt pointer-events-none absolute z-20 rounded-full bg-gradient-to-r from-violet-300/0 via-violet-200 to-white shadow-[0_0_8px_2px_rgba(216,180,254,0.85)]"
+          style={
+            {
+              left: shot.startX - BOLT_LENGTH / 2,
+              top: shot.startY - BOLT_THICKNESS / 2,
+              width: BOLT_LENGTH,
+              height: BOLT_THICKNESS,
+              '--shot-dx': `${shot.dx}px`,
+              '--shot-dy': `${shot.dy}px`,
+              '--shot-angle': `${shot.angleDeg}deg`,
+              '--shot-duration': `${SHOT_DURATION_MS}ms`,
+            } as CSSProperties
+          }
+          onAnimationEnd={() => handleShotImpact(shot)}
         />
       ))}
 
@@ -1375,19 +1378,21 @@ export function Home() {
           const dx = Math.cos(rad) * chip.distance
           const dy = Math.sin(rad) * chip.distance
           return (
-            <motion.span
+            <span
               key={`${burst.id}-${i}`}
-              className="pointer-events-none absolute z-20 rounded-sm bg-violet-100"
-              style={{
-                left: burst.x - chip.size / 2,
-                top: burst.y - chip.size / 2,
-                width: chip.size,
-                height: chip.size,
-                boxShadow: '0 0 8px 1px rgba(233,213,255,0.9)',
-              }}
-              initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-              animate={{ x: dx, y: dy, opacity: 0, scale: 0.3 }}
-              transition={{ duration: PARTICLE_DURATION_MS / 1000, ease: 'easeOut' }}
+              className="debris-chip pointer-events-none absolute z-20 rounded-sm bg-violet-100"
+              style={
+                {
+                  left: burst.x - chip.size / 2,
+                  top: burst.y - chip.size / 2,
+                  width: chip.size,
+                  height: chip.size,
+                  boxShadow: '0 0 8px 1px rgba(233,213,255,0.9)',
+                  '--chip-dx': `${dx}px`,
+                  '--chip-dy': `${dy}px`,
+                  '--chip-duration': `${PARTICLE_DURATION_MS}ms`,
+                } as CSSProperties
+              }
             />
           )
         }),
