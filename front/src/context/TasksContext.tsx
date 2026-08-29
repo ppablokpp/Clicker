@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
+import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -70,6 +71,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
         setClaimed((prev) => new Set(prev).add(taskId))
         if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+        playChestPurchase()
         return { ok: true }
       } catch (err) {
         console.error('No se pudo reclamar la tarea', err)
