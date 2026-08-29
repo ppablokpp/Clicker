@@ -7,7 +7,7 @@
  */
 export const ANOMALY_UNLOCK_NODE_ID = 'anomaly_unlock'
 export const ANOMALY_UNLOCK_MAX_LEVEL = 1
-export const ANOMALY_UNLOCK_COST = 5_000
+export const ANOMALY_UNLOCK_COST = 2_000
 
 export function anomalyUnlockCost(level) {
   if (level >= ANOMALY_UNLOCK_MAX_LEVEL) return null

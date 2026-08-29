@@ -12,7 +12,6 @@ export interface TranslationStrings {
     objectsProgress: (broken: string, target: string) => string
     prestigeReady: string
     changePrestige: string
-    cps: string
     tps: string
     totalLabel: string
     hudPlatinoLabel: (materialName: string) => string
@@ -217,7 +216,7 @@ export interface TranslationStrings {
     resetView: string
     level: string
     autoClickName: string
-    autoClickDesc: string
+    autoClickDesc: (unit: string) => string
     dronesUnit: string
     currentRate: string
     nextLevelRate: string
@@ -340,7 +339,6 @@ export const translations: Record<Language, TranslationStrings> = {
       objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
       prestigeReady: '¡Prestigio disponible!',
       changePrestige: 'Cambiar de prestigio',
-      cps: 'pt/s',
       tps: 't/s',
       hudPlatinoLabel: (materialName) => `Tu ${materialName.toLowerCase()}`,
       hudProdLabel: 'Producción',
@@ -622,7 +620,7 @@ export const translations: Record<Language, TranslationStrings> = {
       resetView: 'Restablecer vista',
       level: 'Nv.',
       autoClickName: 'Drones',
-      autoClickDesc: 'Cada dron produce 0.5 pt/s.',
+      autoClickDesc: (unit) => `Cada dron produce 0.5 ${unit}.`,
       dronesUnit: 'drones',
       currentRate: 'Drones actuales:',
       nextLevelRate: 'Drones siguiente nivel:',
@@ -754,7 +752,6 @@ export const translations: Record<Language, TranslationStrings> = {
       objectsProgress: (broken, target) => `${broken} / ${target} levels`,
       prestigeReady: 'Prestige available!',
       changePrestige: 'Change prestige',
-      cps: 'pt/s',
       tps: 't/s',
       hudPlatinoLabel: (materialName) => `Your ${materialName.toLowerCase()}`,
       hudProdLabel: 'Production',
@@ -1036,7 +1033,7 @@ export const translations: Record<Language, TranslationStrings> = {
       resetView: 'Reset view',
       level: 'Lv.',
       autoClickName: 'Drones',
-      autoClickDesc: 'Each drone produces 0.5 pt/s.',
+      autoClickDesc: (unit) => `Each drone produces 0.5 ${unit}.`,
       dronesUnit: 'drones',
       currentRate: 'Current drones:',
       nextLevelRate: 'Next level drones:',

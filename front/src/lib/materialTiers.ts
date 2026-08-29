@@ -16,6 +16,13 @@ export interface MaterialTierColors {
   glow: string
 }
 
+// Short unit-label form of each material, for "X/s" production-rate labels
+// (e.g. Home's click counter, Tree's per-node production stats) — these
+// used to hardcode "pt/s" (short for Platino) even on Amatista, Esmeralda,
+// etc., which only happened to make sense at the one tier it was written
+// for. Index-aligned with MATERIAL_TIER_COLORS.
+export const MATERIAL_ABBREVIATIONS: readonly string[] = ['am', 'pt', 'es', 'or', 'di']
+
 export const MATERIAL_TIER_COLORS: readonly MaterialTierColors[] = [
   // Amatista — the app's original violet accent. Tier 0 (swapped with Platino).
   { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)' },

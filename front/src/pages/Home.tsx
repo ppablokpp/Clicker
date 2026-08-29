@@ -22,7 +22,6 @@ import {
   Lock,
   X,
   Sparkles,
-  MousePointerClick,
   Check,
   Medal,
   type LucideIcon,
@@ -46,7 +45,7 @@ import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
-import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
+import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
@@ -703,6 +702,9 @@ export function Home() {
   // this instead of hardcoding "platino", so it reads correctly after a
   // prestige moves the player onto Amatista, Esmeralda, etc.
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
+  // "pt/s" only ever meant Platino — now the unit tracks whichever material
+  // the current prestige tier actually produces (am/pt/es/or/di).
+  const cpsUnit = `${MATERIAL_ABBREVIATIONS[currentTierIndex]}/s`
   // Onboarding tasks — completion reads straight off the tree's own live
   // levels (no separate counter to keep in sync for 'node-level' tiers);
   // the backend re-verifies the same condition before ever paying out (see
@@ -1251,17 +1253,17 @@ export function Home() {
 
                 <div className="relative flex-1 overflow-hidden rounded-[3px] border border-violet-400/20 bg-violet-500/[0.06] px-2.5 py-1.5">
                   <div className="flex items-center gap-1.5">
-                    <MousePointerClick size={11} className="text-violet-300" />
+                    <PlatinumIcon size={11} className="text-violet-300" />
                     <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-violet-400/70">
                       {strings.home.hudProdLabel}
                     </span>
                   </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                  <div className="mt-0.5">
                     <span className="font-mono text-sm font-bold tabular-nums text-violet-200">
-                      {(clicksPerSecond * totalMultiplier).toFixed(1)} {strings.home.cps}
+                      {(clicksPerSecond * totalMultiplier).toFixed(1)} {cpsUnit}
                     </span>
                     {activePowerup && (
-                      <span className="flex items-center gap-0.5 text-[9px] tabular-nums text-violet-300">
+                      <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] tabular-nums text-violet-300">
                         <Rocket size={9} />
                         {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
                       </span>
@@ -1859,7 +1861,7 @@ export function Home() {
                             maximumFractionDigits: 2,
                           })}
                         </span>{' '}
-                        {strings.home.cps}
+                        {cpsUnit}
                       </p>
                       <p>
                         {strings.home.shipOfflineProductionDesc}{' '}
@@ -1869,7 +1871,7 @@ export function Home() {
                             { maximumFractionDigits: 2 },
                           )}
                         </span>{' '}
-                        {strings.home.cps}
+                        {cpsUnit}
                       </p>
                     </div>
                   </div>
@@ -1893,7 +1895,7 @@ export function Home() {
                             maximumFractionDigits: 2,
                           })}
                         </span>{' '}
-                        {strings.home.cps}
+                        {cpsUnit}
                       </p>
                     </div>
                   </div>
@@ -1918,7 +1920,7 @@ export function Home() {
                               maximumFractionDigits: 2,
                             })}
                           </span>{' '}
-                          {strings.home.cps}
+                          {cpsUnit}
                         </p>
                       </div>
                     ) : (

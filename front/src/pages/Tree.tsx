@@ -31,7 +31,7 @@ import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgrade
 import { useGemsContext } from '../context/GemsContext'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
-import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
+import { MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
 // them animate in first, farther ones follow a beat later, so a whole
@@ -335,6 +335,9 @@ export function Tree() {
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const { totalClicks, prestigeTier } = useClickCounterContext()
   const currentMaterialName = strings.home.trajectoryTierNames[prestigeTier]
+  // "pt/s" only ever meant Platino — now the unit tracks whichever material
+  // the current prestige tier actually produces (am/pt/es/or/di).
+  const cpsUnit = `${MATERIAL_ABBREVIATIONS[prestigeTier]}/s`
   const {
     autoClickLevel,
     autoClickNextCost,
@@ -1655,7 +1658,7 @@ export function Tree() {
               </span>
               <p className="text-sm font-semibold text-white">{strings.tree.autoClickName}</p>
             </div>
-            <p className="mb-4 text-sm text-neutral-400">{strings.tree.autoClickDesc}</p>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.autoClickDesc(cpsUnit)}</p>
 
             {/* Buying this node literally buys one more drone — the stat
                 block shows the drone count itself (what the purchase adds),
@@ -2172,14 +2175,14 @@ export function Tree() {
               <span>
                 {strings.tree.currentProduction}{' '}
                 <span className="font-semibold text-white">
-                  {scoutDroneRate.toLocaleString(locale, { maximumFractionDigits: 2 })} {strings.home.cps}
+                  {scoutDroneRate.toLocaleString(locale, { maximumFractionDigits: 2 })} {cpsUnit}
                 </span>
               </span>
               {!isScoutFrequencyMaxed && (
                 <span>
                   {strings.tree.nextProduction}{' '}
                   <span className="font-semibold text-white">
-                    {(scoutDroneRate + 1).toLocaleString(locale, { maximumFractionDigits: 2 })} {strings.home.cps}
+                    {(scoutDroneRate + 1).toLocaleString(locale, { maximumFractionDigits: 2 })} {cpsUnit}
                   </span>
                 </span>
               )}
@@ -2235,7 +2238,7 @@ export function Tree() {
                   {autoMultiplierValue.toLocaleString(locale, {
                     maximumFractionDigits: 2,
                   })}{' '}
-                  {strings.home.cps}
+                  {cpsUnit}
                 </span>
               </span>
               {!isAutoMultiplierMaxed && (
@@ -2245,7 +2248,7 @@ export function Tree() {
                     {(autoMultiplierValue + 0.5).toLocaleString(locale, {
                       maximumFractionDigits: 2,
                     })}{' '}
-                    {strings.home.cps}
+                    {cpsUnit}
                   </span>
                 </span>
               )}
