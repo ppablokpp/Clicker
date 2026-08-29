@@ -689,6 +689,7 @@ export function Home() {
     autoMultiplierValue,
     anomalyUnlockLevel,
     anomalyFrequencySeconds,
+    offlineProductionValue,
     refetch: refetchTree,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
@@ -1823,15 +1824,27 @@ export function Home() {
                       </div>
                       <p className="text-sm font-semibold text-white">{strings.home.shipDroneProduction}</p>
                     </div>
-                    <p className="text-xs text-neutral-400">
-                      {strings.home.shipDroneProductionDesc}{' '}
-                      <span className="font-semibold text-white">
-                        {(autoClickCps + scoutDroneCps).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>{' '}
-                      {strings.home.cps}
-                    </p>
+                    <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
+                      <p>
+                        {strings.home.shipDroneProductionDesc}{' '}
+                        <span className="font-semibold text-white">
+                          {(autoClickCps + scoutDroneCps).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>{' '}
+                        {strings.home.cps}
+                      </p>
+                      <p>
+                        {strings.home.shipOfflineProductionDesc}{' '}
+                        <span className="font-semibold text-white">
+                          {((autoClickCps + scoutDroneCps) * offlineProductionValue).toLocaleString(
+                            language === 'en' ? 'en-US' : 'es-ES',
+                            { maximumFractionDigits: 2 },
+                          )}
+                        </span>{' '}
+                        {strings.home.cps}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">

@@ -77,15 +77,19 @@ export function FleetAwayModal() {
         </div>
 
         <div className="p-5">
-          <p className="flex flex-wrap items-center gap-2 text-sm text-neutral-300">
-            <span>{strings.home.fleetAwayPrefix}</span>
+          {/* Plain inline text flow (not flex) so words wrap one at a time
+              around the pill like any other inline element — a flex
+              container here would wrap the whole suffix span as one atomic
+              unit instead of letting it share a line with the pill. */}
+          <p className="text-sm leading-7 text-neutral-300">
+            {strings.home.fleetAwayPrefix}{' '}
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums ${materialTheme.pill}`}
+              className={`inline-flex translate-y-[3px] items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums ${materialTheme.pill}`}
             >
               <PlatinumIcon size={13} className="opacity-70" />
               {awayCredit.toLocaleString(locale)}
-            </span>
-            <span>{strings.home.fleetAwaySuffix}</span>
+            </span>{' '}
+            {strings.home.fleetAwaySuffix}
           </p>
 
           <button

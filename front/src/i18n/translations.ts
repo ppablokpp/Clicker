@@ -35,6 +35,7 @@ export interface TranslationStrings {
     fleetSection: string
     shipDroneProduction: string
     shipDroneProductionDesc: string
+    shipOfflineProductionDesc: string
     shipDroneCount: string
     shipDroneCountDesc: string
     shipDronePerUnitDesc: string
@@ -247,6 +248,10 @@ export interface TranslationStrings {
     currentAnomalyFrequency: string
     nextAnomalyFrequency: string
     formatAnomalyWait: (seconds: number) => string
+    offlineProductionName: string
+    offlineProductionDesc: string
+    currentOfflineProduction: string
+    nextOfflineProduction: string
   }
   prestige: {
     confirmTitle: string
@@ -334,6 +339,7 @@ export const translations: Record<Language, TranslationStrings> = {
       fleetSection: 'Flota',
       shipDroneProduction: 'Producción de la flota',
       shipDroneProductionDesc: 'Producción total:',
+      shipOfflineProductionDesc: 'Producción offline:',
       shipDroneCount: 'Drones',
       shipDroneCountDesc: 'Drones activos:',
       shipDronePerUnitDesc: 'Producción de cada dron:',
@@ -632,6 +638,10 @@ export const translations: Record<Language, TranslationStrings> = {
         const label = Number.isInteger(minutes) ? `${minutes}` : minutes.toFixed(1).replace('.', ',')
         return `${label} minutos`
       },
+      offlineProductionName: 'Autonomía',
+      offlineProductionDesc: 'Aumenta la autonomía de tu nave para que tu flota siga produciendo mientras estás ausente.',
+      currentOfflineProduction: 'Producción actual:',
+      nextOfflineProduction: 'Producción siguiente nivel:',
     },
     prestige: {
       confirmTitle: '¿Reiniciar y ganar puntos de prestigio?',
@@ -719,6 +729,7 @@ export const translations: Record<Language, TranslationStrings> = {
       fleetSection: 'Fleet',
       shipDroneProduction: 'Fleet production',
       shipDroneProductionDesc: 'Total production:',
+      shipOfflineProductionDesc: 'Offline production:',
       shipDroneCount: 'Drones',
       shipDroneCountDesc: 'Active drones:',
       shipDronePerUnitDesc: 'Production per drone:',
@@ -1015,6 +1026,10 @@ export const translations: Record<Language, TranslationStrings> = {
         const label = Number.isInteger(minutes) ? `${minutes}` : minutes.toFixed(1)
         return `${label} minute${minutes === 1 ? '' : 's'}`
       },
+      offlineProductionName: 'Autonomy',
+      offlineProductionDesc: "Raises your ship's autonomy so your fleet keeps producing while you're away.",
+      currentOfflineProduction: 'Current production:',
+      nextOfflineProduction: 'Next level production:',
     },
     prestige: {
       confirmTitle: 'Reset and earn prestige points?',

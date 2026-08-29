@@ -59,6 +59,9 @@ interface TreeState {
   anomalyFrequencyLevel: number
   anomalyFrequencySeconds: number
   anomalyFrequencyNextCost: number | null
+  offlineProductionLevel: number
+  offlineProductionValue: number
+  offlineProductionNextCost: number | null
 }
 
 interface TreeContextValue extends TreeState {
@@ -69,7 +72,7 @@ interface TreeContextValue extends TreeState {
   // very first /api/tree/me response after mount (see fetchState's
   // isFirstFetchRef), never from the routine 8s polls that follow. null
   // means either nothing to report yet, or the player already dismissed it
-  // this session (see OfflineEarningsModal).
+  // this session (see FleetAwayModal).
   awayCredit: number | null
   clearAwayCredit: () => void
   isBuying: boolean
@@ -102,6 +105,8 @@ interface TreeContextValue extends TreeState {
   buyAnomalyReward: () => Promise<{ ok: boolean; error?: string }>
   isBuyingAnomalyFrequency: boolean
   buyAnomalyFrequency: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingOfflineProduction: boolean
+  buyOfflineProduction: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
@@ -151,6 +156,9 @@ const EMPTY_STATE: TreeState = {
   anomalyFrequencyLevel: 0,
   anomalyFrequencySeconds: 300,
   anomalyFrequencyNextCost: 0,
+  offlineProductionLevel: 0,
+  offlineProductionValue: 0.01,
+  offlineProductionNextCost: 5_000,
 }
 
 export function TreeProvider({ children }: { children: ReactNode }) {
@@ -173,6 +181,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingAnomalyUnlock, setIsBuyingAnomalyUnlock] = useState(false)
   const [isBuyingAnomalyReward, setIsBuyingAnomalyReward] = useState(false)
   const [isBuyingAnomalyFrequency, setIsBuyingAnomalyFrequency] = useState(false)
+  const [isBuyingOfflineProduction, setIsBuyingOfflineProduction] = useState(false)
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
@@ -242,6 +251,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           anomalyFrequencyLevel: data.anomalyFrequencyLevel,
           anomalyFrequencySeconds: data.anomalyFrequencySeconds,
           anomalyFrequencyNextCost: data.anomalyFrequencyNextCost,
+          offlineProductionLevel: data.offlineProductionLevel,
+          offlineProductionValue: data.offlineProductionValue,
+          offlineProductionNextCost: data.offlineProductionNextCost,
         })
         if (isFirstFetchRef.current) {
           isFirstFetchRef.current = false
@@ -766,6 +778,37 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyOfflineProduction = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingOfflineProduction(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/offline-production/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        offlineProductionLevel: data.offlineProductionLevel,
+        offlineProductionValue: data.offlineProductionValue,
+        offlineProductionNextCost: data.offlineProductionNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Autonomía', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingOfflineProduction(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   return (
     <TreeContext.Provider
       value={{
@@ -806,6 +849,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyAnomalyReward,
         isBuyingAnomalyFrequency,
         buyAnomalyFrequency,
+        isBuyingOfflineProduction,
+        buyOfflineProduction,
       }}
     >
       {children}

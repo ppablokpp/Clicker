@@ -24,8 +24,32 @@ import { MULTI_SHOT_NODE_ID, multiShotCost, multiShotValue } from '../tree/multi
 import { ANOMALY_UNLOCK_NODE_ID, anomalyUnlockCost } from '../tree/anomalyUnlock.js'
 import { ANOMALY_REWARD_NODE_ID, anomalyRewardCost, anomalyRewardValue } from '../tree/anomalyReward.js'
 import { ANOMALY_FREQUENCY_NODE_ID, anomalyFrequencyCost, anomalyFrequencySeconds } from '../tree/anomalyFrequency.js'
+import {
+  OFFLINE_PRODUCTION_NODE_ID,
+  offlineProductionCost,
+  offlineProductionValue,
+} from '../tree/offlineProduction.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
+
+// The full online rate applies to the first ACTIVE_WINDOW_SECONDS of any
+// elapsed gap between accrual calls — comfortably longer than the ~8s
+// background poll (TreeContext.POLL_INTERVAL_MS) so normal active play,
+// including a slow round trip or a missed tick or two, never dips into the
+// reduced rate. Only time beyond that is genuinely "away" and gets scaled
+// by Autonomía (offlineProduction.js).
+const ACTIVE_WINDOW_SECONDS = 30
+
+// Splits an elapsed gap into its active and away portions and applies each
+// at its own rate — shared by accrueAndGetState and buyAutoClickLevel,
+// which both run this exact same accrual math before doing anything else.
+function accrueWhole(remainder, seconds, currentCps, offlineRate) {
+  const activeSeconds = Math.min(seconds, ACTIVE_WINDOW_SECONDS)
+  const awaySeconds = Math.max(0, seconds - ACTIVE_WINDOW_SECONDS)
+  const raw = remainder + activeSeconds * currentCps + awaySeconds * currentCps * offlineRate
+  const whole = Math.floor(raw)
+  return { whole, remainder: raw - whole }
+}
 
 export const treeRepository = {
   // Credits whatever the auto-click node has produced since it was last
@@ -109,6 +133,16 @@ export const treeRepository = {
       const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
       const reactorMultiplier = prestigeReactorValue(reactorLevel)
 
+      // Autonomía — Sobrecarga's own child, scales down the accrual rate
+      // applied to time spent genuinely away (see ACTIVE_WINDOW_SECONDS
+      // above / accrueWhole below).
+      const offlineProductionRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, OFFLINE_PRODUCTION_NODE_ID],
+      )
+      const offlineProductionLevel = Number(offlineProductionRow.rows[0]?.level ?? 0)
+      const offlineRate = offlineProductionValue(offlineProductionLevel)
+
       // Regular drones and scout drones tick off the same shared timer
       // below (see AUTOCLICK_NODE_ID's last_tick_at/remainder) — simplest
       // way to accrue two independent production streams without a second
@@ -128,9 +162,7 @@ export const treeRepository = {
           node.last_tick_at,
         ])
         const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
-        const raw = Number(node.remainder) + seconds * currentCps
-        const whole = Math.floor(raw)
-        const remainder = raw - whole
+        const { whole, remainder } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
         creditedThisCall = whole
 
         if (whole > 0) {
@@ -280,6 +312,9 @@ export const treeRepository = {
         anomalyFrequencyLevel,
         anomalyFrequencySeconds: anomalyFrequencySeconds(anomalyFrequencyLevel),
         anomalyFrequencyNextCost: anomalyFrequencyCost(anomalyFrequencyLevel),
+        offlineProductionLevel,
+        offlineProductionValue: offlineRate,
+        offlineProductionNextCost: offlineProductionCost(offlineProductionLevel),
         totalClicks,
         objectsBroken,
         objectProgress,
@@ -417,6 +452,12 @@ export const treeRepository = {
       const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
       const reactorMultiplier = prestigeReactorValue(reactorLevel)
 
+      const offlineProductionRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, OFFLINE_PRODUCTION_NODE_ID],
+      )
+      const offlineRate = offlineProductionValue(Number(offlineProductionRow.rows[0]?.level ?? 0))
+
       let totalClicks = Number(userRow.rows[0].total_clicks)
 
       if (level > 0 && node.last_tick_at) {
@@ -424,10 +465,8 @@ export const treeRepository = {
           node.last_tick_at,
         ])
         const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
-        const raw =
-          Number(node.remainder) +
-          seconds * (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
-        const whole = Math.floor(raw)
+        const currentCps = (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
+        const { whole } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
         if (whole > 0) {
           const updated = await client.query(
             `UPDATE users
@@ -1391,6 +1430,73 @@ export const treeRepository = {
         anomalyFrequencyLevel: newLevel,
         anomalyFrequencySeconds: anomalyFrequencySeconds(newLevel),
         anomalyFrequencyNextCost: anomalyFrequencyCost(newLevel),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Autonomía — Sobrecarga's own child, same shape as buyScoutFrequencyLevel
+  // (finite, requires Sobrecarga already owned).
+  async buyOfflineProductionLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const autoMultiplierRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, AUTO_MULTIPLIER_NODE_ID],
+      )
+      if (Number(autoMultiplierRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'overload-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, OFFLINE_PRODUCTION_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = offlineProductionCost(level)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, OFFLINE_PRODUCTION_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        offlineProductionLevel: newLevel,
+        offlineProductionValue: offlineProductionValue(newLevel),
+        offlineProductionNextCost: offlineProductionCost(newLevel),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

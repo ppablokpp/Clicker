@@ -9,6 +9,7 @@ import {
   Gem,
   Lock,
   Minus,
+  Moon,
   Orbit,
   Pickaxe,
   Plus,
@@ -155,8 +156,9 @@ const NODES: TreeNode[] = [
   // Sobrecarga (moved off Multiplicador, since it boosts this branch's own
   // drones, not the regular ones) leads the chain, then Dron buscador,
   // then Frecuencia — reusing the branch's existing 3 positions in that
-  // new order. Trailing placeholder leaf moved from Frecuencia's end over
-  // to Sobrecarga (e2b1) — nothing wired up on it yet.
+  // new order. Sobrecarga's own child, Autonomía (e2b1, raises how much of
+  // the fleet's real rate still applies while you're away), took over the
+  // trailing placeholder leaf moved here from Frecuencia's end.
   { id: 'e2b', x: CENTER + 30, y: CENTER - 180, label: 'Mejora' },
   { id: 'a1b', x: CENTER - 20, y: CENTER - 310, label: 'Mejora' },
   { id: 'a1b1', x: CENTER + 100, y: CENTER - 440, label: 'Mejora' },
@@ -314,7 +316,6 @@ const PLACEHOLDER_FAMILY: Record<string, { style: string; iconText: string }> = 
   a3: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
   b2a: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
   b2b: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
-  e2b1: { style: AUTO_LUCK_NODE_STYLE, iconText: 'text-amber-300' },
 }
 
 const DEFAULT_SCALE = 0.68
@@ -406,6 +407,11 @@ export function Tree() {
     anomalyFrequencyNextCost,
     isBuyingAnomalyFrequency,
     buyAnomalyFrequency,
+    offlineProductionLevel,
+    offlineProductionValue,
+    offlineProductionNextCost,
+    isBuyingOfflineProduction,
+    buyOfflineProduction,
   } = useTreeContext()
   const isAutoClickMaxed = autoClickNextCost === null
   const canAffordAutoClick = autoClickNextCost !== null && totalClicks >= autoClickNextCost
@@ -437,6 +443,8 @@ export function Tree() {
   const canAffordAnomalyReward = anomalyRewardNextCost !== null && totalClicks >= anomalyRewardNextCost
   const isAnomalyFrequencyMaxed = anomalyFrequencyNextCost === null
   const canAffordAnomalyFrequency = anomalyFrequencyNextCost !== null && totalClicks >= anomalyFrequencyNextCost
+  const isOfflineProductionMaxed = offlineProductionNextCost === null
+  const canAffordOfflineProduction = offlineProductionNextCost !== null && totalClicks >= offlineProductionNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
   const { gems } = useGemsContext()
@@ -457,6 +465,7 @@ export function Tree() {
   const [showAnomalyUnlockModal, setShowAnomalyUnlockModal] = useState(false)
   const [showAnomalyRewardModal, setShowAnomalyRewardModal] = useState(false)
   const [showAnomalyFrequencyModal, setShowAnomalyFrequencyModal] = useState(false)
+  const [showOfflineProductionModal, setShowOfflineProductionModal] = useState(false)
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,
@@ -635,6 +644,7 @@ export function Tree() {
     e2a: legendaryEaseLevel,
     e2a1: legendaryGrowthLevel,
     e2b: autoMultiplierLevel,
+    e2b1: offlineProductionLevel,
     e2c: tapMultiplierLevel,
     d1: anomalyUnlockLevel,
   }
@@ -701,6 +711,7 @@ export function Tree() {
               node.id !== 'e1' &&
               node.id !== 'e2a' &&
               node.id !== 'e2b' &&
+              node.id !== 'e2b1' &&
               node.id !== 'e2a1' &&
               node.id !== 'e2c' &&
               node.id !== 'd1' &&
@@ -1305,6 +1316,58 @@ export function Tree() {
                 </span>
 
                 {!isAutoMultiplierMaxed && canAffordAutoMultiplier && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Sobrecarga's own child — Autonomía, raises how much of the
+              fleet's real rate still applies to time spent genuinely away
+              (not just idling with the tab open). Same amber family. */}
+          {revealStateById.e2b1 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2b1.x, top: nodeById.e2b1.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Moon size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {offlineProductionLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.e2b1 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2b1.x, top: nodeById.e2b1.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowOfflineProductionModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2b1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
+              >
+                <Moon size={20} className="text-amber-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {offlineProductionLevel}
+                </span>
+
+                {!isOfflineProductionMaxed && canAffordOfflineProduction && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -2468,6 +2531,64 @@ export function Tree() {
                 canAfford={canAffordAnomalyFrequency}
                 buyingLabel={strings.tree.upgrading}
                 cost={anomalyFrequencyNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showOfflineProductionModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowOfflineProductionModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowOfflineProductionModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Moon size={18} className="text-amber-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.offlineProductionName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.offlineProductionDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentOfflineProduction}{' '}
+                <span className="font-semibold text-white">{formatChance(offlineProductionValue)}</span>
+              </span>
+              {!isOfflineProductionMaxed && (
+                <span>
+                  {strings.tree.nextOfflineProduction}{' '}
+                  <span className="font-semibold text-white">
+                    {formatChance(offlineProductionLevel === 0 ? 0.05 : offlineProductionValue + 0.05)}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {isOfflineProductionMaxed ? (
+              <div className="relative w-full rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-amber-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyOfflineProduction}
+                isBuying={isBuyingOfflineProduction}
+                canAfford={canAffordOfflineProduction}
+                buyingLabel={strings.tree.upgrading}
+                cost={offlineProductionNextCost ?? 0}
                 balance={totalClicks}
                 locale={locale}
                 currency="clicks"
