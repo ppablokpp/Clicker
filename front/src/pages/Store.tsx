@@ -967,6 +967,10 @@ function MiniCaseReel({
     result: DailyCasePrize
   } | null>(null)
   const [isReeling, setIsReeling] = useState(false)
+  // Mirrors isReeling for the unmount cleanup below — a ref instead of the
+  // state itself so that cleanup always reads the latest value instead of
+  // whatever was current when the effect last ran.
+  const isReelingRef = useRef(false)
   const [revealed, setRevealed] = useState<DailyCasePrize | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [idleItems, setIdleItems] = useState<DailyCasePrize[]>([])
@@ -977,6 +981,24 @@ function MiniCaseReel({
   const idleDragX = useMotionValue(0)
   const idleLoopWidth = idleItems.length * CASE_ITEM_SPAN
   const accentClasses = REEL_ACCENT_CLASSES[accent]
+
+  useEffect(() => {
+    isReelingRef.current = isReeling
+  }, [isReeling])
+
+  // Safety net: the bottom nav already blocks navigating away mid-reel
+  // (see BottomNavPill), but anything else that could still unmount this
+  // component while it's reeling (browser back/forward, a future caller of
+  // this component, etc.) would otherwise orphan the suspendTotalClicksSync
+  // call above forever, since Framer's onAnimationComplete never fires for
+  // an unmounted node — wedging every future sync app-wide. Resuming here
+  // guarantees the suspend/resume pair always balances no matter how this
+  // component goes away.
+  useEffect(() => {
+    return () => {
+      if (isReelingRef.current) resumeTotalClicksSync()
+    }
+  }, [resumeTotalClicksSync])
 
   useEffect(() => {
     if (catalog.length > 0 && idleItems.length === 0) {

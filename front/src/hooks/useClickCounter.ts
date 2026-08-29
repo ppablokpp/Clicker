@@ -77,6 +77,14 @@ export function useClickCounter() {
   // allowed to become visible.
   const suspendSyncCountRef = useRef(0)
   const pendingSyncTotalRef = useRef<number | null>(null)
+  // Reactive mirror of suspendSyncCountRef > 0 — a ref mutation alone
+  // wouldn't re-render anything, but the bottom nav needs to actually know
+  // a reveal animation is in flight so it can block navigation away from it
+  // (leaving mid-animation orphans the matching resumeSync call, since
+  // Framer's onAnimationComplete never fires for an unmounted component —
+  // that's what silently wedged every future sync stuck "suspended" before
+  // this existed).
+  const [isSyncSuspended, setIsSyncSuspended] = useState(false)
 
   // Recomputes the displayed object state from confirmed + pending, same
   // shape as the totalClicks setter calls below — call this alongside every
@@ -296,16 +304,20 @@ export function useClickCounter() {
 
   const suspendSync = useCallback(() => {
     suspendSyncCountRef.current += 1
+    setIsSyncSuspended(true)
   }, [])
 
   const resumeSync = useCallback(() => {
     suspendSyncCountRef.current = Math.max(0, suspendSyncCountRef.current - 1)
-    if (suspendSyncCountRef.current === 0 && pendingSyncTotalRef.current !== null) {
-      const total = pendingSyncTotalRef.current
-      pendingSyncTotalRef.current = null
-      confirmedRef.current = total
-      autoPendingRef.current = 0
-      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+    if (suspendSyncCountRef.current === 0) {
+      setIsSyncSuspended(false)
+      if (pendingSyncTotalRef.current !== null) {
+        const total = pendingSyncTotalRef.current
+        pendingSyncTotalRef.current = null
+        confirmedRef.current = total
+        autoPendingRef.current = 0
+        setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+      }
     }
   }, [])
 
@@ -339,6 +351,7 @@ export function useClickCounter() {
     tickAutoClicks,
     suspendSync,
     resumeSync,
+    isSyncSuspended,
     latestKeys,
     latestGems,
     objectsBroken,

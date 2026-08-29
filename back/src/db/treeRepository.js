@@ -1245,7 +1245,7 @@ export const treeRepository = {
         ok: true,
         anomalyUnlockLevel: newLevel,
         anomalyUnlockNextCost: anomalyUnlockCost(newLevel),
-        // Both children read as "unlocked" (1% / base 5 min) the instant
+        // Both children read as "unlocked" (5% / base 5 min) the instant
         // this is bought, even at their own level 0 — report them fresh so
         // the UI doesn't need a full refetch to show that.
         anomalyRewardValue: anomalyRewardValue(0),

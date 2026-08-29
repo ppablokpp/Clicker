@@ -140,14 +140,12 @@ const NODES: TreeNode[] = [
   { id: 'a1', x: CENTER + 140, y: CENTER - 100, label: 'Mejora' },
   { id: 'a2', x: CENTER + 260, y: CENTER - 200, label: 'Mejora' },
   { id: 'a2b', x: CENTER + 300, y: CENTER - 340, label: 'Mejora' },
-  { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora' },
-  { id: 'a4', x: CENTER + 540, y: CENTER - 280, label: 'Mejora+' },
+  { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora+' },
 
   // Branch B — short reach left that forks into two.
   { id: 'b1', x: CENTER - 170, y: CENTER + 70, label: 'Mejora' },
   { id: 'b2a', x: CENTER - 320, y: CENTER - 10, label: 'Mejora' },
   { id: 'b2b', x: CENTER - 330, y: CENTER + 160, label: 'Mejora' },
-  { id: 'b3', x: CENTER - 460, y: CENTER - 70, label: 'Mejora+' },
 
   // Branch C — one lone node straight down, nothing beyond it yet.
   { id: 'c1', x: CENTER + 20, y: CENTER + 175, label: 'Mejora' },
@@ -176,14 +174,13 @@ const NODES: TreeNode[] = [
 
   // Branch E — forks into two: Modo Legendario (e2a0) gates the heat
   // tier itself and fans out into its own two children (Reflejos/e2a and
-  // Impulso/e2a1, Impulso going on to its own placeholder leaf e3a);
-  // Multiplicador (e2c) is the other child off Productividad. Sobrecarga
-  // used to live here too but now leads Branch F, its own root branch.
+  // Impulso/e2a1); Multiplicador (e2c) is the other child off Productividad.
+  // Sobrecarga used to live here too but now leads Branch F, its own root
+  // branch.
   { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Mejora' },
   { id: 'e2a0', x: 773, y: 524, label: 'Mejora' },
   { id: 'e2a', x: 892, y: 441, label: 'Mejora' },
   { id: 'e2a1', x: 909, y: 587, label: 'Mejora' },
-  { id: 'e3a', x: 1054, y: 626, label: 'Mejora+' },
   { id: 'e2c', x: CENTER + 275, y: CENTER + 205, label: 'Mejora' },
 ]
 
@@ -192,12 +189,10 @@ const EDGES: TreeEdge[] = [
   { from: 'a1', to: 'a2' },
   { from: 'a2', to: 'a2b' },
   { from: 'a2', to: 'a3' },
-  { from: 'a3', to: 'a4' },
 
   { from: 'root', to: 'b1' },
   { from: 'b1', to: 'b2a' },
   { from: 'b1', to: 'b2b' },
-  { from: 'b2a', to: 'b3' },
 
   { from: 'root', to: 'c1' },
 
@@ -214,7 +209,6 @@ const EDGES: TreeEdge[] = [
   { from: 'e1', to: 'e2a0' },
   { from: 'e2a0', to: 'e2a' },
   { from: 'e2a0', to: 'e2a1' },
-  { from: 'e2a1', to: 'e3a' },
   { from: 'e1', to: 'e2c' },
 ]
 
@@ -318,12 +312,9 @@ const ANOMALY_NODE_STYLE = 'border-orange-400/25 bg-[#1f1006] text-orange-200 sh
 const PLACEHOLDER_FAMILY: Record<string, { style: string; iconText: string }> = {
   a2b: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
   a3: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
-  a4: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
   b2a: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
   b2b: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
-  b3: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
   e2b1: { style: AUTO_LUCK_NODE_STYLE, iconText: 'text-amber-300' },
-  e3a: { style: LEGENDARY_NODE_STYLE, iconText: 'text-red-300' },
 }
 
 const DEFAULT_SCALE = 0.68
@@ -1122,10 +1113,10 @@ export function Tree() {
           {/* Multiplicador's direct children — Modo Legendario (e2a0, a
               single flat purchase gating the Legendary heat tier itself)
               fans out into Ritmo (e2a, shrinks the clicks it takes to level
-              up) and Impulso (e2a1, grows the Legendary bonus step, with
-              its own placeholder leaf e3a). All finite, same red Legendary
-              family as Multiplicador itself — Sobrecarga used to live here
-              too but now leads Branch F, its own root branch. */}
+              up) and Impulso (e2a1, grows the Legendary bonus step). All
+              finite, same red Legendary family as Multiplicador itself —
+              Sobrecarga used to live here too but now leads Branch F, its
+              own root branch. */}
           {revealStateById.e2a0 === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"

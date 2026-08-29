@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { Trophy, BarChart3, Store, Network, Rocket } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import { useClickCounterContext } from '../context/ClickCounterContext'
 
 const PILL_ITEMS = [
   { to: '/arbol', key: 'tree', icon: Network, end: false },
@@ -15,12 +16,23 @@ const PILL_ITEMS = [
 export function BottomNavPill() {
   const { strings } = useLanguage()
   const location = useLocation()
+  // Store's case-opening reel suspends total-clicks syncing for the length
+  // of its reveal animation (see MiniCaseReel/resolveWin) — leaving the
+  // page mid-animation unmounts it before that suspend is ever released
+  // (Framer's onAnimationComplete never fires for an unmounted node),
+  // permanently wedging every future sync app-wide. Blocking navigation
+  // for that same window is the actual fix, not just a courtesy.
+  const { isSyncSuspended } = useClickCounterContext()
   // No nav during a battle — the bottom of the screen is the countdown
   // bar's spot instead.
   if (location.pathname.startsWith('/batalla')) return null
 
   return (
-    <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 sm:bottom-6">
+    <div
+      className={`fixed bottom-5 left-1/2 z-40 -translate-x-1/2 transition-opacity sm:bottom-6 ${
+        isSyncSuspended ? 'pointer-events-none opacity-40' : ''
+      }`}
+    >
       {/* A touch of the cockpit console's own material/accent — subtle
           scanline texture and a thin violet hairline — layered onto the
           plain rounded pill instead of replacing it, so the bar still
