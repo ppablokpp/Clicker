@@ -32,21 +32,27 @@ import {
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
 
-// The full online rate applies to the first ACTIVE_WINDOW_SECONDS of any
-// elapsed gap between accrual calls — comfortably longer than the ~8s
-// background poll (TreeContext.POLL_INTERVAL_MS) so normal active play,
-// including a slow round trip or a missed tick or two, never dips into the
-// reduced rate. Only time beyond that is genuinely "away" and gets scaled
-// by Autonomía (offlineProduction.js).
-const ACTIVE_WINDOW_SECONDS = 30
+// Binary, not blended: a gap at or under this is just normal active play
+// (the ~8s background poll, TreeContext.POLL_INTERVAL_MS, plus room for a
+// slow round trip or a missed tick) and gets the full online rate for its
+// entire length. A gap ABOVE this is genuinely "away", and gets the reduced
+// Autonomía rate (offlineProduction.js) for its *entire* length too — not
+// just the portion past the threshold. That second part matters: a blended
+// "first N seconds free, only the rest reduced" version was tried first,
+// but it silently comped a flat activeSeconds*cps bonus into every single
+// away period, however long — for a short-ish absence that bonus dwarfed
+// the actual reduced-rate portion, so the credited total barely resembled
+// offlineRate × time-away at all (a 4-minute absence read as ~200 instead
+// of the ~14 the displayed "Producción offline" rate implied). Binary
+// avoids that: once you're classified as away, the number you see in
+// Centro de mando times how long you were gone is the number you get.
+const AWAY_THRESHOLD_SECONDS = 20
 
-// Splits an elapsed gap into its active and away portions and applies each
-// at its own rate — shared by accrueAndGetState and buyAutoClickLevel,
-// which both run this exact same accrual math before doing anything else.
+// Shared by accrueAndGetState and buyAutoClickLevel, which both run this
+// exact same accrual math before doing anything else.
 function accrueWhole(remainder, seconds, currentCps, offlineRate) {
-  const activeSeconds = Math.min(seconds, ACTIVE_WINDOW_SECONDS)
-  const awaySeconds = Math.max(0, seconds - ACTIVE_WINDOW_SECONDS)
-  const raw = remainder + activeSeconds * currentCps + awaySeconds * currentCps * offlineRate
+  const rate = seconds > AWAY_THRESHOLD_SECONDS ? offlineRate : 1
+  const raw = remainder + seconds * currentCps * rate
   const whole = Math.floor(raw)
   return { whole, remainder: raw - whole }
 }
