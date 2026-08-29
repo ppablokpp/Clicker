@@ -14,8 +14,8 @@ import { AUTOCLICK_CPS_PER_LEVEL } from './autoClick.js'
 export const AUTO_MULTIPLIER_NODE_ID = 'auto_multiplier'
 export const AUTO_MULTIPLIER_MAX_LEVEL = 19
 export const AUTO_MULTIPLIER_STEP = 0.5
-export const AUTO_MULTIPLIER_BASE_COST = 2_000
-export const AUTO_MULTIPLIER_COST_RATIO = 1.26
+export const AUTO_MULTIPLIER_BASE_COST = 1_000
+export const AUTO_MULTIPLIER_COST_RATIO = 1.5
 
 export function autoMultiplierCost(level) {
   if (level >= AUTO_MULTIPLIER_MAX_LEVEL) return null

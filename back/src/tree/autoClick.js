@@ -11,8 +11,8 @@
 export const AUTOCLICK_NODE_ID = 'auto_click'
 export const AUTOCLICK_MAX_LEVEL = 30
 
-export const AUTOCLICK_BASE_COST = 300
-export const AUTOCLICK_COST_RATIO = 1.25
+export const AUTOCLICK_BASE_COST = 250
+export const AUTOCLICK_COST_RATIO = 1.3
 export const AUTOCLICK_CPS_PER_LEVEL = 0.5
 
 // Cost to go from `level` owned to `level + 1`.

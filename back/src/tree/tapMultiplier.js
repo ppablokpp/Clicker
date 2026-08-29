@@ -9,7 +9,7 @@
 export const TAP_MULTIPLIER_NODE_ID = 'tap_multiplier'
 export const TAP_MULTIPLIER_MAX_LEVEL = 5
 export const TAP_MULTIPLIER_STEP = 1
-export const TAP_MULTIPLIER_BASE_COST = 6_000
+export const TAP_MULTIPLIER_BASE_COST = 50_000
 export const TAP_MULTIPLIER_COST_RATIO = 2.0
 
 export function tapMultiplierCost(level) {

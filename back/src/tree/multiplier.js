@@ -8,7 +8,7 @@ export const MULTIPLIER_NODE_ID = 'click_multiplier'
 export const MULTIPLIER_MAX_LEVEL = 9
 export const MULTIPLIER_STEP = 1
 export const MULTIPLIER_BASE_COST = 1_500
-export const MULTIPLIER_COST_RATIO = 1.5
+export const MULTIPLIER_COST_RATIO = 2
 
 export function multiplierCost(level) {
   if (level >= MULTIPLIER_MAX_LEVEL) return null

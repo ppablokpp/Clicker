@@ -11,7 +11,7 @@ export const LEGENDARY_GROWTH_BASE_STEP = 0.5
 export const LEGENDARY_GROWTH_STEP_INCREMENT = 0.1
 
 export const LEGENDARY_GROWTH_BASE_COST = 2_500
-export const LEGENDARY_GROWTH_COST_RATIO = 1.18
+export const LEGENDARY_GROWTH_COST_RATIO = 1.7
 
 export function legendaryGrowthCost(level) {
   if (level >= LEGENDARY_GROWTH_MAX_LEVEL) return null

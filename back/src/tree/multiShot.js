@@ -10,8 +10,8 @@
 export const MULTI_SHOT_NODE_ID = 'multi_shot'
 export const MULTI_SHOT_MAX_LEVEL = 9
 
-export const MULTI_SHOT_BASE_COST = 1_200
-export const MULTI_SHOT_COST_RATIO = 1.65
+export const MULTI_SHOT_BASE_COST = 1_000
+export const MULTI_SHOT_COST_RATIO = 3
 
 export function multiShotCost(level) {
   if (level >= MULTI_SHOT_MAX_LEVEL) return null

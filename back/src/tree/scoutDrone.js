@@ -11,7 +11,7 @@ export const SCOUT_DRONE_NODE_ID = 'auto_luck'
 export const SCOUT_DRONE_MAX_LEVEL = 20
 
 export const SCOUT_DRONE_BASE_COST = 3_200
-export const SCOUT_DRONE_COST_RATIO = 1.25
+export const SCOUT_DRONE_COST_RATIO = 1.3
 export const SCOUT_DRONE_CPS_PER_LEVEL = 2
 
 export function scoutDroneCost(level) {

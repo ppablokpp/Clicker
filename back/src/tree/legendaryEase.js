@@ -12,7 +12,7 @@ export const LEGENDARY_EASE_BASE_STREAK = 200
 export const LEGENDARY_EASE_STEP = 5
 
 export const LEGENDARY_EASE_BASE_COST = 2_000
-export const LEGENDARY_EASE_COST_RATIO = 1.17
+export const LEGENDARY_EASE_COST_RATIO = 1.7
 
 export function legendaryEaseCost(level) {
   if (level >= LEGENDARY_EASE_MAX_LEVEL) return null

@@ -11,7 +11,7 @@ export const SCOUT_FREQUENCY_MAX_LEVEL = 20
 export const SCOUT_FREQUENCY_STEP = 1
 
 export const SCOUT_FREQUENCY_BASE_COST = 5_000
-export const SCOUT_FREQUENCY_COST_RATIO = 1.28
+export const SCOUT_FREQUENCY_COST_RATIO = 1.35
 
 export function scoutFrequencyCost(level) {
   if (level >= SCOUT_FREQUENCY_MAX_LEVEL) return null
