@@ -184,7 +184,7 @@ const NODES: TreeNode[] = [
   { id: 'e2a', x: 892, y: 441, label: 'Mejora' },
   { id: 'e2a1', x: 909, y: 587, label: 'Mejora' },
   { id: 'e3a', x: 1054, y: 626, label: 'Mejora+' },
-  { id: 'e2c', x: CENTER + 310, y: CENTER + 160, label: 'Mejora' },
+  { id: 'e2c', x: CENTER + 275, y: CENTER + 205, label: 'Mejora' },
 ]
 
 const EDGES: TreeEdge[] = [
@@ -307,9 +307,24 @@ const AUTO_LUCK_NODE_STYLE = 'border-amber-400/25 bg-[#1f1608] text-amber-200 sh
 // opaque-dark-backing recipe as the other real nodes.
 const MULTI_SHOT_NODE_STYLE = 'border-cyan-400/25 bg-[#08191c] text-cyan-200 shadow-black/20'
 
-// Branch D — Anomalías/Extracción/Frecuencia. Sky, its own family, distinct
-// from every other branch's color so far (including Multidisparo's cyan).
-const ANOMALY_NODE_STYLE = 'border-sky-400/25 bg-[#08141f] text-sky-200 shadow-black/20'
+// Branch D — Anomalías/Extracción/Detección. Orange, its own family, distinct
+// from every other branch's color so far.
+const ANOMALY_NODE_STYLE = 'border-orange-400/25 bg-[#1f1006] text-orange-200 shadow-black/20'
+
+// Still-unwired placeholder leaves at the end of each real branch — tinted
+// with that branch's own family color/icon once revealed instead of the
+// generic default violet, so a branch reads as one color end-to-end even
+// before its later nodes have anything to actually buy yet.
+const PLACEHOLDER_FAMILY: Record<string, { style: string; iconText: string }> = {
+  a2b: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
+  a3: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
+  a4: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
+  b2a: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
+  b2b: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
+  b3: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
+  e2b1: { style: AUTO_LUCK_NODE_STYLE, iconText: 'text-amber-300' },
+  e3a: { style: LEGENDARY_NODE_STYLE, iconText: 'text-red-300' },
+}
 
 const DEFAULT_SCALE = 0.68
 
@@ -703,6 +718,9 @@ export function Tree() {
               revealStateById[node.id] !== 'hidden',
           ).map((node) => {
             const revealState = revealStateById[node.id] as 'available' | 'locked'
+            const family = PLACEHOLDER_FAMILY[node.id]
+            const styleClass = revealState === 'available' && family ? family.style : NODE_STYLES[revealState]
+            const iconClass = revealState === 'available' ? (family?.iconText ?? 'text-violet-300') : ''
             return (
               // Positioning (left/top + centering translate) lives on this
               // plain wrapper so framer-motion's own animated transform
@@ -718,9 +736,9 @@ export function Tree() {
                   initial={{ opacity: 0, scale: 0.3 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(node, CENTER, CENTER) }}
-                  className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES[revealState]}`}
+                  className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${styleClass}`}
                 >
-                  <Sparkles size={20} className={revealState === 'available' ? 'text-violet-300' : ''} />
+                  <Sparkles size={20} className={iconClass} />
                   <span className="whitespace-nowrap text-xs font-semibold">{node.label}</span>
                   {revealState === 'locked' && (
                     <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
@@ -1358,8 +1376,8 @@ export function Tree() {
 
           {/* Branch D — Anomalías, a one-time gate on Home's "Anomalía"
               mini-event itself (same shape as Modo Legendario gating the
-              Legendary heat tier), forking into Extracción and Frecuencia.
-              Sky, its own family. */}
+              Legendary heat tier), forking into Extracción and Detección.
+              Orange, its own family. */}
           {revealStateById.d1 === 'locked' && (
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
@@ -1393,9 +1411,9 @@ export function Tree() {
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d1, CENTER, CENTER) }}
-                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${ANOMALY_NODE_STYLE}`}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-orange-400/40 ${ANOMALY_NODE_STYLE}`}
               >
-                <Orbit size={20} className="text-sky-300" />
+                <Orbit size={20} className="text-orange-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {anomalyUnlockLevel}
                 </span>
@@ -1442,9 +1460,9 @@ export function Tree() {
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d2, CENTER, CENTER) }}
-                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${ANOMALY_NODE_STYLE}`}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-orange-400/40 ${ANOMALY_NODE_STYLE}`}
               >
-                <Pickaxe size={20} className="text-sky-300" />
+                <Pickaxe size={20} className="text-orange-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {anomalyRewardLevel}
                 </span>
@@ -1491,9 +1509,9 @@ export function Tree() {
                 initial={{ opacity: 0, scale: 0.3 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d3, CENTER, CENTER) }}
-                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-sky-400/40 ${ANOMALY_NODE_STYLE}`}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-orange-400/40 ${ANOMALY_NODE_STYLE}`}
               >
-                <Timer size={20} className="text-sky-300" />
+                <Timer size={20} className="text-orange-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {anomalyFrequencyLevel}
                 </span>
@@ -1562,7 +1580,7 @@ export function Tree() {
 
       {showAutoClickModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowAutoClickModal(false)}
         >
           <div
@@ -1630,7 +1648,7 @@ export function Tree() {
 
       {showPremiumModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowPremiumModal(false)}
         >
           <div
@@ -1692,7 +1710,7 @@ export function Tree() {
 
       {showLuckModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowLuckModal(false)}
         >
           <div
@@ -1748,7 +1766,7 @@ export function Tree() {
 
       {showLuckChanceModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowLuckChanceModal(false)}
         >
           <div
@@ -1804,7 +1822,7 @@ export function Tree() {
 
       {showMultiplierModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowMultiplierModal(false)}
         >
           <div
@@ -1860,7 +1878,7 @@ export function Tree() {
 
       {showLegendaryGrowthModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowLegendaryGrowthModal(false)}
         >
           <div
@@ -1916,7 +1934,7 @@ export function Tree() {
 
       {showLegendaryUnlockModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowLegendaryUnlockModal(false)}
         >
           <div
@@ -1959,7 +1977,7 @@ export function Tree() {
 
       {showLegendaryEaseModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowLegendaryEaseModal(false)}
         >
           <div
@@ -2015,7 +2033,7 @@ export function Tree() {
 
       {showScoutDroneModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowScoutDroneModal(false)}
         >
           <div
@@ -2075,7 +2093,7 @@ export function Tree() {
 
       {showScoutFrequencyModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowScoutFrequencyModal(false)}
         >
           <div
@@ -2135,7 +2153,7 @@ export function Tree() {
 
       {showAutoMultiplierModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowAutoMultiplierModal(false)}
         >
           <div
@@ -2201,7 +2219,7 @@ export function Tree() {
 
       {showTapMultiplierModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowTapMultiplierModal(false)}
         >
           <div
@@ -2257,7 +2275,7 @@ export function Tree() {
 
       {showMultiShotModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowMultiShotModal(false)}
         >
           <div
@@ -2313,7 +2331,7 @@ export function Tree() {
 
       {showAnomalyUnlockModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowAnomalyUnlockModal(false)}
         >
           <div
@@ -2329,13 +2347,13 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Orbit size={18} className="text-sky-300" />
+              <Orbit size={18} className="text-orange-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.anomalyUnlockName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyUnlockDesc(currentMaterialName)}</p>
 
             {isAnomalyUnlockMaxed ? (
-              <div className="relative w-full rounded-xl border border-sky-400/20 bg-sky-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-sky-200">
+              <div className="relative w-full rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-orange-200">
                 {strings.store.maxLevel}
               </div>
             ) : (
@@ -2356,7 +2374,7 @@ export function Tree() {
 
       {showAnomalyRewardModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowAnomalyRewardModal(false)}
         >
           <div
@@ -2372,7 +2390,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Pickaxe size={18} className="text-sky-300" />
+              <Pickaxe size={18} className="text-orange-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.anomalyRewardName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyRewardDesc(currentMaterialName)}</p>
@@ -2391,7 +2409,7 @@ export function Tree() {
             </div>
 
             {isAnomalyRewardMaxed ? (
-              <div className="relative w-full rounded-xl border border-sky-400/20 bg-sky-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-sky-200">
+              <div className="relative w-full rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-orange-200">
                 {strings.store.maxLevel}
               </div>
             ) : (
@@ -2412,7 +2430,7 @@ export function Tree() {
 
       {showAnomalyFrequencyModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onClick={() => setShowAnomalyFrequencyModal(false)}
         >
           <div
@@ -2428,7 +2446,7 @@ export function Tree() {
             </button>
 
             <div className="mb-3 flex items-center gap-2">
-              <Timer size={18} className="text-sky-300" />
+              <Timer size={18} className="text-orange-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.anomalyFrequencyName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyFrequencyDesc}</p>
@@ -2449,7 +2467,7 @@ export function Tree() {
             </div>
 
             {isAnomalyFrequencyMaxed ? (
-              <div className="relative w-full rounded-xl border border-sky-400/20 bg-sky-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-sky-200">
+              <div className="relative w-full rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-orange-200">
                 {strings.store.maxLevel}
               </div>
             ) : (

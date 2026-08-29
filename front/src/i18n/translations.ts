@@ -615,8 +615,8 @@ export const translations: Record<Language, TranslationStrings> = {
       nextAnomalyReward: 'Extracción siguiente nivel:',
       anomalyFrequencyName: 'Detección',
       anomalyFrequencyDesc: 'Reduce el tiempo de aparición de anomalías.',
-      currentAnomalyFrequency: 'Tiempo entre anomalías:',
-      nextAnomalyFrequency: 'Siguiente nivel:',
+      currentAnomalyFrequency: 'Detección actual:',
+      nextAnomalyFrequency: 'Detección siguiente nivel:',
       formatAnomalyWait: (seconds) => {
         if (seconds < 60) return `${seconds} segundos`
         const minutes = seconds / 60
@@ -995,8 +995,8 @@ export const translations: Record<Language, TranslationStrings> = {
       nextAnomalyReward: 'Next level extraction:',
       anomalyFrequencyName: 'Detection',
       anomalyFrequencyDesc: 'Shortens how often anomalies appear.',
-      currentAnomalyFrequency: 'Time between anomalies:',
-      nextAnomalyFrequency: 'Next level:',
+      currentAnomalyFrequency: 'Current detection:',
+      nextAnomalyFrequency: 'Next level detection:',
       formatAnomalyWait: (seconds) => {
         if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`
         const minutes = seconds / 60

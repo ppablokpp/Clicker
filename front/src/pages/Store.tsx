@@ -311,7 +311,7 @@ function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, 
   const classes = PACK_THEME[theme]
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -1216,7 +1216,7 @@ function CaseCatalogModal({ catalog, locale, strings, onClose, variant = 'groupe
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
       onClick={onClose}
     >
       <div

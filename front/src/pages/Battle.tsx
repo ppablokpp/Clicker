@@ -474,7 +474,7 @@ export function Battle() {
       </div>
 
       {(phase === 'submitting' || phase === 'result') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm">
           <div
             className={`relative w-full max-w-sm rounded-2xl border p-6 text-center shadow-2xl shadow-black/50 ${
               phase === 'result' && result && result.role === 'opponent'

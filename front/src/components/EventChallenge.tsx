@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { motion } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
+import { useTreeContext } from '../context/TreeContext'
 import { useLanguage } from '../context/LanguageContext'
 import { playLaserShot } from '../lib/battleSound'
 import { Asteroid, type AsteroidColors } from './Asteroid'
@@ -79,6 +80,7 @@ interface EventChallengeProps {
 export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
   const { userId, getToken } = useAuth()
   const { prestigeTier, syncTotalClicks } = useClickCounterContext()
+  const { multiShotValue } = useTreeContext()
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const materialName = strings.home.trajectoryTierNames[prestigeTier]
@@ -98,6 +100,11 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
   const phaseRef = useRef<Phase>('playing')
   const startTimeRef = useRef(Date.now())
   const lastParticleAtRef = useRef(0)
+  // Same cannon cap as Home's own manual shots (Multidisparo/multiShotValue)
+  // — the anomaly is neutralized with the ship's actual guns, so a ship with
+  // more cannons can land more simultaneous taps here too, same as it does
+  // on the main click target.
+  const activePointersRef = useRef<Set<number>>(new Set())
 
   const finishRound = useCallback(async () => {
     if (phaseRef.current !== 'playing') return
@@ -139,7 +146,22 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
+      // This container sits inside Home's own DOM tree (not a portal), and
+      // Home's manual-shot handler is bound to its own outer pointerdown —
+      // without this, every tap here (including the result modal's "Volver"
+      // button) would bubble up and silently register as a real shot/click
+      // on Home underneath. Called unconditionally, before the phase check,
+      // so it applies during both 'playing' and 'result'.
+      e.stopPropagation()
       if (phaseRef.current !== 'playing') return
+
+      // Multidisparo's cap — a finger landing while the allowance is
+      // already full is ignored entirely, same as Home's own manual shots.
+      if (!activePointersRef.current.has(e.pointerId) && activePointersRef.current.size >= multiShotValue) {
+        return
+      }
+      activePointersRef.current.add(e.pointerId)
+
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
       const x = e.clientX - rect.left
@@ -160,8 +182,15 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
 
       if (tapsRef.current >= TAPS_GOAL) finishRound()
     },
-    [finishRound],
+    [finishRound, multiShotValue],
   )
+
+  // Frees the pointer's slot the moment it lifts (or the gesture is
+  // cancelled), same as Home's own handlePointerUp, so the next finger down
+  // can use it.
+  const handlePointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(e.pointerId)
+  }, [])
 
   const handleShotEnd = useCallback((shot: ShotEffect) => {
     setShots((current) => current.filter((s) => s.id !== shot.id))
@@ -195,6 +224,8 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       className="fixed inset-0 z-[70] touch-none select-none overflow-hidden bg-[#08080c]"
     >
       {/* Same two-layer starfield as Battle.tsx's own duel screen. */}
@@ -305,7 +336,7 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
       </div>
 
       {phase === 'result' && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm">
           <div
             className={`relative w-full max-w-sm rounded-2xl border p-6 text-center shadow-2xl shadow-black/50 ${
               succeeded ? 'border-green-400/25 bg-[#0f1f16]' : 'border-red-400/25 bg-[#1f0d0d]'

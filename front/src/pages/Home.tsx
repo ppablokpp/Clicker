@@ -1467,7 +1467,7 @@ export function Home() {
 
       {showInventory && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowInventory(false)}
         >
@@ -1718,7 +1718,7 @@ export function Home() {
 
       {showShip && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowShip(false)}
         >
@@ -1894,7 +1894,7 @@ export function Home() {
 
       {showTasks && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowTasks(false)}
         >
@@ -2025,7 +2025,7 @@ export function Home() {
           each). Nothing behind it yet. */}
       {showLog && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowLog(false)}
         >
@@ -2115,7 +2115,7 @@ export function Home() {
 
       {infoModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setInfoModal(null)}
         >
@@ -2145,7 +2145,7 @@ export function Home() {
 
       {showPrestigeConfirm && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowPrestigeConfirm(false)}
         >
@@ -2197,7 +2197,7 @@ export function Home() {
           touch it while it might still get reused later. */}
       {/* {showPrestigeShop && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowPrestigeShop(false)}
         >
