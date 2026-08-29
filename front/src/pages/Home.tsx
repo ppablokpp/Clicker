@@ -726,7 +726,7 @@ export function Home() {
       progressValue: autoClickLevel,
       tiers: [
         { id: 'first_drone', name: strings.home.taskFirstDroneName, desc: strings.home.taskFirstDroneDesc, reward: 1_000, required: 1 },
-        { id: 'drone_squadron', name: strings.home.taskDroneSquadronName, desc: strings.home.taskDroneSquadronDesc, reward: 10_000, required: 10 },
+        { id: 'drone_squadron', name: strings.home.taskDroneSquadronName, desc: strings.home.taskDroneSquadronDesc, reward: 2_000, required: 10 },
         { id: 'drone_swarm', name: strings.home.taskDroneSwarmName, desc: strings.home.taskDroneSwarmDesc, reward: 50_000, required: 30 },
       ],
     },
@@ -740,7 +740,7 @@ export function Home() {
       progressValue: scoutDroneLevel,
       tiers: [
         { id: 'first_scout_drone', name: strings.home.taskFirstScoutDroneName, desc: strings.home.taskFirstScoutDroneDesc, reward: 5_000, required: 1 },
-        { id: 'scout_squad', name: strings.home.taskScoutSquadName, desc: strings.home.taskScoutSquadDesc, reward: 25_000, required: 10 },
+        { id: 'scout_squad', name: strings.home.taskScoutSquadName, desc: strings.home.taskScoutSquadDesc, reward: 10_000, required: 10 },
         { id: 'scout_fleet', name: strings.home.taskScoutFleetName, desc: strings.home.taskScoutFleetDesc, reward: 100_000, required: 20 },
       ],
     },
@@ -754,7 +754,7 @@ export function Home() {
       tiers: [
         { id: 'second_cannon', name: strings.home.taskSecondCannonName, desc: strings.home.taskSecondCannonDesc, reward: 2_000, required: 1 },
         { id: 'full_battery', name: strings.home.taskFullBatteryName, desc: strings.home.taskFullBatteryDesc, reward: 10_000, required: 4 },
-        { id: 'total_arsenal', name: strings.home.taskTotalArsenalName, desc: strings.home.taskTotalArsenalDesc, reward: 40_000, required: 9 },
+        { id: 'total_arsenal', name: strings.home.taskTotalArsenalName, desc: strings.home.taskTotalArsenalDesc, reward: 100_000, required: 9 },
       ],
     },
     {
@@ -766,8 +766,8 @@ export function Home() {
       progressValue: anomaliesNeutralized,
       tiers: [
         { id: 'first_anomaly', name: strings.home.taskFirstAnomalyName, desc: strings.home.taskFirstAnomalyDesc, reward: 5_000, required: 1 },
-        { id: 'anomaly_hunter', name: strings.home.taskAnomalyHunterName, desc: strings.home.taskAnomalyHunterDesc, reward: 20_000, required: 5 },
-        { id: 'sector_guardian', name: strings.home.taskSectorGuardianName, desc: strings.home.taskSectorGuardianDesc, reward: 75_000, required: 15 },
+        { id: 'anomaly_hunter', name: strings.home.taskAnomalyHunterName, desc: strings.home.taskAnomalyHunterDesc, reward: 10_000, required: 5 },
+        { id: 'sector_guardian', name: strings.home.taskSectorGuardianName, desc: strings.home.taskSectorGuardianDesc, reward: 20_000, required: 15 },
       ],
     },
   ]
