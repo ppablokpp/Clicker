@@ -65,6 +65,13 @@ interface TreeContextValue extends TreeState {
   // Pulls fresh tree levels immediately — used after a prestige confirm
   // (Home.tsx) instead of waiting for the next background poll.
   refetch: () => Promise<void>
+  // What the fleet produced while the app was closed — set once, from the
+  // very first /api/tree/me response after mount (see fetchState's
+  // isFirstFetchRef), never from the routine 8s polls that follow. null
+  // means either nothing to report yet, or the player already dismissed it
+  // this session (see OfflineEarningsModal).
+  awayCredit: number | null
+  clearAwayCredit: () => void
   isBuying: boolean
   buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLuck: boolean
@@ -169,6 +176,13 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   // Read from inside the fast tick interval without needing to restart it
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
+  const [awayCredit, setAwayCredit] = useState<number | null>(null)
+  // Flips to false after the very first fetchState() call completes (mount
+  // or sign-in), whether or not it actually credited anything — every
+  // fetchState call after that is a routine background poll and must never
+  // set awayCredit, or the modal would pop up again every 8 seconds.
+  const isFirstFetchRef = useRef(true)
+  const clearAwayCredit = useCallback(() => setAwayCredit(null), [])
 
   useEffect(() => {
     cpsRef.current = state.autoClickCps + state.scoutDroneCps
@@ -229,6 +243,12 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           anomalyFrequencySeconds: data.anomalyFrequencySeconds,
           anomalyFrequencyNextCost: data.anomalyFrequencyNextCost,
         })
+        if (isFirstFetchRef.current) {
+          isFirstFetchRef.current = false
+          if (typeof data.creditedThisCall === 'number' && data.creditedThisCall > 0) {
+            setAwayCredit(data.creditedThisCall)
+          }
+        }
         // A read-only poll, not a spend/earn action — never allowed to move
         // the total backwards (see syncTotalClicksIfNewer's own comment for
         // why a plain syncTotalClicks here could randomly yank the counter
@@ -754,6 +774,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         // just-reset tree levels immediately instead of waiting up to
         // POLL_INTERVAL_MS for the next background poll to catch up.
         refetch: fetchState,
+        awayCredit,
+        clearAwayCredit,
         isBuying,
         buyAutoClick,
         isBuyingLuck,

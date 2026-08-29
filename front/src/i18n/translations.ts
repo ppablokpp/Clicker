@@ -77,6 +77,10 @@ export interface TranslationStrings {
     trajectoryPrestigeBody: (currentTierName: string, nextTierName: string) => string
     trajectoryPrestigeConfirm: string
     trajectoryPrestigeCancel: string
+    fleetAwayTitle: string
+    fleetAwayPrefix: string
+    fleetAwaySuffix: string
+    fleetAwayAccept: string
   }
   nav: {
     home: string
@@ -373,6 +377,10 @@ export const translations: Record<Language, TranslationStrings> = {
         `Tu ${currentTierName.toLowerCase()} actual se reseteará, se eliminará todo el progreso de tu árbol de mejoras, y tu nave viajará hacia otro asteroide para hacer una extracción de ${nextTierName}. Tu puntuación total de la clasificación nunca se pierde.`,
       trajectoryPrestigeConfirm: 'Cambiar',
       trajectoryPrestigeCancel: 'Cancelar',
+      fleetAwayTitle: 'Informe de la flota',
+      fleetAwayPrefix: 'Tu flota ha extraído',
+      fleetAwaySuffix: 'mientras no estabas.',
+      fleetAwayAccept: 'Aceptar',
     },
     nav: {
       home: 'Nave',
@@ -754,6 +762,10 @@ export const translations: Record<Language, TranslationStrings> = {
         `Your current ${currentTierName.toLowerCase()} will reset, all of your upgrade tree progress will be wiped, and your ship will travel to another asteroid to mine ${nextTierName}. Your total leaderboard score is never lost.`,
       trajectoryPrestigeConfirm: 'Change',
       trajectoryPrestigeCancel: 'Cancel',
+      fleetAwayTitle: 'Fleet report',
+      fleetAwayPrefix: 'Your fleet extracted',
+      fleetAwaySuffix: 'while you were away.',
+      fleetAwayAccept: 'Accept',
     },
     nav: {
       home: 'Ship',

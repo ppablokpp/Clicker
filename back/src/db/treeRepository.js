@@ -116,6 +116,12 @@ export const treeRepository = {
       const currentCps = (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
 
       let totalClicks = Number(userRow.rows[0].total_clicks)
+      // What this specific call just credited — the frontend uses this to
+      // show a "your fleet extracted X while you were away" modal on the
+      // very first fetch after the app mounts (not on every routine 8s
+      // poll while already playing, which also runs through this same
+      // accrual path and would otherwise pop the modal constantly).
+      let creditedThisCall = 0
 
       if (level > 0 && node.last_tick_at) {
         const elapsed = await client.query('SELECT EXTRACT(EPOCH FROM (now() - $1::timestamptz)) AS seconds', [
@@ -125,6 +131,7 @@ export const treeRepository = {
         const raw = Number(node.remainder) + seconds * currentCps
         const whole = Math.floor(raw)
         const remainder = raw - whole
+        creditedThisCall = whole
 
         if (whole > 0) {
           const updated = await client.query(
@@ -276,6 +283,7 @@ export const treeRepository = {
         totalClicks,
         objectsBroken,
         objectProgress,
+        creditedThisCall,
       }
     } catch (err) {
       await client.query('ROLLBACK')

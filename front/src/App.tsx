@@ -4,6 +4,7 @@ import { AuthGate } from './components/AuthGate'
 import { Header } from './components/Header'
 import { BottomNavPill } from './components/BottomNavPill'
 import { SignInModal } from './components/SignInModal'
+import { FleetAwayModal } from './components/FleetAwayModal'
 import { SignInPromptProvider } from './context/SignInPromptContext'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { GemsProvider } from './context/GemsContext'
@@ -66,6 +67,7 @@ function ClickerApp() {
                                               <Header />
                                               <BottomNavPill />
                                               <SignInModal />
+                                              <FleetAwayModal />
                                             </GemChestProvider>
                                           </GemCaseProvider>
                                         </DailyCaseProvider>
