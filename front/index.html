@@ -9,9 +9,15 @@
     <meta name="theme-color" content="#08080c" />
     <meta name="description" content="ClankUp — haz click, sube en la clasificación mundial." />
     <!-- iOS ignores the manifest's own display:standalone, so "Add to Home
-         Screen" needs these to open chromeless instead of as a Safari tab. -->
+         Screen" needs these to open chromeless instead of as a Safari tab.
+         status-bar-style is deliberately "default" (opaque), not
+         "black-translucent" — translucent draws the page content underneath
+         the status bar/notch via viewport-fit=cover, and nothing here pads
+         for env(safe-area-inset-top), so the top of the screen gets covered
+         by the status bar instead of just scrolling under it like it did in
+         Safari's own chrome. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ClankUp" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
