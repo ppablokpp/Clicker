@@ -8,8 +8,11 @@ tasksRouter.get('/me', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-  const claimed = await tasksRepository.getClaimed(userId)
-  res.json({ claimed })
+  const [claimed, counters] = await Promise.all([
+    tasksRepository.getClaimed(userId),
+    tasksRepository.getCounters(userId),
+  ])
+  res.json({ claimed, anomaliesNeutralized: counters.anomalies_neutralized })
 })
 
 tasksRouter.post('/claim', async (req, res) => {

@@ -55,10 +55,34 @@ export interface TranslationStrings {
     tasksEmpty: string
     taskFirstDroneName: string
     taskFirstDroneDesc: string
+    taskDroneSquadronName: string
+    taskDroneSquadronDesc: string
+    taskDroneSwarmName: string
+    taskDroneSwarmDesc: string
     taskSecondCannonName: string
     taskSecondCannonDesc: string
+    taskFullBatteryName: string
+    taskFullBatteryDesc: string
+    taskTotalArsenalName: string
+    taskTotalArsenalDesc: string
     taskFirstScoutDroneName: string
     taskFirstScoutDroneDesc: string
+    taskScoutSquadName: string
+    taskScoutSquadDesc: string
+    taskScoutFleetName: string
+    taskScoutFleetDesc: string
+    taskFirstAnomalyName: string
+    taskFirstAnomalyDesc: string
+    taskAnomalyHunterName: string
+    taskAnomalyHunterDesc: string
+    taskSectorGuardianName: string
+    taskSectorGuardianDesc: string
+    missionDronesName: string
+    missionMultiShotName: string
+    missionScoutName: string
+    missionAnomalyName: string
+    tasksRewardsLabel: string
+    tasksAllClaimed: string
     taskReward: (amount: string) => string
     taskClaim: string
     taskClaiming: string
@@ -357,12 +381,36 @@ export const translations: Record<Language, TranslationStrings> = {
       tasks: 'Tareas',
       tasksTitle: 'Tareas pendientes',
       tasksEmpty: 'No tienes tareas pendientes.',
-      taskFirstDroneName: 'Primer dron',
+      taskFirstDroneName: 'Primer despegue',
       taskFirstDroneDesc: 'Desbloquea tu primer dron',
-      taskSecondCannonName: 'Segundo cañón',
+      taskDroneSquadronName: 'Escuadrón',
+      taskDroneSquadronDesc: 'Consigue 10 drones',
+      taskDroneSwarmName: 'Enjambre',
+      taskDroneSwarmDesc: 'Consigue 30 drones',
+      taskSecondCannonName: 'Doble cañón',
       taskSecondCannonDesc: 'Consigue el segundo cañón de tu nave',
-      taskFirstScoutDroneName: 'Primer dron buscador',
+      taskFullBatteryName: 'Batería completa',
+      taskFullBatteryDesc: 'Consigue 5 cañones en tu nave',
+      taskTotalArsenalName: 'Arsenal total',
+      taskTotalArsenalDesc: 'Consigue los 10 cañones de tu nave',
+      taskFirstScoutDroneName: 'Primer explorador',
       taskFirstScoutDroneDesc: 'Consigue tu primer dron buscador',
+      taskScoutSquadName: 'Patrulla exploradora',
+      taskScoutSquadDesc: 'Consigue 10 drones buscadores',
+      taskScoutFleetName: 'Flota de reconocimiento',
+      taskScoutFleetDesc: 'Consigue 20 drones buscadores',
+      taskFirstAnomalyName: 'Primer contacto',
+      taskFirstAnomalyDesc: 'Neutraliza tu primera anomalía',
+      taskAnomalyHunterName: 'Cazador de anomalías',
+      taskAnomalyHunterDesc: 'Neutraliza 5 anomalías',
+      taskSectorGuardianName: 'Guardián del sector',
+      taskSectorGuardianDesc: 'Neutraliza 15 anomalías',
+      missionDronesName: 'Flota de drones',
+      missionMultiShotName: 'Potencia de fuego',
+      missionScoutName: 'Reconocimiento estelar',
+      missionAnomalyName: 'Anomalías',
+      tasksRewardsLabel: 'Recompensas',
+      tasksAllClaimed: '¡Misión completada!',
       taskReward: (amount) => `+${amount}`,
       taskClaim: 'Reclamar',
       taskClaiming: 'Reclamando…',
@@ -747,12 +795,36 @@ export const translations: Record<Language, TranslationStrings> = {
       tasks: 'Tasks',
       tasksTitle: 'Pending tasks',
       tasksEmpty: "You don't have any pending tasks.",
-      taskFirstDroneName: 'First drone',
+      taskFirstDroneName: 'First liftoff',
       taskFirstDroneDesc: 'Unlock your first drone',
-      taskSecondCannonName: 'Second cannon',
+      taskDroneSquadronName: 'Squadron',
+      taskDroneSquadronDesc: 'Get 10 drones',
+      taskDroneSwarmName: 'Swarm',
+      taskDroneSwarmDesc: 'Get 30 drones',
+      taskSecondCannonName: 'Twin cannon',
       taskSecondCannonDesc: "Get your ship's second cannon",
-      taskFirstScoutDroneName: 'First scout drone',
+      taskFullBatteryName: 'Full battery',
+      taskFullBatteryDesc: 'Get 5 cannons on your ship',
+      taskTotalArsenalName: 'Total arsenal',
+      taskTotalArsenalDesc: "Get all 10 of your ship's cannons",
+      taskFirstScoutDroneName: 'First scout',
       taskFirstScoutDroneDesc: 'Get your first scout drone',
+      taskScoutSquadName: 'Scout patrol',
+      taskScoutSquadDesc: 'Get 10 scout drones',
+      taskScoutFleetName: 'Recon fleet',
+      taskScoutFleetDesc: 'Get 20 scout drones',
+      taskFirstAnomalyName: 'First contact',
+      taskFirstAnomalyDesc: 'Neutralize your first anomaly',
+      taskAnomalyHunterName: 'Anomaly hunter',
+      taskAnomalyHunterDesc: 'Neutralize 5 anomalies',
+      taskSectorGuardianName: 'Sector guardian',
+      taskSectorGuardianDesc: 'Neutralize 15 anomalies',
+      missionDronesName: 'Drone fleet',
+      missionMultiShotName: 'Firepower',
+      missionScoutName: 'Stellar recon',
+      missionAnomalyName: 'Anomalies',
+      tasksRewardsLabel: 'Rewards',
+      tasksAllClaimed: 'Mission complete!',
       taskReward: (amount) => `+${amount}`,
       taskClaim: 'Claim',
       taskClaiming: 'Claiming…',

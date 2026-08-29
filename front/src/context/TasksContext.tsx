@@ -8,6 +8,13 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 interface TasksContextValue {
   claimed: Set<string>
   claimingId: string | null
+  // Progress for 'counter'-type tasks (see back/src/tasks/config.js) —
+  // 'node-level' tasks don't need this, their progress already comes from
+  // the tree's own live state (TreeContext).
+  anomaliesNeutralized: number
+  // Lets EventChallenge fold a fresh count straight in the instant a win
+  // lands, instead of waiting for the next full /api/tasks/me refetch.
+  syncAnomaliesNeutralized: (count: number) => void
   claim: (taskId: string) => Promise<{ ok: boolean; error?: string }>
 }
 
@@ -19,6 +26,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const { promptSignIn } = useSignInPrompt()
   const [claimed, setClaimed] = useState<Set<string>>(new Set())
   const [claimingId, setClaimingId] = useState<string | null>(null)
+  const [anomaliesNeutralized, setAnomaliesNeutralized] = useState(0)
 
   useEffect(() => {
     if (!userId) return
@@ -32,6 +40,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         if (!cancelled && res.ok) {
           const data = await res.json()
           setClaimed(new Set(data.claimed))
+          if (typeof data.anomaliesNeutralized === 'number') setAnomaliesNeutralized(data.anomaliesNeutralized)
         }
       } catch (err) {
         console.error('No se pudieron cargar tus tareas', err)
@@ -72,7 +81,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     [userId, getToken, syncTotalClicks, promptSignIn],
   )
 
-  return <TasksContext.Provider value={{ claimed, claimingId, claim }}>{children}</TasksContext.Provider>
+  const syncAnomaliesNeutralized = useCallback((count: number) => setAnomaliesNeutralized(count), [])
+
+  return (
+    <TasksContext.Provider value={{ claimed, claimingId, anomaliesNeutralized, syncAnomaliesNeutralized, claim }}>
+      {children}
+    </TasksContext.Provider>
+  )
 }
 
 export function useTasksContext() {

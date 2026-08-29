@@ -11,5 +11,5 @@ eventsRouter.post('/claim', async (req, res) => {
   const result = await eventsRepository.claimReward(userId)
   if (!result.ok) return res.status(400).json({ error: result.reason })
 
-  res.json({ reward: result.reward, totalClicks: result.totalClicks })
+  res.json({ reward: result.reward, totalClicks: result.totalClicks, anomaliesNeutralized: result.anomaliesNeutralized })
 })

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
+import { useTasksContext } from '../context/TasksContext'
 import { useLanguage } from '../context/LanguageContext'
 import { playLaserShot } from '../lib/battleSound'
 import { Asteroid, type AsteroidColors } from './Asteroid'
@@ -81,6 +82,7 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
   const { userId, getToken } = useAuth()
   const { prestigeTier, syncTotalClicks } = useClickCounterContext()
   const { multiShotValue } = useTreeContext()
+  const { syncAnomaliesNeutralized } = useTasksContext()
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const materialName = strings.home.trajectoryTierNames[prestigeTier]
@@ -121,13 +123,14 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
         if (res.ok && typeof data.reward === 'number') {
           setReward(data.reward)
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+          if (typeof data.anomaliesNeutralized === 'number') syncAnomaliesNeutralized(data.anomaliesNeutralized)
         }
       } catch (err) {
         console.error('No se pudo reclamar la recompensa de la anomalía', err)
       }
     }
     setPhase('result')
-  }, [userId, getToken, syncTotalClicks])
+  }, [userId, getToken, syncTotalClicks, syncAnomaliesNeutralized])
 
   // Countdown ticks off a fixed start timestamp rather than decrementing a
   // counter each frame, so it can't drift from real elapsed time.

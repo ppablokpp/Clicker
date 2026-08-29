@@ -16,6 +16,7 @@ import {
   Crosshair,
   Info,
   ChartNoAxesCombined,
+  Orbit,
   Split,
   Route,
   Lock,
@@ -23,8 +24,10 @@ import {
   Sparkles,
   MousePointerClick,
   Check,
+  Medal,
   type LucideIcon,
 } from 'lucide-react'
+import { MILESTONE_TIER_KEYS, MILESTONE_TIER_COLORS } from '../stats/config'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
@@ -43,7 +46,7 @@ import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
-import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
+import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
@@ -701,46 +704,71 @@ export function Home() {
   // prestige moves the player onto Amatista, Esmeralda, etc.
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
   // Onboarding tasks — completion reads straight off the tree's own live
-  // levels (no separate counter to keep in sync); the backend re-verifies
-  // the same level against user_permanent_upgrades before ever paying out
-  // (see tasksRepository.claim), so nothing here needs to be trusted.
-  const TASKS = [
+  // levels (no separate counter to keep in sync for 'node-level' tiers);
+  // the backend re-verifies the same condition before ever paying out (see
+  // tasksRepository.claim), so nothing here needs to be trusted. Grouped
+  // into missions of 3 escalating tiers each, all shown at once — same
+  // bronze/silver/gold medal language as Stats' own milestones, just 3
+  // tiers instead of 4 and a claim action on top of the badge.
+  const { claimed: claimedTasks, claimingId: claimingTaskId, anomaliesNeutralized, claim: claimTask } = useTasksContext()
+  // Which tier's reward a mission's card is showing — defaults to that
+  // mission's own active tier (see `activeTier` below) until the player
+  // clicks a medal to browse another one, same interaction as Stats'
+  // milestone badges re-targeting their ring.
+  const [selectedTierByMission, setSelectedTierByMission] = useState<Record<string, number>>({})
+  const MISSIONS = [
     {
-      id: 'first_drone',
+      missionId: 'drones',
+      missionName: strings.home.missionDronesName,
       // Same icon + badge color as Centro de mando's own "Drones" tile.
-      name: strings.home.taskFirstDroneName,
-      desc: strings.home.taskFirstDroneDesc,
-      reward: 1000,
       icon: DroneIcon,
       badgeClass: 'bg-violet-500/20 text-violet-300',
-      progress: Math.min(autoClickLevel, 1),
-      required: 1,
-      completed: autoClickLevel >= 1,
+      progressValue: autoClickLevel,
+      tiers: [
+        { id: 'first_drone', name: strings.home.taskFirstDroneName, desc: strings.home.taskFirstDroneDesc, reward: 1_000, required: 1 },
+        { id: 'drone_squadron', name: strings.home.taskDroneSquadronName, desc: strings.home.taskDroneSquadronDesc, reward: 10_000, required: 10 },
+        { id: 'drone_swarm', name: strings.home.taskDroneSwarmName, desc: strings.home.taskDroneSwarmDesc, reward: 50_000, required: 30 },
+      ],
     },
     {
-      id: 'second_cannon',
-      // Same icon + badge color as Centro de mando's own "Multidisparo" tile.
-      name: strings.home.taskSecondCannonName,
-      desc: strings.home.taskSecondCannonDesc,
-      reward: 2000,
-      icon: Split,
-      badgeClass: 'bg-cyan-500/20 text-cyan-300',
-      progress: Math.min(multiShotLevel, 1),
-      required: 1,
-      completed: multiShotLevel >= 1,
-    },
-    {
-      id: 'first_scout_drone',
+      missionId: 'scout',
+      missionName: strings.home.missionScoutName,
       // Same icon + badge color as Centro de mando's own "Drones
       // buscadores" tile.
-      name: strings.home.taskFirstScoutDroneName,
-      desc: strings.home.taskFirstScoutDroneDesc,
-      reward: 5000,
       icon: DroneIcon,
       badgeClass: 'bg-amber-500/20 text-amber-300',
-      progress: Math.min(scoutDroneLevel, 1),
-      required: 1,
-      completed: scoutDroneLevel >= 1,
+      progressValue: scoutDroneLevel,
+      tiers: [
+        { id: 'first_scout_drone', name: strings.home.taskFirstScoutDroneName, desc: strings.home.taskFirstScoutDroneDesc, reward: 5_000, required: 1 },
+        { id: 'scout_squad', name: strings.home.taskScoutSquadName, desc: strings.home.taskScoutSquadDesc, reward: 25_000, required: 10 },
+        { id: 'scout_fleet', name: strings.home.taskScoutFleetName, desc: strings.home.taskScoutFleetDesc, reward: 100_000, required: 20 },
+      ],
+    },
+    {
+      missionId: 'multishot',
+      missionName: strings.home.missionMultiShotName,
+      // Same icon + badge color as Centro de mando's own "Multidisparo" tile.
+      icon: Split,
+      badgeClass: 'bg-cyan-500/20 text-cyan-300',
+      progressValue: multiShotLevel,
+      tiers: [
+        { id: 'second_cannon', name: strings.home.taskSecondCannonName, desc: strings.home.taskSecondCannonDesc, reward: 2_000, required: 1 },
+        { id: 'full_battery', name: strings.home.taskFullBatteryName, desc: strings.home.taskFullBatteryDesc, reward: 10_000, required: 4 },
+        { id: 'total_arsenal', name: strings.home.taskTotalArsenalName, desc: strings.home.taskTotalArsenalDesc, reward: 40_000, required: 9 },
+      ],
+    },
+    {
+      missionId: 'anomaly',
+      missionName: strings.home.missionAnomalyName,
+      // Same orange family as the tree's own Anomalías branch.
+      icon: Orbit,
+      badgeClass: 'bg-orange-500/20 text-orange-300',
+      progressValue: anomaliesNeutralized,
+      tiers: [
+        { id: 'first_anomaly', name: strings.home.taskFirstAnomalyName, desc: strings.home.taskFirstAnomalyDesc, reward: 5_000, required: 1 },
+        { id: 'anomaly_hunter', name: strings.home.taskAnomalyHunterName, desc: strings.home.taskAnomalyHunterDesc, reward: 20_000, required: 5 },
+        { id: 'sector_guardian', name: strings.home.taskSectorGuardianName, desc: strings.home.taskSectorGuardianDesc, reward: 75_000, required: 15 },
+      ],
     },
   ]
   const {
@@ -784,7 +812,6 @@ export function Home() {
     ownedMagnets.length === 0
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
-  const { claimed: claimedTasks, claimingId: claimingTaskId, claim: claimTask } = useTasksContext()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
   const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
@@ -1937,8 +1964,8 @@ export function Home() {
                   <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.tasksTitle}</p>
                   <span className="font-mono text-[9px] font-semibold uppercase tracking-widest text-emerald-400/70">
                     {strings.home.tasksProgress(
-                      String(TASKS.filter((t) => claimedTasks.has(t.id)).length),
-                      String(TASKS.length),
+                      String(MISSIONS.filter((m) => m.tiers.every((tier) => claimedTasks.has(tier.id))).length),
+                      String(MISSIONS.length),
                     )}
                   </span>
                 </div>
@@ -1955,74 +1982,123 @@ export function Home() {
               }}
             >
               <div className="flex flex-col gap-3">
-                {TASKS.map((task, i) => {
-                  const isClaimed = claimedTasks.has(task.id)
-                  const isClaiming = claimingTaskId === task.id
-                  const Icon = task.icon
-                  const pct = Math.min(1, task.progress / task.required) * 100
+                {MISSIONS.map((mission, i) => {
+                  const tierKeys = MILESTONE_TIER_KEYS.slice(0, mission.tiers.length)
+                  const allTiersClaimed = mission.tiers.every((tier) => claimedTasks.has(tier.id))
+                  const activeTierIdx = mission.tiers.findIndex((tier) => !claimedTasks.has(tier.id))
+                  const selectedTierIdx = selectedTierByMission[mission.missionId] ?? (activeTierIdx === -1 ? mission.tiers.length - 1 : activeTierIdx)
+                  const selectedTier = mission.tiers[selectedTierIdx]
+                  // Desc + progress bar follow whichever medal is being
+                  // browsed, not necessarily the mission's next unclaimed
+                  // tier — clicking an earlier/later medal re-targets both,
+                  // same as Stats' own milestone rings.
+                  const pct = allTiersClaimed ? 100 : Math.min(1, mission.progressValue / selectedTier.required) * 100
+                  const Icon = mission.icon
                   return (
                     <div
-                      key={task.id}
+                      key={mission.missionId}
                       className={`relative flex overflow-hidden rounded-lg border shadow-lg shadow-black/20 transition-colors ${
-                        isClaimed
-                          ? 'border-white/5 bg-[#0d0d13]/80 opacity-50'
-                          : task.completed
-                            ? 'border-white/15 bg-[#12121a]'
-                            : 'border-white/5 bg-[#0d0d13]'
+                        allTiersClaimed ? 'border-white/5 bg-[#0d0d13]/80 opacity-50' : 'border-white/5 bg-[#0d0d13]'
                       }`}
                     >
                       {/* Mission index tab — a small torn-off corner label,
                           like a manifest sheet's own line numbers. */}
-                      <div className={`flex w-7 shrink-0 items-center justify-center ${task.badgeClass}`}>
+                      <div className={`flex w-7 shrink-0 items-center justify-center ${mission.badgeClass}`}>
                         <span className="rotate-180 font-mono text-[9px] font-bold tracking-widest [writing-mode:vertical-rl]">
                           M-0{i + 1}
                         </span>
                       </div>
 
-                      <div className="flex flex-1 items-center gap-3 px-3.5 py-3">
-                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${task.badgeClass}`}>
-                          <Icon size={19} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">{task.name}</p>
-                          <p className="text-xs text-neutral-500">{task.desc}</p>
-                          {/* Always violet, same family as Stats' own
-                              progress rings — a task's own badge color
-                              stays on the icon/tab, not the bar. */}
-                          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
+                      <div className="flex flex-1 flex-col gap-2.5 px-3.5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${mission.badgeClass}`}>
+                            <Icon size={19} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-white">{mission.missionName}</p>
+                            <p className="text-xs text-neutral-500">{allTiersClaimed ? strings.home.tasksAllClaimed : selectedTier.desc}</p>
+                            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/5">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400 transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Perforated stub — the reward "ticket half", torn
-                          off from the objective by a dashed seam with a
-                          rivet dot at each end. */}
-                      <div className="relative flex w-[86px] shrink-0 flex-col items-center justify-center gap-1.5 border-l border-dashed border-white/15 py-2">
-                        <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-black/60" />
-                        <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-black/60" />
-                        {isClaimed ? (
-                          <span className="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300">
-                            <Check size={13} />
+                        {/* Medal row — same rank badges + click-to-browse
+                            interaction as Stats' own milestones
+                            (bronze/silver/gold): always clickable, colored
+                            once the tier's own objective is met, and picks
+                            which tier's reward shows below. */}
+                        <div className="flex items-center justify-center gap-3">
+                          {mission.tiers.map((tier, tierIdx) => {
+                            const tierKey = tierKeys[tierIdx]
+                            const reached = mission.progressValue >= tier.required
+                            const isSelected = selectedTierIdx === tierIdx
+                            return (
+                              <button
+                                key={tier.id}
+                                onClick={() => setSelectedTierByMission((prev) => ({ ...prev, [mission.missionId]: tierIdx }))}
+                                aria-label={tier.name}
+                                className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+                                  isSelected ? 'border-white/40 bg-white/10' : 'border-white/5 bg-white/[0.02]'
+                                }`}
+                              >
+                                <Medal size={14} className={reached ? MILESTONE_TIER_COLORS[tierKey] : 'text-neutral-700'} />
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Horizontal dashed seam — same seam language as the
+                            reward "ticket stub" used elsewhere, rotated
+                            horizontal, cut open only around its label. */}
+                        <div className="flex items-center gap-2">
+                          <div className="h-0 flex-1 border-t border-dashed border-white/15" />
+                          <span className="shrink-0 font-mono text-[8px] font-bold uppercase tracking-widest text-neutral-600">
+                            {strings.home.tasksRewardsLabel}
                           </span>
-                        ) : task.completed ? (
-                          <button
-                            onClick={() => claimTask(task.id)}
-                            disabled={isClaiming}
-                            className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-2.5 py-1.5 text-xs font-bold text-amber-200 transition-transform hover:scale-105 disabled:opacity-60"
-                          >
-                            <PlatinumIcon size={13} className="opacity-80" />
-                            {isClaiming ? strings.home.taskClaiming : strings.home.taskReward(task.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES'))}
-                          </button>
-                        ) : (
-                          <span className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-xs font-semibold text-neutral-600">
-                            <PlatinumIcon size={13} className="opacity-50" />
-                            {task.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
-                          </span>
-                        )}
+                          <div className="h-0 flex-1 border-t border-dashed border-white/15" />
+                        </div>
+
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const isClaimed = claimedTasks.has(selectedTier.id)
+                            const isClaiming = claimingTaskId === selectedTier.id
+                            const isCompleted = mission.progressValue >= selectedTier.required
+                            if (isClaimed) {
+                              return (
+                                <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 opacity-70">
+                                  <Check size={13} />
+                                  <PlatinumIcon size={13} className="opacity-80" />
+                                  {selectedTier.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+                                </span>
+                              )
+                            }
+                            if (isCompleted) {
+                              return (
+                                <button
+                                  onClick={() => claimTask(selectedTier.id)}
+                                  disabled={isClaiming}
+                                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-bold transition-transform hover:scale-105 disabled:opacity-60 ${MATERIAL_BUTTON_THEMES[currentTierIndex].pill}`}
+                                >
+                                  <PlatinumIcon size={13} className="opacity-80" />
+                                  {isClaiming ? strings.home.taskClaiming : selectedTier.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+                                </button>
+                              )
+                            }
+                            return (
+                              <span
+                                aria-disabled="true"
+                                className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-xs font-semibold text-neutral-600"
+                              >
+                                <PlatinumIcon size={13} className="opacity-50" />
+                                {selectedTier.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+                              </span>
+                            )
+                          })()}
+                        </div>
                       </div>
                     </div>
                   )

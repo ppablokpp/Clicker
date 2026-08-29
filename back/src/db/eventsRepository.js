@@ -60,14 +60,19 @@ export const eventsRepository = {
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2, lifetime_platino = lifetime_platino + $2,
-             last_event_reward_at = now(), updated_at = now()
+             last_event_reward_at = now(), anomalies_neutralized = anomalies_neutralized + 1, updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks`,
+         RETURNING total_clicks, anomalies_neutralized`,
         [userId, reward],
       )
 
       await client.query('COMMIT')
-      return { ok: true, reward, totalClicks: Number(updated.rows[0].total_clicks) }
+      return {
+        ok: true,
+        reward,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        anomaliesNeutralized: Number(updated.rows[0].anomalies_neutralized),
+      }
     } catch (err) {
       await client.query('ROLLBACK')
       throw err
