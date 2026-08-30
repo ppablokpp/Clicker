@@ -894,21 +894,31 @@ export function Home() {
   // until that's bought, same as Modo Legendario gating the Legendary heat
   // tier. Once unlocked, one meteor at a time flies across the whole
   // screen (see <Meteor>, which self-manages its own on-screen lifetime and
-  // calls handleMeteorMiss if it isn't tapped in time); the wait between
-  // spawns is anomalyFrequencySeconds, which the Detección node shortens.
-  // Next spawn is scheduled fresh once this cycle ends, either by that miss
-  // or by the player capturing it and finishing the challenge. Every spawn
-  // picks a random material tier purely for color variety — decorative
-  // only, the actual reward material is always the player's real current
-  // tier.
+  // calls handleMeteorMiss if it isn't tapped in time); anomalyFrequencySeconds
+  // (which the Detección node shortens) is only the *average* wait now, not
+  // a fixed one — each gap is drawn from an exponential distribution around
+  // that average (a Poisson process, same "random events at a steady long-run
+  // rate" model real-world things like radioactive decay or bus arrivals
+  // follow), floored at ANOMALY_MIN_GAP_SECONDS so two can't spawn back to
+  // back. That means a level whose average is 2 minutes might occasionally
+  // fire twice within 10-20 seconds of each other, or leave a much longer
+  // gap than 2 minutes — but across a long enough stretch (say 10 minutes)
+  // the real count still lands close to what the average implies, just with
+  // natural variance around it instead of a metronome. Next spawn is
+  // scheduled fresh once this cycle ends, either by that miss or by the
+  // player capturing it and finishing the challenge. Every spawn picks a
+  // random material tier purely for color variety — decorative only, the
+  // actual reward material is always the player's real current tier.
   useEffect(() => {
     if (!userId || anomalyUnlockLevel <= 0 || showEventChallenge || eventMeteor) return
     let cancelled = false
+    const ANOMALY_MIN_GAP_SECONDS = 10
+    const gapSeconds = Math.max(ANOMALY_MIN_GAP_SECONDS, -anomalyFrequencySeconds * Math.log(1 - Math.random()))
     const spawnTimeout = window.setTimeout(() => {
       if (cancelled) return
       const tier = MATERIAL_TIER_COLORS[Math.floor(Math.random() * MATERIAL_TIER_COLORS.length)]
       setEventMeteor({ colors: tier, glow: tier.glow })
-    }, anomalyFrequencySeconds * 1000)
+    }, gapSeconds * 1000)
     return () => {
       cancelled = true
       window.clearTimeout(spawnTimeout)
