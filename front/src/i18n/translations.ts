@@ -216,7 +216,7 @@ export interface TranslationStrings {
     resetView: string
     level: string
     autoClickName: string
-    autoClickDesc: (unit: string) => string
+    autoClickDesc: (rate: string, unit: string) => string
     dronesUnit: string
     currentRate: string
     nextLevelRate: string
@@ -635,7 +635,7 @@ export const translations: Record<Language, TranslationStrings> = {
       resetView: 'Restablecer vista',
       level: 'Nv.',
       autoClickName: 'Drones',
-      autoClickDesc: (unit) => `Cada dron produce 0.5 ${unit}.`,
+      autoClickDesc: (rate, unit) => `Cada dron produce ${rate} ${unit}.`,
       dronesUnit: 'drones',
       currentRate: 'Drones actuales:',
       nextLevelRate: 'Drones siguiente nivel:',
@@ -1065,7 +1065,7 @@ export const translations: Record<Language, TranslationStrings> = {
       resetView: 'Reset view',
       level: 'Lv.',
       autoClickName: 'Drones',
-      autoClickDesc: (unit) => `Each drone produces 0.5 ${unit}.`,
+      autoClickDesc: (rate, unit) => `Each drone produces ${rate} ${unit}.`,
       dronesUnit: 'drones',
       currentRate: 'Current drones:',
       nextLevelRate: 'Next level drones:',

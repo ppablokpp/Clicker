@@ -33,6 +33,7 @@ interface TreeState {
   scoutFrequencyNextCost: number | null
   multiplierLevel: number
   multiplierValue: number
+  multiplierNextValue: number
   multiplierNextCost: number | null
   legendaryUnlockLevel: number
   legendaryUnlockNextCost: number | null
@@ -44,6 +45,7 @@ interface TreeState {
   legendaryGrowthNextCost: number | null
   autoMultiplierLevel: number
   autoMultiplierValue: number
+  autoMultiplierNextValue: number
   autoMultiplierNextCost: number | null
   tapMultiplierLevel: number
   tapMultiplierValue: number
@@ -131,6 +133,7 @@ const EMPTY_STATE: TreeState = {
   scoutFrequencyNextCost: 0,
   multiplierLevel: 0,
   multiplierValue: 1,
+  multiplierNextValue: 2,
   multiplierNextCost: 0,
   legendaryUnlockLevel: 0,
   legendaryUnlockNextCost: 100_000,
@@ -142,6 +145,7 @@ const EMPTY_STATE: TreeState = {
   legendaryGrowthNextCost: 0,
   autoMultiplierLevel: 0,
   autoMultiplierValue: 0.5,
+  autoMultiplierNextValue: 1,
   autoMultiplierNextCost: 0,
   tapMultiplierLevel: 0,
   tapMultiplierValue: 1,
@@ -226,6 +230,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           scoutFrequencyNextCost: data.scoutFrequencyNextCost,
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
+          multiplierNextValue: data.multiplierNextValue,
           multiplierNextCost: data.multiplierNextCost,
           legendaryUnlockLevel: data.legendaryUnlockLevel,
           legendaryUnlockNextCost: data.legendaryUnlockNextCost,
@@ -237,6 +242,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           legendaryGrowthNextCost: data.legendaryGrowthNextCost,
           autoMultiplierLevel: data.autoMultiplierLevel,
           autoMultiplierValue: data.autoMultiplierValue,
+          autoMultiplierNextValue: data.autoMultiplierNextValue,
           autoMultiplierNextCost: data.autoMultiplierNextCost,
           tapMultiplierLevel: data.tapMultiplierLevel,
           tapMultiplierValue: data.tapMultiplierValue,
@@ -454,6 +460,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         ...prev,
         multiplierLevel: data.multiplierLevel,
         multiplierValue: data.multiplierValue,
+        multiplierNextValue: data.multiplierNextValue,
         multiplierNextCost: data.multiplierNextCost,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
@@ -644,6 +651,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         ...prev,
         autoMultiplierLevel: data.autoMultiplierLevel,
         autoMultiplierValue: data.autoMultiplierValue,
+        autoMultiplierNextValue: data.autoMultiplierNextValue,
         autoMultiplierNextCost: data.autoMultiplierNextCost,
         autoClickCps: data.autoClickCps,
         autoClickNextCps: data.autoClickNextCps,

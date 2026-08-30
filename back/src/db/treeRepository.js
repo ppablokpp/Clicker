@@ -31,6 +31,15 @@ import {
 } from '../tree/offlineProduction.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
+import { prestigeTierMultiplier } from '../game/trajectory.js'
+
+// Every cost in the tree gets multiplied by 5**prestigeTier (see
+// trajectory.js) — Amatista (tier 0) is untouched, each prestige after that
+// is a full 5x head start. `cost` can be null (max level already reached),
+// which must pass through unchanged rather than turning into `null * 5`.
+function scaleCost(cost, prestigeTier) {
+  return cost === null ? null : cost * prestigeTierMultiplier(Number(prestigeTier))
+}
 
 // Binary, not blended: a gap at or under this is just normal active play
 // (the ~8s background poll, TreeContext.POLL_INTERVAL_MS, plus room for a
@@ -68,7 +77,7 @@ export const treeRepository = {
       await client.query('BEGIN')
 
       const userRow = await client.query(
-        'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [userId],
       )
       if (!userRow.rows[0]) {
@@ -126,7 +135,8 @@ export const treeRepository = {
         [userId, AUTO_MULTIPLIER_NODE_ID],
       )
       const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
-      const sobrecargaPerDroneRate = autoMultiplierValue(autoMultiplierLevel)
+      const sobrecargaPerDroneRate =
+        autoMultiplierValue(autoMultiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
 
       // Reactor — the one prestige upgrade so far, a permanent ×multiplier
       // that survives every reset. Lives in its own table (never touched by
@@ -276,51 +286,54 @@ export const treeRepository = {
         // stream below, kept apart so the "Drones" card never mixes the two
         // unit types' output.
         autoClickCps: level * sobrecargaPerDroneRate * reactorMultiplier,
-        autoClickNextCost: autoClickCost(level),
+        autoClickNextCost: scaleCost(autoClickCost(level), userRow.rows[0].prestige_tier),
         autoClickNextCps: (level + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         luckLevel,
         luckChance: luckLevel > 0 ? luckChanceValue(luckChanceLevel) : 0,
         luckMultiplier: luckMultiplier(luckLevel),
-        luckNextCost: luckCost(luckLevel),
+        luckNextCost: scaleCost(luckCost(luckLevel), userRow.rows[0].prestige_tier),
         luckChanceLevel,
-        luckChanceNextCost: luckChanceCost(luckChanceLevel),
+        luckChanceNextCost: scaleCost(luckChanceCost(luckChanceLevel), userRow.rows[0].prestige_tier),
         scoutDroneLevel,
-        scoutDroneNextCost: scoutDroneCost(scoutDroneLevel),
+        scoutDroneNextCost: scaleCost(scoutDroneCost(scoutDroneLevel), userRow.rows[0].prestige_tier),
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         scoutFrequencyLevel,
-        scoutFrequencyNextCost: scoutFrequencyCost(scoutFrequencyLevel),
+        scoutFrequencyNextCost: scaleCost(scoutFrequencyCost(scoutFrequencyLevel), userRow.rows[0].prestige_tier),
         multiplierLevel,
-        multiplierValue: multiplierValue(multiplierLevel),
-        multiplierNextCost: multiplierCost(multiplierLevel),
+        multiplierValue: multiplierValue(multiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierNextCost: scaleCost(multiplierCost(multiplierLevel), userRow.rows[0].prestige_tier),
         legendaryUnlockLevel,
-        legendaryUnlockNextCost: legendaryUnlockCost(legendaryUnlockLevel),
+        legendaryUnlockNextCost: scaleCost(legendaryUnlockCost(legendaryUnlockLevel), userRow.rows[0].prestige_tier),
         legendaryEaseLevel,
         legendaryStreakBase: legendaryEaseStreakBase(legendaryEaseLevel),
-        legendaryEaseNextCost: legendaryEaseCost(legendaryEaseLevel),
+        legendaryEaseNextCost: scaleCost(legendaryEaseCost(legendaryEaseLevel), userRow.rows[0].prestige_tier),
         legendaryGrowthLevel,
         legendaryBonusStep: legendaryGrowthBonusStep(legendaryGrowthLevel),
-        legendaryGrowthNextCost: legendaryGrowthCost(legendaryGrowthLevel),
+        legendaryGrowthNextCost: scaleCost(legendaryGrowthCost(legendaryGrowthLevel), userRow.rows[0].prestige_tier),
         autoMultiplierLevel,
         autoMultiplierValue: sobrecargaPerDroneRate,
-        autoMultiplierNextCost: autoMultiplierCost(autoMultiplierLevel),
+        autoMultiplierNextValue:
+          autoMultiplierValue(autoMultiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        autoMultiplierNextCost: scaleCost(autoMultiplierCost(autoMultiplierLevel), userRow.rows[0].prestige_tier),
         tapMultiplierLevel,
         tapMultiplierValue: tapMultiplierValue(tapMultiplierLevel),
-        tapMultiplierNextCost: tapMultiplierCost(tapMultiplierLevel),
+        tapMultiplierNextCost: scaleCost(tapMultiplierCost(tapMultiplierLevel), userRow.rows[0].prestige_tier),
         multiShotLevel,
         multiShotValue: multiShotValue(multiShotLevel),
-        multiShotNextCost: multiShotCost(multiShotLevel),
+        multiShotNextCost: scaleCost(multiShotCost(multiShotLevel), userRow.rows[0].prestige_tier),
         anomalyUnlockLevel,
-        anomalyUnlockNextCost: anomalyUnlockCost(anomalyUnlockLevel),
+        anomalyUnlockNextCost: scaleCost(anomalyUnlockCost(anomalyUnlockLevel), userRow.rows[0].prestige_tier),
         anomalyRewardLevel,
         anomalyRewardValue: anomalyUnlockLevel > 0 ? anomalyRewardValue(anomalyRewardLevel) : 0,
-        anomalyRewardNextCost: anomalyRewardCost(anomalyRewardLevel),
+        anomalyRewardNextCost: scaleCost(anomalyRewardCost(anomalyRewardLevel), userRow.rows[0].prestige_tier),
         anomalyFrequencyLevel,
         anomalyFrequencySeconds: anomalyFrequencySeconds(anomalyFrequencyLevel),
-        anomalyFrequencyNextCost: anomalyFrequencyCost(anomalyFrequencyLevel),
+        anomalyFrequencyNextCost: scaleCost(anomalyFrequencyCost(anomalyFrequencyLevel), userRow.rows[0].prestige_tier),
         offlineProductionLevel,
         offlineProductionValue: offlineRate,
-        offlineProductionNextCost: offlineProductionCost(offlineProductionLevel),
+        offlineProductionNextCost: scaleCost(offlineProductionCost(offlineProductionLevel), userRow.rows[0].prestige_tier),
         totalClicks,
         objectsBroken,
         objectProgress,
@@ -341,7 +354,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -352,7 +365,7 @@ export const treeRepository = {
         [userId, LUCK_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = luckCost(level)
+      const cost = scaleCost(luckCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -392,7 +405,7 @@ export const treeRepository = {
         luckLevel: newLevel,
         luckChance: luckChanceValue(luckChanceLevel),
         luckMultiplier: luckMultiplier(newLevel),
-        luckNextCost: luckCost(newLevel),
+        luckNextCost: scaleCost(luckCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -412,7 +425,7 @@ export const treeRepository = {
       await client.query('BEGIN')
 
       const userRow = await client.query(
-        'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [userId],
       )
       if (!userRow.rows[0]) {
@@ -449,7 +462,8 @@ export const treeRepository = {
         [userId, AUTO_MULTIPLIER_NODE_ID],
       )
       const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
-      const sobrecargaPerDroneRate = autoMultiplierValue(autoMultiplierLevel)
+      const sobrecargaPerDroneRate =
+        autoMultiplierValue(autoMultiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
 
       const reactorRow = await client.query(
         `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -499,7 +513,7 @@ export const treeRepository = {
         }
       }
 
-      const cost = autoClickCost(level)
+      const cost = scaleCost(autoClickCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -530,7 +544,7 @@ export const treeRepository = {
         ok: true,
         autoClickLevel: newLevel,
         autoClickCps: newLevel * sobrecargaPerDroneRate * reactorMultiplier,
-        autoClickNextCost: autoClickCost(newLevel),
+        autoClickNextCost: scaleCost(autoClickCost(newLevel), userRow.rows[0].prestige_tier),
         autoClickNextCps: (newLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         totalClicks,
         objectsBroken,
@@ -558,7 +572,7 @@ export const treeRepository = {
       await client.query('BEGIN')
 
       const userRow = await client.query(
-        'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [userId],
       )
       if (!userRow.rows[0]) {
@@ -581,7 +595,8 @@ export const treeRepository = {
         [userId, AUTO_MULTIPLIER_NODE_ID],
       )
       const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
-      const sobrecargaPerDroneRate = autoMultiplierValue(autoMultiplierLevel)
+      const sobrecargaPerDroneRate =
+        autoMultiplierValue(autoMultiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
 
       const reactorRow = await client.query(
         `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -604,7 +619,7 @@ export const treeRepository = {
         ok: true,
         autoClickLevel: newLevel,
         autoClickCps: newLevel * sobrecargaPerDroneRate * reactorMultiplier,
-        autoClickNextCost: autoClickCost(newLevel),
+        autoClickNextCost: scaleCost(autoClickCost(newLevel), userRow.rows[0].prestige_tier),
         autoClickNextCps: (newLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         totalClicks: Number(userRow.rows[0].total_clicks),
         objectsBroken: Number(userRow.rows[0].objects_broken),
@@ -625,7 +640,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -636,7 +651,7 @@ export const treeRepository = {
         [userId, MULTIPLIER_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = multiplierCost(level)
+      const cost = scaleCost(multiplierCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -665,8 +680,9 @@ export const treeRepository = {
       return {
         ok: true,
         multiplierLevel: newLevel,
-        multiplierValue: multiplierValue(newLevel),
-        multiplierNextCost: multiplierCost(newLevel),
+        multiplierValue: multiplierValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierNextValue: multiplierValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierNextCost: scaleCost(multiplierCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -686,7 +702,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -706,7 +722,7 @@ export const treeRepository = {
         [userId, LUCK_CHANCE_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = luckChanceCost(level)
+      const cost = scaleCost(luckChanceCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -736,7 +752,7 @@ export const treeRepository = {
         ok: true,
         luckChanceLevel: newLevel,
         luckChance: luckChanceValue(newLevel),
-        luckChanceNextCost: luckChanceCost(newLevel),
+        luckChanceNextCost: scaleCost(luckChanceCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -756,7 +772,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -776,7 +792,7 @@ export const treeRepository = {
         [userId, LEGENDARY_UNLOCK_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = legendaryUnlockCost(level)
+      const cost = scaleCost(legendaryUnlockCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -804,7 +820,7 @@ export const treeRepository = {
       return {
         ok: true,
         legendaryUnlockLevel: newLevel,
-        legendaryUnlockNextCost: legendaryUnlockCost(newLevel),
+        legendaryUnlockNextCost: scaleCost(legendaryUnlockCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -824,7 +840,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -844,7 +860,7 @@ export const treeRepository = {
         [userId, LEGENDARY_EASE_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = legendaryEaseCost(level)
+      const cost = scaleCost(legendaryEaseCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -873,7 +889,7 @@ export const treeRepository = {
         ok: true,
         legendaryEaseLevel: newLevel,
         legendaryStreakBase: legendaryEaseStreakBase(newLevel),
-        legendaryEaseNextCost: legendaryEaseCost(newLevel),
+        legendaryEaseNextCost: scaleCost(legendaryEaseCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -890,7 +906,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -910,7 +926,7 @@ export const treeRepository = {
         [userId, LEGENDARY_GROWTH_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = legendaryGrowthCost(level)
+      const cost = scaleCost(legendaryGrowthCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -939,7 +955,7 @@ export const treeRepository = {
         ok: true,
         legendaryGrowthLevel: newLevel,
         legendaryBonusStep: legendaryGrowthBonusStep(newLevel),
-        legendaryGrowthNextCost: legendaryGrowthCost(newLevel),
+        legendaryGrowthNextCost: scaleCost(legendaryGrowthCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -961,7 +977,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -981,7 +997,7 @@ export const treeRepository = {
         [userId, SCOUT_DRONE_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = scoutDroneCost(level)
+      const cost = scaleCost(scoutDroneCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1022,7 +1038,7 @@ export const treeRepository = {
       return {
         ok: true,
         scoutDroneLevel: newLevel,
-        scoutDroneNextCost: scoutDroneCost(newLevel),
+        scoutDroneNextCost: scaleCost(scoutDroneCost(newLevel), userRow.rows[0].prestige_tier),
         scoutDroneRate,
         scoutDroneCps: newLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
@@ -1044,7 +1060,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1065,7 +1081,7 @@ export const treeRepository = {
         [userId, SCOUT_FREQUENCY_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = scoutFrequencyCost(level)
+      const cost = scaleCost(scoutFrequencyCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1101,7 +1117,7 @@ export const treeRepository = {
       return {
         ok: true,
         scoutFrequencyLevel: newLevel,
-        scoutFrequencyNextCost: scoutFrequencyCost(newLevel),
+        scoutFrequencyNextCost: scaleCost(scoutFrequencyCost(newLevel), userRow.rows[0].prestige_tier),
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
@@ -1126,7 +1142,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1137,7 +1153,7 @@ export const treeRepository = {
         [userId, AUTO_MULTIPLIER_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = autoMultiplierCost(level)
+      const cost = scaleCost(autoMultiplierCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1176,12 +1192,15 @@ export const treeRepository = {
 
       await client.query('COMMIT')
       const newLevel = level + 1
-      const sobrecargaPerDroneRate = autoMultiplierValue(newLevel)
+      const sobrecargaPerDroneRate =
+        autoMultiplierValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
       return {
         ok: true,
         autoMultiplierLevel: newLevel,
         autoMultiplierValue: sobrecargaPerDroneRate,
-        autoMultiplierNextCost: autoMultiplierCost(newLevel),
+        autoMultiplierNextValue:
+          autoMultiplierValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        autoMultiplierNextCost: scaleCost(autoMultiplierCost(newLevel), userRow.rows[0].prestige_tier),
         autoClickCps: autoClickLevel * sobrecargaPerDroneRate * reactorMultiplier,
         autoClickNextCps: (autoClickLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
@@ -1203,7 +1222,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1223,7 +1242,7 @@ export const treeRepository = {
         [userId, TAP_MULTIPLIER_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = tapMultiplierCost(level)
+      const cost = scaleCost(tapMultiplierCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1253,7 +1272,7 @@ export const treeRepository = {
         ok: true,
         tapMultiplierLevel: newLevel,
         tapMultiplierValue: tapMultiplierValue(newLevel),
-        tapMultiplierNextCost: tapMultiplierCost(newLevel),
+        tapMultiplierNextCost: scaleCost(tapMultiplierCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -1271,7 +1290,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1282,7 +1301,7 @@ export const treeRepository = {
         [userId, MULTI_SHOT_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = multiShotCost(level)
+      const cost = scaleCost(multiShotCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1311,7 +1330,7 @@ export const treeRepository = {
         ok: true,
         multiShotLevel: newLevel,
         multiShotValue: multiShotValue(newLevel),
-        multiShotNextCost: multiShotCost(newLevel),
+        multiShotNextCost: scaleCost(multiShotCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -1332,7 +1351,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1343,7 +1362,7 @@ export const treeRepository = {
         [userId, ANOMALY_UNLOCK_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = anomalyUnlockCost(level)
+      const cost = scaleCost(anomalyUnlockCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1371,7 +1390,7 @@ export const treeRepository = {
       return {
         ok: true,
         anomalyUnlockLevel: newLevel,
-        anomalyUnlockNextCost: anomalyUnlockCost(newLevel),
+        anomalyUnlockNextCost: scaleCost(anomalyUnlockCost(newLevel), userRow.rows[0].prestige_tier),
         // Both children read as "unlocked" (5% / base 5 min) the instant
         // this is bought, even at their own level 0 — report them fresh so
         // the UI doesn't need a full refetch to show that.
@@ -1394,7 +1413,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1414,7 +1433,7 @@ export const treeRepository = {
         [userId, ANOMALY_REWARD_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = anomalyRewardCost(level)
+      const cost = scaleCost(anomalyRewardCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1443,7 +1462,7 @@ export const treeRepository = {
         ok: true,
         anomalyRewardLevel: newLevel,
         anomalyRewardValue: anomalyRewardValue(newLevel),
-        anomalyRewardNextCost: anomalyRewardCost(newLevel),
+        anomalyRewardNextCost: scaleCost(anomalyRewardCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -1460,7 +1479,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1480,7 +1499,7 @@ export const treeRepository = {
         [userId, ANOMALY_FREQUENCY_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = anomalyFrequencyCost(level)
+      const cost = scaleCost(anomalyFrequencyCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1509,7 +1528,7 @@ export const treeRepository = {
         ok: true,
         anomalyFrequencyLevel: newLevel,
         anomalyFrequencySeconds: anomalyFrequencySeconds(newLevel),
-        anomalyFrequencyNextCost: anomalyFrequencyCost(newLevel),
+        anomalyFrequencyNextCost: scaleCost(anomalyFrequencyCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -1527,7 +1546,7 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
       if (!userRow.rows[0]) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
@@ -1547,7 +1566,7 @@ export const treeRepository = {
         [userId, OFFLINE_PRODUCTION_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = offlineProductionCost(level)
+      const cost = scaleCost(offlineProductionCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1576,7 +1595,7 @@ export const treeRepository = {
         ok: true,
         offlineProductionLevel: newLevel,
         offlineProductionValue: offlineProductionValue(newLevel),
-        offlineProductionNextCost: offlineProductionCost(newLevel),
+        offlineProductionNextCost: scaleCost(offlineProductionCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

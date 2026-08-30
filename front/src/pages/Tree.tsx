@@ -382,6 +382,7 @@ export function Tree() {
     buyLuckChance,
     multiplierLevel,
     multiplierValue,
+    multiplierNextValue,
     multiplierNextCost,
     isBuyingMultiplier,
     buyMultiplier,
@@ -410,6 +411,7 @@ export function Tree() {
     buyScoutFrequency,
     autoMultiplierLevel,
     autoMultiplierValue,
+    autoMultiplierNextValue,
     autoMultiplierNextCost,
     isBuyingAutoMultiplier,
     buyAutoMultiplier,
@@ -1733,14 +1735,16 @@ export function Tree() {
               </span>
               <p className="text-sm font-semibold text-white">{strings.tree.autoClickName}</p>
             </div>
-            <p className="mb-4 text-sm text-neutral-400">{strings.tree.autoClickDesc(cpsUnit)}</p>
+            <p className="mb-4 text-sm text-neutral-400">
+              {strings.tree.autoClickDesc(autoMultiplierValue.toLocaleString(locale, { maximumFractionDigits: 2 }), cpsUnit)}
+            </p>
 
             {/* Buying this node literally buys one more drone — the stat
                 block shows the drone count itself (what the purchase adds),
                 not the resulting cps, which lives elsewhere (Home's own
-                "Auto" pill). Per-drone output (0.5 platino/s) is stated in
-                the description above; a future node raises that per-drone
-                rate instead of this one, which stays "buy another drone". */}
+                "Auto" pill). Per-drone output is stated in the description
+                above; a future node raises that per-drone rate instead of
+                this one, which stays "buy another drone". */}
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
                 {strings.tree.currentRate}{' '}
@@ -1996,7 +2000,7 @@ export function Tree() {
               {!isMultiplierMaxed && (
                 <span>
                   {strings.tree.nextClickValue}{' '}
-                  <span className="font-semibold text-white">{multiplierValue + 1}</span>
+                  <span className="font-semibold text-white">{multiplierNextValue}</span>
                 </span>
               )}
             </div>
@@ -2333,7 +2337,7 @@ export function Tree() {
                 <span>
                   {strings.tree.nextProduction}{' '}
                   <span className="font-semibold text-white">
-                    {(autoMultiplierValue + 0.5).toLocaleString(locale, {
+                    {autoMultiplierNextValue.toLocaleString(locale, {
                       maximumFractionDigits: 2,
                     })}{' '}
                     {cpsUnit}
