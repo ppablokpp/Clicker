@@ -76,10 +76,17 @@ export interface TranslationStrings {
     taskAnomalyHunterDesc: string
     taskSectorGuardianName: string
     taskSectorGuardianDesc: string
+    taskFirstGlimmersName: string
+    taskFirstGlimmersDesc: string
+    taskGlimmerStreakName: string
+    taskGlimmerStreakDesc: string
+    taskGlimmerMasterName: string
+    taskGlimmerMasterDesc: string
     missionDronesName: string
     missionMultiShotName: string
     missionScoutName: string
     missionAnomalyName: string
+    missionLuckyName: string
     tasksRewardsLabel: string
     tasksAllClaimed: string
     taskReward: (amount: string) => string
@@ -422,10 +429,17 @@ export const translations: Record<Language, TranslationStrings> = {
       taskAnomalyHunterDesc: 'Neutraliza 5 anomalías',
       taskSectorGuardianName: 'Guardián del sector',
       taskSectorGuardianDesc: 'Neutraliza 15 anomalías',
+      taskFirstGlimmersName: 'Primeros destellos',
+      taskFirstGlimmersDesc: 'Encuentra 100 destellos',
+      taskGlimmerStreakName: 'Racha de destellos',
+      taskGlimmerStreakDesc: 'Encuentra 1.000 destellos',
+      taskGlimmerMasterName: 'Maestro del destello',
+      taskGlimmerMasterDesc: 'Encuentra 10.000 destellos',
       missionDronesName: 'Flota de drones',
       missionMultiShotName: 'Potencia de fuego',
       missionScoutName: 'Reconocimiento estelar',
       missionAnomalyName: 'Anomalías',
+      missionLuckyName: 'Cazador de destellos',
       tasksRewardsLabel: 'Recompensas',
       tasksAllClaimed: '¡Misión completada!',
       taskReward: (amount) => `+${amount}`,
@@ -856,10 +870,17 @@ export const translations: Record<Language, TranslationStrings> = {
       taskAnomalyHunterDesc: 'Neutralize 5 anomalies',
       taskSectorGuardianName: 'Sector guardian',
       taskSectorGuardianDesc: 'Neutralize 15 anomalies',
+      taskFirstGlimmersName: 'First glimmers',
+      taskFirstGlimmersDesc: 'Find 100 glimmers',
+      taskGlimmerStreakName: 'Glimmer streak',
+      taskGlimmerStreakDesc: 'Find 1,000 glimmers',
+      taskGlimmerMasterName: 'Glimmer master',
+      taskGlimmerMasterDesc: 'Find 10,000 glimmers',
       missionDronesName: 'Drone fleet',
       missionMultiShotName: 'Firepower',
       missionScoutName: 'Stellar recon',
       missionAnomalyName: 'Anomalies',
+      missionLuckyName: 'Glimmer hunter',
       tasksRewardsLabel: 'Rewards',
       tasksAllClaimed: 'Mission complete!',
       taskReward: (amount) => `+${amount}`,

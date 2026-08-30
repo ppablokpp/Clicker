@@ -53,15 +53,17 @@ clicksRouter.post('/increment', async (req, res) => {
   const realClicks =
     Number.isInteger(rawRealClicks) && rawRealClicks >= 0 && rawRealClicks <= amount ? rawRealClicks : amount
 
-  const { totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress } = await usersRepository.incrementClicks(
-    userId,
-    amount,
-    peakCps,
-    MAGNET_PROC_CHANCE,
-    clientDate,
-    realClicks,
-  )
-  res.json({ totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress })
+  // How many of those real taps actually rolled a Destello (see Home.tsx's
+  // isLucky) — always <= realClicks for the same reason realClicks <=
+  // amount above; an invalid/missing value just falls back to 0 rather than
+  // erroring, for the same backward-compatibility reason.
+  const rawLuckyHits = Number(req.body?.luckyHits)
+  const luckyHits =
+    Number.isInteger(rawLuckyHits) && rawLuckyHits >= 0 && rawLuckyHits <= realClicks ? rawLuckyHits : 0
+
+  const { totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress, luckyClicksFound } =
+    await usersRepository.incrementClicks(userId, amount, peakCps, MAGNET_PROC_CHANCE, clientDate, realClicks, luckyHits)
+  res.json({ totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress, luckyClicksFound })
 })
 
 // Trayectoria's manual prestige confirm — advances prestige_tier by one and

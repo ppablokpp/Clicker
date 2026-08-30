@@ -60,6 +60,14 @@ export function useClickCounter() {
   // with pendingRef, capped per-chunk at that chunk's amountSent so it can
   // never report more real taps than the multiplied total it rode along with.
   const pendingRealClicksRef = useRef(0)
+  // How many of those real taps landed a Destello (the Suerte/Telescopio
+  // proc — see Home.tsx's isLucky), for the "Encuentra destellos" task.
+  // Same trust/drain shape as pendingRealClicksRef: reported and clamped
+  // against realClicks server-side (see routes/clicks.js), never rolled or
+  // verified there since the roll itself is client-side per tap.
+  const pendingLuckyHitsRef = useRef(0)
+  const confirmedLuckyHitsRef = useRef(0)
+  const [luckyClicksFound, setLuckyClicksFound] = useState(0)
   // Purely a display prediction for auto-click production (see TreeContext)
   // — ticks up locally between the infrequent real accrual polls so the
   // number feels alive, then gets zeroed out by syncTotalClicks every time
@@ -117,6 +125,10 @@ export function useClickCounter() {
           if (typeof data.prestigeTier === 'number') setPrestigeTier(data.prestigeTier)
           if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
           if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
+          if (typeof data.luckyClicksFound === 'number') {
+            confirmedLuckyHitsRef.current = data.luckyClicksFound
+            setLuckyClicksFound(data.luckyClicksFound)
+          }
           updateObjectDisplay()
         }
       } catch (err) {
@@ -154,12 +166,14 @@ export function useClickCounter() {
       while (pendingRef.current > 0) {
         const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
         const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
+        const luckyHitsSent = Math.min(pendingLuckyHitsRef.current, realClicksSent)
         const res = await fetch(`${API_URL}/api/clicks/increment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             amount: amountSent,
             realClicks: realClicksSent,
+            luckyHits: luckyHitsSent,
             peakCps: peakCpsRef.current,
             localDate: toLocalDateString(new Date()),
           }),
@@ -170,10 +184,15 @@ export function useClickCounter() {
         confirmedRef.current = data.totalClicks
         pendingRef.current -= amountSent
         pendingRealClicksRef.current -= realClicksSent
+        pendingLuckyHitsRef.current -= luckyHitsSent
         setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
         if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
         if (typeof data.keys === 'number') setLatestKeys(data.keys)
         if (typeof data.gems === 'number') setLatestGems(data.gems)
+        if (typeof data.luckyClicksFound === 'number') {
+          confirmedLuckyHitsRef.current = data.luckyClicksFound
+          setLuckyClicksFound(data.luckyClicksFound)
+        }
         if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
         if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
         updateObjectDisplay()
@@ -201,11 +220,15 @@ export function useClickCounter() {
   }, [flush])
 
   const registerClick = useCallback(
-    (amount = 1) => {
+    (amount = 1, isLucky = false) => {
       if (!userId) return
       recentClicksRef.current.push(Date.now())
       pendingRef.current += amount
       pendingRealClicksRef.current += 1
+      if (isLucky) {
+        pendingLuckyHitsRef.current += 1
+        setLuckyClicksFound(confirmedLuckyHitsRef.current + pendingLuckyHitsRef.current)
+      }
       setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
       updateObjectDisplay()
     },
@@ -357,5 +380,6 @@ export function useClickCounter() {
     objectsBroken,
     objectProgress,
     syncObjectState,
+    luckyClicksFound,
   }
 }

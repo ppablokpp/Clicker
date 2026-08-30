@@ -651,6 +651,7 @@ export function Home() {
     confirmPrestige,
     clicksPerSecond,
     registerClick,
+    luckyClicksFound,
   } = useClickCounterContext()
   // Trayectoria's roadmap — driven by lifetime platino earned (migration
   // 028), not objectsBroken; a placeholder order-of-magnitude ramp (1M →
@@ -674,7 +675,6 @@ export function Home() {
     legendaryBonusStep,
     legendaryThresholdTps,
     multiShotValue,
-    multiShotLevel,
     scoutDroneLevel,
     scoutDroneRate,
     scoutDroneCps,
@@ -739,16 +739,34 @@ export function Home() {
       ],
     },
     {
+      missionId: 'lucky',
+      missionName: strings.home.missionLuckyName,
+      // Same green as the tree's own Destello/Telescopio family.
+      icon: Sparkles,
+      badgeClass: 'bg-green-500/20 text-green-300',
+      progressValue: luckyClicksFound,
+      tiers: [
+        { id: 'first_glimmers', name: strings.home.taskFirstGlimmersName, desc: strings.home.taskFirstGlimmersDesc, reward: 5_000, required: 100 },
+        { id: 'glimmer_streak', name: strings.home.taskGlimmerStreakName, desc: strings.home.taskGlimmerStreakDesc, reward: 20_000, required: 1_000 },
+        { id: 'glimmer_master', name: strings.home.taskGlimmerMasterName, desc: strings.home.taskGlimmerMasterDesc, reward: 100_000, required: 10_000 },
+      ],
+    },
+    {
       missionId: 'multishot',
       missionName: strings.home.missionMultiShotName,
       // Same icon + badge color as Centro de mando's own "Multidisparo" tile.
       icon: Split,
       badgeClass: 'bg-cyan-500/20 text-cyan-300',
-      progressValue: multiShotLevel,
+      // Cannon *count* (multiShotValue = 1 + level), not the raw tree
+      // level — the tiers' own descriptions already talk in terms of "2nd
+      // cannon"/"5 cannons"/"10 cannons", so the progress readout below
+      // them has to match (starts at 1/2, 1/5, 1/10 — everyone has 1 cannon
+      // by default, see multiShot.js).
+      progressValue: multiShotValue,
       tiers: [
-        { id: 'second_cannon', name: strings.home.taskSecondCannonName, desc: strings.home.taskSecondCannonDesc, reward: 2_000, required: 1 },
-        { id: 'full_battery', name: strings.home.taskFullBatteryName, desc: strings.home.taskFullBatteryDesc, reward: 10_000, required: 4 },
-        { id: 'total_arsenal', name: strings.home.taskTotalArsenalName, desc: strings.home.taskTotalArsenalDesc, reward: 100_000, required: 9 },
+        { id: 'second_cannon', name: strings.home.taskSecondCannonName, desc: strings.home.taskSecondCannonDesc, reward: 2_000, required: 2 },
+        { id: 'full_battery', name: strings.home.taskFullBatteryName, desc: strings.home.taskFullBatteryDesc, reward: 10_000, required: 5 },
+        { id: 'total_arsenal', name: strings.home.taskTotalArsenalName, desc: strings.home.taskTotalArsenalDesc, reward: 100_000, required: 10 },
       ],
     },
     {
@@ -1112,7 +1130,7 @@ export function Home() {
       popupCarryRef.current += amount
       const displayAmount = Math.floor(popupCarryRef.current)
       popupCarryRef.current -= displayAmount
-      registerClick(amount)
+      registerClick(amount, isLucky)
       playLaserShot()
 
       // Fire a shot from the tap point at the space object — the ripple/+N
@@ -2069,6 +2087,14 @@ export function Home() {
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
+                            <p className="mt-1 text-right font-mono text-[10px] tabular-nums text-neutral-500">
+                              {allTiersClaimed
+                                ? selectedTier.required.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')
+                                : Math.min(mission.progressValue, selectedTier.required).toLocaleString(
+                                    language === 'en' ? 'en-US' : 'es-ES',
+                                  )}
+                              /{selectedTier.required.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
+                            </p>
                           </div>
                         </div>
 

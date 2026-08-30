@@ -58,7 +58,7 @@ export const usersRepository = {
   // visually reset the object back to 0 while the real state reloads.
   async getClickState(id) {
     const result = await database.query(
-      'SELECT total_clicks, lifetime_platino, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1',
+      'SELECT total_clicks, lifetime_platino, objects_broken, object_progress, prestige_tier, lucky_clicks_found FROM users WHERE id = $1',
       [id],
     )
     const row = result.rows[0]
@@ -68,6 +68,7 @@ export const usersRepository = {
       objectsBroken: Number(row?.objects_broken ?? 0),
       objectProgress: Number(row?.object_progress ?? 0),
       prestigeTier: Number(row?.prestige_tier ?? 0),
+      luckyClicksFound: Number(row?.lucky_clicks_found ?? 0),
     }
   },
 
@@ -169,7 +170,7 @@ export const usersRepository = {
   //     tap, regardless of multipliers/luck) — a separate stat from
   //     total_clicks, which is the multiplied economy value. The caller
   //     (routes/clicks.js) is responsible for capping realClicks <= amount.
-  async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0, clientDate = null, realClicks = 0) {
+  async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0, clientDate = null, realClicks = 0, luckyHits = 0) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -216,12 +217,13 @@ export const usersRepository = {
              ELSE 0 END AS gem_procs
        ),
        updated AS (
-         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak, object_progress, lifetime_platino)
-         VALUES ($1, $2, $7, $3, 1, 1, $2, $2)
+         INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak, object_progress, lifetime_platino, lucky_clicks_found)
+         VALUES ($1, $2, $7, $3, 1, 1, $2, $2, $8)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
                lifetime_platino = users.lifetime_platino + EXCLUDED.lifetime_platino,
                total_real_clicks = users.total_real_clicks + EXCLUDED.total_real_clicks,
+               lucky_clicks_found = users.lucky_clicks_found + EXCLUDED.lucky_clicks_found,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
                keys = users.keys + (SELECT key_procs FROM magnet_procs),
                gems = users.gems + (SELECT gem_procs FROM magnet_procs),
@@ -245,15 +247,15 @@ export const usersRepository = {
                  END
                ),
                updated_at = now()
-         RETURNING total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress
+         RETURNING total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress, lucky_clicks_found
        ),
        day_marked AS (
          INSERT INTO click_days (user_id, click_date)
          SELECT $1, (SELECT d FROM effective_date) FROM updated
          ON CONFLICT (user_id, click_date) DO NOTHING
        )
-       SELECT total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress FROM updated`,
-        [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks],
+       SELECT total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress, lucky_clicks_found FROM updated`,
+        [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks, luckyHits],
       )
 
       const row = result.rows[0]
@@ -280,6 +282,7 @@ export const usersRepository = {
         gems: Number(row.gems),
         objectsBroken,
         objectProgress,
+        luckyClicksFound: Number(row.lucky_clicks_found),
       }
     } catch (err) {
       await client.query('ROLLBACK')
