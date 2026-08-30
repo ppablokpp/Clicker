@@ -1801,9 +1801,10 @@ export function Home() {
                     <p className="text-xs text-neutral-400">
                       {strings.home.shipPowerDesc(currentMaterialName)}{' '}
                       <span className="font-semibold text-white">
-                        {(baseClickMultiplier * tapMultiplierValue).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
-                          maximumFractionDigits: 2,
-                        })}
+                        {(baseClickMultiplier * tapMultiplierValue * moneyMultiplier).toLocaleString(
+                          language === 'en' ? 'en-US' : 'es-ES',
+                          { maximumFractionDigits: 2 },
+                        )}
                       </span>
                     </p>
                   </div>

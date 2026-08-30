@@ -1617,7 +1617,26 @@ export function Tree() {
               else in the tree is still just a visual placeholder. */}
           <button
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setShowAutoClickModal(true)}
+            onClick={() => {
+              // Tapping this node during the tutorial also satisfies its
+              // auto-advance (see TutorialOverlay's document-level listener)
+              // in the very same tap. With the drone already owned
+              // (skipDroneGrant), that advance jumps straight past
+              // pointTreeBuy to closing — so by the time this onClick runs,
+              // currentStep has already moved on. Opening the modal anyway
+              // left it stuck open behind the closing step's dim overlay,
+              // popping back into view once the tutorial ended and forcing
+              // a second, unrelated tap to dismiss it. Only open it when the
+              // tutorial isn't mid-skip past this exact node.
+              if (
+                tutorial.isActive &&
+                tutorial.currentStep?.id !== 'pointTreeRoot' &&
+                tutorial.currentStep?.id !== 'pointTreeBuy'
+              ) {
+                return
+              }
+              setShowAutoClickModal(true)
+            }}
             data-tutorial="tree-root-node"
             className="absolute flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1.5 rounded-full border border-violet-400/20 bg-[#14101f] text-center text-violet-200 shadow-lg shadow-black/20 transition-colors hover:border-violet-400/35"
             style={{ left: CENTER, top: CENTER }}

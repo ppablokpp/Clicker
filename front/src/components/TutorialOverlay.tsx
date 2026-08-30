@@ -11,6 +11,14 @@ const HOLE_PADDING = 10
 const BLOCK_PADDING = 6
 const TYPE_INTERVAL_MS = 26
 const NEXT_BUTTON_DELAY_MS = 1400
+// Minimum time a step must be on screen before a real tap is allowed to
+// advance it — without this, a step whose target overlaps (even for one
+// frame) with whatever the previous tap just opened could count that same
+// physical tap a second time the instant it becomes active, skipping a
+// step. Also doubles as the settle time for the target's rect to be
+// (re)measured (see useTargetRect's own poll), so the spotlight never gets
+// tested against a still-stale position from the step that just ended.
+const STEP_ADVANCE_COOLDOWN_MS = 400
 
 interface Rect {
   top: number
@@ -41,6 +49,14 @@ function pointInRect(x: number, y: number, r: Rect) {
 // ~2-3 real ones). `pointerdown` alone also matches Home's own real click
 // handler (`onPointerDown`), so "a hit" here means the same thing as "a hit"
 // there.
+//
+// `firedRef` makes onHit strictly one-shot per step: the tap that satisfies
+// a target (e.g. the tree root node) also opens that node's own modal, and
+// that modal's freshly-mounted content can itself overlap the same tap's
+// hit box for a frame — without this guard a single real tap could count
+// toward the *next* step too and skip two steps at once ("como clicar dos
+// veces"). Once onHit fires, every further pointerdown is ignored until
+// stepId actually changes and resets it.
 function useAdvanceOnRealInteraction(
   stepId: string | undefined,
   isHit: (x: number, y: number) => boolean,
@@ -49,23 +65,39 @@ function useAdvanceOnRealInteraction(
   onHit: () => void,
 ) {
   const countRef = useRef(0)
+  const firedRef = useRef(false)
+  const stepStartRef = useRef(Date.now())
   const isHitRef = useRef(isHit)
   isHitRef.current = isHit
 
   useEffect(() => {
     countRef.current = 0
+    firedRef.current = false
+    stepStartRef.current = Date.now()
   }, [stepId])
 
   useEffect(() => {
     if (!enabled) return
     const handler = (e: PointerEvent) => {
+      if (firedRef.current) return
+      if (Date.now() - stepStartRef.current < STEP_ADVANCE_COOLDOWN_MS) return
       if (!isHitRef.current(e.clientX, e.clientY)) return
       countRef.current += 1
-      if (countRef.current >= requiredClicks) onHit()
+      if (countRef.current >= requiredClicks) {
+        firedRef.current = true
+        onHit()
+      }
     }
-    document.addEventListener('pointerdown', handler)
+    // Capture phase, not bubble — several real tree nodes call
+    // e.stopPropagation() on their own onPointerDown (to keep a tap from
+    // also starting the canvas's pan/drag gesture), which cuts the event
+    // off before it would ever reach a bubble-phase listener on document.
+    // Capture runs on the way *down* to the target, before any of that,
+    // so this always sees the tap regardless of what the target itself
+    // does with it afterward.
+    document.addEventListener('pointerdown', handler, true)
     return () => {
-      document.removeEventListener('pointerdown', handler)
+      document.removeEventListener('pointerdown', handler, true)
     }
   }, [enabled, requiredClicks, onHit])
 }
