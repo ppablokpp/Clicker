@@ -1274,7 +1274,13 @@ export function Home() {
                   </div>
                   <div className="mt-0.5">
                     <span className="font-mono text-sm font-bold tabular-nums text-violet-200">
-                      {(clicksPerSecond * totalMultiplier).toFixed(1)} {cpsUnit}
+                      {/* Fleet output (autoClickCps + scoutDroneCps) is the
+                          real, steady per-second rate straight from the
+                          server — always showing, never fluctuating with
+                          click timing. Manual output (clicksPerSecond *
+                          totalMultiplier) is what real taps add on top right
+                          now, decaying back toward 0 the moment you stop. */}
+                      {(autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier).toFixed(1)} {cpsUnit}
                     </span>
                     {activePowerup && (
                       <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] tabular-nums text-violet-300">
