@@ -326,6 +326,7 @@ export interface TranslationStrings {
   }
   tutorial: {
     next: string
+    finish: string
     freeLabel: string
     replayAriaLabel: string
     replayConfirmTitle: string
@@ -755,6 +756,7 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     tutorial: {
       next: 'Siguiente',
+      finish: 'Finalizar',
       freeLabel: '¡Gratis!',
       replayAriaLabel: 'Ver tutorial',
       replayConfirmTitle: '¿Quieres ver el tutorial?',
@@ -1182,6 +1184,7 @@ export const translations: Record<Language, TranslationStrings> = {
     },
     tutorial: {
       next: 'Next',
+      finish: 'Finish',
       freeLabel: 'Free!',
       replayAriaLabel: 'Watch tutorial',
       replayConfirmTitle: 'Want to watch the tutorial?',

@@ -4,7 +4,7 @@
  * or opened straight away with gems, bypassing the need to own a chest at
  * all.
  */
-export const GEM_CHEST_CHEST_COST = 20_000
+export const GEM_CHEST_CHEST_COST = 5_000
 export const GEM_CHEST_KEY_COST = 10
 export const GEM_CHEST_GEM_COST = 2
 

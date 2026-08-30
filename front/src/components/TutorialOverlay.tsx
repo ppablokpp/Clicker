@@ -298,7 +298,7 @@ export function TutorialOverlay() {
                 onClick={advance}
                 className="mt-3 w-full rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
               >
-                {strings.tutorial.next}
+                {currentStep.id === 'closing' ? strings.tutorial.finish : strings.tutorial.next}
               </button>
             )}
           </div>

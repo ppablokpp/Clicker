@@ -5,7 +5,7 @@
  * key), the prize is rolled here on the server (never trust the client for
  * that) and its amount is added straight to the user's total.
  */
-export const DAILY_CASE_CHEST_COST = 10_000
+export const DAILY_CASE_CHEST_COST = 1_000
 export const DAILY_CASE_KEY_COST = 1
 
 // Gem-paid case: no cooldown (repeatable, like the old RevenueCat one was),
@@ -14,8 +14,8 @@ export const DAILY_CASE_KEY_COST = 1
 // roughly what it used to before gems existed.
 export const GEM_CASE_COST = 1
 
-// Weighted so the average payout lands around 12,700 clicks (cost is
-// 10,000 — a net gain on average, unlike before).
+// Weighted so the average payout lands around 12,700 clicks — a net gain
+// on average against the chest's own cost.
 export const CASE_PRIZES = [
   { id: 'consumer', amount: 3_000, currency: 'clicks', weight: 3_500 },
   { id: 'milspec', amount: 7_000, currency: 'clicks', weight: 2_700 },
