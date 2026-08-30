@@ -4,15 +4,15 @@
  * time you're actually away (not just idling with the tab open — see
  * treeRepository's ACTIVE_WINDOW_SECONDS, which is what tells those two
  * apart). Level 0 (not owned) is a 1% floor, not 0% — the fleet always
- * limps along a little unsupervised. Each level after that is a flat 5%,
- * so the ladder reads as a clean 5/10/15/.../50% climb, capping at half
+ * limps along a little unsupervised. Each level after that adds a flat 1%,
+ * so the ladder reads as a clean 1/2/3/.../10% climb, capping at a tenth of
  * your real rate while away.
  */
 export const OFFLINE_PRODUCTION_NODE_ID = 'offline_production'
-export const OFFLINE_PRODUCTION_MAX_LEVEL = 10
+export const OFFLINE_PRODUCTION_MAX_LEVEL = 9
 
 export const OFFLINE_PRODUCTION_BASE_PCT = 0.01
-export const OFFLINE_PRODUCTION_STEP = 0.05
+export const OFFLINE_PRODUCTION_STEP = 0.01
 export const OFFLINE_PRODUCTION_BASE_COST = 5_000
 export const OFFLINE_PRODUCTION_COST_RATIO = 1.5
 
@@ -23,5 +23,5 @@ export function offlineProductionCost(level) {
 }
 
 export function offlineProductionValue(level) {
-  return level === 0 ? OFFLINE_PRODUCTION_BASE_PCT : OFFLINE_PRODUCTION_STEP * level
+  return OFFLINE_PRODUCTION_BASE_PCT + OFFLINE_PRODUCTION_STEP * level
 }

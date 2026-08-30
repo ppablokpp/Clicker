@@ -2667,7 +2667,7 @@ export function Tree() {
                 <span>
                   {strings.tree.nextOfflineProduction}{' '}
                   <span className="font-semibold text-white">
-                    {formatChance(offlineProductionLevel === 0 ? 0.05 : offlineProductionValue + 0.05)}
+                    {formatChance(offlineProductionValue + 0.01)}
                   </span>
                 </span>
               )}
