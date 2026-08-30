@@ -7,10 +7,10 @@
 export const LEGENDARY_GROWTH_NODE_ID = 'legendary_growth'
 export const LEGENDARY_GROWTH_MAX_LEVEL = 10
 
-export const LEGENDARY_GROWTH_BASE_STEP = 0.5
+export const LEGENDARY_GROWTH_BASE_STEP = 0.1
 export const LEGENDARY_GROWTH_STEP_INCREMENT = 0.1
 
-export const LEGENDARY_GROWTH_BASE_COST = 2_500
+export const LEGENDARY_GROWTH_BASE_COST = 50_000
 export const LEGENDARY_GROWTH_COST_RATIO = 1.7
 
 export function legendaryGrowthCost(level) {

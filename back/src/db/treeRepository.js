@@ -18,6 +18,11 @@ import {
   legendaryGrowthCost,
   legendaryGrowthBonusStep,
 } from '../tree/legendaryGrowth.js'
+import {
+  LEGENDARY_THRESHOLD_NODE_ID,
+  legendaryThresholdCost,
+  legendaryThresholdTps,
+} from '../tree/legendaryThreshold.js'
 import { AUTO_MULTIPLIER_NODE_ID, autoMultiplierCost, autoMultiplierValue } from '../tree/autoMultiplier.js'
 import { TAP_MULTIPLIER_NODE_ID, tapMultiplierCost, tapMultiplierValue } from '../tree/tapMultiplier.js'
 import { MULTI_SHOT_NODE_ID, multiShotCost, multiShotValue } from '../tree/multiShot.js'
@@ -243,6 +248,12 @@ export const treeRepository = {
       )
       const legendaryGrowthLevel = Number(legendaryGrowthRow.rows[0]?.level ?? 0)
 
+      const legendaryThresholdRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LEGENDARY_THRESHOLD_NODE_ID],
+      )
+      const legendaryThresholdLevel = Number(legendaryThresholdRow.rows[0]?.level ?? 0)
+
       // Multiplicador — Productividad's third child, same plain
       // level-counter shape, infinite like Productividad itself.
       const tapMultiplierRow = await client.query(
@@ -312,6 +323,9 @@ export const treeRepository = {
         legendaryGrowthLevel,
         legendaryBonusStep: legendaryGrowthBonusStep(legendaryGrowthLevel),
         legendaryGrowthNextCost: scaleCost(legendaryGrowthCost(legendaryGrowthLevel), userRow.rows[0].prestige_tier),
+        legendaryThresholdLevel,
+        legendaryThresholdTps: legendaryThresholdTps(legendaryThresholdLevel),
+        legendaryThresholdNextCost: scaleCost(legendaryThresholdCost(legendaryThresholdLevel), userRow.rows[0].prestige_tier),
         autoMultiplierLevel,
         autoMultiplierValue: sobrecargaPerDroneRate,
         autoMultiplierNextValue:
@@ -956,6 +970,73 @@ export const treeRepository = {
         legendaryGrowthLevel: newLevel,
         legendaryBonusStep: legendaryGrowthBonusStep(newLevel),
         legendaryGrowthNextCost: scaleCost(legendaryGrowthCost(newLevel), userRow.rows[0].prestige_tier),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Same shape as buyLegendaryEaseLevel/buyLegendaryGrowthLevel — Modo
+  // Legendario's third child.
+  async buyLegendaryThresholdLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const legendaryUnlockRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, LEGENDARY_UNLOCK_NODE_ID],
+      )
+      if (Number(legendaryUnlockRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'legendary-unlock-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, LEGENDARY_THRESHOLD_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = scaleCost(legendaryThresholdCost(level), userRow.rows[0].prestige_tier)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, LEGENDARY_THRESHOLD_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        legendaryThresholdLevel: newLevel,
+        legendaryThresholdTps: legendaryThresholdTps(newLevel),
+        legendaryThresholdNextCost: scaleCost(legendaryThresholdCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

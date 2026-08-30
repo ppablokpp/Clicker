@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Atom,
   Crosshair,
+  ChevronsDown,
   ChevronsUp,
   Gauge,
   Gem,
@@ -199,14 +200,22 @@ const NODES: TreeNode[] = [
   { id: 'd3', x: CENTER - 177, y: CENTER - 271, label: 'Mejora+' },
 
   // Branch E — forks into two: Modo Legendario (e2a0) gates the heat
-  // tier itself and fans out into its own two children (Reflejos/e2a and
-  // Impulso/e2a1); Multiplicador (e2c) is the other child off Productividad.
-  // Sobrecarga used to live here too but now leads Branch F, its own root
-  // branch.
+  // tier itself and fans out into its own three children (Catalizador/e2a,
+  // Impulso/e2a1, Umbral/e2a2 — lowers the t/s needed to trigger Legendary
+  // in the first place); Multiplicador (e2c) is the other child off
+  // Productividad. Sobrecarga used to live here too but now leads Branch F,
+  // its own root branch.
+  //
+  // The three e2a0 children sit on a common arc, 160px out from e2a0 and
+  // 40° apart from each other (adjacent pairs land ~110px apart center to
+  // center — 80px node diameter plus a real gap, no overlap) — equal
+  // distance from the parent and from each other. Whole arc rotated 20°
+  // clockwise from its first draft.
   { id: 'e1', x: CENTER + 150, y: CENTER + 110, label: 'Mejora' },
   { id: 'e2a0', x: 773, y: 524, label: 'Mejora' },
-  { id: 'e2a', x: 892, y: 441, label: 'Mejora' },
-  { id: 'e2a1', x: 909, y: 587, label: 'Mejora' },
+  { id: 'e2a', x: 865, y: 393, label: 'Mejora' },
+  { id: 'e2a1', x: 928, y: 483, label: 'Mejora' },
+  { id: 'e2a2', x: 918, y: 592, label: 'Mejora' },
   { id: 'e2c', x: CENTER + 275, y: CENTER + 205, label: 'Mejora' },
 ]
 
@@ -235,6 +244,7 @@ const EDGES: TreeEdge[] = [
   { from: 'e1', to: 'e2a0' },
   { from: 'e2a0', to: 'e2a' },
   { from: 'e2a0', to: 'e2a1' },
+  { from: 'e2a0', to: 'e2a2' },
   { from: 'e1', to: 'e2c' },
 ]
 
@@ -400,6 +410,11 @@ export function Tree() {
     legendaryGrowthNextCost,
     isBuyingLegendaryGrowth,
     buyLegendaryGrowth,
+    legendaryThresholdLevel,
+    legendaryThresholdTps,
+    legendaryThresholdNextCost,
+    isBuyingLegendaryThreshold,
+    buyLegendaryThreshold,
     scoutDroneLevel,
     scoutDroneRate,
     scoutDroneNextCost,
@@ -459,6 +474,8 @@ export function Tree() {
   const canAffordLegendaryEase = legendaryEaseNextCost !== null && totalClicks >= legendaryEaseNextCost
   const isLegendaryGrowthMaxed = legendaryGrowthNextCost === null
   const canAffordLegendaryGrowth = legendaryGrowthNextCost !== null && totalClicks >= legendaryGrowthNextCost
+  const isLegendaryThresholdMaxed = legendaryThresholdNextCost === null
+  const canAffordLegendaryThreshold = legendaryThresholdNextCost !== null && totalClicks >= legendaryThresholdNextCost
   const isScoutDroneMaxed = scoutDroneNextCost === null
   const canAffordScoutDrone = scoutDroneNextCost !== null && totalClicks >= scoutDroneNextCost
   const isScoutFrequencyMaxed = scoutFrequencyNextCost === null
@@ -489,6 +506,7 @@ export function Tree() {
   const [showLegendaryUnlockModal, setShowLegendaryUnlockModal] = useState(false)
   const [showLegendaryEaseModal, setShowLegendaryEaseModal] = useState(false)
   const [showLegendaryGrowthModal, setShowLegendaryGrowthModal] = useState(false)
+  const [showLegendaryThresholdModal, setShowLegendaryThresholdModal] = useState(false)
   const [showScoutDroneModal, setShowScoutDroneModal] = useState(false)
   const [showScoutFrequencyModal, setShowScoutFrequencyModal] = useState(false)
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
@@ -675,6 +693,7 @@ export function Tree() {
     e2a0: legendaryUnlockLevel,
     e2a: legendaryEaseLevel,
     e2a1: legendaryGrowthLevel,
+    e2a2: legendaryThresholdLevel,
     e2b: autoMultiplierLevel,
     e2b1: offlineProductionLevel,
     e2c: tapMultiplierLevel,
@@ -745,6 +764,7 @@ export function Tree() {
               node.id !== 'e2b' &&
               node.id !== 'e2b1' &&
               node.id !== 'e2a1' &&
+              node.id !== 'e2a2' &&
               node.id !== 'e2c' &&
               node.id !== 'd1' &&
               node.id !== 'd2' &&
@@ -1299,6 +1319,55 @@ export function Tree() {
                 </span>
 
                 {!isLegendaryGrowthMaxed && canAffordLegendaryGrowth && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.e2a2 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2a2.x, top: nodeById.e2a2.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2a2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <ChevronsDown size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryThresholdLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.e2a2 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.e2a2.x, top: nodeById.e2a2.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowLegendaryThresholdModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.e2a2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-red-400/40 ${LEGENDARY_NODE_STYLE}`}
+              >
+                <ChevronsDown size={20} className="text-red-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {legendaryThresholdLevel}
+                </span>
+
+                {!isLegendaryThresholdMaxed && canAffordLegendaryThreshold && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -2100,6 +2169,62 @@ export function Tree() {
         </div>
       )}
 
+      {showLegendaryThresholdModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowLegendaryThresholdModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowLegendaryThresholdModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <ChevronsDown size={18} className="text-red-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.legendaryThresholdName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryThresholdDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentThresholdTps}{' '}
+                <span className="font-semibold text-white">{legendaryThresholdTps} {strings.home.tps}</span>
+              </span>
+              {!isLegendaryThresholdMaxed && (
+                <span>
+                  {strings.tree.nextThresholdTps}{' '}
+                  <span className="font-semibold text-white">{legendaryThresholdTps - 1} {strings.home.tps}</span>
+                </span>
+              )}
+            </div>
+
+            {isLegendaryThresholdMaxed ? (
+              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
+                {strings.store.maxLevel}
+              </div>
+            ) : (
+              <TreeBuyButton
+                onClick={buyLegendaryThreshold}
+                isBuying={isBuyingLegendaryThreshold}
+                canAfford={canAffordLegendaryThreshold}
+                buyingLabel={strings.tree.upgrading}
+                cost={legendaryThresholdNextCost ?? 0}
+                balance={totalClicks}
+                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {showLegendaryUnlockModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
@@ -2121,7 +2246,7 @@ export function Tree() {
               <Zap size={18} className="text-red-300" />
               <p className="text-sm font-semibold text-white">{strings.tree.legendaryUnlockName}</p>
             </div>
-            <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryUnlockDesc}</p>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryUnlockDesc(legendaryThresholdTps.toString())}</p>
 
             {isLegendaryUnlockMaxed ? (
               <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">

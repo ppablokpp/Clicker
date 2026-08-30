@@ -143,7 +143,10 @@ const HEAT_LEVELS = [
   { min: 0, key: null, badge: 'text-neutral-300', icon: 'text-neutral-600', ripple: 'bg-violet-400/40', glow: 'rgba(168,85,247,0.25)', multiplier: 1 },
   { min: 6, key: 'onFire', badge: 'text-amber-300', icon: 'text-amber-400', ripple: 'bg-amber-400/50', glow: 'rgba(251,191,36,0.35)', multiplier: 1 },
   { min: 10, key: 'unstoppable', badge: 'text-orange-300', icon: 'text-orange-400', ripple: 'bg-orange-500/55', glow: 'rgba(249,115,22,0.4)', multiplier: 1 },
-  { min: 20, key: 'legendary', badge: 'text-red-300', icon: 'text-red-400', ripple: 'bg-red-500/60', glow: 'rgba(239,68,68,0.45)', multiplier: 2 },
+  // `min` here is just the tier-0 default — the tree's Umbral node (see
+  // legendaryThresholdTps) lowers the real threshold as it levels up, so
+  // getHeatLevel takes that as its own parameter instead of reading this.
+  { min: 30, key: 'legendary', badge: 'text-red-300', icon: 'text-red-400', ripple: 'bg-red-500/60', glow: 'rgba(239,68,68,0.45)', multiplier: 2 },
 ] as const satisfies readonly {
   min: number
   key: 'onFire' | 'unstoppable' | 'legendary' | null
@@ -155,12 +158,17 @@ const HEAT_LEVELS = [
 }[]
 
 // Legendary itself is gated behind the "Modo Legendario" tree node —
-// without it, hitting 20 t/s caps out at Imparable instead (no combo meter,
-// no per-tier multiplier past ×1 from heat).
-function getHeatLevel(cps: number, legendaryUnlocked: boolean): (typeof HEAT_LEVELS)[number] {
+// without it, hitting the threshold caps out at Imparable instead (no
+// combo meter, no per-tier multiplier past ×1 from heat). The threshold
+// itself (legendaryMinTps) comes from Umbral, Modo Legendario's own child —
+// 30 t/s by default, shrinking down to a 20 t/s floor as it's leveled up.
+function getHeatLevel(cps: number, legendaryUnlocked: boolean, legendaryMinTps: number): (typeof HEAT_LEVELS)[number] {
   let level: (typeof HEAT_LEVELS)[number] = HEAT_LEVELS[0]
   for (const l of HEAT_LEVELS) {
-    if (l.key === 'legendary' && !legendaryUnlocked) continue
+    if (l.key === 'legendary') {
+      if (legendaryUnlocked && cps >= legendaryMinTps) level = l
+      continue
+    }
     if (cps >= l.min) level = l
   }
   return level
@@ -180,7 +188,7 @@ function getHeatLevel(cps: number, legendaryUnlocked: boolean): (typeof HEAT_LEV
 // bonusStep actually raises the ceiling instead of just getting there
 // faster.
 const LEGENDARY_STREAK_RATIO = 1.4
-const LEGENDARY_BONUS_BASE = 1.5
+const LEGENDARY_BONUS_BASE = 1.1
 const LEGENDARY_TIER_MAX = 5
 
 function legendaryStreakThreshold(tier: number, streakBase: number): number {
@@ -664,6 +672,7 @@ export function Home() {
     legendaryUnlockLevel,
     legendaryStreakBase,
     legendaryBonusStep,
+    legendaryThresholdTps,
     multiShotValue,
     multiShotLevel,
     scoutDroneLevel,
@@ -858,8 +867,8 @@ export function Home() {
   const activePointersRef = useRef<Set<number>>(new Set())
   const lastParticleAtRef = useRef(0)
   const heat = useMemo(
-    () => getHeatLevel(clicksPerSecond, legendaryUnlockLevel > 0),
-    [clicksPerSecond, legendaryUnlockLevel],
+    () => getHeatLevel(clicksPerSecond, legendaryUnlockLevel > 0, legendaryThresholdTps),
+    [clicksPerSecond, legendaryUnlockLevel, legendaryThresholdTps],
   )
   const [legendaryStreak, setLegendaryStreak] = useState({ tier: 0, count: 0 })
   // Falling out of legendary breaks the combo — back to the base x2 and an

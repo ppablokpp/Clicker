@@ -43,6 +43,9 @@ interface TreeState {
   legendaryGrowthLevel: number
   legendaryBonusStep: number
   legendaryGrowthNextCost: number | null
+  legendaryThresholdLevel: number
+  legendaryThresholdTps: number
+  legendaryThresholdNextCost: number | null
   autoMultiplierLevel: number
   autoMultiplierValue: number
   autoMultiplierNextValue: number
@@ -98,6 +101,8 @@ interface TreeContextValue extends TreeState {
   buyLegendaryEase: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryGrowth: boolean
   buyLegendaryGrowth: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingLegendaryThreshold: boolean
+  buyLegendaryThreshold: () => Promise<{ ok: boolean; error?: string }>
   isBuyingScoutDrone: boolean
   buyScoutDrone: () => Promise<{ ok: boolean; error?: string }>
   isBuyingScoutFrequency: boolean
@@ -147,8 +152,11 @@ const EMPTY_STATE: TreeState = {
   legendaryStreakBase: 200,
   legendaryEaseNextCost: 0,
   legendaryGrowthLevel: 0,
-  legendaryBonusStep: 0.5,
+  legendaryBonusStep: 0.1,
   legendaryGrowthNextCost: 0,
+  legendaryThresholdLevel: 0,
+  legendaryThresholdTps: 30,
+  legendaryThresholdNextCost: 0,
   autoMultiplierLevel: 0,
   autoMultiplierValue: 0.5,
   autoMultiplierNextValue: 1,
@@ -186,6 +194,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingLegendaryUnlock, setIsBuyingLegendaryUnlock] = useState(false)
   const [isBuyingLegendaryEase, setIsBuyingLegendaryEase] = useState(false)
   const [isBuyingLegendaryGrowth, setIsBuyingLegendaryGrowth] = useState(false)
+  const [isBuyingLegendaryThreshold, setIsBuyingLegendaryThreshold] = useState(false)
   const [isBuyingScoutDrone, setIsBuyingScoutDrone] = useState(false)
   const [isBuyingScoutFrequency, setIsBuyingScoutFrequency] = useState(false)
   const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
@@ -248,6 +257,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           legendaryGrowthLevel: data.legendaryGrowthLevel,
           legendaryBonusStep: data.legendaryBonusStep,
           legendaryGrowthNextCost: data.legendaryGrowthNextCost,
+          legendaryThresholdLevel: data.legendaryThresholdLevel,
+          legendaryThresholdTps: data.legendaryThresholdTps,
+          legendaryThresholdNextCost: data.legendaryThresholdNextCost,
           autoMultiplierLevel: data.autoMultiplierLevel,
           autoMultiplierValue: data.autoMultiplierValue,
           autoMultiplierNextValue: data.autoMultiplierNextValue,
@@ -582,6 +594,38 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
+  const buyLegendaryThreshold = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingLegendaryThreshold(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/legendary-threshold/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        legendaryThresholdLevel: data.legendaryThresholdLevel,
+        legendaryThresholdTps: data.legendaryThresholdTps,
+        legendaryThresholdNextCost: data.legendaryThresholdNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Umbral', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingLegendaryThreshold(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn])
+
   const buyScoutDrone = useCallback(async () => {
     if (!userId) {
       promptSignIn()
@@ -906,6 +950,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         buyLegendaryEase,
         isBuyingLegendaryGrowth,
         buyLegendaryGrowth,
+        isBuyingLegendaryThreshold,
+        buyLegendaryThreshold,
         isBuyingScoutDrone,
         buyScoutDrone,
         isBuyingScoutFrequency,

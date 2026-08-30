@@ -235,7 +235,7 @@ export interface TranslationStrings {
     currentChance: string
     nextChance: string
     legendaryUnlockName: string
-    legendaryUnlockDesc: string
+    legendaryUnlockDesc: (tps: string) => string
     legendaryEaseName: string
     legendaryEaseDesc: string
     currentStreakClicks: string
@@ -244,6 +244,10 @@ export interface TranslationStrings {
     legendaryGrowthDesc: string
     currentBonusStep: string
     nextBonusStep: string
+    legendaryThresholdName: string
+    legendaryThresholdDesc: string
+    currentThresholdTps: string
+    nextThresholdTps: string
     scoutDroneName: string
     scoutDroneDesc: string
     scoutDroneCurrentLabel: string
@@ -654,8 +658,8 @@ export const translations: Record<Language, TranslationStrings> = {
       currentChance: 'Probabilidad actual:',
       nextChance: 'Probabilidad siguiente nivel:',
       legendaryUnlockName: 'Modo Legendario',
-      legendaryUnlockDesc:
-        'Desbloquea un multiplicador de la potencia de cada disparo al sobrecalentar el cañón a 20 disparos por segundo.',
+      legendaryUnlockDesc: (tps) =>
+        `Desbloquea un multiplicador de la potencia de cada disparo al sobrecalentar el cañón a ${tps} disparos por segundo.`,
       legendaryEaseName: 'Catalizador',
       legendaryEaseDesc: 'Reduce los disparos necesarios para sobrecalentar el cañón y subir de nivel en modo Legendario.',
       currentStreakClicks: 'Disparos actuales:',
@@ -664,6 +668,10 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryGrowthDesc: 'Aumenta la subida del multiplicador de modo Legendario cada vez que sube de nivel.',
       currentBonusStep: 'Subida actual:',
       nextBonusStep: 'Subida siguiente nivel:',
+      legendaryThresholdName: 'Umbral',
+      legendaryThresholdDesc: 'Reduce la velocidad de disparo necesaria para activar el modo Legendario.',
+      currentThresholdTps: 'Umbral actual:',
+      nextThresholdTps: 'Umbral siguiente nivel:',
       scoutDroneName: 'Dron buscador',
       scoutDroneDesc: 'Drones capaces de encontrar destellos para mejorar su producción.',
       scoutDroneCurrentLabel: 'Drones buscadores actuales:',
@@ -1084,7 +1092,8 @@ export const translations: Record<Language, TranslationStrings> = {
       currentChance: 'Current chance:',
       nextChance: 'Next level chance:',
       legendaryUnlockName: 'Legendary Mode',
-      legendaryUnlockDesc: 'Unlocks a multiplier on the power of every shot by overheating the cannon at 20 shots per second.',
+      legendaryUnlockDesc: (tps) =>
+        `Unlocks a multiplier on the power of every shot by overheating the cannon at ${tps} shots per second.`,
       legendaryEaseName: 'Catalyst',
       legendaryEaseDesc: 'Lowers how many shots it takes to overheat the cannon and level up within Legendary mode.',
       currentStreakClicks: 'Current shots:',
@@ -1093,6 +1102,10 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryGrowthDesc: "Raises how much Legendary's multiplier increases each time it levels up.",
       currentBonusStep: 'Current increase:',
       nextBonusStep: 'Next level increase:',
+      legendaryThresholdName: 'Threshold',
+      legendaryThresholdDesc: 'Lowers the shooting speed needed to trigger Legendary mode.',
+      currentThresholdTps: 'Current threshold:',
+      nextThresholdTps: 'Next level threshold:',
       scoutDroneName: 'Scout Drone',
       scoutDroneDesc: 'Drones able to find glimmers to boost their production.',
       scoutDroneCurrentLabel: 'Current scout drones:',
