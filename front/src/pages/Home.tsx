@@ -41,11 +41,13 @@ import { useMilestonesContext } from '../context/MilestonesContext'
 import { useTasksContext } from '../context/TasksContext'
 import { useDailyCaseContext } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
+import { useClickPacksContext } from '../context/ClickPacksContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
 import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
+import { formatPlatino } from '../lib/formatPlatino'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
@@ -566,30 +568,6 @@ const OrbitingBots = memo(function OrbitingBots({
   )
 })
 
-// Below 1M, the exact number — it's short enough to read at a glance and
-// watching the digits climb is part of the fun. From 1M up it switches to a
-// 2-decimal + suffix form (1.23M, 999.90M, 1.00B, 1.00T…) since a raw digit
-// string past that point is just noise; the suffix keeps the display length
-// short and constant instead of needing to keep shrinking the font forever.
-// The decimal point here is always a literal "." regardless of language —
-// unlike the plain-number branch below, this is a compact game-style unit
-// suffix, not a localized number, so it stays consistent either way.
-function formatPlatino(value: number, language: 'es' | 'en'): string {
-  const locale = language === 'en' ? 'en-US' : 'es-ES'
-  const floored = Math.floor(value)
-  const abs = Math.abs(floored)
-  if (abs < 1_000_000) return floored.toLocaleString(locale)
-  const tiers: [number, string][] = [
-    [1e12, 'T'],
-    [1e9, 'B'],
-    [1e6, 'M'],
-  ]
-  const [threshold, suffix] = tiers.find(([t]) => abs >= t) ?? tiers[tiers.length - 1]
-  // Truncated, not rounded — a rounded-up decimal would flash a number
-  // slightly bigger than what's actually owned.
-  const scaled = Math.floor((floored / threshold) * 100) / 100
-  return `${scaled.toFixed(2)}${suffix}`
-}
 
 // One of the four "switches" flanking the platino screen (two stacked on
 // each side) — icon only now, small enough to fit two-high next to the
@@ -792,6 +770,7 @@ export function Home() {
     secondsLeft,
     activatingId: activatingPowerupId,
     activate: activatePowerup,
+    refetchCatalog: refetchPowerupCatalog,
   } = usePowerupContext()
   const {
     catalog: luckCatalog,
@@ -799,6 +778,7 @@ export function Home() {
     secondsLeft: luckSecondsLeft,
     activatingId: activatingLuckId,
     activate: activateLuck,
+    refetchCatalog: refetchLuckCatalog,
   } = useTimedLuckPowerupContext()
   const {
     catalog: magnetCatalog,
@@ -806,11 +786,13 @@ export function Home() {
     secondsLeft: magnetSecondsLeft,
     activatingId: activatingMagnetId,
     activate: activateMagnet,
+    refetchCatalog: refetchMagnetCatalog,
   } = useMagnetContext()
   const { keys } = useKeysContext()
   const { gems } = useGemsContext()
-  const { ownedChests: ownedClickChests } = useDailyCaseContext()
-  const { ownedChests: ownedGemChests } = useGemChestContext()
+  const { ownedChests: ownedClickChests, refetchCatalog: refetchDailyCaseCatalog } = useDailyCaseContext()
+  const { ownedChests: ownedGemChests, refetchCatalog: refetchGemChestCatalog } = useGemChestContext()
+  const { refetchCatalog: refetchClickPacksCatalog } = useClickPacksContext()
   const { inventory, hasNewItem, markInventorySeen } = useInventoryContext()
   // Keeps the just-activated item visible (its owned count can drop to 0)
   // until its own timer runs out, instead of it vanishing the instant it starts.
@@ -1001,13 +983,22 @@ export function Home() {
   // confirmPrestige/DELETE FROM user_permanent_upgrades) — refetching the
   // tree here pulls those just-reset levels in immediately instead of
   // showing stale ones for up to POLL_INTERVAL_MS. Keys/gems/inventory
-  // aren't touched by a prestige at all, so nothing else needs refreshing.
+  // quantities aren't touched by a prestige at all, but the chest/pack
+  // catalogs' own material-denominated numbers scale with the new tier (see
+  // usersRepository.scaleMaterialAmount) — refetch those too or the Store
+  // keeps showing pre-prestige costs/payouts for the rest of the session.
   const handleConfirmPrestige = async () => {
     setPrestigeError(null)
     const result = await confirmPrestige()
     if (result.ok) {
       setShowPrestigeConfirm(false)
       refetchTree()
+      refetchDailyCaseCatalog()
+      refetchGemChestCatalog()
+      refetchClickPacksCatalog()
+      refetchPowerupCatalog()
+      refetchLuckCatalog()
+      refetchMagnetCatalog()
     } else if (result.error !== 'not-signed-in') {
       setPrestigeError(result.error ?? 'error')
     }

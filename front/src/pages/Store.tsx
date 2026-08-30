@@ -23,6 +23,7 @@ import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
+import { formatPlatino } from '../lib/formatPlatino'
 import { playCaseReveal, playCaseTick, playChestPurchase } from '../lib/caseSound'
 
 export function Store() {
@@ -54,7 +55,7 @@ export function Store() {
                 className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums transition-colors ${materialTheme.pill}`}
               >
                 <PlatinumIcon size={15} className="opacity-70" />
-                {totalClicks.toLocaleString(locale)}
+                {formatPlatino(totalClicks, language)}
               </button>
               <button
                 onClick={() => setShowKeyPacks(true)}

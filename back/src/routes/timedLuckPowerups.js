@@ -2,11 +2,17 @@ import { Router } from 'express'
 import { getAuth } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
 import { TIMED_LUCK_CATALOG, getTimedLuckPowerup } from '../powerups/timedLuckPowerups.js'
+import { prestigeTierMultiplier } from '../game/trajectory.js'
 
 export const timedLuckPowerupsRouter = Router()
 
-timedLuckPowerupsRouter.get('/', (_req, res) => {
-  res.json(TIMED_LUCK_CATALOG)
+// Only the clicks-priced tiers scale with the caller's prestige tier (see
+// usersRepository.buyTimedLuckPowerup, which applies the same rule at
+// purchase time) — the gem-priced tiers are left exactly as defined.
+timedLuckPowerupsRouter.get('/', async (req, res) => {
+  const { userId } = getAuth(req)
+  const multiplier = userId ? prestigeTierMultiplier(await usersRepository.getPrestigeTier(userId)) : 1
+  res.json(TIMED_LUCK_CATALOG.map((p) => (p.currency === 'gems' ? p : { ...p, cost: p.cost * multiplier })))
 })
 
 // Buying just adds one to the owned count — see /activate for what starts

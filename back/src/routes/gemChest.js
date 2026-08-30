@@ -8,12 +8,19 @@ import {
   GEM_CHEST_PRIZES,
   pickGemChestPrize,
 } from '../store/gemChest.js'
+import { prestigeTierMultiplier } from '../game/trajectory.js'
 
 export const gemChestRouter = Router()
 
-gemChestRouter.get('/', (_req, res) => {
+// Only chestCost is clicks-denominated (paid to buy the chest itself), so
+// only it scales with the caller's prestige tier — the prizes are gems
+// through and through, left exactly as defined (see usersRepository's
+// openGemChestWithKeys/openGemChestWithGems, which never scale them either).
+gemChestRouter.get('/', async (req, res) => {
+  const { userId } = getAuth(req)
+  const multiplier = userId ? prestigeTierMultiplier(await usersRepository.getPrestigeTier(userId)) : 1
   res.json({
-    chestCost: GEM_CHEST_CHEST_COST,
+    chestCost: GEM_CHEST_CHEST_COST * multiplier,
     keyCost: GEM_CHEST_KEY_COST,
     gemCost: GEM_CHEST_GEM_COST,
     prizes: GEM_CHEST_PRIZES,

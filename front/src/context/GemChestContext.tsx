@@ -38,6 +38,11 @@ interface GemChestContextValue {
   openWithKeys: () => Promise<OpenResult>
   openWithGems: () => Promise<OpenResult>
   buyChest: () => Promise<BuyChestResult>
+  // Re-pulls the catalog — chestCost scales with prestige tier server-side
+  // (the gem prizes don't), so a tier change needs this re-fetched or the
+  // Store keeps showing the pre-prestige cost for the rest of the session
+  // (see Home.tsx's handleConfirmPrestige).
+  refetchCatalog: () => void
 }
 
 const GemChestContext = createContext<GemChestContextValue | null>(null)
@@ -56,17 +61,32 @@ export function GemChestProvider({ children }: { children: ReactNode }) {
   const [isOpening, setIsOpening] = useState(false)
   const [isBuying, setIsBuying] = useState(false)
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/gem-chest`)
-      .then((r) => r.json())
-      .then((data) => {
+  // Authenticated (not a plain anonymous fetch) so the backend can scale
+  // chestCost to the caller's own prestige tier — signed-out visitors just
+  // get the flat, tier-0 catalog back.
+  const fetchCatalog = useCallback(() => {
+    ;(async () => {
+      try {
+        const headers: Record<string, string> = {}
+        if (userId) {
+          const token = await getToken()
+          headers.Authorization = `Bearer ${token}`
+        }
+        const res = await fetch(`${API_URL}/api/gem-chest`, { headers })
+        const data = await res.json()
         setCatalog(data.prizes)
         setChestCost(data.chestCost)
         setKeyCost(data.keyCost)
         setGemCost(data.gemCost)
-      })
-      .catch((err) => console.error('No se pudo cargar el cofre de gemas', err))
-  }, [])
+      } catch (err) {
+        console.error('No se pudo cargar el cofre de gemas', err)
+      }
+    })()
+  }, [userId, getToken])
+
+  useEffect(() => {
+    fetchCatalog()
+  }, [fetchCatalog])
 
   useEffect(() => {
     if (!userId) return
@@ -148,7 +168,19 @@ export function GemChestProvider({ children }: { children: ReactNode }) {
 
   return (
     <GemChestContext.Provider
-      value={{ catalog, chestCost, keyCost, gemCost, ownedChests, isOpening, isBuying, openWithKeys, openWithGems, buyChest }}
+      value={{
+        catalog,
+        chestCost,
+        keyCost,
+        gemCost,
+        ownedChests,
+        isOpening,
+        isBuying,
+        openWithKeys,
+        openWithGems,
+        buyChest,
+        refetchCatalog: fetchCatalog,
+      }}
     >
       {children}
     </GemChestContext.Provider>

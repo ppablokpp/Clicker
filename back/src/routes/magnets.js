@@ -2,11 +2,17 @@ import { Router } from 'express'
 import { getAuth } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
 import { MAGNET_CATALOG, getMagnet } from '../powerups/magnets.js'
+import { prestigeTierMultiplier } from '../game/trajectory.js'
 
 export const magnetsRouter = Router()
 
-magnetsRouter.get('/', (_req, res) => {
-  res.json(MAGNET_CATALOG)
+// `currency` here is what a magnet's proc pays out (keys/gems), not what it
+// costs — magnets are always bought with clicks (see usersRepository.
+// buyMagnet), so cost always scales with the caller's prestige tier.
+magnetsRouter.get('/', async (req, res) => {
+  const { userId } = getAuth(req)
+  const multiplier = userId ? prestigeTierMultiplier(await usersRepository.getPrestigeTier(userId)) : 1
+  res.json(MAGNET_CATALOG.map((m) => ({ ...m, cost: m.cost * multiplier })))
 })
 
 // Buying just adds one to the owned count — see /activate for what starts

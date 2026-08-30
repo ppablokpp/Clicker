@@ -43,6 +43,11 @@ interface TimedLuckPowerupContextValue {
   buy: (powerup: TimedLuckPowerupDef) => Promise<{ ok: boolean; error?: string }>
   /** Consumes one owned unit and starts it running — fails if another tier in this category is already active. */
   activate: (powerup: TimedLuckPowerupDef) => Promise<{ ok: boolean; error?: string }>
+  // Re-pulls the catalog — the clicks-priced tiers scale with prestige tier
+  // server-side (see the route), so a tier change needs this re-fetched or
+  // the Store keeps showing pre-prestige costs for the rest of the session
+  // (see Home.tsx's handleConfirmPrestige).
+  refetchCatalog: () => void
 }
 
 const TimedLuckPowerupContext = createContext<TimedLuckPowerupContextValue | null>(null)
@@ -64,12 +69,28 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
   const [buyingId, setBuyingId] = useState<string | null>(null)
   const [activatingId, setActivatingId] = useState<string | null>(null)
 
+  // Authenticated (not a plain anonymous fetch) so the backend can scale the
+  // clicks-priced tiers to the caller's own prestige tier — signed-out
+  // visitors just get the flat, tier-0 catalog back.
+  const fetchCatalog = useCallback(() => {
+    ;(async () => {
+      try {
+        const headers: Record<string, string> = {}
+        if (userId) {
+          const token = await getToken()
+          headers.Authorization = `Bearer ${token}`
+        }
+        const res = await fetch(`${API_URL}/api/timed-luck-powerups`, { headers })
+        setCatalog(await res.json())
+      } catch (err) {
+        console.error('No se pudo cargar el catálogo de suerte con temporizador', err)
+      }
+    })()
+  }, [userId, getToken])
+
   useEffect(() => {
-    fetch(`${API_URL}/api/timed-luck-powerups`)
-      .then((r) => r.json())
-      .then(setCatalog)
-      .catch((err) => console.error('No se pudo cargar el catálogo de suerte con temporizador', err))
-  }, [])
+    fetchCatalog()
+  }, [fetchCatalog])
 
   // Hydrate any timed luck powerup still running from a previous session.
   useEffect(() => {
@@ -210,7 +231,17 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
 
   return (
     <TimedLuckPowerupContext.Provider
-      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate }}
+      value={{
+        catalog,
+        active,
+        secondsLeft,
+        cooldownSecondsLeft,
+        buyingId,
+        activatingId,
+        buy,
+        activate,
+        refetchCatalog: fetchCatalog,
+      }}
     >
       {children}
     </TimedLuckPowerupContext.Provider>

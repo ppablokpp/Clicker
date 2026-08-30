@@ -2,11 +2,23 @@ import { Router } from 'express'
 import { getAuth } from '@clerk/express'
 import { usersRepository } from '../db/usersRepository.js'
 import { CASE_PRIZES, DAILY_CASE_CHEST_COST, DAILY_CASE_KEY_COST, pickWeightedPrize } from '../store/dailyCase.js'
+import { prestigeTierMultiplier } from '../game/trajectory.js'
 
 export const dailyCaseRouter = Router()
 
-dailyCaseRouter.get('/', (_req, res) => {
-  res.json({ chestCost: DAILY_CASE_CHEST_COST, keyCost: DAILY_CASE_KEY_COST, prizes: CASE_PRIZES })
+// Chest cost and the (clicks-denominated) prize amounts scale with the
+// caller's prestige tier — same ×5-per-tier rule as the tree — so the
+// catalog shown here always matches what /buy-chest and /spin actually
+// charge/pay (see usersRepository.buyClickChest/spinDailyCase). Keys stay
+// flat, and so does any prize whose currency isn't 'clicks'.
+dailyCaseRouter.get('/', async (req, res) => {
+  const { userId } = getAuth(req)
+  const multiplier = userId ? prestigeTierMultiplier(await usersRepository.getPrestigeTier(userId)) : 1
+  res.json({
+    chestCost: DAILY_CASE_CHEST_COST * multiplier,
+    keyCost: DAILY_CASE_KEY_COST,
+    prizes: CASE_PRIZES.map((p) => (p.currency === 'clicks' ? { ...p, amount: p.amount * multiplier } : p)),
+  })
 })
 
 // The prize is rolled here, server-side, right before spending the cost —
@@ -30,7 +42,10 @@ dailyCaseRouter.post('/spin', async (req, res) => {
     keys: result.keys,
     ownedChests: result.ownedChests,
     prizeId: prize.id,
-    prizeAmount: prize.amount,
+    // The real, possibly-scaled amount actually credited (see
+    // usersRepository.spinDailyCase) — not the flat, tier-0 `prize.amount`
+    // rolled above.
+    prizeAmount: result.prizeAmount,
     prizeCurrency: prize.currency,
   })
 })

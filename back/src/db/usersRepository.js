@@ -1,10 +1,21 @@
 import { database } from './pool.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
-import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT } from '../game/trajectory.js'
+import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT, prestigeTierMultiplier } from '../game/trajectory.js'
 
 // Applies to both chest types — buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
 const MAX_OWNED_CHESTS = 10
+
+// Chest/pack prices and material payouts scale with prestige tier just like
+// the tree (see treeRepository's scaleCost) — a chest that costs 1000 clicks
+// or a case that pays out 3000 clicks at Amatista should cost/pay 5000/
+// 15000 at Platino, since 1000 clicks means something completely different
+// once every other number in the game has grown 5x. Keys and gems are left
+// untouched everywhere — this only ever applies to a `clicks`-denominated
+// amount (a cost paid in clicks, or a prize whose currency is 'clicks').
+function scaleMaterialAmount(amount, prestigeTier) {
+  return amount * prestigeTierMultiplier(Number(prestigeTier))
+}
 
 export const usersRepository = {
   // Runs once per session (from the sync-on-login call) — just profile
@@ -58,6 +69,15 @@ export const usersRepository = {
       objectProgress: Number(row?.object_progress ?? 0),
       prestigeTier: Number(row?.prestige_tier ?? 0),
     }
+  },
+
+  // Lightest possible read for scaling a shop catalog's material-denominated
+  // numbers to the caller's tier before they've even opened it (see the
+  // dailyCase/gemChest/clickPacks GET routes) — no FOR UPDATE, this never
+  // participates in a write transaction.
+  async getPrestigeTier(id) {
+    const result = await database.query('SELECT prestige_tier FROM users WHERE id = $1', [id])
+    return Number(result.rows[0]?.prestige_tier ?? 0)
   },
 
   // Trayectoria's manual prestige step — the player's confirmed tier
@@ -293,12 +313,16 @@ export const usersRepository = {
   // activates anything — it just adds one to the owned count in
   // user_inventory (see activatePowerup below for the separate action that
   // actually starts the timer, called from the inventory).
+  // `cost` comes in as the flat, tier-0 catalog value; scaled to the
+  // buyer's own tier here when it's clicks-priced (the two gem-priced tiers
+  // are left untouched, same rule as everywhere else — see
+  // scaleMaterialAmount).
   async buyPowerup(id, powerupId, cost, currency = 'clicks') {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
       const row = await client.query(
-        'SELECT total_clicks, gems, powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, gems, powerup_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
       )
       const user = row.rows[0]
@@ -313,7 +337,8 @@ export const usersRepository = {
       // The top two tiers are gem-priced instead of click-priced — same
       // cooldown either way, just a different balance column to check/spend.
       const balanceColumn = currency === 'gems' ? 'gems' : 'total_clicks'
-      if (Number(user[balanceColumn]) < cost) {
+      const scaledCost = currency === 'gems' ? cost : scaleMaterialAmount(cost, user.prestige_tier)
+      if (Number(user[balanceColumn]) < scaledCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: currency === 'gems' ? 'not-enough-gems' : 'not-enough-clicks' }
       }
@@ -325,7 +350,7 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, gems, powerup_cooldown_until`,
-        [id, cost],
+        [id, scaledCost],
       )
       await client.query(
         `INSERT INTO user_inventory (user_id, item_id, quantity)
@@ -403,12 +428,14 @@ export const usersRepository = {
   // click-multiplier powerup and a timed luck powerup can run — and be on
   // cooldown — independently of each other. Buying only adds to inventory,
   // same as buyPowerup — see activateTimedLuckPowerup for activation.
+  // Same tier-scaling rule as buyPowerup: clicks-priced tiers scale,
+  // gem-priced tiers don't.
   async buyTimedLuckPowerup(id, powerupId, cost, currency = 'clicks') {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
       const row = await client.query(
-        'SELECT total_clicks, gems, luck_powerup_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, gems, luck_powerup_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
       )
       const user = row.rows[0]
@@ -423,7 +450,8 @@ export const usersRepository = {
       // The top two tiers are gem-priced instead of click-priced — same
       // cooldown either way, just a different balance column to check/spend.
       const balanceColumn = currency === 'gems' ? 'gems' : 'total_clicks'
-      if (Number(user[balanceColumn]) < cost) {
+      const scaledCost = currency === 'gems' ? cost : scaleMaterialAmount(cost, user.prestige_tier)
+      if (Number(user[balanceColumn]) < scaledCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: currency === 'gems' ? 'not-enough-gems' : 'not-enough-clicks' }
       }
@@ -435,7 +463,7 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, gems, luck_powerup_cooldown_until`,
-        [id, cost],
+        [id, scaledCost],
       )
       await client.query(
         `INSERT INTO user_inventory (user_id, item_id, quantity)
@@ -514,12 +542,15 @@ export const usersRepository = {
   // Buying only adds to inventory — see activateMagnet for activation. The
   // actual per-click proc roll happens in incrementClicks above, unrelated
   // to either of these.
+  // `cost` comes in as the flat, tier-0 catalog value — always clicks-priced
+  // (unlike powerups/luck powerups, magnets have no gem-priced tier), so it
+  // always scales.
   async buyMagnet(id, magnetId, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
       const row = await client.query(
-        'SELECT total_clicks, magnet_cooldown_until FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, magnet_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
       )
       const user = row.rows[0]
@@ -531,7 +562,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.magnet_cooldown_until }
       }
-      if (Number(user.total_clicks) < cost) {
+      const scaledCost = scaleMaterialAmount(cost, user.prestige_tier)
+      if (Number(user.total_clicks) < scaledCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-clicks' }
       }
@@ -543,7 +575,7 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, magnet_cooldown_until`,
-        [id, cost],
+        [id, scaledCost],
       )
       await client.query(
         `INSERT INTO user_inventory (user_id, item_id, quantity)
@@ -667,11 +699,14 @@ export const usersRepository = {
   },
 
   // Currency exchange, not a real purchase — gems in, clicks out, atomic.
+  // gemCost is left as-is; the clicks side scales with prestige tier (see
+  // scaleMaterialAmount) so a pack is always worth the same *relative* chunk
+  // of material, whatever tier the buyer is on.
   async buyClickPack(id, pack) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query('SELECT gems, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [id])
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
@@ -682,6 +717,7 @@ export const usersRepository = {
         return { ok: false, reason: 'not-enough-gems' }
       }
 
+      const scaledClicks = scaleMaterialAmount(pack.clicks, user.prestige_tier)
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
@@ -690,13 +726,14 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, gems`,
-        [id, pack.clicks, pack.gemCost],
+        [id, scaledClicks, pack.gemCost],
       )
       await client.query('COMMIT')
       return {
         ok: true,
         totalClicks: Number(updated.rows[0].total_clicks),
         gems: Number(updated.rows[0].gems),
+        clicksGranted: scaledClicks,
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -717,7 +754,7 @@ export const usersRepository = {
     try {
       await client.query('BEGIN')
       const row = await client.query(
-        'SELECT keys, owned_click_chests FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT keys, owned_click_chests, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
       )
       const user = row.rows[0]
@@ -735,6 +772,7 @@ export const usersRepository = {
       }
 
       const isGemPrize = prize.currency === 'gems'
+      const prizeAmount = isGemPrize ? prize.amount : scaleMaterialAmount(prize.amount, user.prestige_tier)
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
@@ -746,7 +784,7 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, gems, keys, owned_click_chests`,
-        [id, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0, keyCost],
+        [id, isGemPrize ? 0 : prizeAmount, isGemPrize ? prizeAmount : 0, keyCost],
       )
       await client.query('COMMIT')
       return {
@@ -755,6 +793,7 @@ export const usersRepository = {
         gems: Number(updated.rows[0].gems),
         keys: Number(updated.rows[0].keys),
         ownedChests: Number(updated.rows[0].owned_click_chests),
+        prizeAmount,
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -765,12 +804,17 @@ export const usersRepository = {
   },
 
   // Buys one click-chest for clicks — a prerequisite for spinDailyCase's
-  // key-paid open path (the gem-paid path bypasses this entirely).
+  // key-paid open path (the gem-paid path bypasses this entirely). `cost`
+  // comes in as the flat, tier-0 constant; scaled to the buyer's own tier
+  // here, same as every tree upgrade's cost.
   async buyClickChest(id, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT total_clicks, owned_click_chests FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query(
+        'SELECT total_clicks, owned_click_chests, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
@@ -780,7 +824,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'chest-limit-reached' }
       }
-      if (Number(user.total_clicks) < cost) {
+      const scaledCost = scaleMaterialAmount(cost, user.prestige_tier)
+      if (Number(user.total_clicks) < scaledCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-clicks' }
       }
@@ -792,7 +837,7 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, owned_click_chests`,
-        [id, cost],
+        [id, scaledCost],
       )
       await client.query('COMMIT')
       return {
@@ -826,11 +871,18 @@ export const usersRepository = {
         return { ok: false, reason: 'already-redeemed' }
       }
 
+      const userRow = await client.query('SELECT prestige_tier FROM users WHERE id = $1 FOR UPDATE', [id])
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const isGemPrize = prize.currency === 'gems'
+      const prizeAmount = isGemPrize ? prize.amount : scaleMaterialAmount(prize.amount, userRow.rows[0].prestige_tier)
       await client.query(
         'INSERT INTO redeemed_case_purchases (transaction_id, user_id, prize_id, prize_amount) VALUES ($1, $2, $3, $4)',
-        [transactionId, id, prize.id, prize.amount],
+        [transactionId, id, prize.id, prizeAmount],
       )
-      const isGemPrize = prize.currency === 'gems'
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
@@ -840,13 +892,14 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, gems`,
-        [id, isGemPrize ? 0 : prize.amount, isGemPrize ? prize.amount : 0],
+        [id, isGemPrize ? 0 : prizeAmount, isGemPrize ? prizeAmount : 0],
       )
       await client.query('COMMIT')
       return {
         ok: true,
         totalClicks: Number(updated.rows[0].total_clicks),
         gems: Number(updated.rows[0].gems),
+        prizeAmount,
       }
     } catch (err) {
       await client.query('ROLLBACK')
@@ -929,7 +982,7 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query('SELECT gems, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [id])
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
@@ -941,6 +994,7 @@ export const usersRepository = {
       }
 
       const isGemPrize = prize.currency === 'gems'
+      const prizeAmount = isGemPrize ? prize.amount : scaleMaterialAmount(prize.amount, user.prestige_tier)
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,
@@ -950,12 +1004,13 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, gems`,
-        [id, isGemPrize ? 0 : prize.amount, cost, isGemPrize ? prize.amount : 0],
+        [id, isGemPrize ? 0 : prizeAmount, cost, isGemPrize ? prizeAmount : 0],
       )
       await client.query('COMMIT')
       return {
         ok: true,
         totalClicks: Number(updated.rows[0].total_clicks),
+        prizeAmount,
         gems: Number(updated.rows[0].gems),
       }
     } catch (err) {
@@ -1018,11 +1073,16 @@ export const usersRepository = {
   },
 
   // Buys one gem-chest for clicks — a prerequisite for openGemChestWithKeys.
+  // `cost` comes in as the flat, tier-0 constant; scaled to the buyer's own
+  // tier here, same as buyClickChest.
   async buyGemChest(id, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT total_clicks, owned_gem_chests FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query(
+        'SELECT total_clicks, owned_gem_chests, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
@@ -1032,7 +1092,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'chest-limit-reached' }
       }
-      if (Number(user.total_clicks) < cost) {
+      const scaledCost = scaleMaterialAmount(cost, user.prestige_tier)
+      if (Number(user.total_clicks) < scaledCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-clicks' }
       }
@@ -1044,7 +1105,7 @@ export const usersRepository = {
              updated_at = now()
          WHERE id = $1
          RETURNING total_clicks, owned_gem_chests`,
-        [id, cost],
+        [id, scaledCost],
       )
       await client.query('COMMIT')
       return {

@@ -22,6 +22,11 @@ interface ClickPacksContextValue {
   catalog: ClickPackDef[]
   buyingId: string | null
   buy: (pack: ClickPackDef) => Promise<BuyResult>
+  // Re-pulls the catalog — the clicks side of each pack scales with
+  // prestige tier server-side (see the route), so a tier change needs this
+  // re-fetched or the Store keeps showing pre-prestige amounts for the rest
+  // of the session (see Home.tsx's handleConfirmPrestige).
+  refetchCatalog: () => void
 }
 
 const ClickPacksContext = createContext<ClickPacksContextValue | null>(null)
@@ -36,12 +41,28 @@ export function ClickPacksProvider({ children }: { children: ReactNode }) {
   const [catalog, setCatalog] = useState<ClickPackDef[]>([])
   const [buyingId, setBuyingId] = useState<string | null>(null)
 
+  // Authenticated (not a plain anonymous fetch) so the backend can scale
+  // each pack's clicks amount to the caller's own prestige tier —
+  // signed-out visitors just get the flat, tier-0 catalog back.
+  const fetchCatalog = useCallback(() => {
+    ;(async () => {
+      try {
+        const headers: Record<string, string> = {}
+        if (userId) {
+          const token = await getToken()
+          headers.Authorization = `Bearer ${token}`
+        }
+        const res = await fetch(`${API_URL}/api/click-packs`, { headers })
+        setCatalog(await res.json())
+      } catch (err) {
+        console.error('No se pudo cargar el catálogo de packs de clicks', err)
+      }
+    })()
+  }, [userId, getToken])
+
   useEffect(() => {
-    fetch(`${API_URL}/api/click-packs`)
-      .then((r) => r.json())
-      .then(setCatalog)
-      .catch((err) => console.error('No se pudo cargar el catálogo de packs de clicks', err))
-  }, [])
+    fetchCatalog()
+  }, [fetchCatalog])
 
   const buy = useCallback(
     async (pack: ClickPackDef): Promise<BuyResult> => {
@@ -75,7 +96,11 @@ export function ClickPacksProvider({ children }: { children: ReactNode }) {
     [userId, getToken, syncTotalClicks, syncGems, promptSignIn],
   )
 
-  return <ClickPacksContext.Provider value={{ catalog, buyingId, buy }}>{children}</ClickPacksContext.Provider>
+  return (
+    <ClickPacksContext.Provider value={{ catalog, buyingId, buy, refetchCatalog: fetchCatalog }}>
+      {children}
+    </ClickPacksContext.Provider>
+  )
 }
 
 export function useClickPacksContext() {

@@ -40,6 +40,11 @@ interface MagnetContextValue {
   buy: (magnet: MagnetDef) => Promise<{ ok: boolean; error?: string }>
   /** Consumes one owned unit and starts it running — fails if the other magnet is already active. */
   activate: (magnet: MagnetDef) => Promise<{ ok: boolean; error?: string }>
+  // Re-pulls the catalog — cost scales with prestige tier server-side (see
+  // the route), so a tier change needs this re-fetched or the Store keeps
+  // showing the pre-prestige cost for the rest of the session (see
+  // Home.tsx's handleConfirmPrestige).
+  refetchCatalog: () => void
 }
 
 const MagnetContext = createContext<MagnetContextValue | null>(null)
@@ -61,12 +66,28 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
   const [buyingId, setBuyingId] = useState<string | null>(null)
   const [activatingId, setActivatingId] = useState<string | null>(null)
 
+  // Authenticated (not a plain anonymous fetch) so the backend can scale
+  // cost to the caller's own prestige tier — signed-out visitors just get
+  // the flat, tier-0 catalog back.
+  const fetchCatalog = useCallback(() => {
+    ;(async () => {
+      try {
+        const headers: Record<string, string> = {}
+        if (userId) {
+          const token = await getToken()
+          headers.Authorization = `Bearer ${token}`
+        }
+        const res = await fetch(`${API_URL}/api/magnets`, { headers })
+        setCatalog(await res.json())
+      } catch (err) {
+        console.error('No se pudo cargar el catálogo de imanes', err)
+      }
+    })()
+  }, [userId, getToken])
+
   useEffect(() => {
-    fetch(`${API_URL}/api/magnets`)
-      .then((r) => r.json())
-      .then(setCatalog)
-      .catch((err) => console.error('No se pudo cargar el catálogo de imanes', err))
-  }, [])
+    fetchCatalog()
+  }, [fetchCatalog])
 
   // Hydrate any magnet still running from a previous session.
   useEffect(() => {
@@ -203,7 +224,17 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
 
   return (
     <MagnetContext.Provider
-      value={{ catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate }}
+      value={{
+        catalog,
+        active,
+        secondsLeft,
+        cooldownSecondsLeft,
+        buyingId,
+        activatingId,
+        buy,
+        activate,
+        refetchCatalog: fetchCatalog,
+      }}
     >
       {children}
     </MagnetContext.Provider>

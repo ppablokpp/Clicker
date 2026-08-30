@@ -41,7 +41,10 @@ moneyCaseRouter.post('/redeem', async (req, res) => {
       totalClicks: result.totalClicks,
       gems: result.gems,
       prizeId: prize.id,
-      prizeAmount: prize.amount,
+      // The real, possibly-scaled amount actually credited (see
+      // usersRepository.redeemCasePurchase) — not the flat, tier-0
+      // `prize.amount` rolled above.
+      prizeAmount: result.prizeAmount,
       prizeCurrency: prize.currency,
     })
   } catch (err) {

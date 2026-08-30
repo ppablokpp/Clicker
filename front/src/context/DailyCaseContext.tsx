@@ -39,6 +39,11 @@ interface DailyCaseContextValue {
   isBuying: boolean
   spin: () => Promise<SpinResult>
   buyChest: () => Promise<BuyChestResult>
+  // Re-pulls the catalog — chestCost and the clicks-denominated prizes scale
+  // with prestige tier server-side (see the route), so a tier change needs
+  // this re-fetched or the Store keeps showing pre-prestige numbers for the
+  // rest of the session (see Home.tsx's handleConfirmPrestige).
+  refetchCatalog: () => void
 }
 
 const DailyCaseContext = createContext<DailyCaseContextValue | null>(null)
@@ -56,16 +61,31 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
   const [isSpinning, setIsSpinning] = useState(false)
   const [isBuying, setIsBuying] = useState(false)
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/daily-case`)
-      .then((r) => r.json())
-      .then((data) => {
+  // Authenticated (not a plain anonymous fetch) so the backend can scale
+  // chestCost and the clicks-denominated prizes to the caller's own prestige
+  // tier — signed-out visitors just get the flat, tier-0 catalog back.
+  const fetchCatalog = useCallback(() => {
+    ;(async () => {
+      try {
+        const headers: Record<string, string> = {}
+        if (userId) {
+          const token = await getToken()
+          headers.Authorization = `Bearer ${token}`
+        }
+        const res = await fetch(`${API_URL}/api/daily-case`, { headers })
+        const data = await res.json()
         setCatalog(data.prizes)
         setChestCost(data.chestCost)
         setKeyCost(data.keyCost)
-      })
-      .catch((err) => console.error('No se pudo cargar el cofre diario', err))
-  }, [])
+      } catch (err) {
+        console.error('No se pudo cargar el cofre diario', err)
+      }
+    })()
+  }, [userId, getToken])
+
+  useEffect(() => {
+    fetchCatalog()
+  }, [fetchCatalog])
 
   useEffect(() => {
     if (!userId) return
@@ -150,7 +170,7 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
 
   return (
     <DailyCaseContext.Provider
-      value={{ catalog, chestCost, keyCost, ownedChests, isSpinning, isBuying, spin, buyChest }}
+      value={{ catalog, chestCost, keyCost, ownedChests, isSpinning, isBuying, spin, buyChest, refetchCatalog: fetchCatalog }}
     >
       {children}
     </DailyCaseContext.Provider>
