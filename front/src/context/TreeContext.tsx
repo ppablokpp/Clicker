@@ -77,6 +77,12 @@ interface TreeContextValue extends TreeState {
   // this session (see FleetAwayModal).
   awayCredit: number | null
   clearAwayCredit: () => void
+  // Lights the Home header's "Centro de mando" button — true the instant
+  // any tree upgrade is bought, cleared once the player actually opens that
+  // panel (see Home.tsx's onClick), same on/off-on-seen pattern as
+  // InventoryContext's own hasNewItem.
+  hasNewUpgrade: boolean
+  markUpgradesSeen: () => void
   isBuying: boolean
   buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
   grantAutoClickFree: () => Promise<{ ok: boolean; error?: string }>
@@ -171,6 +177,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
+  const [hasNewUpgrade, setHasNewUpgrade] = useState(false)
+  const markUpgradesSeen = useCallback(() => setHasNewUpgrade(false), [])
   const [isBuying, setIsBuying] = useState(false)
   const [isBuyingLuck, setIsBuyingLuck] = useState(false)
   const [isBuyingLuckChance, setIsBuyingLuckChance] = useState(false)
@@ -334,6 +342,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         syncObjectState(data.objectsBroken, data.objectProgress)
       }
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la mejora', err)
@@ -372,6 +381,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         syncObjectState(data.objectsBroken, data.objectProgress)
       }
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo conceder el dron del tutorial', err)
@@ -402,6 +412,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la mejora de suerte', err)
@@ -433,6 +444,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar la probabilidad de suerte', err)
@@ -465,6 +477,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar el multiplicador', err)
@@ -495,6 +508,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Modo Legendario', err)
@@ -526,6 +540,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Reflejos', err)
@@ -557,6 +572,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Impulso', err)
@@ -589,6 +605,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar el dron buscador', err)
@@ -621,6 +638,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Frecuencia', err)
@@ -658,6 +676,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Sobrecarga', err)
@@ -689,6 +708,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar el multiplicador', err)
@@ -720,6 +740,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Multidisparo', err)
@@ -752,6 +773,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Anomalías', err)
@@ -783,6 +805,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Extracción', err)
@@ -814,6 +837,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Frecuencia', err)
@@ -845,6 +869,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
+      setHasNewUpgrade(true)
       return { ok: true }
     } catch (err) {
       console.error('No se pudo comprar Autonomía', err)
@@ -864,6 +889,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         refetch: fetchState,
         awayCredit,
         clearAwayCredit,
+        hasNewUpgrade,
+        markUpgradesSeen,
         isBuying,
         buyAutoClick,
         grantAutoClickFree,

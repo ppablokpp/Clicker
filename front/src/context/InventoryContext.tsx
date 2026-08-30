@@ -7,6 +7,11 @@ interface InventoryContextValue {
   inventory: Record<string, number>
   /** Optimistic local bump right after a successful buy/activate — avoids waiting on a refetch. */
   adjust: (itemId: string, delta: number) => void
+  // Lights the Home header's "Inventario" button — true the instant any
+  // item is gained (a positive adjust), cleared once the player actually
+  // opens the inventory panel (see Home.tsx's onClick).
+  hasNewItem: boolean
+  markInventorySeen: () => void
 }
 
 const InventoryContext = createContext<InventoryContextValue | null>(null)
@@ -19,6 +24,8 @@ const InventoryContext = createContext<InventoryContextValue | null>(null)
 export function InventoryProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const [inventory, setInventory] = useState<Record<string, number>>({})
+  const [hasNewItem, setHasNewItem] = useState(false)
+  const markInventorySeen = useCallback(() => setHasNewItem(false), [])
 
   useEffect(() => {
     if (!userId) return
@@ -43,13 +50,18 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   }, [userId, getToken])
 
   const adjust = useCallback((itemId: string, delta: number) => {
+    if (delta > 0) setHasNewItem(true)
     setInventory((prev) => {
       const next = Math.max(0, (prev[itemId] ?? 0) + delta)
       return { ...prev, [itemId]: next }
     })
   }, [])
 
-  return <InventoryContext.Provider value={{ inventory, adjust }}>{children}</InventoryContext.Provider>
+  return (
+    <InventoryContext.Provider value={{ inventory, adjust, hasNewItem, markInventorySeen }}>
+      {children}
+    </InventoryContext.Provider>
+  )
 }
 
 export function useInventoryContext() {

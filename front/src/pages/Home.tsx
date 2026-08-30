@@ -593,9 +593,10 @@ function formatPlatino(value: number, language: 'es' | 'en'): string {
 
 // One of the four "switches" flanking the platino screen (two stacked on
 // each side) — icon only now, small enough to fit two-high next to the
-// display, but the same chrome as before: bordered tinted box, permanently-
-// lit LED dot (flavor only, every switch reads as "powered") in the
-// button's own accent color.
+// display, but the same chrome as before: bordered tinted box, LED dot in
+// the button's own accent color. The LED is a real notification light, not
+// flavor — lit only while `lit` is true (something new behind that button:
+// a claimable task, a ready prestige, an unseen inventory item/upgrade).
 function CockpitIconButton({
   icon: Icon,
   onClick,
@@ -603,6 +604,7 @@ function CockpitIconButton({
   iconClass,
   ledClass,
   borderClass,
+  lit,
 }: {
   icon: LucideIcon
   onClick: () => void
@@ -610,6 +612,7 @@ function CockpitIconButton({
   iconClass: string
   ledClass: string
   borderClass: string
+  lit: boolean
 }) {
   return (
     <button
@@ -618,7 +621,7 @@ function CockpitIconButton({
       aria-label={ariaLabel}
       className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[3px] border bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.09] sm:h-10 sm:w-10 ${borderClass}`}
     >
-      <span className={`absolute right-1 top-1 h-1 w-1 rounded-full ${ledClass}`} />
+      {lit && <span className={`absolute right-1 top-1 h-1 w-1 rounded-full ${ledClass}`} />}
       <Icon size={15} className={iconClass} />
     </button>
   )
@@ -693,6 +696,8 @@ export function Home() {
     anomalyFrequencySeconds,
     offlineProductionValue,
     refetch: refetchTree,
+    hasNewUpgrade,
+    markUpgradesSeen,
   } = useTreeContext()
   // Only the Reactor's permanent multiplier is still read here — the rest
   // of the prestige UI (shop, reset flow) is disabled below.
@@ -773,6 +778,14 @@ export function Home() {
       ],
     },
   ]
+  // Lights the header's "Tareas" button — true while any tier of any
+  // mission has actually been reached but not yet claimed. Purely
+  // state-based (unlike the inventory/upgrade LEDs): it goes dark on its
+  // own the moment the last claimable tier is claimed, no "seen" flag
+  // needed.
+  const hasClaimableTask = MISSIONS.some((mission) =>
+    mission.tiers.some((tier) => mission.progressValue >= tier.required && !claimedTasks.has(tier.id)),
+  )
   const {
     catalog: powerupCatalog,
     active: activePowerup,
@@ -798,7 +811,7 @@ export function Home() {
   const { gems } = useGemsContext()
   const { ownedChests: ownedClickChests } = useDailyCaseContext()
   const { ownedChests: ownedGemChests } = useGemChestContext()
-  const { inventory } = useInventoryContext()
+  const { inventory, hasNewItem, markInventorySeen } = useInventoryContext()
   // Keeps the just-activated item visible (its owned count can drop to 0)
   // until its own timer runs out, instead of it vanishing the instant it starts.
   const ownedPowerups = powerupCatalog.filter((p) => (inventory[p.id] ?? 0) > 0 || activePowerup?.id === p.id)
@@ -1283,18 +1296,26 @@ export function Home() {
                   <CockpitIconButton
                     icon={Joystick}
                     ariaLabel={strings.home.commandCenterTitle}
-                    onClick={() => setShowShip(true)}
+                    onClick={() => {
+                      setShowShip(true)
+                      markUpgradesSeen()
+                    }}
                     iconClass="text-violet-300"
                     ledClass="bg-violet-400 shadow-[0_0_3px_1px_rgba(167,139,250,0.9)]"
                     borderClass="border-violet-400/20"
+                    lit={hasNewUpgrade}
                   />
                   <CockpitIconButton
                     icon={Package}
                     ariaLabel={strings.home.inventory}
-                    onClick={() => setShowInventory(true)}
+                    onClick={() => {
+                      setShowInventory(true)
+                      markInventorySeen()
+                    }}
                     iconClass="text-amber-300"
                     ledClass="bg-amber-400 shadow-[0_0_3px_1px_rgba(251,191,36,0.9)]"
                     borderClass="border-amber-400/20"
+                    lit={hasNewItem}
                   />
                 </div>
 
@@ -1333,6 +1354,7 @@ export function Home() {
                     iconClass="text-emerald-300"
                     ledClass="bg-emerald-400 shadow-[0_0_3px_1px_rgba(52,211,153,0.9)]"
                     borderClass="border-emerald-400/20"
+                    lit={hasClaimableTask}
                   />
                   <CockpitIconButton
                     icon={Route}
@@ -1341,6 +1363,7 @@ export function Home() {
                     iconClass="text-sky-300"
                     ledClass="bg-sky-400 shadow-[0_0_3px_1px_rgba(56,189,248,0.9)]"
                     borderClass="border-sky-400/20"
+                    lit={prestige.readyToPrestige}
                   />
                 </div>
               </div>
