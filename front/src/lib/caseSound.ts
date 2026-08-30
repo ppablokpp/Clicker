@@ -330,6 +330,20 @@ const MIN_ROBOT_BEEP_INTERVAL = 0.05
 export function playRobotBeep(index: number) {
   const audioCtx = getContext()
   if (!audioCtx) return
+  // The tutorial's very first beep is often the very first sound of the
+  // whole session, firing within a beat of the page's first real gesture —
+  // getContext()'s own resume() call is fire-and-forget, so the context can
+  // still be technically 'suspended' the instant this runs. Scheduling
+  // against a suspended context's frozen clock is what silently ate that
+  // first beep (and made the rest sound like they "started late") instead
+  // of just waiting the extra tens of milliseconds for resume() to land.
+  if (audioCtx.state !== 'running') {
+    void audioCtx
+      .resume()
+      .then(() => playRobotBeep(index))
+      .catch(() => {})
+    return
+  }
   try {
     const now = audioCtx.currentTime
     if (now - lastRobotBeepAt < MIN_ROBOT_BEEP_INTERVAL) return

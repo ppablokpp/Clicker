@@ -34,6 +34,13 @@ function pointInRect(x: number, y: number, r: Rect) {
 // flipping between them, which used to leave the previous step's "already
 // fired" flag stuck true forever and silently eat every future step's
 // first click.
+//
+// Listens to `pointerdown` only, deliberately not also `click` — a single
+// real tap on a touchscreen fires both, so counting both was silently
+// double-counting every tap on mobile (5 required taps completing after
+// ~2-3 real ones). `pointerdown` alone also matches Home's own real click
+// handler (`onPointerDown`), so "a hit" here means the same thing as "a hit"
+// there.
 function useAdvanceOnRealInteraction(
   stepId: string | undefined,
   isHit: (x: number, y: number) => boolean,
@@ -51,16 +58,14 @@ function useAdvanceOnRealInteraction(
 
   useEffect(() => {
     if (!enabled) return
-    const handler = (e: PointerEvent | MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (!isHitRef.current(e.clientX, e.clientY)) return
       countRef.current += 1
       if (countRef.current >= requiredClicks) onHit()
     }
     document.addEventListener('pointerdown', handler)
-    document.addEventListener('click', handler)
     return () => {
       document.removeEventListener('pointerdown', handler)
-      document.removeEventListener('click', handler)
     }
   }, [enabled, requiredClicks, onHit])
 }
@@ -181,7 +186,15 @@ export function TutorialOverlay() {
 
   const isHit = (x: number, y: number) => {
     if (hole) return pointInRect(x, y, hole)
-    if (blockSelectors) return !blockRects.some((r) => pointInRect(x, y, r))
+    if (blockSelectors) {
+      // Nothing measured yet (the very first tick or two after this step
+      // becomes active) means there's nothing to exclude — treating that as
+      // "everywhere is fair game" let a stray very-first tap on a brand-new
+      // page load count as a hit before the HUD/nav had even been measured
+      // once, instead of waiting for a real reading.
+      if (blockRectsRaw.length === 0) return false
+      return !blockRects.some((r) => pointInRect(x, y, r))
+    }
     return false
   }
 
