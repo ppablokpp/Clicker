@@ -23,7 +23,7 @@ export const usersRepository = {
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
                  milestone_bonus_multiplier, created_at, cases_opened, gems, keys,
-                 owned_click_chests, owned_gem_chests,
+                 owned_click_chests, owned_gem_chests, tutorial_completed,
                  (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today`,
       [id, email, username, avatarUrl],
     )
@@ -1117,5 +1117,11 @@ export const usersRepository = {
       lifetimePlatino: Number(row.lifetime_platino),
       bestCps: Number(row.best_cps),
     }))
+  },
+
+  // Idempotent on purpose — the "?" replay button re-fires this every time
+  // the tutorial is manually re-watched, not just on the one real first-run.
+  async markTutorialCompleted(id) {
+    await database.query('UPDATE users SET tutorial_completed = true, updated_at = now() WHERE id = $1', [id])
   },
 }

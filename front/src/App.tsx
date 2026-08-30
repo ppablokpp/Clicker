@@ -26,6 +26,8 @@ import { GemChestProvider } from './context/GemChestContext'
 import { TreeProvider } from './context/TreeContext'
 import { PrestigeProvider } from './context/PrestigeContext'
 import { BattlesProvider } from './context/BattlesContext'
+import { TutorialProvider } from './context/TutorialContext'
+import { TutorialOverlay } from './components/TutorialOverlay'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { Store } from './pages/Store'
@@ -36,6 +38,7 @@ import { Battle } from './pages/Battle'
 function ClickerApp() {
   return (
     <SignInPromptProvider>
+      <TutorialProvider>
       <ClickCounterProvider>
         <TreeProvider>
           <PrestigeProvider>
@@ -68,6 +71,7 @@ function ClickerApp() {
                                               <BottomNavPill />
                                               <SignInModal />
                                               <FleetAwayModal />
+                                              <TutorialOverlay />
                                             </GemChestProvider>
                                           </GemCaseProvider>
                                         </DailyCaseProvider>
@@ -88,6 +92,7 @@ function ClickerApp() {
           </PrestigeProvider>
         </TreeProvider>
       </ClickCounterProvider>
+      </TutorialProvider>
     </SignInPromptProvider>
   )
 }

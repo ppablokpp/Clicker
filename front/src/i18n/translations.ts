@@ -324,6 +324,20 @@ export interface TranslationStrings {
     failureTitle: string
     failureBody: string
   }
+  tutorial: {
+    next: string
+    freeLabel: string
+    replayAriaLabel: string
+    replayConfirmTitle: string
+    replayConfirmYes: string
+    replayConfirmNo: string
+    introText: string
+    pointAsteroidText: string
+    pointTreeNavText: string
+    pointTreeRootText: string
+    pointTreeBuyText: string
+    closingText: string
+  }
 }
 
 export const translations: Record<Language, TranslationStrings> = {
@@ -739,6 +753,22 @@ export const translations: Record<Language, TranslationStrings> = {
       failureTitle: 'Anomalía perdida',
       failureBody: 'Se te ha escapado. La próxima vez irá mejor.',
     },
+    tutorial: {
+      next: 'Siguiente',
+      freeLabel: '¡Gratis!',
+      replayAriaLabel: 'Ver tutorial',
+      replayConfirmTitle: '¿Quieres ver el tutorial?',
+      replayConfirmYes: 'Sí',
+      replayConfirmNo: 'No',
+      introText:
+        'Bienvenido a bordo, comandante. Soy C0-PI, el asistente de tu nave. Estamos anclados junto a un asteroide cargado de Amatista, y tu misión es extraerla antes de que se agote. Vamos a repasar los mandos.',
+      pointAsteroidText: 'Dispara al asteroide para empezar a extraer Amatista. Toca en cualquier parte de la pantalla.',
+      pointTreeNavText: 'Bien hecho. Ahora ve a la sala de progreso de tu nave.',
+      pointTreeRootText: 'Aquí gestionas tu flota de drones. Toca este núcleo.',
+      pointTreeBuyText: 'Consigue tu primer dron. Te ayudará con la extracción.',
+      closingText:
+        'Esta es la sala de progreso de tu nave. Desde aquí irás mejorando cada sistema y ampliando tu flota. Buena suerte ahí fuera.',
+    },
   },
   en: {
     signIn: {
@@ -1149,6 +1179,22 @@ export const translations: Record<Language, TranslationStrings> = {
       successBody: (amount, materialName) => `You received ${amount} ${materialName.toLowerCase()}.`,
       failureTitle: 'Anomaly lost',
       failureBody: "It got away. You'll get it next time.",
+    },
+    tutorial: {
+      next: 'Next',
+      freeLabel: 'Free!',
+      replayAriaLabel: 'Watch tutorial',
+      replayConfirmTitle: 'Want to watch the tutorial?',
+      replayConfirmYes: 'Yes',
+      replayConfirmNo: 'No',
+      introText:
+        "Welcome aboard, commander. I'm C0-PI, your ship's assistant. We're anchored next to an asteroid loaded with Amatista, and your mission is to extract it before it runs out. Let's walk through the controls.",
+      pointAsteroidText: 'Fire at the asteroid to start extracting Amatista. Tap anywhere on screen.',
+      pointTreeNavText: "Nice work. Now head to your ship's progress room.",
+      pointTreeRootText: 'This is where you manage your drone fleet. Tap this core.',
+      pointTreeBuyText: "Get your first drone. It'll help with the extraction.",
+      closingText:
+        "This is your ship's progress room. From here you'll keep upgrading every system and growing your fleet. Good luck out there.",
     },
   },
 }

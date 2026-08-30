@@ -22,6 +22,18 @@ treeRouter.post('/auto-click/buy', async (req, res) => {
   res.json(result)
 })
 
+// Tutorial-only: grants level 1 of the drone node for free — the repo
+// function itself re-checks level === 0 server-side, so this can't be
+// abused to double-grant even if called more than once.
+treeRouter.post('/auto-click/tutorial-grant', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.grantAutoClickLevelFree(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
 treeRouter.post('/luck/buy', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })

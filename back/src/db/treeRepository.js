@@ -544,6 +544,80 @@ export const treeRepository = {
     }
   },
 
+  // Tutorial-only: grants level 1 of the drone node for free, exactly once
+  // — only when the node is still untouched (level 0), so replaying the
+  // tutorial later (or a retried request) can never grant a second free
+  // level. Deliberately skips the accrual pass buyAutoClickLevel does
+  // (level 0 has never ticked, so there's nothing to credit) and the
+  // cost/balance check + currency deduction, but otherwise mirrors it
+  // closely so the response shape drops into the same frontend state-merge
+  // unchanged.
+  async grantAutoClickLevelFree(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const userRow = await client.query(
+        'SELECT total_clicks, objects_broken, object_progress FROM users WHERE id = $1 FOR UPDATE',
+        [userId],
+      )
+      if (!userRow.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, AUTOCLICK_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      if (level > 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-owned' }
+      }
+
+      const autoMultiplierRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, AUTO_MULTIPLIER_NODE_ID],
+      )
+      const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
+      const sobrecargaPerDroneRate = autoMultiplierValue(autoMultiplierLevel)
+
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
+      const reactorMultiplier = prestigeReactorValue(reactorLevel)
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level, last_tick_at, remainder)
+         VALUES ($1, $2, 1, now(), 0)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE
+           SET level = 1, last_tick_at = now()`,
+        [userId, AUTOCLICK_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = 1
+      return {
+        ok: true,
+        autoClickLevel: newLevel,
+        autoClickCps: newLevel * sobrecargaPerDroneRate * reactorMultiplier,
+        autoClickNextCost: autoClickCost(newLevel),
+        autoClickNextCps: (newLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
+        totalClicks: Number(userRow.rows[0].total_clicks),
+        objectsBroken: Number(userRow.rows[0].objects_broken),
+        objectProgress: Number(userRow.rows[0].object_progress),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   // Same level-counter shape as buyLuckLevel — no production to accrue
   // before spending.
   async buyMultiplierLevel(userId) {

@@ -77,6 +77,7 @@ interface TreeContextValue extends TreeState {
   clearAwayCredit: () => void
   isBuying: boolean
   buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
+  grantAutoClickFree: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLuck: boolean
   buyLuck: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLuckChance: boolean
@@ -333,6 +334,42 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: 'error' }
     } finally {
       setIsBuying(false)
+    }
+  }, [userId, getToken, syncTotalClicks, syncObjectState, promptSignIn])
+
+  // Tutorial-only: same response shape and state-merge as buyAutoClick, but
+  // hits the free-grant endpoint instead — no cost, no isBuying flag (the
+  // tutorial overlay drives its own "please wait" state), only ever
+  // expected to succeed once (the backend itself refuses a second grant).
+  const grantAutoClickFree = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/auto-click/tutorial-grant`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        autoClickLevel: data.autoClickLevel,
+        autoClickCps: data.autoClickCps,
+        autoClickNextCost: data.autoClickNextCost,
+        autoClickNextCps: data.autoClickNextCps,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      if (typeof data.objectsBroken === 'number' && typeof data.objectProgress === 'number') {
+        syncObjectState(data.objectsBroken, data.objectProgress)
+      }
+      playTreeUpgrade()
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo conceder el dron del tutorial', err)
+      return { ok: false, error: 'error' }
     }
   }, [userId, getToken, syncTotalClicks, syncObjectState, promptSignIn])
 
@@ -821,6 +858,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         clearAwayCredit,
         isBuying,
         buyAutoClick,
+        grantAutoClickFree,
         isBuyingLuck,
         buyLuck,
         isBuyingLuckChance,

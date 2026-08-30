@@ -7,6 +7,7 @@ import {
   ChevronsUp,
   Gauge,
   Gem,
+  HelpCircle,
   Lock,
   Minus,
   Moon,
@@ -27,6 +28,7 @@ import {
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
+import { useTutorialContext } from '../context/TutorialContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
 import { DroneIcon } from '../components/DroneIcon'
@@ -57,6 +59,13 @@ interface TreeBuyButtonProps {
   balance: number
   locale: string
   currency: 'clicks' | 'gems'
+  dataTutorial?: string
+  // Tutorial-only: the very first drone is free — bypasses the real
+  // afford-check (a brand-new account has 0 of everything, which would
+  // otherwise render this permanently disabled) and swaps the price for a
+  // "Free!" label instead of a cost nobody's actually about to pay.
+  isFree?: boolean
+  freeLabel?: string
 }
 
 // Shared by every node's buy button (all 9 modals use this exact shape).
@@ -65,8 +74,20 @@ interface TreeBuyButtonProps {
 // overlay on the already-muted "can't afford it" background, never
 // obscuring the price text). Once affordable it's gone — the button's own
 // bright color is signal enough at that point.
-function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balance, locale, currency }: TreeBuyButtonProps) {
-  const disabled = isBuying || !canAfford
+function TreeBuyButton({
+  onClick,
+  isBuying,
+  canAfford,
+  buyingLabel,
+  cost,
+  balance,
+  locale,
+  currency,
+  dataTutorial,
+  isFree,
+  freeLabel,
+}: TreeBuyButtonProps) {
+  const disabled = isBuying || (!canAfford && !isFree)
   const progressPct = cost > 0 ? Math.min(100, (balance / cost) * 100) : 100
   // Reads its own current material straight from context instead of having
   // it threaded through 13 call sites — this button is purely presentational
@@ -77,6 +98,7 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
     <button
       onClick={onClick}
       disabled={disabled}
+      data-tutorial={dataTutorial}
       className={`relative w-full overflow-hidden rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
         disabled
           ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
@@ -85,7 +107,7 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
             : materialButtonClass
       }`}
     >
-      {!isBuying && !canAfford && (
+      {!isBuying && !canAfford && !isFree && (
         <span
           className="pointer-events-none absolute inset-y-0 left-0 z-0 bg-white/[0.08] transition-[width] duration-200 ease-out"
           style={{ width: `${progressPct}%` }}
@@ -94,6 +116,8 @@ function TreeBuyButton({ onClick, isBuying, canAfford, buyingLabel, cost, balanc
       <span className="relative z-10 flex items-center justify-center gap-1.5">
         {isBuying ? (
           buyingLabel
+        ) : isFree ? (
+          freeLabel
         ) : (
           <>
             {currency === 'gems' ? (
@@ -338,11 +362,14 @@ export function Tree() {
   // "pt/s" only ever meant Platino — now the unit tracks whichever material
   // the current prestige tier actually produces (am/pt/es/or/di).
   const cpsUnit = `${MATERIAL_ABBREVIATIONS[prestigeTier]}/s`
+  const tutorial = useTutorialContext()
+  const [showTutorialConfirm, setShowTutorialConfirm] = useState(false)
   const {
     autoClickLevel,
     autoClickNextCost,
     isBuying,
     buyAutoClick,
+    grantAutoClickFree,
     luckLevel,
     luckMultiplier,
     luckNextCost,
@@ -1589,6 +1616,7 @@ export function Tree() {
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setShowAutoClickModal(true)}
+            data-tutorial="tree-root-node"
             className="absolute flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1.5 rounded-full border border-violet-400/20 bg-[#14101f] text-center text-violet-200 shadow-lg shadow-black/20 transition-colors hover:border-violet-400/35"
             style={{ left: CENTER, top: CENTER }}
           >
@@ -1612,6 +1640,17 @@ export function Tree() {
       </div>
 
       <div className="fixed bottom-24 right-4 z-10 flex flex-col gap-1.5 sm:bottom-28 sm:right-6">
+        {/* Replay entry point — sits right above the zoom stack so it reads
+            as part of the same control cluster instead of a random extra
+            button. Confirms first since it's a deliberate re-watch, not an
+            accidental tap target. */}
+        <button
+          onClick={() => setShowTutorialConfirm(true)}
+          aria-label={strings.tutorial.replayAriaLabel}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-400/20 bg-black/40 text-violet-300 backdrop-blur-xl transition-colors hover:bg-white/10"
+        >
+          <HelpCircle size={16} />
+        </button>
         <button
           onClick={() => zoomBy(1.25)}
           aria-label={strings.tree.zoomIn}
@@ -1634,6 +1673,42 @@ export function Tree() {
           <RotateCcw size={14} />
         </button>
       </div>
+
+      {showTutorialConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowTutorialConfirm(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-violet-300">
+                <HelpCircle size={18} />
+              </span>
+              <p className="text-sm font-semibold text-white">{strings.tutorial.replayConfirmTitle}</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowTutorialConfirm(false)}
+                className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-neutral-300 transition-colors hover:bg-white/[0.06]"
+              >
+                {strings.tutorial.replayConfirmNo}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTutorialConfirm(false)
+                  tutorial.start({ skipDroneGrant: autoClickLevel > 0 })
+                }}
+                className="flex-1 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2.5 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
+              >
+                {strings.tutorial.replayConfirmYes}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAutoClickModal && (
         <div
@@ -1689,7 +1764,17 @@ export function Tree() {
               </div>
             ) : (
               <TreeBuyButton
-                onClick={buyAutoClick}
+                onClick={
+                  tutorial.currentStep?.id === 'pointTreeBuy'
+                    ? async () => {
+                        const result = await grantAutoClickFree()
+                        if (result.ok) {
+                          tutorial.advance()
+                          setShowAutoClickModal(false)
+                        }
+                      }
+                    : buyAutoClick
+                }
                 isBuying={isBuying}
                 canAfford={canAffordAutoClick}
                 buyingLabel={strings.tree.upgrading}
@@ -1697,6 +1782,9 @@ export function Tree() {
                 balance={totalClicks}
                 locale={locale}
                 currency="clicks"
+                dataTutorial="tree-buy-root"
+                isFree={tutorial.currentStep?.id === 'pointTreeBuy'}
+                freeLabel={strings.tutorial.freeLabel}
               />
             )}
           </div>

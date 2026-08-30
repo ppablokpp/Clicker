@@ -29,6 +29,7 @@ export function BottomNavPill() {
 
   return (
     <div
+      data-tutorial="bottom-nav"
       className={`fixed bottom-5 left-1/2 z-40 -translate-x-1/2 transition-opacity sm:bottom-6 ${
         isSyncSuspended ? 'pointer-events-none opacity-40' : ''
       }`}
@@ -103,6 +104,7 @@ export function BottomNavPill() {
               end={end}
               title={label}
               aria-label={label}
+              data-tutorial={key === 'tree' ? 'nav-tree' : undefined}
               className={({ isActive }) =>
                 `flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
                   isActive ? 'bg-white/10' : 'hover:bg-white/5'

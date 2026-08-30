@@ -314,3 +314,42 @@ export function playTreeUpgrade() {
     // Audio is a nice-to-have — never let it break a purchase.
   }
 }
+
+let lastRobotBeepAt = 0
+// Same overlap guard as playCaseTick's own MIN_TICK_INTERVAL — the tutorial
+// typewriter can reveal several characters within one animation frame on a
+// slow device, and without a floor those would all fire at once into noise.
+const MIN_ROBOT_BEEP_INTERVAL = 0.05
+
+/**
+ * Single "beep" or "boop" — called once per revealed character of the
+ * tutorial robot's typewriter text. `index` just alternates the pitch
+ * (even/odd) so a run of characters reads as "beep-boop-beep-boop" instead
+ * of one flat repeated tone, the classic sci-fi-robot-talking cliché.
+ */
+export function playRobotBeep(index: number) {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    if (now - lastRobotBeepAt < MIN_ROBOT_BEEP_INTERVAL) return
+    lastRobotBeepAt = now
+
+    const output = getMasterOutput(audioCtx)
+    const base = index % 2 === 0 ? 740 : 550
+
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(base, now)
+    osc.frequency.exponentialRampToValueAtTime(base * 1.15, now + 0.03)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.05, now + 0.006)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045)
+    osc.connect(gain).connect(output)
+    osc.start(now)
+    osc.stop(now + 0.05)
+  } catch {
+    // Audio is a nice-to-have — never let it break the tutorial.
+  }
+}

@@ -40,6 +40,7 @@ function toPublicUser(row) {
     longestStreak: row.longest_streak,
     casesOpened: Number(row.cases_opened ?? 0),
     milestoneBonusMultiplier: Number(row.milestone_bonus_multiplier ?? 1),
+    tutorialCompleted: Boolean(row.tutorial_completed),
     activePowerup: isPowerupActive
       ? {
           id: row.active_powerup,
@@ -101,6 +102,17 @@ usersRouter.get('/me', async (req, res) => {
   const user = await usersRepository.getById(userId)
   if (!user) return res.status(404).json({ error: 'User not found' })
   res.json(toPublicUser(user))
+})
+
+// Called once the onboarding tutorial finishes (or is skipped) — also
+// re-fired every time it's manually replayed via the "?" button, which is
+// harmless since it's just re-setting the same flag to true.
+usersRouter.post('/tutorial-complete', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  await usersRepository.markTutorialCompleted(userId)
+  res.json({ ok: true })
 })
 
 // Powers the stats-page calendar strip — every day the user clicked at
