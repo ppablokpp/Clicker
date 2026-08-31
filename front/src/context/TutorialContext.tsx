@@ -133,7 +133,18 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     setStepIndex((prev) => {
       if (prev === null) return prev
       let next = prev + 1
-      while (next < TUTORIAL_STEPS.length && TUTORIAL_STEPS[next].id === 'pointTreeBuy' && skipDroneGrant) {
+      // Replaying via the "?" button with the drone already owned
+      // (skipDroneGrant) skips *both* tree steps now, not just the buy
+      // one — there's nothing left to demonstrate on the node itself once
+      // you already have it, so don't even prompt tapping it. Lands
+      // straight on 'closing' (route-agnostic, so it shows right there on
+      // the Tree screen) instead of making the player tap through a step
+      // that can't actually do anything for them.
+      while (
+        next < TUTORIAL_STEPS.length &&
+        (TUTORIAL_STEPS[next].id === 'pointTreeRoot' || TUTORIAL_STEPS[next].id === 'pointTreeBuy') &&
+        skipDroneGrant
+      ) {
         next += 1
       }
       if (next >= TUTORIAL_STEPS.length) {
