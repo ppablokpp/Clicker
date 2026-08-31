@@ -1,38 +1,36 @@
-import { memo, useEffect } from 'react'
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { memo } from 'react'
+import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated'
 
 // One debris chip bursting off the asteroid on impact — ported from
-// front/src/pages/Home.tsx's debris-chip (@keyframes debris-fly). Purely
-// data-in, no callback prop, so it's already memo-safe: an already-mounted
-// chip never re-renders just because a sibling shot/chip/effect spawns
-// elsewhere in AsteroidClickArea.
+// front/src/pages/Home.tsx's debris-chip (@keyframes debris-fly).
+//
+// Takes an *external* `progress` shared value instead of owning one —
+// ParticleBurstSlot (its pooled parent) drives all PARTICLE_COUNT chips of
+// one burst from a single shared value, since they all animate over the
+// exact same duration/easing and only differ in dx/dy/size. That parent is
+// the actual pooled slot (fixed number mounted for good, re-armed via
+// `fireId` — see its own comment); this chip itself has no fireId/mount
+// logic of its own to worry about.
 function DebrisChipImpl({
   x,
   y,
   size,
   dx,
   dy,
-  durationMs,
+  progress,
 }: {
   x: number
   y: number
   size: number
   dx: number
   dy: number
-  durationMs: number
+  progress: SharedValue<number>
 }) {
-  const progress = useSharedValue(0)
-
-  useEffect(() => {
-    progress.value = withTiming(1, { duration: durationMs, easing: Easing.out(Easing.quad) })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const style = useAnimatedStyle(() => {
-    const scale = 1 - progress.value * 0.7
+    const p = progress.value
     return {
-      transform: [{ translateX: progress.value * dx }, { translateY: progress.value * dy }, { scale }],
-      opacity: 1 - progress.value,
+      transform: [{ translateX: p * dx }, { translateY: p * dy }, { scale: 1 - p * 0.7 }],
+      opacity: 1 - p,
     }
   })
 

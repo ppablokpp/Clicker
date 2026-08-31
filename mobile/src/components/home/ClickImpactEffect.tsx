@@ -1,6 +1,6 @@
 import { memo, useEffect } from 'react'
 import { Text, View } from 'react-native'
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 
 const RIPPLE_DURATION_MS = 600
 const FLOAT_DURATION_MS = 900
@@ -9,14 +9,18 @@ const LUCKY_RIPPLE_SIZE = 144
 
 // The ripple ring + floating "+N" that lands on every hit — ported from
 // front/src/pages/Home.tsx's `.animate-ripple`/`.animate-float-up`
-// keyframes. Self-contained: mounts, plays both animations once, and calls
-// `onDone(effectId)` when the (longer-running) float-up finishes so the
-// caller can drop it from its effects array. `onDone` is id-based and
-// stable (see AsteroidClickArea) rather than a per-item closure, and every
-// other prop here is a primitive, so memo actually holds: an
-// already-mounted effect never re-renders just because another tap lands.
+// keyframes.
+//
+// Pooled slot, same pattern as ShotBolt: TapShootLayer keeps a fixed number
+// of these mounted for the screen's whole lifetime and re-arms a free one
+// (new props + a bumped `fireId`) instead of mounting a fresh instance per
+// hit and unmounting it ~900ms later — mount/unmount is real, felt cost in
+// RN specifically (crossing the JS<->native bridge to create/destroy an
+// actual native view), unlike the web's equivalent `<div>`, which is why
+// this isn't just a straight port of the original one-shot version.
 function ClickImpactEffectImpl({
-  effectId,
+  slotIndex,
+  fireId,
   x,
   y,
   amount,
@@ -24,24 +28,32 @@ function ClickImpactEffectImpl({
   rippleColor,
   onDone,
 }: {
-  effectId: number
+  slotIndex: number
+  /** Increments every time this slot is (re)armed with a new hit; 0 means "never fired yet". */
+  fireId: number
   x: number
   y: number
   amount: number
   isLucky: boolean
   rippleColor: string
-  onDone: (id: number) => void
+  onDone: (slotIndex: number) => void
 }) {
   const rippleProgress = useSharedValue(0)
   const floatProgress = useSharedValue(0)
 
   useEffect(() => {
+    if (fireId === 0) return
+    // Snap back before replaying — see ShotBolt's own comment for why this
+    // matters (a slot whose previous run already reached progress=1 would
+    // otherwise animate 1 -> 1 and never visibly move).
+    rippleProgress.value = 0
+    floatProgress.value = 0
     rippleProgress.value = withTiming(1, { duration: RIPPLE_DURATION_MS, easing: Easing.out(Easing.quad) })
-    floatProgress.value = withTiming(1, { duration: FLOAT_DURATION_MS, easing: Easing.out(Easing.quad) })
-    const timer = setTimeout(() => onDone(effectId), FLOAT_DURATION_MS)
-    return () => clearTimeout(timer)
+    floatProgress.value = withTiming(1, { duration: FLOAT_DURATION_MS, easing: Easing.out(Easing.quad) }, (finished) => {
+      if (finished) runOnJS(onDone)(slotIndex)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fireId])
 
   const rippleSize = isLucky ? LUCKY_RIPPLE_SIZE : RIPPLE_SIZE
   const rippleStyle = useAnimatedStyle(() => ({
