@@ -14,6 +14,7 @@ import { TasksModal } from '../components/home/TasksModal'
 import { Starfield } from '../components/Starfield'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useTreeContext } from '../context/TreeContext'
 import { formatPlatino } from '../lib/formatPlatino'
 import { getHeatLevel } from '../lib/heat'
 import { MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
@@ -35,6 +36,8 @@ import { computePrestigeProgress } from '../lib/trajectory'
 export function HomeScreen() {
   const { strings, language } = useLanguage()
   const { totalClicks, lifetimePlatino, clicksPerSecond, prestigeTier, registerClick } = useClickCounterContext()
+  const { autoClickLevel, autoClickCps, scoutDroneLevel, scoutDroneCps, multiplierValue, tapMultiplierValue } =
+    useTreeContext()
   const { width, height } = useWindowDimensions()
   const [showShip, setShowShip] = useState(false)
   const [showInventory, setShowInventory] = useState(false)
@@ -50,6 +53,15 @@ export function HomeScreen() {
     [currentTierIndex, lifetimePlatino],
   )
   const heat = getHeatLevel(clicksPerSecond)
+  // Matches front/src/pages/Home.tsx's own header formula
+  // (`autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier`).
+  // `totalMultiplier` there also folds in GemUpgradesContext's
+  // moneyMultiplier, an active powerup's multiplier, and the heat/legendary
+  // combo bonus — none of those are ported to mobile yet, so this is the
+  // real fleet rate plus manual output at the tree's own tap multipliers,
+  // not the full formula.
+  const totalMultiplier = multiplierValue * tapMultiplierValue
+  const production = autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier
 
   const handleTap = useCallback(() => {
     registerClick(1)
@@ -65,13 +77,15 @@ export function HomeScreen() {
         pct={prestige.pct}
         isMaxed={prestige.readyToPrestige}
         rippleColor={heat.ripple}
+        autoClickLevel={autoClickLevel}
+        scoutDroneLevel={scoutDroneLevel}
         onTap={handleTap}
       >
         <View className="px-3 pt-2">
           <CockpitPanel>
             <View className="flex-row gap-2">
               <HeatGauge clicksPerSecond={clicksPerSecond} />
-              <ProductionGauge clicksPerSecond={clicksPerSecond} cpsUnit={cpsUnit} />
+              <ProductionGauge production={production} cpsUnit={cpsUnit} />
             </View>
             <View className="flex-row items-stretch gap-2">
               <HudLeftButtons onShip={() => setShowShip(true)} onInventory={() => setShowInventory(true)} />

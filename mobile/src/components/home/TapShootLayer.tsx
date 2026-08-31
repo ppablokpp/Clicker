@@ -3,6 +3,7 @@ import { type GestureResponderEvent, type LayoutChangeEvent, Pressable, View } f
 import { Asteroid } from './Asteroid'
 import { ClickImpactEffect } from './ClickImpactEffect'
 import { DebrisChip } from './DebrisChip'
+import { OrbitingBots } from './OrbitingBots'
 import { ProgressRing } from './ProgressRing'
 import { ShotBolt } from './ShotBolt'
 
@@ -53,6 +54,8 @@ export function TapShootLayer({
   pct,
   isMaxed,
   rippleColor,
+  autoClickLevel,
+  scoutDroneLevel,
   onTap,
   children,
 }: {
@@ -60,6 +63,8 @@ export function TapShootLayer({
   pct: number
   isMaxed: boolean
   rippleColor: string
+  autoClickLevel: number
+  scoutDroneLevel: number
   onTap: () => void
   children: ReactNode
 }) {
@@ -154,6 +159,14 @@ export function TapShootLayer({
 
       <View className="flex-1 items-center justify-center">
         <View ref={asteroidBoxRef} onLayout={measureAsteroidCenter} className="relative h-72 w-72 items-center justify-center">
+          <OrbitingBots count={autoClickLevel} />
+          <OrbitingBots
+            count={scoutDroneLevel}
+            color="#fcd34d"
+            glowColor="rgba(251,191,36,0.65)"
+            beamColors={['rgba(252,211,77,0)', '#fde68a', '#ffffff']}
+            phaseOffset={0.4}
+          />
           <View style={{ position: 'absolute', width: '70%', height: '70%' }}>
             <ProgressRing pct={pct} isMaxed={isMaxed} />
           </View>

@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { LanguageProvider } from './context/LanguageContext'
+import { TreeProvider } from './context/TreeContext'
 import { RootNavigator } from './navigation/RootNavigator'
 
 SplashScreen.preventAutoHideAsync()
@@ -61,9 +62,11 @@ export default function App() {
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <LanguageProvider>
             <ClickCounterProvider>
-              <NavigationContainer>
-                <RootNavigator />
-              </NavigationContainer>
+              <TreeProvider>
+                <NavigationContainer>
+                  <RootNavigator />
+                </NavigationContainer>
+              </TreeProvider>
             </ClickCounterProvider>
           </LanguageProvider>
         </ClerkProvider>
