@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -9,9 +9,14 @@ export interface TutorialStepDef {
   // undefined means a centered, full-dim narration step with no real
   // element to spotlight (e.g. the opening story beat).
   target?: string
-  // true: TutorialOverlay itself detects the real click/pointerdown on the
-  // target and advances automatically — for steps whose only job is
-  // "make them tap the real thing" (opening a modal, navigating a tab).
+  // true: TutorialOverlay itself detects a real click/pointerdown anywhere
+  // inside the spotlighted hole (or, in open-field mode, anywhere outside
+  // blockTargets) and advances automatically. Only used for steps that
+  // don't cause anything else to happen ("just tap the asteroid") — a step
+  // whose tap is *supposed* to cause something else (a navigation, a modal
+  // opening) uses `advanceOnRoute`/`advanceOnTargetVisible` instead (see
+  // below), never this, so advancing can never race the thing it's
+  // supposed to follow.
   // false: whoever owns the target's onClick calls `advance()` manually
   // once its own async action actually finishes (the free-drone grant,
   // which needs to await a server round trip before it's safe to move on).
@@ -33,11 +38,25 @@ export interface TutorialStepDef {
   // outside blockTargets) are needed before this step advances. Defaults
   // to 1.
   requiredClicks?: number
+  // Advance the instant the URL matches this path — for a step whose
+  // target is a plain navigation link. Watching the *result* (did the
+  // route actually change) instead of guessing from a click means this can
+  // never desync from whether the tap actually navigated: if it somehow
+  // didn't, the tutorial correctly keeps waiting instead of plowing ahead
+  // and getting stranded on the wrong screen.
+  advanceOnRoute?: string
+  // Advance the instant an element with this data-tutorial value appears
+  // in the DOM — for a step whose target opens something (a modal) rather
+  // than navigating. Tying advancement to the modal actually existing
+  // (not to "a click landed on the button, which presumably opened it")
+  // means it's immune to click-timing races with whatever else that same
+  // tap's onClick handler does.
+  advanceOnTargetVisible?: string
 }
 
 // Home's asteroid (x5) → Tree's nav tab → the drone node itself → its buy
 // button (free, once) → a closing note about what the tree screen is for.
-export const TUTORIAL_STEPS: TutorialStepDef[] = [
+const ALL_STEPS: TutorialStepDef[] = [
   { id: 'intro', autoAdvanceOnClick: false, route: '/' },
   {
     id: 'pointAsteroid',
@@ -48,11 +67,33 @@ export const TUTORIAL_STEPS: TutorialStepDef[] = [
   },
   // nav-tree (the bottom pill) is rendered on every route, so no forced
   // navigation is needed just to reach this step itself.
-  { id: 'pointTreeNav', target: 'nav-tree', autoAdvanceOnClick: true },
-  { id: 'pointTreeRoot', target: 'tree-root-node', autoAdvanceOnClick: true, route: '/arbol' },
+  { id: 'pointTreeNav', target: 'nav-tree', autoAdvanceOnClick: false, advanceOnRoute: '/arbol' },
+  {
+    id: 'pointTreeRoot',
+    target: 'tree-root-node',
+    autoAdvanceOnClick: false,
+    route: '/arbol',
+    advanceOnTargetVisible: 'tree-buy-root',
+  },
   { id: 'pointTreeBuy', target: 'tree-buy-root', autoAdvanceOnClick: false, route: '/arbol' },
-  { id: 'closing', autoAdvanceOnClick: false },
+  // Always pinned to the tree screen — reached either the normal way
+  // (already there, buy-a-drone step just finished) or via the
+  // already-own-a-drone replay skip below (landing here straight from
+  // pointTreeNav), where forcing the route is what actually gets the
+  // player off Home and onto the tree screen this text is about.
+  { id: 'closing', autoAdvanceOnClick: false, route: '/arbol' },
 ]
+
+// Replaying via the "?" button with the drone already owned skips the
+// entire "tap the node, buy it free" demonstration — there's nothing left
+// to show on a node you already own — by removing those two steps from the
+// sequence outright instead of hopping over them at runtime once already
+// on one. No skip-step bookkeeping in `advance()` at all this way: whatever
+// step is next in the (possibly shorter) list just *is* the next step.
+function buildSteps(skipDroneGrant: boolean): TutorialStepDef[] {
+  if (!skipDroneGrant) return ALL_STEPS
+  return ALL_STEPS.filter((s) => s.id !== 'pointTreeRoot' && s.id !== 'pointTreeBuy')
+}
 
 interface StartOptions {
   // Set when replaying via the "?" button and the drone node is already
@@ -81,6 +122,10 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   const [stepIndex, setStepIndex] = useState<number | null>(null)
   const [skipDroneGrant, setSkipDroneGrant] = useState(false)
   const hasCheckedRef = useRef(false)
+
+  // Recomputed only when skipDroneGrant actually changes (i.e. on `start`) —
+  // this is the one array `stepIndex` indexes into for the whole run.
+  const steps = useMemo(() => buildSteps(skipDroneGrant), [skipDroneGrant])
 
   // Auto-starts exactly once per real sign-in, the very first time this
   // account is seen with tutorial_completed still false — everything after
@@ -123,39 +168,27 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   }, [userId, getToken])
 
   const start = useCallback((options?: StartOptions) => {
-    setSkipDroneGrant(options?.skipDroneGrant ?? false)
+    const skip = options?.skipDroneGrant ?? false
+    setSkipDroneGrant(skip)
+    const activeSteps = buildSteps(skip)
     const startAt = options?.startAt
-    const idx = startAt ? TUTORIAL_STEPS.findIndex((s) => s.id === startAt) : 0
+    const idx = startAt ? activeSteps.findIndex((s) => s.id === startAt) : 0
     setStepIndex(idx >= 0 ? idx : 0)
   }, [])
 
   const advance = useCallback(() => {
     setStepIndex((prev) => {
       if (prev === null) return prev
-      let next = prev + 1
-      // Replaying via the "?" button with the drone already owned
-      // (skipDroneGrant) skips *both* tree steps now, not just the buy
-      // one — there's nothing left to demonstrate on the node itself once
-      // you already have it, so don't even prompt tapping it. Lands
-      // straight on 'closing' (route-agnostic, so it shows right there on
-      // the Tree screen) instead of making the player tap through a step
-      // that can't actually do anything for them.
-      while (
-        next < TUTORIAL_STEPS.length &&
-        (TUTORIAL_STEPS[next].id === 'pointTreeRoot' || TUTORIAL_STEPS[next].id === 'pointTreeBuy') &&
-        skipDroneGrant
-      ) {
-        next += 1
-      }
-      if (next >= TUTORIAL_STEPS.length) {
+      const next = prev + 1
+      if (next >= steps.length) {
         void finish()
         return null
       }
       return next
     })
-  }, [skipDroneGrant, finish])
+  }, [steps, finish])
 
-  const currentStep = stepIndex !== null ? TUTORIAL_STEPS[stepIndex] : null
+  const currentStep = stepIndex !== null ? (steps[stepIndex] ?? null) : null
 
   return (
     <TutorialContext.Provider

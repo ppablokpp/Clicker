@@ -1687,24 +1687,17 @@ export function Tree() {
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => {
-              // Tapping this node during the tutorial also satisfies its
-              // auto-advance (see TutorialOverlay's document-level listener)
-              // in the very same tap — that fires off the raw `pointerdown`,
-              // synchronously, *before* this `click` handler ever runs. With
-              // the drone already owned (skipDroneGrant), that advance jumps
-              // straight past pointTreeBuy to closing, so checking
-              // `currentStep?.id` here was racy: by the time this runs, it
-              // had *already* moved past pointTreeRoot/pointTreeBuy even for
-              // the one legitimate tap that's supposed to open this exact
-              // modal, blocking it outright. `skipDroneGrant` itself doesn't
-              // change mid-tap — it's set once, for the whole replay session,
-              // by the "?" button (Tree.tsx's tutorial.start call) — so it's
-              // what should actually gate this, not the step id: skip the
-              // modal only when the drone's already owned (the tutorial is
-              // deliberately fast-forwarding past this node, and opening it
-              // anyway is what used to get stuck open behind the closing
-              // overlay), never based on which step the race already landed
-              // on.
+              // Replaying via the "?" button with the drone already owned
+              // (skipDroneGrant) removes pointTreeRoot/pointTreeBuy from the
+              // tutorial's own step list entirely (see TutorialContext's
+              // buildSteps) — there's nothing left to demonstrate on a node
+              // you already own. While that replay is still running
+              // (isActive), tapping the node anyway is blocked so its modal
+              // doesn't pop up underneath the tutorial's own closing overlay;
+              // gated on `skipDroneGrant` itself (fixed for the whole replay
+              // session) rather than the current step id, since the step id
+              // during that replay is never actually pointTreeRoot to begin
+              // with.
               if (tutorial.isActive && tutorial.skipDroneGrant) {
                 return
               }

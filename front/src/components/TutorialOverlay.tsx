@@ -102,6 +102,43 @@ function useAdvanceOnRealInteraction(
   }, [enabled, requiredClicks, onHit])
 }
 
+// Advances exactly once per step, the instant `condition` first becomes
+// true — used for `advanceOnRoute`/`advanceOnTargetVisible`, where we want
+// to react to a real, observed state change (the URL, an element mounting)
+// rather than to a click that's merely presumed to have caused it. Keyed on
+// `stepId` (not just the condition itself) so the one-shot guard resets
+// cleanly when a *different* step happens to start out already satisfying
+// the same condition.
+function useAdvanceWhen(condition: boolean, stepId: string | undefined, onAdvance: () => void) {
+  const firedRef = useRef(false)
+  useEffect(() => {
+    firedRef.current = false
+  }, [stepId])
+  useEffect(() => {
+    if (condition && !firedRef.current) {
+      firedRef.current = true
+      onAdvance()
+    }
+  }, [condition, onAdvance])
+}
+
+function useElementExists(selector: string | undefined) {
+  const [exists, setExists] = useState(false)
+
+  useEffect(() => {
+    if (!selector) {
+      setExists(false)
+      return
+    }
+    const check = () => setExists(document.querySelector(`[data-tutorial="${selector}"]`) !== null)
+    check()
+    const interval = window.setInterval(check, TARGET_POLL_MS)
+    return () => window.clearInterval(interval)
+  }, [selector])
+
+  return exists
+}
+
 function useTargetRect(targetSelector: string | undefined) {
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -238,14 +275,48 @@ export function TutorialOverlay() {
     advance,
   )
 
+  // Advance on the *result* a step's tap is supposed to cause, not the tap
+  // itself — a route change for a plain nav link, an element mounting for
+  // a tap that opens a modal. See TutorialStepDef's own comments for why:
+  // this can't desync from (or race) whatever the real click handler does,
+  // since it's watching that handler's actual effect rather than guessing
+  // from the click that triggered it.
+  const targetVisible = useElementExists(currentStep?.advanceOnTargetVisible)
+  useAdvanceWhen(
+    Boolean(currentStep?.advanceOnRoute) && location.pathname === currentStep?.advanceOnRoute,
+    currentStep?.id,
+    advance,
+  )
+  useAdvanceWhen(Boolean(currentStep?.advanceOnTargetVisible) && targetVisible, currentStep?.id, advance)
+
   // Replaying the whole thing from Tree's own "?" button still needs to
   // land back on Home for the opening steps — jumps there itself instead
-  // of expecting whoever called `start()` to have navigated first.
+  // of expecting whoever called `start()` to have navigated first. Also
+  // what gets the already-own-a-drone replay's `closing` step (reached by
+  // skipping straight from pointTreeNav) off of Home and onto the tree
+  // screen the text is actually about.
   useEffect(() => {
     if (currentStep?.route && location.pathname !== currentStep.route) {
       navigate(currentStep.route)
     }
   }, [currentStep, location.pathname, navigate])
+
+  // The dimmed areas are real elements sitting over the page — without
+  // this, a drag on one of them (or on whatever sliver of the real page
+  // peeks out from a mismeasured hole) could still scroll the page
+  // underneath, which then moves every rect this overlay measured a moment
+  // ago and makes the whole spotlight visibly swim until the next poll
+  // tick catches up. Locking scroll for the overlay's entire lifetime is
+  // simpler and more robust than trying to chase down which specific
+  // element was scrollable.
+  useEffect(() => {
+    if (!isActive) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isActive])
 
   const stepText = currentStep
     ? (strings.tutorial[`${currentStep.id}Text` as keyof typeof strings.tutorial] as string)
