@@ -1,0 +1,381 @@
+import { useAuth } from '@clerk/expo'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AppState, type AppStateStatus } from 'react-native'
+import { toLocalDateString } from '../lib/date'
+import { applyObjectProgress } from '../lib/spaceObjects'
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001'
+const FLUSH_INTERVAL_MS = 1000
+const CPS_WINDOW_MS = 2000
+// Must match back/src/routes/clicks.js's MAX_CLICKS_PER_REQUEST — the
+// backend rejects a single increment larger than this, so flush() has to
+// split anything bigger into several requests instead of sending it all at
+// once (high multipliers can pile up thousands of pending clicks between ticks).
+const MAX_CLICKS_PER_REQUEST = 5000
+
+/**
+ * The database is the source of truth for where the count *starts*, but the
+ * displayed number is always `confirmed + pending` computed locally — it
+ * never gets overwritten by a server response, only added to. That keeps
+ * clicks feeling instant even if a flush is slow: a flush only ever
+ * subtracts the exact amount it sent from `pending`, so clicks that landed
+ * mid-flight stay visible instead of being clobbered by a stale total.
+ *
+ * Ported from front/src/hooks/useClickCounter.ts — identical logic, only
+ * the platform-specific bits changed: @clerk/expo instead of
+ * @clerk/clerk-react, and react-native's AppState instead of the browser's
+ * visibilitychange/pagehide events for "flush before the app goes away".
+ */
+export function useClickCounter() {
+  const { userId, getToken } = useAuth()
+  const [totalClicks, setTotalClicks] = useState(0)
+  // Trayectoria's own progress stat — cumulative platino ever earned, never
+  // reduced by spending (see migration 028). Unlike totalClicks this has no
+  // local pending/predicted overlay: it's a slow-moving achievement number,
+  // not something read in real time, so "whatever the last server response
+  // said" is close enough — just refreshed on mount and on every click flush.
+  const [lifetimePlatino, setLifetimePlatino] = useState(0)
+  // Trayectoria's *confirmed* tier — only ever advances via confirmPrestige
+  // below, never just from lifetimePlatino crossing the next threshold, so
+  // the player keeps their current tier's material until they explicitly
+  // choose to move on.
+  const [prestigeTier, setPrestigeTier] = useState(0)
+  const [isConfirmingPrestige, setIsConfirmingPrestige] = useState(false)
+  const [clicksPerSecond, setClicksPerSecond] = useState(0)
+  // Every /increment response includes the current keys/gems totals (a
+  // magnet powerup can silently grant either mid-flush) — exposed here so
+  // KeysContext/GemsContext (nested inside this provider) can sync off of
+  // it without this hook needing to know they exist.
+  const [latestKeys, setLatestKeys] = useState<number | null>(null)
+  const [latestGems, setLatestGems] = useState<number | null>(null)
+  // The space object on Home — how many have been broken (the new prestige
+  // driver) and how far into the current one. Predicted the exact same way
+  // totalClicks is (confirmed server value + whatever's pending locally),
+  // via applyObjectProgress rolling the pending amount through the same
+  // cost curve the backend uses — so the ring/object update instantly per
+  // tap instead of waiting for the next flush.
+  const [objectsBroken, setObjectsBroken] = useState(0)
+  const [objectProgress, setObjectProgress] = useState(0)
+  const objectsBrokenConfirmedRef = useRef(0)
+  const objectProgressConfirmedRef = useRef(0)
+  const recentClicksRef = useRef<number[]>([])
+  const confirmedRef = useRef(0)
+  const pendingRef = useRef(0)
+  // Genuine screen taps only — always +1 per registerClick call, regardless
+  // of the (possibly multiplied) `amount` it's given. Drained in lockstep
+  // with pendingRef, capped per-chunk at that chunk's amountSent so it can
+  // never report more real taps than the multiplied total it rode along with.
+  const pendingRealClicksRef = useRef(0)
+  // How many of those real taps landed a Destello (the Suerte/Telescopio
+  // proc — see Home's isLucky), for the "Encuentra destellos" task. Same
+  // trust/drain shape as pendingRealClicksRef: reported and clamped against
+  // realClicks server-side (see routes/clicks.js), never rolled or verified
+  // there since the roll itself is client-side per tap.
+  const pendingLuckyHitsRef = useRef(0)
+  const confirmedLuckyHitsRef = useRef(0)
+  const [luckyClicksFound, setLuckyClicksFound] = useState(0)
+  // Purely a display prediction for auto-click production (see TreeContext)
+  // — ticks up locally between the infrequent real accrual polls so the
+  // number feels alive, then gets zeroed out by syncTotalClicks every time
+  // an authoritative total lands (that total already includes whatever was
+  // predicted, so keeping the local guess around after that would double-count it).
+  const autoPendingRef = useRef(0)
+  const isFlushingRef = useRef(false)
+  const peakCpsRef = useRef(0)
+  // Lets a case-opening reel hide the real total behind its reveal
+  // animation instead of letting an unrelated background sync (e.g.
+  // auto-click's own poll landing mid-spin) jump the counter and spoil the
+  // prize before the reel visually lands on it. Nestable — only actually
+  // resumes once every caller has released it. Doesn't touch pendingRef or
+  // taps in flight, only when a *synced* (server-authoritative) total is
+  // allowed to become visible.
+  const suspendSyncCountRef = useRef(0)
+  const pendingSyncTotalRef = useRef<number | null>(null)
+  // Reactive mirror of suspendSyncCountRef > 0 — a ref mutation alone
+  // wouldn't re-render anything, but the bottom nav needs to actually know
+  // a reveal animation is in flight so it can block navigation away from it.
+  const [isSyncSuspended, setIsSyncSuspended] = useState(false)
+
+  // Recomputes the displayed object state from confirmed + pending, same
+  // shape as the totalClicks setter calls below — call this alongside every
+  // one of those instead of only on real server responses.
+  const updateObjectDisplay = useCallback(() => {
+    const totalPending = pendingRef.current + autoPendingRef.current
+    const predicted = applyObjectProgress(
+      objectsBrokenConfirmedRef.current,
+      0,
+      objectProgressConfirmedRef.current + totalPending,
+    )
+    setObjectsBroken(predicted.objectsBroken)
+    setObjectProgress(predicted.objectProgress)
+  }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = await getToken()
+        const res = await fetch(`${API_URL}/api/clicks/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!cancelled && res.ok) {
+          const data = await res.json()
+          confirmedRef.current = data.totalClicks
+          setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+          if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
+          if (typeof data.prestigeTier === 'number') setPrestigeTier(data.prestigeTier)
+          if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
+          if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
+          if (typeof data.luckyClicksFound === 'number') {
+            confirmedLuckyHitsRef.current = data.luckyClicksFound
+            setLuckyClicksFound(data.luckyClicksFound)
+          }
+          updateObjectDisplay()
+        }
+      } catch (err) {
+        console.error('No se pudo cargar el contador desde el servidor', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId, getToken, updateObjectDisplay])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now()
+      recentClicksRef.current = recentClicksRef.current.filter((t) => now - t < CPS_WINDOW_MS)
+      const cps = recentClicksRef.current.length / (CPS_WINDOW_MS / 1000)
+      if (cps > peakCpsRef.current) peakCpsRef.current = cps
+      setClicksPerSecond(cps)
+    }, 200)
+    return () => clearInterval(interval)
+  }, [])
+
+  const flush = useCallback(async () => {
+    if (pendingRef.current === 0 || !userId || isFlushingRef.current) return
+    isFlushingRef.current = true
+
+    try {
+      const token = await getToken()
+      // Drains everything in <=MAX_CLICKS_PER_REQUEST chunks within this one
+      // flush call — otherwise a single burst bigger than the cap would get
+      // rejected every tick forever, since pendingRef only grows and never
+      // shrinks on failure.
+      while (pendingRef.current > 0) {
+        const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
+        const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
+        const luckyHitsSent = Math.min(pendingLuckyHitsRef.current, realClicksSent)
+        const res = await fetch(`${API_URL}/api/clicks/increment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            amount: amountSent,
+            realClicks: realClicksSent,
+            luckyHits: luckyHitsSent,
+            peakCps: peakCpsRef.current,
+            localDate: toLocalDateString(new Date()),
+          }),
+        })
+        if (!res.ok) break // stays in pendingRef, retried next tick
+        const data = await res.json()
+        confirmedRef.current = data.totalClicks
+        pendingRef.current -= amountSent
+        pendingRealClicksRef.current -= realClicksSent
+        pendingLuckyHitsRef.current -= luckyHitsSent
+        setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+        if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
+        if (typeof data.keys === 'number') setLatestKeys(data.keys)
+        if (typeof data.gems === 'number') setLatestGems(data.gems)
+        if (typeof data.luckyClicksFound === 'number') {
+          confirmedLuckyHitsRef.current = data.luckyClicksFound
+          setLuckyClicksFound(data.luckyClicksFound)
+        }
+        if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
+        if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
+        updateObjectDisplay()
+      }
+    } catch (err) {
+      console.error('No se pudo guardar el progreso de clicks', err)
+    } finally {
+      isFlushingRef.current = false
+    }
+  }, [userId, getToken, updateObjectDisplay])
+
+  useEffect(() => {
+    const interval = setInterval(flush, FLUSH_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [flush])
+
+  // RN's analog of the web version's visibilitychange/pagehide listeners —
+  // flush right away whenever the app is backgrounded (home button, app
+  // switcher, incoming call) instead of waiting up to FLUSH_INTERVAL_MS,
+  // and once more on unmount for the same reason pagehide covered there.
+  useEffect(() => {
+    const onChange = (state: AppStateStatus) => {
+      if (state !== 'active') flush()
+    }
+    const sub = AppState.addEventListener('change', onChange)
+    return () => {
+      sub.remove()
+      flush()
+    }
+  }, [flush])
+
+  const registerClick = useCallback(
+    (amount = 1, isLucky = false) => {
+      if (!userId) return
+      recentClicksRef.current.push(Date.now())
+      pendingRef.current += amount
+      pendingRealClicksRef.current += 1
+      if (isLucky) {
+        pendingLuckyHitsRef.current += 1
+        setLuckyClicksFound(confirmedLuckyHitsRef.current + pendingLuckyHitsRef.current)
+      }
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+      updateObjectDisplay()
+    },
+    [userId, updateObjectDisplay],
+  )
+
+  // Other places that spend clicks server-side (buying a powerup or a
+  // permanent upgrade) return the fresh authoritative total — this folds it
+  // in immediately instead of waiting for the next click-driven flush, which
+  // might never come if nothing gets clicked again right away. Also drops
+  // any predicted auto-click amount, since the new total already accounts
+  // for everything up to now.
+  const syncTotalClicks = useCallback((newTotal: number) => {
+    if (suspendSyncCountRef.current > 0) {
+      // Still the last-write-wins semantics a normal call would have — just
+      // held back from the display until whatever's suspending it resumes.
+      pendingSyncTotalRef.current = newTotal
+      return
+    }
+    confirmedRef.current = newTotal
+    autoPendingRef.current = 0
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+  }, [])
+
+  // For read-only background polls (TreeContext's own periodic /api/tree/me,
+  // not a spend/earn action) — those race against the independent click
+  // flush cycle with no ordering guarantee between the two round trips. A
+  // poll response can carry a server snapshot taken *before* a flush that
+  // has since landed and already moved confirmedRef forward, and arrive
+  // *after* that flush's own response — blindly overwriting with it would
+  // yank the displayed total backwards mid-session even though nothing was
+  // ever actually spent. A genuine spend already goes through syncTotalClicks
+  // above via that action's own response, so it's safe for a passive poll
+  // to simply never move the total backwards.
+  const syncTotalClicksIfNewer = useCallback((newTotal: number) => {
+    if (suspendSyncCountRef.current > 0) {
+      if (pendingSyncTotalRef.current === null || newTotal > pendingSyncTotalRef.current) {
+        pendingSyncTotalRef.current = newTotal
+      }
+      return
+    }
+    if (newTotal <= confirmedRef.current) return
+    confirmedRef.current = newTotal
+    autoPendingRef.current = 0
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+  }, [])
+
+  // Other endpoints that credit clicks server-side (auto-click accrual in
+  // TreeContext) also return the fresh objectsBroken/objectProgress — folds
+  // that in as the new confirmed base, same as syncTotalClicks does for the
+  // currency total, then re-predicts on top of it.
+  const syncObjectState = useCallback(
+    (newObjectsBroken: number, newObjectProgress: number) => {
+      objectsBrokenConfirmedRef.current = newObjectsBroken
+      objectProgressConfirmedRef.current = newObjectProgress
+      updateObjectDisplay()
+    },
+    [updateObjectDisplay],
+  )
+
+  // Trayectoria's manual prestige step. Server re-validates eligibility
+  // (never trust the client's own idea of "ready") and is the sole source
+  // of truth for total_clicks resetting to 0 here — this just folds that
+  // authoritative result straight in, same as syncTotalClicks does for a
+  // spend, rather than assuming success and zeroing locally first.
+  const confirmPrestige = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!userId) return { ok: false, error: 'not-signed-in' }
+    setIsConfirmingPrestige(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/clicks/prestige`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      confirmedRef.current = data.totalClicks
+      pendingRef.current = 0
+      pendingRealClicksRef.current = 0
+      autoPendingRef.current = 0
+      setTotalClicks(data.totalClicks)
+      setPrestigeTier(data.prestigeTier)
+      if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo cambiar de prestigio', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsConfirmingPrestige(false)
+    }
+  }, [userId, getToken])
+
+  const suspendSync = useCallback(() => {
+    suspendSyncCountRef.current += 1
+    setIsSyncSuspended(true)
+  }, [])
+
+  const resumeSync = useCallback(() => {
+    suspendSyncCountRef.current = Math.max(0, suspendSyncCountRef.current - 1)
+    if (suspendSyncCountRef.current === 0) {
+      setIsSyncSuspended(false)
+      if (pendingSyncTotalRef.current !== null) {
+        const total = pendingSyncTotalRef.current
+        pendingSyncTotalRef.current = null
+        confirmedRef.current = total
+        autoPendingRef.current = 0
+        setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current))
+      }
+    }
+  }, [])
+
+  // Purely visual — ticks the displayed total up between the infrequent
+  // real auto-click accrual polls (see TreeContext) without touching
+  // pendingRef, so it's never sent to /increment and never mistaken for a
+  // real tap (real-clicks stat, streak, etc. stay untouched by this).
+  const tickAutoClicks = useCallback(
+    (amount: number) => {
+      autoPendingRef.current += amount
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+      updateObjectDisplay()
+    },
+    [updateObjectDisplay],
+  )
+
+  return {
+    totalClicks,
+    lifetimePlatino,
+    prestigeTier,
+    isConfirmingPrestige,
+    confirmPrestige,
+    clicksPerSecond,
+    registerClick,
+    syncTotalClicks,
+    syncTotalClicksIfNewer,
+    tickAutoClicks,
+    suspendSync,
+    resumeSync,
+    isSyncSuspended,
+    latestKeys,
+    latestGems,
+    objectsBroken,
+    objectProgress,
+    syncObjectState,
+    luckyClicksFound,
+  }
+}
