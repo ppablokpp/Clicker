@@ -32,6 +32,7 @@ import { useTreeContext } from '../context/TreeContext'
 import { useTutorialContext } from '../context/TutorialContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
@@ -516,6 +517,30 @@ export function Tree() {
   const [showAnomalyRewardModal, setShowAnomalyRewardModal] = useState(false)
   const [showAnomalyFrequencyModal, setShowAnomalyFrequencyModal] = useState(false)
   const [showOfflineProductionModal, setShowOfflineProductionModal] = useState(false)
+  // Same "page scrolls behind the modal" bug as Home's own modals — none of
+  // these node-info overlays ever stopped the canvas/page underneath from
+  // scrolling while open.
+  useLockBodyScroll(
+    showTutorialConfirm ||
+      showAutoClickModal ||
+      showPremiumModal ||
+      showLuckModal ||
+      showLuckChanceModal ||
+      showMultiplierModal ||
+      showLegendaryUnlockModal ||
+      showLegendaryEaseModal ||
+      showLegendaryGrowthModal ||
+      showLegendaryThresholdModal ||
+      showScoutDroneModal ||
+      showScoutFrequencyModal ||
+      showAutoMultiplierModal ||
+      showTapMultiplierModal ||
+      showMultiShotModal ||
+      showAnomalyUnlockModal ||
+      showAnomalyRewardModal ||
+      showAnomalyFrequencyModal ||
+      showOfflineProductionModal,
+  )
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
     null,

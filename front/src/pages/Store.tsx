@@ -25,6 +25,7 @@ import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig
 import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
 import { playCaseReveal, playCaseTick, playChestPurchase } from '../lib/caseSound'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 export function Store() {
   const { language, strings } = useLanguage()
@@ -310,6 +311,9 @@ interface PackModalShellProps {
 
 function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, error, children }: PackModalShellProps) {
   const classes = PACK_THEME[theme]
+  // Only ever mounted while its modal is open (see the `showX &&` gates
+  // above) — same page-scrolls-behind-the-modal bug as Home's own overlays.
+  useLockBodyScroll(true)
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
@@ -1236,6 +1240,7 @@ interface CaseCatalogModalProps {
 
 function CaseCatalogModal({ catalog, locale, strings, onClose, variant = 'grouped' }: CaseCatalogModalProps) {
   const totalWeight = catalog.reduce((sum, p) => sum + p.weight, 0)
+  useLockBodyScroll(true)
 
   return (
     <div

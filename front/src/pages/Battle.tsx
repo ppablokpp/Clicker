@@ -5,6 +5,7 @@ import { User } from 'lucide-react'
 import { useBattlesContext, type BattleDetail } from '../context/BattlesContext'
 import { useLanguage } from '../context/LanguageContext'
 import { playLaserShot } from '../lib/battleSound'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 // Same green/red as Tree.tsx's LUCK_NODE_STYLE/LEGENDARY_NODE_STYLE, reused
 // here so a duel win/loss reads with the same "flow" language as the tree.
@@ -144,6 +145,7 @@ export function Battle() {
   const [loadError, setLoadError] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
   const [taps, setTaps] = useState(0)
+  useLockBodyScroll(phase === 'submitting' || phase === 'result')
   const [tapsPerSecond, setTapsPerSecond] = useState(0)
   const [timeLeftPct, setTimeLeftPct] = useState(100)
   const [result, setResult] = useState<ResultState | null>(null)

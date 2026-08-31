@@ -54,6 +54,7 @@ import { useGemChestContext } from '../context/GemChestContext'
 import { useClickPacksContext } from '../context/ClickPacksContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
 import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
@@ -866,6 +867,13 @@ export function Home() {
   const [showEventChallenge, setShowEventChallenge] = useState(false)
   const [eventChallengeColors, setEventChallengeColors] = useState<{ colors: AsteroidColors; glow: string } | null>(
     null,
+  )
+  // Every one of these is its own `fixed inset-0` full-screen overlay (see
+  // each modal's JSX below) — none of them ever stopped the page itself
+  // from scrolling underneath while open, since only the overlay's own
+  // content was ever made scrollable.
+  useLockBodyScroll(
+    showPrestigeConfirm || showInventory || showShip || showTasks || showLog || showEventChallenge || infoModal !== null,
   )
   const containerRef = useRef<HTMLDivElement>(null)
   // The space object's own on-screen box — click shots animate from the tap

@@ -14,6 +14,15 @@ body,
   height: 100%;
 }
 
+/* `overscroll-behavior: none` on body stops scroll *chaining* past it, but
+   Safari's rubber-band bounce still visually happens regardless — it just
+   reveals whatever's behind body instead, which is `html`. Without its own
+   matching background, that showed as a wrong (grey/white) flash at the top
+   and bottom edges on every overscroll. */
+html {
+  background: #08080c;
+}
+
 body {
   margin: 0;
   font-family: "Inter", system-ui, -apple-system, sans-serif;

@@ -7,6 +7,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { useBattlesContext } from '../context/BattlesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 const RANK_STYLES: Record<number, string> = {
   1: 'text-amber-300 border-amber-400/30 bg-amber-400/10',
@@ -166,6 +167,7 @@ function BattlesModal({
   const { totalClicks } = useClickCounterContext()
   const [showPicker, setShowPicker] = useState(false)
   const [acceptingId, setAcceptingId] = useState<number | null>(null)
+  useLockBodyScroll(true)
   const [errorId, setErrorId] = useState<number | null>(null)
 
   useEffect(() => {

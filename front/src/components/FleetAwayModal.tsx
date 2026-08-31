@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
 import { DroneIcon } from './DroneIcon'
 import { PlatinumIcon } from './PlatinumIcon'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 // Same cut-corner header shape as Home's own cockpit-styled modals (Centro
 // de mando, Inventario, Tareas) — hand-copied rather than imported since
@@ -42,6 +43,7 @@ export function FleetAwayModal() {
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const materialTheme = MATERIAL_BUTTON_THEMES[prestigeTier]
+  useLockBodyScroll(awayCredit !== null)
 
   if (awayCredit === null) return null
 

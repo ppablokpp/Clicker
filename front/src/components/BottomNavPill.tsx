@@ -76,6 +76,7 @@ export function BottomNavPill() {
                 <NavLink
                   to={to}
                   end={end}
+                  replace
                   title={label}
                   aria-label={label}
                   className={({ isActive }) =>
@@ -102,6 +103,7 @@ export function BottomNavPill() {
               key={to}
               to={to}
               end={end}
+              replace
               title={label}
               aria-label={label}
               data-tutorial={key === 'tree' ? 'nav-tree' : undefined}

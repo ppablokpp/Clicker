@@ -3,6 +3,7 @@ import { useSignIn } from '@clerk/clerk-react'
 import { MousePointerClick, TriangleAlert, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 interface ClerkApiError {
   errors?: { message?: string; longMessage?: string }[]
@@ -23,6 +24,7 @@ export function SignInModal() {
   const { strings } = useLanguage()
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useLockBodyScroll(isOpen)
 
   if (!isOpen) return null
 
