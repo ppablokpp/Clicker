@@ -15,37 +15,30 @@ const BOLT_THICKNESS = 3
 
 // A short blaster bolt fired from the tap point at the asteroid — ported
 // from front/src/pages/Home.tsx's shot-bolt (a plain CSS @keyframes
-// translate+rotate there, reanimated here). `onImpact(shotId)` fires once
+// translate+rotate there, reanimated here). `onImpact(slotIndex)` fires once
 // the bolt has actually visually arrived (not on a fixed timer), same
 // reasoning as the web's onAnimationEnd: a busy frame can fall behind real
-// time, and the ripple/particles should never land before the bolt
-// visually gets there.
+// time, and any follow-up effect should never land before the bolt visually
+// gets there.
 //
-// No separate glow/aura layer (an earlier version had one, a small
-// react-native-svg RadialGlow behind the gradient core) — the web's own
-// version gets its glow for free from a single CSS `box-shadow` on one
-// `<div>`, which the browser composites essentially for free. Neither RN
-// equivalent is: a *second* native SVG view per bolt turned out to be
-// real, felt cost once Multidisparo lets several fingers fire at once —
-// with 3-4 fingers rapid-tapping, that's a dozen-plus concurrent SVG scenes
-// alive simultaneously, which is exactly what made rapid multi-finger
-// firing stutter/freeze while the equivalent web scene stayed smooth. A
-// native `shadow*` prop was tried instead of SVG and rejected too: this
-// view's `opacity` animates every frame (the fade-out), and an animated
-// opacity forces iOS to re-rasterize the shadow's bitmap every frame it
-// changes — same root cause as the debris-chip shadow removal earlier.
-// The gradient core alone (violet fading to white) already reads as a
-// glowing streak in motion; dropping the extra aura is the actual fix, not
-// a regression to patch around later.
-//
-// Wrapped in memo with a stable `onImpact` (id-based, not a per-item
-// closure — see AsteroidClickArea) and otherwise-primitive props, so a fast
-// tapper spawning new shots never re-renders the ones already in flight —
-// same reasoning as the web's own OrbitingBots swarm (see its comment):
-// keep every already-mounted effect instance untouched by unrelated state
-// updates, not just fast to construct in the first place.
+// This is a pooled slot, not a one-shot effect: TapShootLayer always keeps
+// exactly MAX_CONCURRENT_SHOTS of these mounted (`key` is the fixed slot
+// index, never the shot id) and re-fires the *same* component instance by
+// changing its props, instead of mounting a brand new one per shot and
+// unmounting it 280ms later. Even the web itself doesn't bother with this
+// — it mounts/unmounts a fresh `<div>` per shot too — because that costs
+// almost nothing in a browser. It's a real, felt cost in React Native
+// specifically: "creating a view" here means asking iOS/Android to
+// instantiate a real native view across the JS<->native bridge, not just a
+// cheap DOM node, and Multidisparo can trigger this dozens of times a
+// second. `fireId` (an ever-incrementing counter, never 0 twice) is what
+// tells this instance "you've been re-armed with new numbers, play your
+// animation again" — plain prop equality on dx/dy/angleDeg alone wouldn't
+// reliably retrigger if two consecutive shots from the same slot happened
+// to land with identical values.
 function ShotBoltImpl({
-  shotId,
+  slotIndex,
+  fireId,
   startX,
   startY,
   dx,
@@ -54,28 +47,38 @@ function ShotBoltImpl({
   durationMs,
   onImpact,
 }: {
-  shotId: number
+  slotIndex: number
+  /** Increments every time this slot is (re)armed with a new shot; 0 means "never fired yet". */
+  fireId: number
   startX: number
   startY: number
   dx: number
   dy: number
   angleDeg: number
   durationMs: number
-  onImpact: (id: number) => void
+  onImpact: (slotIndex: number) => void
 }) {
   const progress = useSharedValue(0)
-  const opacity = useSharedValue(1)
+  // Starts invisible — an idle pooled slot that's never fired yet (or just
+  // finished its last run) should show nothing, not a stray bolt sitting at
+  // whatever position it was last used at.
+  const opacity = useSharedValue(0)
 
   useEffect(() => {
+    if (fireId === 0) return
+    // Snap back to the start instantly (no animation) before beginning the
+    // new run — without this, a slot whose previous run already reached
+    // progress=1 would animate from 1 to 1 and never visibly move.
+    progress.value = 0
     progress.value = withTiming(1, { duration: durationMs, easing: Easing.in(Easing.quad) }, (finished) => {
-      if (finished) runOnJS(onImpact)(shotId)
+      if (finished) runOnJS(onImpact)(slotIndex)
     })
     opacity.value = withSequence(
       withTiming(1, { duration: durationMs / 2 }),
       withTiming(0, { duration: durationMs / 2 }),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fireId])
 
   const style = useAnimatedStyle(() => ({
     transform: [

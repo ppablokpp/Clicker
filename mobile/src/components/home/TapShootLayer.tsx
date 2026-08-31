@@ -8,23 +8,31 @@ import { ProgressRing } from './ProgressRing'
 import { ShotBolt } from './ShotBolt'
 
 const SHOT_DURATION_MS = 280
-// A circuit breaker, not a normal-play limit — see the file-level comment.
-const MAX_CONCURRENT_SHOTS = 16
+// The pool size — always this many ShotBolt views mounted, for the whole
+// screen's lifetime (see the object-pooling comment below). Also doubles as
+// the old circuit-breaker ceiling: normal multiShotValue never gets close.
+// Bumped from 16 -> 48 -> this once pooling itself was confirmed to fix the
+// sustained-tapping lag entirely — idle pooled slots are cheap (no
+// mount/unmount churn happens regardless of how many exist), so there's
+// real headroom to keep pushing this to find where it'd actually matter.
+const MAX_CONCURRENT_SHOTS = 128
 // Hoisted so it's the same array reference on every render — OrbitingBots
 // is memoized, and an inline array literal here would create a new
 // reference each time, defeating that memo for the scout-drone swarm.
 const SCOUT_BEAM_COLORS: [string, string, string] = ['rgba(252,211,77,0)', '#fde68a', '#ffffff']
 
-let nextShotId = 0
+let nextFireId = 1
 
-interface Shot {
-  id: number
+interface ShotSlot {
+  fireId: number
   startX: number
   startY: number
   dx: number
   dy: number
   angleDeg: number
 }
+
+const IDLE_SLOT: ShotSlot = { fireId: 0, startX: 0, startY: 0, dx: 0, dy: 0, angleDeg: 0 }
 
 // Home's tap-to-shoot surface, deliberately stripped down to just the shot
 // bolt + its sound while chasing a real bug: sustained fast tapping (a
@@ -56,6 +64,16 @@ interface Shot {
 //
 // This gesture is also never explicitly `end()`-ed on touches-up anymore —
 // see the comment on touchGesture itself for why.
+//
+// Object pooling for shots: a fixed MAX_CONCURRENT_SHOTS ShotBolt instances
+// are always mounted (see the `slots` render below) — firing a shot reuses
+// a free slot's *existing* view (just updates its props and re-triggers its
+// animation, see ShotBolt's own comment) instead of mounting a new one and
+// unmounting it 280ms later. Even the web doesn't bother with this (a
+// fresh DOM node per shot costs it almost nothing), but "create a view"
+// crosses the JS<->native bridge in RN and is real, felt cost at
+// Multidisparo's rate — this was the last concrete lever left once touch
+// handling, context re-renders, and audio were all already fixed.
 export function TapShootLayer({
   tierIndex,
   pct,
@@ -81,11 +99,17 @@ export function TapShootLayer({
   const impactCenterRef = useRef({ x: 0, y: 0 })
   // Every finger currently down that this layer is tracking as a shot slot
   // — mirrors the web's activePointersRef exactly, keyed by RNGH's own
-  // per-touch `id` instead of a DOM pointerId.
+  // per-touch `id` instead of a DOM pointerId. Unrelated to the pooled
+  // ShotBolt slots below — this one caps how many *fingers* count as
+  // shooting (Multidisparo), that one is a fixed rendering resource.
   const activeTouchesRef = useRef<Set<number>>(new Set())
 
-  const shotsRef = useRef<Map<number, Shot>>(new Map())
-  const [shotIds, setShotIds] = useState<number[]>([])
+  // The pooled ShotBolt slots — always MAX_CONCURRENT_SHOTS of them, never
+  // added to or removed from. `busySlotsRef` tracks which are currently
+  // mid-animation so a new shot claims a genuinely free one instead of
+  // cutting off one still in flight.
+  const [slots, setSlots] = useState<ShotSlot[]>(() => Array.from({ length: MAX_CONCURRENT_SHOTS }, () => IDLE_SLOT))
+  const busySlotsRef = useRef<boolean[]>(Array(MAX_CONCURRENT_SHOTS).fill(false))
 
   const measureAsteroidCenter = useCallback((_e: LayoutChangeEvent) => {
     const root = rootRef.current
@@ -101,9 +125,12 @@ export function TapShootLayer({
     })
   }, [])
 
-  const handleShotImpact = useCallback((id: number) => {
-    shotsRef.current.delete(id)
-    setShotIds((prev) => prev.filter((sid) => sid !== id))
+  // A slot's bolt finished its flight — free it up for the next shot to
+  // claim. No state removal (there's nothing to remove — the slot's view
+  // stays mounted forever); ShotBolt's own opacity already fades it to
+  // invisible on its own as this same animation completes.
+  const handleShotImpact = useCallback((slotIndex: number) => {
+    busySlotsRef.current[slotIndex] = false
   }, [])
 
   // Fires one shot from a single touch point — called once per NEW finger
@@ -111,20 +138,24 @@ export function TapShootLayer({
   // web's fireShot firing once per real pointerdown. `x`/`y` are already
   // relative to this layer's own root view (react-native-gesture-handler's
   // touch coordinates), no window-position math needed. The click always
-  // registers via `onTap()` regardless of the concurrent-shots cap below —
+  // registers via `onTap()` regardless of whether a free slot exists —
   // only the *visual* bolt is ever skipped, never the score.
   const fireFromTouch = useCallback(
     (x: number, y: number) => {
       onTap()
-      if (shotsRef.current.size >= MAX_CONCURRENT_SHOTS) return
+      const slotIndex = busySlotsRef.current.indexOf(false)
+      if (slotIndex === -1) return
 
       const { x: impactX, y: impactY } = impactCenterRef.current
       const dx = impactX - x
       const dy = impactY - y
       const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
-      const id = nextShotId++
-      shotsRef.current.set(id, { id, startX: x, startY: y, dx, dy, angleDeg })
-      setShotIds((prev) => [...prev, id])
+      busySlotsRef.current[slotIndex] = true
+      setSlots((prev) => {
+        const next = prev.slice()
+        next[slotIndex] = { fireId: nextFireId++, startX: x, startY: y, dx, dy, angleDeg }
+        return next
+      })
     },
     [onTap],
   )
@@ -220,23 +251,23 @@ export function TapShootLayer({
         </GestureDetector>
 
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {shotIds.map((id) => {
-            const shot = shotsRef.current.get(id)
-            if (!shot) return null
-            return (
-              <ShotBolt
-                key={id}
-                shotId={id}
-                startX={shot.startX}
-                startY={shot.startY}
-                dx={shot.dx}
-                dy={shot.dy}
-                angleDeg={shot.angleDeg}
-                durationMs={SHOT_DURATION_MS}
-                onImpact={handleShotImpact}
-              />
-            )
-          })}
+          {/* `key` is the fixed slot index, never the shot id — that's what
+              tells React "this is the same component, just re-render it
+              with new props" instead of unmount-the-old/mount-a-new-one. */}
+          {slots.map((slot, i) => (
+            <ShotBolt
+              key={i}
+              slotIndex={i}
+              fireId={slot.fireId}
+              startX={slot.startX}
+              startY={slot.startY}
+              dx={slot.dx}
+              dy={slot.dy}
+              angleDeg={slot.angleDeg}
+              durationMs={SHOT_DURATION_MS}
+              onImpact={handleShotImpact}
+            />
+          ))}
         </View>
       </View>
     </View>
