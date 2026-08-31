@@ -1,8 +1,9 @@
 import { AntDesign } from '@expo/vector-icons'
 import { useSSO } from '@clerk/expo/experimental'
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { AppText, DisplayText } from '../components/AppText'
 import { useLanguage } from '../context/LanguageContext'
 
 // Both providers go through the same browser-based SSO flow for now — the
@@ -40,8 +41,10 @@ export function SignInScreen() {
     <SafeAreaView className="flex-1 bg-[#08080c]">
       <View className="flex-1 items-center justify-center gap-8 px-6">
         <View className="items-center gap-2">
-          <Text className="text-3xl font-bold text-white">ClankUp</Text>
-          <Text className="text-center text-sm text-neutral-400">{strings.signIn.tagline}</Text>
+          <DisplayText weight="bold" className="text-3xl text-white">
+            ClankUp
+          </DisplayText>
+          <AppText className="text-center text-sm text-neutral-400">{strings.signIn.tagline}</AppText>
         </View>
 
         <View className="w-full max-w-xs gap-3">
@@ -55,7 +58,9 @@ export function SignInScreen() {
             ) : (
               <>
                 <AntDesign name="google" size={16} color="#fff" />
-                <Text className="text-sm font-semibold text-white">{strings.signIn.continueWithGoogle}</Text>
+                <AppText weight="semibold" className="text-sm text-white">
+                  {strings.signIn.continueWithGoogle}
+                </AppText>
               </>
             )}
           </Pressable>
@@ -70,13 +75,15 @@ export function SignInScreen() {
             ) : (
               <>
                 <AntDesign name="apple" size={16} color="#000" />
-                <Text className="text-sm font-semibold text-black">{strings.signIn.continueWithApple}</Text>
+                <AppText weight="semibold" className="text-sm text-black">
+                  {strings.signIn.continueWithApple}
+                </AppText>
               </>
             )}
           </Pressable>
         </View>
 
-        {error && <Text className="text-xs text-red-400">{error}</Text>}
+        {error && <AppText className="text-xs text-red-400">{error}</AppText>}
       </View>
     </SafeAreaView>
   )

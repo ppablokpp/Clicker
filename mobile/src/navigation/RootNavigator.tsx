@@ -1,7 +1,7 @@
 import { Show } from '@clerk/expo'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { BarChart3, Network, Rocket, Store as StoreIcon, Trophy } from 'lucide-react-native'
 import { useLanguage } from '../context/LanguageContext'
+import { BottomNavPill } from './BottomNavPill'
 import { HomeScreen } from '../screens/HomeScreen'
 import { PlaceholderScreen } from '../screens/PlaceholderScreen'
 import { SignInScreen } from '../screens/SignInScreen'
@@ -33,38 +33,14 @@ function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#c4b5fd',
-        tabBarInactiveTintColor: '#737373',
-        tabBarStyle: { backgroundColor: '#0a0a10', borderTopColor: 'rgba(255,255,255,0.1)' },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <BottomNavPill {...props} />}
     >
-      <Tab.Screen
-        name="Tree"
-        component={TreeScreen}
-        options={{ title: strings.nav.tree, tabBarIcon: ({ color, size }) => <Network color={color} size={size} /> }}
-      />
-      <Tab.Screen
-        name="Leaderboard"
-        component={LeaderboardScreen}
-        options={{ title: strings.nav.leaderboard, tabBarIcon: ({ color, size }) => <Trophy color={color} size={size} /> }}
-      />
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: strings.nav.home, tabBarIcon: ({ color, size }) => <Rocket color={color} size={size} /> }}
-      />
-      <Tab.Screen
-        name="Stats"
-        component={StatsScreen}
-        options={{ title: strings.nav.stats, tabBarIcon: ({ color, size }) => <BarChart3 color={color} size={size} /> }}
-      />
-      <Tab.Screen
-        name="Store"
-        component={StoreScreen}
-        options={{ title: strings.nav.store, tabBarIcon: ({ color, size }) => <StoreIcon color={color} size={size} /> }}
-      />
+      <Tab.Screen name="Tree" component={TreeScreen} options={{ title: strings.nav.tree }} />
+      <Tab.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: strings.nav.leaderboard }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: strings.nav.home }} />
+      <Tab.Screen name="Stats" component={StatsScreen} options={{ title: strings.nav.stats }} />
+      <Tab.Screen name="Store" component={StoreScreen} options={{ title: strings.nav.store }} />
     </Tab.Navigator>
   )
 }

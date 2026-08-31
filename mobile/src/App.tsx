@@ -3,12 +3,19 @@ import './global.css'
 import { ClerkProvider } from '@clerk/expo'
 import { tokenCache } from '@clerk/expo/token-cache'
 import { NavigationContainer } from '@react-navigation/native'
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, useFonts } from '@expo-google-fonts/inter'
+import { SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk'
+import { setAudioModeAsync } from 'expo-audio'
 import { StatusBar } from 'expo-status-bar'
+import * as SplashScreen from 'expo-splash-screen'
+import { useCallback, useEffect } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { RootNavigator } from './navigation/RootNavigator'
+
+SplashScreen.preventAutoHideAsync()
 
 // Clerk requires this to be passed explicitly (not read from inside
 // node_modules) since EXPO_PUBLIC_* env vars are only inlined into the
@@ -20,8 +27,36 @@ if (!publishableKey) {
 }
 
 export default function App() {
+  // Same two Google Fonts the web version pulls (Inter for body copy,
+  // Space Grotesk for headline-style numbers/titles) — see AppText.tsx for
+  // why every Text element has to request its weight explicitly instead of
+  // relying on a global default.
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  })
+
+  const onLayout = useCallback(async () => {
+    if (fontsLoaded) await SplashScreen.hideAsync()
+  }, [fontsLoaded])
+
+  // Tap sounds (see lib/sounds.ts) should play through the speaker even
+  // with the phone's silent switch on, same as the web version always
+  // having sound available regardless of any OS-level "silent mode".
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true })
+  }, [])
+
+  if (!fontsLoaded) return null
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayout}>
       <SafeAreaProvider>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <LanguageProvider>
