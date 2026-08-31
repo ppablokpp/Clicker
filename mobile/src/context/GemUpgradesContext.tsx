@@ -101,11 +101,15 @@ export function GemUpgradesProvider({ children }: { children: ReactNode }) {
     return best
   }, [catalog, owned])
 
-  return (
-    <GemUpgradesContext.Provider value={{ catalog, owned, bestOwned, buyingId, buy }}>
-      {children}
-    </GemUpgradesContext.Provider>
+  // Memoized — this consumes GemsContext (`syncGems`), which itself
+  // consumes ClickCounterContext, so without this it re-renders (and hands
+  // every consumer a fresh reference) on every single tap too.
+  const value = useMemo(
+    () => ({ catalog, owned, bestOwned, buyingId, buy }),
+    [catalog, owned, bestOwned, buyingId, buy],
   )
+
+  return <GemUpgradesContext.Provider value={value}>{children}</GemUpgradesContext.Provider>
 }
 
 export function useGemUpgradesContext() {

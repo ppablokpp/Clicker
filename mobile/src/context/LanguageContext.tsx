@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getLocales } from 'expo-localization'
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { translations, type Language, type TranslationStrings } from '../i18n/translations'
 
 const STORAGE_KEY = 'clicker:language'
@@ -30,19 +30,25 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     setLanguage((prev) => {
       const next: Language = prev === 'es' ? 'en' : 'es'
       AsyncStorage.setItem(STORAGE_KEY, next)
       return next
     })
-  }
+  }, [])
 
-  return (
-    <LanguageContext.Provider value={{ language, toggleLanguage, strings: translations[language] }}>
-      {children}
-    </LanguageContext.Provider>
+  // Memoized for consistency with every other context in the app (see
+  // useClickCounter.ts's comment for why this matters) — this one's own
+  // re-renders are rare (only on an actual language change), but every
+  // component in the app reads from it, so it's cheap insurance against the
+  // same cascade bug even though it isn't the hot path.
+  const value = useMemo(
+    () => ({ language, toggleLanguage, strings: translations[language] }),
+    [language, toggleLanguage],
   )
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
 export function useLanguage() {

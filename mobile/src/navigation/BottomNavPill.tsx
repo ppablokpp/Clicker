@@ -2,6 +2,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BarChart3, Network, Rocket, Store, Trophy } from 'lucide-react-native'
+import { memo } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ScanlineTexture } from '../components/ScanlineTexture'
@@ -84,9 +85,20 @@ function PillHomeButton({ label, isActive, onPress }: { label: string; isActive:
 // Home tab, same scanline + hairline texture. Swapped in as the tab
 // navigator's own `tabBar` render prop so React Navigation still drives
 // focus/routing, only the chrome is custom.
-export function BottomNavPill({ state, navigation }: BottomTabBarProps) {
+//
+// Split into a thin outer wrapper + this memoized inner component
+// specifically because `isSyncSuspended` comes from ClickCounterContext,
+// whose value changes on *every tap* (see useClickCounter.ts's own
+// comment) — the bar is mounted on every screen the whole app long, so
+// without this split it was rebuilding blur/gradient layers and all 5 tab
+// buttons on every single shot, everywhere, regardless of which tab you
+// were even on.
+const BottomNavPillContent = memo(function BottomNavPillContent({
+  state,
+  navigation,
+  isSyncSuspended,
+}: BottomTabBarProps & { isSyncSuspended: boolean }) {
   const { strings } = useLanguage()
-  const { isSyncSuspended } = useClickCounterContext()
   const insets = useSafeAreaInsets()
 
   return (
@@ -124,4 +136,9 @@ export function BottomNavPill({ state, navigation }: BottomTabBarProps) {
       </View>
     </View>
   )
+})
+
+export function BottomNavPill(props: BottomTabBarProps) {
+  const { isSyncSuspended } = useClickCounterContext()
+  return <BottomNavPillContent {...props} isSyncSuspended={isSyncSuspended} />
 }

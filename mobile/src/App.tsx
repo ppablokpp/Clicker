@@ -9,6 +9,7 @@ import { setAudioModeAsync } from 'expo-audio'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { useCallback, useEffect } from 'react'
+import { LogBox } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ClickCounterProvider } from './context/ClickCounterContext'
@@ -20,6 +21,20 @@ import { TreeProvider } from './context/TreeContext'
 import { RootNavigator } from './navigation/RootNavigator'
 
 SplashScreen.preventAutoHideAsync()
+
+// Confirmed benign: this comes from React Native's own `ResponderEventPlugin`
+// (Libraries/Renderer/implementations/ReactFabric-dev.js), a single global
+// touch counter that predates react-native-gesture-handler entirely and
+// keeps running alongside it — it's part of the legacy Responder System
+// (Pressable's own foundation), not anything Home's tap-to-shoot gesture
+// owns or can desync on its own. Heavy simultaneous multi-touch through
+// gesture-handler (Multidisparo, holding several fingers down and lifting
+// them fast) reliably drifts this *separate* counter negative — verified by
+// reading the warning's own source, not by guessing — with no observed
+// effect on gesture-handler's own touch delivery (shots still fire
+// correctly, at any tap rate, in every version tested). Silenced here so it
+// doesn't bury real warnings while effects get reintroduced one at a time.
+LogBox.ignoreLogs(['Ended a touch event which was not counted in `trackedTouchCount`'])
 
 // Clerk requires this to be passed explicitly (not read from inside
 // node_modules) since EXPO_PUBLIC_* env vars are only inlined into the

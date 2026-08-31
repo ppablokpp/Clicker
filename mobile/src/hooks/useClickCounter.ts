@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, type AppStateStatus } from 'react-native'
 import { toLocalDateString } from '../lib/date'
 import { applyObjectProgress } from '../lib/spaceObjects'
@@ -357,25 +357,61 @@ export function useClickCounter() {
     [updateObjectDisplay],
   )
 
-  return {
-    totalClicks,
-    lifetimePlatino,
-    prestigeTier,
-    isConfirmingPrestige,
-    confirmPrestige,
-    clicksPerSecond,
-    registerClick,
-    syncTotalClicks,
-    syncTotalClicksIfNewer,
-    tickAutoClicks,
-    suspendSync,
-    resumeSync,
-    isSyncSuspended,
-    latestKeys,
-    latestGems,
-    objectsBroken,
-    objectProgress,
-    syncObjectState,
-    luckyClicksFound,
-  }
+  // Memoized — this is the ClickCounterContext Provider's own `value` prop
+  // (see ClickCounterContext.tsx), and it used to be rebuilt as a brand new
+  // object literal on *every* render of this hook, including every single
+  // `setTotalClicks` call (i.e. every tap). Since React Context re-renders
+  // every consumer whenever the `value` reference changes — regardless of
+  // whether the specific fields that consumer reads actually changed — an
+  // unmemoized value here meant every tap re-rendered every single
+  // ClickCounterContext consumer across the *entire app* (TreeContext,
+  // GemsContext, TasksContext, the always-mounted bottom nav bar, and any
+  // other screen still mounted in the background), not just Home. That's
+  // the real, primary source of the lag/audio-delay that scaled with tap
+  // rate — not the touch/gesture mechanics, which were a much smaller cost
+  // by comparison once this was found.
+  return useMemo(
+    () => ({
+      totalClicks,
+      lifetimePlatino,
+      prestigeTier,
+      isConfirmingPrestige,
+      confirmPrestige,
+      clicksPerSecond,
+      registerClick,
+      syncTotalClicks,
+      syncTotalClicksIfNewer,
+      tickAutoClicks,
+      suspendSync,
+      resumeSync,
+      isSyncSuspended,
+      latestKeys,
+      latestGems,
+      objectsBroken,
+      objectProgress,
+      syncObjectState,
+      luckyClicksFound,
+    }),
+    [
+      totalClicks,
+      lifetimePlatino,
+      prestigeTier,
+      isConfirmingPrestige,
+      confirmPrestige,
+      clicksPerSecond,
+      registerClick,
+      syncTotalClicks,
+      syncTotalClicksIfNewer,
+      tickAutoClicks,
+      suspendSync,
+      resumeSync,
+      isSyncSuspended,
+      latestKeys,
+      latestGems,
+      objectsBroken,
+      objectProgress,
+      syncObjectState,
+      luckyClicksFound,
+    ],
+  )
 }

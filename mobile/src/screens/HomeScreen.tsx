@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useWindowDimensions, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { CockpitPanel } from '../components/home/CockpitPanel'
@@ -19,7 +19,6 @@ import { useTasksContext } from '../context/TasksContext'
 import { useTreeContext } from '../context/TreeContext'
 import { useMissions } from '../hooks/useMissions'
 import { formatPlatino } from '../lib/formatPlatino'
-import { getHeatLevel } from '../lib/heat'
 import { MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
 import { playLaserShot } from '../lib/sounds'
 import { computePrestigeProgress } from '../lib/trajectory'
@@ -58,12 +57,6 @@ export function HomeScreen() {
   const [showInventory, setShowInventory] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
   const [showLog, setShowLog] = useState(false)
-  // The popup only ever shows the carried-forward whole part (registerClick
-  // still gets the exact fractional `amount`) — same trick as the web's own
-  // popupCarryRef, so a sub-1 multiplier (e.g. ×0.5 somewhere) still nets
-  // out to the right total shown across many taps instead of always
-  // flooring to 0.
-  const popupCarryRef = useRef(0)
 
   // Stable references — HudLeftButtons/HudRightButtons are memoized so they
   // don't re-render on every tap (see HudFlankingButtons.tsx's own
@@ -83,7 +76,6 @@ export function HomeScreen() {
     () => computePrestigeProgress(currentTierIndex, lifetimePlatino),
     [currentTierIndex, lifetimePlatino],
   )
-  const heat = getHeatLevel(clicksPerSecond)
   const moneyMultiplier = bestOwned?.multiplier ?? 1
   // Matches front/src/pages/Home.tsx's own header formula
   // (`autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier`).
@@ -99,24 +91,19 @@ export function HomeScreen() {
   )
 
   // Called once per finger-down (TapShootLayer supports up to multiShotValue
-  // simultaneous shots) — returns the *display* amount (whole-numbered,
-  // carry-forward smoothed) so the caller can show the right "+N" on the
-  // shot that's about to fire, while registerClick still gets the exact
-  // fractional amount. Mirrors Home.tsx's own fireShot inline math exactly.
-  const handleTap = useCallback((): { amount: number; isLucky: boolean } => {
+  // simultaneous shots). Stripped down while debugging the sustained-tapping
+  // lag/warning: no "+N" popup, no isLucky ripple color — just the real
+  // score update (still exact, multiplier+luck included) and the shot
+  // sound. See TapShootLayer's own comment for what else got stripped and
+  // why.
+  const handleTap = useCallback(() => {
     const hasLuck = luckChance > 0
     const rolledLuckMultiplier = hasLuck && Math.random() < luckChance ? luckMultiplier : 1
     const isLucky = rolledLuckMultiplier > 1
     const amount = totalMultiplier * rolledLuckMultiplier
 
-    popupCarryRef.current += amount
-    const displayAmount = Math.floor(popupCarryRef.current)
-    popupCarryRef.current -= displayAmount
-
     registerClick(amount, isLucky)
     playLaserShot()
-
-    return { amount: displayAmount, isLucky }
   }, [totalMultiplier, luckChance, luckMultiplier, registerClick])
 
   return (
@@ -127,7 +114,6 @@ export function HomeScreen() {
         tierIndex={currentTierIndex}
         pct={prestige.pct}
         isMaxed={prestige.readyToPrestige}
-        rippleColor={heat.ripple}
         autoClickLevel={autoClickLevel}
         scoutDroneLevel={scoutDroneLevel}
         multiShotValue={multiShotValue}

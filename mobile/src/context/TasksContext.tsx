@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo'
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { claimTask, fetchTasksMe } from '../services/tasksApi'
 import { useClickCounterContext } from './ClickCounterContext'
 
@@ -65,11 +65,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     [userId, getToken, syncTotalClicks],
   )
 
-  return (
-    <TasksContext.Provider value={{ claimed, claimingId, anomaliesNeutralized, claim }}>
-      {children}
-    </TasksContext.Provider>
+  // Memoized — this consumes ClickCounterContext (`syncTotalClicks`), so it
+  // re-renders on every tap regardless of whether any task actually
+  // changed; without this every TasksContext consumer (TasksModal, Home's
+  // hasClaimableTask check) got a fresh reference on every single shot too.
+  const value = useMemo(
+    () => ({ claimed, claimingId, anomaliesNeutralized, claim }),
+    [claimed, claimingId, anomaliesNeutralized, claim],
   )
+
+  return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
 }
 
 export function useTasksContext() {

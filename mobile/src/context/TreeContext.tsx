@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo'
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { buyTreeNode, fetchTreeState, type TreeBuyKey, type TreeStateResponse } from '../services/treeApi'
 import { useClickCounterContext } from './ClickCounterContext'
 
@@ -224,7 +224,21 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     [userId, getToken, state, applyState, syncTotalClicks],
   )
 
-  return <TreeContext.Provider value={{ ...state, buyingKey, buy, refetch: fetchState }}>{children}</TreeContext.Provider>
+  // Memoized — this component consumes ClickCounterContext (for
+  // syncTotalClicks etc.), so it re-renders on *every tap* regardless of
+  // whether anything tree-related changed. An unmemoized value here used to
+  // hand every one of TreeContext's own consumers (ShipModal, the Tree
+  // screen, every TreeNodeModal) a brand-new object reference on every
+  // single shot, forcing them all to re-render too — the same
+  // context-cascade bug as ClickCounterContext's own value (see
+  // useClickCounter.ts's comment), just one layer further down the
+  // provider tree.
+  const value = useMemo(
+    () => ({ ...state, buyingKey, buy, refetch: fetchState }),
+    [state, buyingKey, buy, fetchState],
+  )
+
+  return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>
 }
 
 export function useTreeContext() {

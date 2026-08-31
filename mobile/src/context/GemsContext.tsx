@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo'
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useClickCounterContext } from './ClickCounterContext'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -50,7 +50,15 @@ export function GemsProvider({ children }: { children: ReactNode }) {
     setGems(newTotal)
   }, [])
 
-  return <GemsContext.Provider value={{ gems, syncGems }}>{children}</GemsContext.Provider>
+  // Memoized — this consumes ClickCounterContext (`latestGems`), so it
+  // re-renders on every tap regardless of whether gems actually changed. An
+  // unmemoized value here handed every GemsContext consumer (Tree's c1
+  // node, GemUpgradesContext) a fresh reference on every shot, cascading
+  // the same way ClickCounterContext's own unmemoized value did — see
+  // useClickCounter.ts's comment for the full story.
+  const value = useMemo(() => ({ gems, syncGems }), [gems, syncGems])
+
+  return <GemsContext.Provider value={value}>{children}</GemsContext.Provider>
 }
 
 export function useGemsContext() {
