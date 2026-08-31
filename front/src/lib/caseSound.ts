@@ -5,6 +5,8 @@
  * same spirit as CS:GO case openings without using any of their assets.
  */
 
+import { unlockAudioSession } from './audioSessionUnlock'
+
 let ctx: AudioContext | null = null
 let noiseBuffer: AudioBuffer | null = null
 let masterOutput: DynamicsCompressorNode | null = null
@@ -18,6 +20,7 @@ function getContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
   const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!AudioCtor) return null
+  unlockAudioSession()
   if (!ctx) ctx = new AudioCtor()
   if (ctx.state === 'suspended') void ctx.resume()
   return ctx
