@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
-import { useWindowDimensions, View } from 'react-native'
+import { useMemo, useRef, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { TreeCanvas } from '../components/tree/TreeCanvas'
+import { TreeCanvas, type TreeCanvasHandle } from '../components/tree/TreeCanvas'
 import { TreeConnectors } from '../components/tree/TreeConnectors'
 import { TreeNode } from '../components/tree/TreeNode'
 import { TreeNodeModal } from '../components/tree/TreeNodeModal'
+import { TreeZoomControls } from '../components/tree/TreeZoomControls'
 import { useLanguage } from '../context/LanguageContext'
 import { useTreeContext } from '../context/TreeContext'
 import { CENTER, getRevealState, TREE_NODES, type TreeNodeDef } from '../lib/treeNodes'
@@ -21,9 +21,9 @@ const DEFAULT_SCALE = 0.68
 // buy flow.
 export function TreeScreen() {
   const { strings } = useLanguage()
-  const { width, height } = useWindowDimensions()
   const tree = useTreeContext()
   const [selectedNode, setSelectedNode] = useState<TreeNodeDef | null>(null)
+  const canvasRef = useRef<TreeCanvasHandle>(null)
 
   const levelById = useMemo(() => {
     const map: Record<string, number> = {}
@@ -42,10 +42,11 @@ export function TreeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#08080c]" edges={['left', 'right']}>
       <TreeCanvas
+        ref={canvasRef}
         contentWidth={WORLD_SIZE}
         contentHeight={WORLD_SIZE}
         initialScale={DEFAULT_SCALE}
-        initialFocus={{ x: CENTER, y: CENTER, viewportWidth: width, viewportHeight: height }}
+        initialFocus={{ x: CENTER, y: CENTER }}
       >
         <TreeConnectors width={WORLD_SIZE} height={WORLD_SIZE} revealStateById={revealStateById} />
         {TREE_NODES.map((node) => (
@@ -59,6 +60,12 @@ export function TreeScreen() {
           />
         ))}
       </TreeCanvas>
+
+      <TreeZoomControls
+        onZoomIn={() => canvasRef.current?.zoomIn()}
+        onZoomOut={() => canvasRef.current?.zoomOut()}
+        onReset={() => canvasRef.current?.resetView()}
+      />
 
       <TreeNodeModal node={selectedNode} visible={selectedNode !== null} onClose={() => setSelectedNode(null)} />
     </SafeAreaView>

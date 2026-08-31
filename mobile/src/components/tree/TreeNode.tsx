@@ -28,10 +28,15 @@ function TreeNodeImpl({
 
   const isLocked = revealState === 'locked'
   const style = isLocked ? LOCKED_STYLE : FAMILY_STYLES[node.family]
+  // Web only ever renders placeholder/unfinished-branch nodes (no buy
+  // action) as a plain non-interactive div, at every reveal state — never
+  // a button, so tapping one here shouldn't open a modal either.
+  const isInteractive = !isLocked && node.buyKey !== undefined
 
   return (
     <Pressable
       onPress={onPress}
+      disabled={!isInteractive}
       style={{
         position: 'absolute',
         left: node.x - NODE_SIZE / 2,

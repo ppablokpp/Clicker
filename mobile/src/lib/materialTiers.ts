@@ -108,3 +108,17 @@ export const MATERIAL_PILL_COLORS: readonly MaterialPillColors[] = [
   { border: 'rgba(250,204,21,0.2)', background: 'rgba(234,179,8,0.07)', text: '#fef08a' }, // Oro
   { border: 'rgba(34,211,238,0.2)', background: 'rgba(6,182,212,0.07)', text: '#a5f3fc' }, // Diamante
 ] as const
+
+// Explicit RN equivalents of MATERIAL_BUTTON_THEMES[i].button
+// (`border-{c}-400/30 bg-{c}-500/10 text-{c}-200`) — used specifically by
+// Tree's buy buttons (front/src/pages/Tree.tsx's TreeBuyButton), which are
+// always the current material's color regardless of the node's own family
+// color (that family color is only for the node circle itself). Distinct
+// from MATERIAL_PILL_COLORS above (different opacities/use sites).
+export const MATERIAL_BUY_BUTTON_COLORS: readonly MaterialPillColors[] = [
+  { border: 'rgba(167,139,250,0.3)', background: 'rgba(139,92,246,0.1)', text: '#ddd6fe' }, // Amatista
+  { border: 'rgba(148,163,184,0.3)', background: 'rgba(100,116,139,0.1)', text: '#e2e8f0' }, // Platino
+  { border: 'rgba(52,211,153,0.3)', background: 'rgba(16,185,129,0.1)', text: '#a7f3d0' }, // Esmeralda
+  { border: 'rgba(250,204,21,0.3)', background: 'rgba(234,179,8,0.1)', text: '#fef08a' }, // Oro
+  { border: 'rgba(34,211,238,0.3)', background: 'rgba(6,182,212,0.1)', text: '#a5f3fc' }, // Diamante
+] as const

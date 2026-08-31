@@ -1,98 +1,229 @@
-import type { ReactNode } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { forwardRef, useImperativeHandle, type ReactNode } from 'react'
+import { StyleSheet, View, useWindowDimensions } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated'
 
-const MIN_SCALE = 0.45
-const MAX_SCALE = 2
+// Matches front/src/pages/Tree.tsx's own MIN_SCALE/MAX_SCALE exactly.
+const MIN_SCALE = 0.5
+const MAX_SCALE = 2.5
 
-// A pannable, pinch-zoomable canvas — the Tree screen's own gesture surface.
-// Ported conceptually from front/src/pages/Tree.tsx's pan/zoom (mouse
-// drag + wheel + touch-pinch there), rebuilt from scratch here with
-// react-native-gesture-handler's Pan+Pinch composed simultaneously, driving
-// plain reanimated shared values (translateX/Y/scale) — matches the plan's
-// own architecture note for this screen instead of trying to port any
-// DOM/CSS-specific pan-zoom code, which wouldn't translate anyway.
+// A one-finger touch only actually claims the gesture (and blocks the node
+// Pressable underneath) once it's moved this many px — otherwise a plain
+// tap-and-release on a node would get swallowed by this Manual gesture
+// activating on touch-down before the node's own onPress ever fires. A
+// two-finger touch skips this: there's no tappable target that expects a
+// second simultaneous finger, so it activates immediately, same as the web.
+const PAN_ACTIVATE_DISTANCE = 4
+
+export interface TreeCanvasHandle {
+  zoomIn: () => void
+  zoomOut: () => void
+  resetView: () => void
+}
+
+// A pannable, pinch-zoomable canvas — rebuilt from a `Gesture.Manual()`
+// tracking raw touches directly (onTouchesDown/Move/Up), instead of
+// composing gesture-handler's own Pan+Pinch recognizers together.
 //
-// Zoom is anchored on the pinch's own focal point (not the canvas center) —
-// without that, pinching near an edge visibly "swims" the content sideways
-// instead of zooming in on what your fingers are actually over, which is
-// what a first pass without focal-point math felt like.
-export function TreeCanvas({
-  contentWidth,
-  contentHeight,
-  initialScale = 1,
-  initialFocus,
-  children,
-}: {
-  contentWidth: number
-  contentHeight: number
-  /** Starting zoom level — matches the web's own DEFAULT_SCALE. */
-  initialScale?: number
-  /** The content-space point to center in the viewport on mount (e.g. the tree's root node), at initialScale. */
-  initialFocus?: { x: number; y: number; viewportWidth: number; viewportHeight: number }
-  children: ReactNode
-}) {
-  const initialX = initialFocus ? initialFocus.viewportWidth / 2 - initialFocus.x * initialScale : 0
-  const initialY = initialFocus ? initialFocus.viewportHeight / 2 - initialFocus.y * initialScale : 0
+// Why: `Gesture.Simultaneous(Gesture.Pan(), Gesture.Pinch())` computes the
+// Pan's translation from the *centroid* of however many fingers are down.
+// The instant a second finger lands or the first of two lifts, that
+// centroid jumps from "midpoint of two touches" to "the one remaining
+// touch's raw position" in a single frame — which is exactly the "se mueve
+// a esa posición un poco raro" glitch when releasing one finger mid-pinch.
+//
+// The web version (Tree.tsx's handlePointerDown/Move/endDrag) never has
+// this problem because it manually tracks each pointer by id in a Map and
+// explicitly recomputes a fresh pan/pinch anchor at the *current* transform
+// every time the pointer set changes size — nothing is ever computed from
+// a stale multi-finger average. That's the exact algorithm ported below,
+// just against RNGH's raw touch events instead of the DOM Pointer Events
+// API, and against shared values instead of refs (so every read inside the
+// worklet is always the live value, sidestepping the stale-closure
+// bookkeeping the web version needs `useCallback` deps arrays for).
+export const TreeCanvas = forwardRef<
+  TreeCanvasHandle,
+  {
+    contentWidth: number
+    contentHeight: number
+    /** Starting zoom level — matches the web's own DEFAULT_SCALE. */
+    initialScale?: number
+    /** The content-space point to center in the viewport on mount (e.g. the tree's root node), at initialScale. */
+    initialFocus?: { x: number; y: number }
+    children: ReactNode
+  }
+>(function TreeCanvas({ contentWidth, contentHeight, initialScale = 1, initialFocus, children }, ref) {
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions()
+
+  const initialX = initialFocus ? viewportWidth / 2 - initialFocus.x * initialScale : 0
+  const initialY = initialFocus ? viewportHeight / 2 - initialFocus.y * initialScale : 0
 
   const translateX = useSharedValue(initialX)
   const translateY = useSharedValue(initialY)
   const scale = useSharedValue(initialScale)
 
-  const startX = useSharedValue(0)
-  const startY = useSharedValue(0)
-  const startScale = useSharedValue(1)
-  // Focal point of the pinch, in canvas-content space, captured once per
-  // gesture — used to keep that exact content point under the fingers as
-  // scale changes.
-  const focalContentX = useSharedValue(0)
-  const focalContentY = useSharedValue(0)
+  // Which single touch is driving a pan, or which pair is driving a pinch —
+  // mirrors the web's dragRef/pinchRef exactly. mode 0 = idle, 1 = pan, 2 = pinch.
+  const mode = useSharedValue<0 | 1 | 2>(0)
+  const primaryId = useSharedValue(-1)
+  const primaryX = useSharedValue(0)
+  const primaryY = useSharedValue(0)
+  const secondaryId = useSharedValue(-1)
+  const secondaryX = useSharedValue(0)
+  const secondaryY = useSharedValue(0)
 
-  const pan = Gesture.Pan()
-    .onStart(() => {
-      startX.value = translateX.value
-      startY.value = translateY.value
-    })
-    .onUpdate((e) => {
-      translateX.value = startX.value + e.translationX
-      translateY.value = startY.value + e.translationY
-    })
-    .minPointers(1)
-    .maxPointers(2)
+  const dragStartX = useSharedValue(0)
+  const dragStartY = useSharedValue(0)
+  const dragOriginX = useSharedValue(0)
+  const dragOriginY = useSharedValue(0)
 
-  const pinch = Gesture.Pinch()
-    .onStart((e) => {
-      startScale.value = scale.value
-      startX.value = translateX.value
-      startY.value = translateY.value
-      // Convert the pinch's focal point (canvas-local coordinates) into
-      // the untransformed content's own coordinate space, so it stays
-      // fixed under the fingers regardless of the current pan/scale.
-      focalContentX.value = (e.focalX - translateX.value) / scale.value
-      focalContentY.value = (e.focalY - translateY.value) / scale.value
-    })
-    .onUpdate((e) => {
-      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, startScale.value * e.scale))
-      scale.value = nextScale
-      translateX.value = e.focalX - focalContentX.value * nextScale
-      translateY.value = e.focalY - focalContentY.value * nextScale
-    })
+  const pinchStartDistance = useSharedValue(0)
+  const pinchStartScale = useSharedValue(0)
+  const pinchStartMidX = useSharedValue(0)
+  const pinchStartMidY = useSharedValue(0)
+  const pinchOriginX = useSharedValue(0)
+  const pinchOriginY = useSharedValue(0)
 
-  const composed = Gesture.Simultaneous(pan, pinch)
+  // Whether this gesture has actually claimed the touch stream yet (see
+  // PAN_ACTIVATE_DISTANCE above) — reset on every fresh touch-down.
+  const hasActivated = useSharedValue(false)
+
+  const beginPan = (id: number, x: number, y: number) => {
+    'worklet'
+    mode.value = 1
+    primaryId.value = id
+    primaryX.value = x
+    primaryY.value = y
+    dragStartX.value = x
+    dragStartY.value = y
+    dragOriginX.value = translateX.value
+    dragOriginY.value = translateY.value
+  }
+
+  const beginPinch = (idA: number, ax: number, ay: number, idB: number, bx: number, by: number) => {
+    'worklet'
+    mode.value = 2
+    primaryId.value = idA
+    primaryX.value = ax
+    primaryY.value = ay
+    secondaryId.value = idB
+    secondaryX.value = bx
+    secondaryY.value = by
+    pinchStartDistance.value = Math.hypot(ax - bx, ay - by)
+    pinchStartScale.value = scale.value
+    pinchStartMidX.value = (ax + bx) / 2
+    pinchStartMidY.value = (ay + by) / 2
+    pinchOriginX.value = translateX.value
+    pinchOriginY.value = translateY.value
+  }
+
+  const touch = Gesture.Manual()
+    .onTouchesDown((e, manager) => {
+      'worklet'
+      manager.begin()
+      if (e.numberOfTouches === 2) {
+        const [a, b] = e.allTouches
+        beginPinch(a.id, a.x, a.y, b.id, b.x, b.y)
+        hasActivated.value = true
+        manager.activate()
+      } else if (e.numberOfTouches === 1) {
+        const a = e.allTouches[0]
+        beginPan(a.id, a.x, a.y)
+        hasActivated.value = false
+      }
+    })
+    .onTouchesMove((e, manager) => {
+      'worklet'
+      for (const touchPoint of e.allTouches) {
+        if (touchPoint.id === primaryId.value) {
+          primaryX.value = touchPoint.x
+          primaryY.value = touchPoint.y
+        } else if (touchPoint.id === secondaryId.value) {
+          secondaryX.value = touchPoint.x
+          secondaryY.value = touchPoint.y
+        }
+      }
+
+      if (mode.value === 2) {
+        const distance = Math.hypot(primaryX.value - secondaryX.value, primaryY.value - secondaryY.value)
+        const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchStartScale.value * (distance / pinchStartDistance.value)))
+        const ratio = nextScale / pinchStartScale.value
+        const midX = (primaryX.value + secondaryX.value) / 2
+        const midY = (primaryY.value + secondaryY.value) / 2
+        scale.value = nextScale
+        translateX.value = midX - (pinchStartMidX.value - pinchOriginX.value) * ratio
+        translateY.value = midY - (pinchStartMidY.value - pinchOriginY.value) * ratio
+      } else if (mode.value === 1) {
+        if (!hasActivated.value) {
+          const moved = Math.hypot(primaryX.value - dragStartX.value, primaryY.value - dragStartY.value)
+          if (moved < PAN_ACTIVATE_DISTANCE) return
+          hasActivated.value = true
+          manager.activate()
+        }
+        translateX.value = dragOriginX.value + (primaryX.value - dragStartX.value)
+        translateY.value = dragOriginY.value + (primaryY.value - dragStartY.value)
+      }
+    })
+    .onTouchesUp((e, manager) => {
+      'worklet'
+      const liftedIds = e.changedTouches.map((t) => t.id)
+      const remaining = e.allTouches.filter((t) => !liftedIds.includes(t.id))
+
+      if (mode.value === 2 && (liftedIds.includes(primaryId.value) || liftedIds.includes(secondaryId.value))) {
+        if (remaining.length >= 1) {
+          // One finger of the pinch lifted — hand off to a fresh single-
+          // finger pan anchored on the CURRENT transform and the remaining
+          // finger's CURRENT position, so nothing jumps (same trick as the
+          // web's own endDrag).
+          const r = remaining[0]
+          beginPan(r.id, r.x, r.y)
+        } else {
+          mode.value = 0
+        }
+      } else if (mode.value === 1 && liftedIds.includes(primaryId.value)) {
+        mode.value = 0
+      }
+
+      if (remaining.length === 0) {
+        mode.value = 0
+        hasActivated.value = false
+        manager.end()
+      }
+    })
+    .onTouchesCancelled((_e, manager) => {
+      'worklet'
+      mode.value = 0
+      hasActivated.value = false
+      manager.end()
+    })
 
   const contentStyle = useAnimatedStyle(() => ({
-    // `transformOrigin` needs all 3 axes (x, y, z) — RN's default pivot
-    // for `scale` is the view's own center, which makes "translate +
-    // scale*point" math (what the focal-point-anchored pinch above
-    // assumes) wrong by a constant offset unless the pivot is pinned to
-    // the top-left first.
     transformOrigin: [0, 0, 0],
     transform: [{ translateX: translateX.value }, { translateY: translateY.value }, { scale: scale.value }],
   }))
 
+  const zoomAroundCenter = (nextScale: (current: number) => number) => {
+    const clamped = Math.min(MAX_SCALE, Math.max(MIN_SCALE, nextScale(scale.value)))
+    const ratio = clamped / scale.value
+    const cx = viewportWidth / 2
+    const cy = viewportHeight / 2
+    translateX.value = cx - (cx - translateX.value) * ratio
+    translateY.value = cy - (cy - translateY.value) * ratio
+    scale.value = clamped
+  }
+
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => zoomAroundCenter((s) => s * 1.25),
+    zoomOut: () => zoomAroundCenter((s) => s * 0.8),
+    resetView: () => {
+      translateX.value = initialX
+      translateY.value = initialY
+      scale.value = initialScale
+    },
+  }))
+
   return (
-    <GestureDetector gesture={composed}>
+    <GestureDetector gesture={touch}>
       <View style={StyleSheet.absoluteFill}>
         <Animated.View
           style={[
@@ -105,4 +236,4 @@ export function TreeCanvas({
       </View>
     </GestureDetector>
   )
-}
+})
