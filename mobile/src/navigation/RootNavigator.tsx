@@ -28,7 +28,13 @@ function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      screenOptions={{ headerShown: false }}
+      // Without this, React Navigation's own scene container defaults to a
+      // white background — invisible normally (each screen's own root View
+      // paints over it), but it's what actually shows through the gap during
+      // a ScrollView/FlatList's overscroll bounce (Leaderboard's list,
+      // Store/Stats) instead of the screen's own dark bg-color, since that
+      // gap is *behind* the scroll content, not part of it.
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#08080c' } }}
       tabBar={(props) => <BottomNavPill {...props} />}
     >
       <Tab.Screen name="Tree" component={TreeScreen} options={{ title: strings.nav.tree }} />
