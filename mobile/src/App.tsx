@@ -9,7 +9,6 @@ import { setAudioModeAsync } from 'expo-audio'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import { useCallback, useEffect } from 'react'
-import { LogBox } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ClickCounterProvider } from './context/ClickCounterContext'
@@ -31,10 +30,21 @@ SplashScreen.preventAutoHideAsync()
 // gesture-handler (Multidisparo, holding several fingers down and lifting
 // them fast) reliably drifts this *separate* counter negative — verified by
 // reading the warning's own source, not by guessing — with no observed
-// effect on gesture-handler's own touch delivery (shots still fire
-// correctly, at any tap rate, in every version tested). Silenced here so it
-// doesn't bury real warnings while effects get reintroduced one at a time.
-LogBox.ignoreLogs(['Ended a touch event which was not counted in `trackedTouchCount`'])
+// effect on gesture-handler's own touch delivery (shots fire correctly, at
+// any tap rate, sustained, with the pooled effects in place).
+//
+// `LogBox.ignoreLogs` doesn't reach this — that only hides the in-app
+// overlay, not Metro's own terminal output, and the terminal is where this
+// was actually showing up. Filtering `console.warn` itself, this early
+// (before RN's own console patching further down the bootstrap chain gets
+// a chance to forward it anywhere), is what actually keeps it out of both.
+const originalConsoleWarn = console.warn
+console.warn = (...args: unknown[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('Ended a touch event which was not counted in `trackedTouchCount`')) {
+    return
+  }
+  originalConsoleWarn(...args)
+}
 
 // Clerk requires this to be passed explicitly (not read from inside
 // node_modules) since EXPO_PUBLIC_* env vars are only inlined into the

@@ -234,9 +234,19 @@ export function useClickCounter() {
         setLuckyClicksFound(confirmedLuckyHitsRef.current + pendingLuckyHitsRef.current)
       }
       setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
-      updateObjectDisplay()
+      // No updateObjectDisplay() here on purpose — objectsBroken/
+      // objectProgress aren't rendered anywhere in the mobile app yet, so
+      // recomputing them (a real while-loop, plus two more setState calls)
+      // on literally every tap was pure waste on the single hottest path in
+      // the app, competing for JS thread time with things that *do* need it
+      // (the 200ms clicksPerSecond interval, which is timer-driven and gets
+      // visibly delayed/choppy if the thread is busy right when it's due to
+      // fire). They still stay correct via syncObjectState and the
+      // fetch/flush responses below — just not re-predicted locally on
+      // every single click anymore. Revisit if a screen ever needs to show
+      // live "asteroid crack" progress on mobile.
     },
-    [userId, updateObjectDisplay],
+    [userId],
   )
 
   // Other places that spend clicks server-side (buying a powerup or a
@@ -348,14 +358,14 @@ export function useClickCounter() {
   // real auto-click accrual polls (see TreeContext) without touching
   // pendingRef, so it's never sent to /increment and never mistaken for a
   // real tap (real-clicks stat, streak, etc. stay untouched by this).
-  const tickAutoClicks = useCallback(
-    (amount: number) => {
-      autoPendingRef.current += amount
-      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
-      updateObjectDisplay()
-    },
-    [updateObjectDisplay],
-  )
+  const tickAutoClicks = useCallback((amount: number) => {
+    autoPendingRef.current += amount
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+    // No updateObjectDisplay() here either — this runs every 100ms
+    // continuously whenever the player owns any auto-click production, so
+    // it's the *other* hot path this same waste was quietly running on. See
+    // registerClick's own comment for the full reasoning.
+  }, [])
 
   // Memoized — this is the ClickCounterContext Provider's own `value` prop
   // (see ClickCounterContext.tsx), and it used to be rebuilt as a brand new
