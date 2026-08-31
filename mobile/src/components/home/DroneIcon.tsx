@@ -1,5 +1,12 @@
 import { memo, useEffect } from 'react'
-import Animated, { useAnimatedProps, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
+import Animated, {
+  useAnimatedProps,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated'
 import Svg, { Circle, G, Line, Rect } from 'react-native-svg'
 
 const AnimatedG = Animated.createAnimatedComponent(G)
@@ -18,28 +25,30 @@ const ROTORS = [
 ]
 
 // A small quadcopter silhouette — ported from front/src/components/DroneIcon.tsx.
-// `animated` gates a fast opacity flicker on the rotor-blur circles (reads
-// as spinning blades catching light without actually animating rotation
+// `flicker` gates a fast opacity flicker on the rotor-blur circles (reads as
+// spinning blades catching light without actually animating rotation
 // per-frame) — reserved for the real orbiting drones on Home, every other
-// use (tree node, modal, pill) stays static. Memoized: OrbitingBots can
-// mount dozens of these, and an already-mounted one should never re-render
-// just because a sibling drone or a tap effect elsewhere changes state.
-function DroneIconImpl({ size = 22, color = 'currentColor', animated = false }: { size?: number; color?: string; animated?: boolean }) {
-  const flicker = useSharedValue(0.15)
-
-  useEffect(() => {
-    if (!animated) return
-    flicker.value = withRepeat(
-      withSequence(
-        withTiming(0.42, { duration: 80 }),
-        withTiming(0.15, { duration: 80 }),
-      ),
-      -1,
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animated])
-
-  const animatedProps = useAnimatedProps(() => ({ opacity: animated ? flicker.value : 0.15 }))
+// use (tree node, modal, pill) stays static (omit the prop). Memoized:
+// OrbitingBots can mount dozens of these, and an already-mounted one should
+// never re-render just because a sibling drone or a tap effect elsewhere
+// changes state.
+//
+// `flicker` is a shared value passed in from the *caller*, not created
+// internally per icon — a swarm of N drones flickering in perfect sync
+// looks identical to N independently-phased ones (unlike the orbit sweep or
+// the pulse/beam timing, this has no per-drone identity to preserve), so
+// OrbitingBots drives one shared value for the whole swarm instead of
+// paying for N independent fast-updating worklets.
+function DroneIconImpl({
+  size = 22,
+  color = 'currentColor',
+  flicker,
+}: {
+  size?: number
+  color?: string
+  flicker?: SharedValue<number>
+}) {
+  const animatedProps = useAnimatedProps(() => ({ opacity: flicker ? flicker.value : 0.15 }))
 
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
@@ -65,3 +74,14 @@ function DroneIconImpl({ size = 22, color = 'currentColor', animated = false }: 
 }
 
 export const DroneIcon = memo(DroneIconImpl)
+
+// One shared flicker driver per swarm — call once in OrbitingBots and hand
+// the returned shared value to every Drone/DroneIcon in that swarm.
+export function useDroneRotorFlicker() {
+  const flicker = useSharedValue(0.15)
+  useEffect(() => {
+    flicker.value = withRepeat(withSequence(withTiming(0.42, { duration: 80 }), withTiming(0.15, { duration: 80 })), -1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return flicker
+}

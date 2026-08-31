@@ -11,6 +11,10 @@ const SHOT_DURATION_MS = 280
 const PARTICLE_DURATION_MS = 380
 const PARTICLE_COUNT = 4
 const MIN_PARTICLE_INTERVAL_MS = 90
+// Hoisted so it's the same array reference on every render — OrbitingBots
+// is memoized, and an inline array literal here would create a new
+// reference each time, defeating that memo for the scout-drone swarm.
+const SCOUT_BEAM_COLORS: [string, string, string] = ['rgba(252,211,77,0)', '#fde68a', '#ffffff']
 
 let nextShotId = 0
 let nextEffectId = 0
@@ -164,7 +168,7 @@ export function TapShootLayer({
             count={scoutDroneLevel}
             color="#fcd34d"
             glowColor="rgba(251,191,36,0.65)"
-            beamColors={['rgba(252,211,77,0)', '#fde68a', '#ffffff']}
+            beamColors={SCOUT_BEAM_COLORS}
             phaseOffset={0.4}
           />
           <View style={{ position: 'absolute', width: '70%', height: '70%' }}>

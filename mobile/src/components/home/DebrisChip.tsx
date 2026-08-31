@@ -47,11 +47,13 @@ function DebrisChipImpl({
           width: size,
           height: size,
           borderRadius: 2,
-          backgroundColor: '#ede9fe',
-          shadowColor: '#e9d5ff',
-          shadowOpacity: 0.9,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 0 },
+          // A near-white fill reads as "glowing" on its own at this size
+          // without an actual shadow — iOS has to re-rasterize a shadow's
+          // bitmap on every change to the view it's on, and this view's
+          // position/scale/opacity all change every frame. A burst of 4 of
+          // these per hit, potentially several hits overlapping during
+          // rapid tapping, made that add up into real, felt lag.
+          backgroundColor: '#f5f3ff',
         },
         style,
       ]}

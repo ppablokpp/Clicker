@@ -8,30 +8,34 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated'
-import { DroneIcon } from './DroneIcon'
+import { DroneIcon, useDroneRotorFlicker } from './DroneIcon'
 
 const ORBIT_RADIUS = 118
 const DEFAULT_BEAM_COLORS: [string, string, string] = ['rgba(196,181,253,0)', '#ddd6fe', '#ffffff']
 
 // One drone: swings around the asteroid at a fixed radius, pulses gently,
 // and fires a short beam "tick" toward the counter — ported from
-// front/src/pages/Home.tsx's OrbitingBots (plain CSS keyframes there for
-// the same reason noted in its own comment: re-deriving each drone's
-// transform from React state on every re-render is what actually lagged
-// with dozens/hundreds of them, not the animation itself). Memoized with
-// only primitive props so a fast tapper spawning shots/particles elsewhere
-// never touches an already-mounted drone.
-//
-// Position is computed directly from trig (angle -> x/y via sin/cos),
-// not the web's own "rotate a wrapper, offset a child, counter-rotate the
-// icon" nesting trick — that composition is rock-solid in CSS but an
-// earlier version of this component using the RN equivalent (nested
-// `transform: rotate` views) rendered every drone motionless at a single
-// fixed point instead of sweeping around the circle. Computing the
-// on-screen offset directly sidesteps relying on that nested-transform
-// composition working the same way in RN, and also means the icon never
-// needs counter-rotating in the first place — it was never rotated.
+// front/src/pages/Home.tsx's OrbitingBots. Performance-critical: this can
+// mount dozens/hundreds of instances (one per auto-click/scout-drone level,
+// uncapped), so every choice here is about keeping that scaling cheap, not
+// just "using reanimated":
+//   - `memo()` + only primitive/shared-value props, so a tap elsewhere
+//     (which re-renders TapShootLayer, this swarm's ultimate ancestor)
+//     never re-renders an already-mounted drone.
+//   - Position, scale and opacity for the icon are ONE `useAnimatedStyle`
+//     on ONE view — not three separate animated views/worklets — since
+//     they all update every frame together anyway.
+//   - No `shadow*` props on anything that also animates every frame: iOS
+//     has to re-rasterize a shadow's bitmap on every change to the view it
+//     sits on, so an animated-opacity/scale/position view WITH a shadow is
+//     a well-known way to light the GPU on fire with enough of them on
+//     screen at once — the glow is a flat additive tint behind the icon
+//     instead, which is just alpha blending, not a re-rasterized shadow.
+//   - The rotor flicker is ONE shared value for the whole swarm (see
+//     useDroneRotorFlicker in DroneIcon.tsx), not one independent
+//     fast-updating (80ms) worklet per drone.
 function DroneImpl({
   index,
   count,
@@ -39,6 +43,7 @@ function DroneImpl({
   glowColor,
   beamColors,
   phaseOffset,
+  flicker,
 }: {
   index: number
   count: number
@@ -46,6 +51,7 @@ function DroneImpl({
   glowColor: string
   beamColors: [string, string, string]
   phaseOffset: number
+  flicker: SharedValue<number>
 }) {
   const orbitDurationMs = (18 + (index % 3) * 3) * 1000
   const phaseDeg = (index / count + phaseOffset) * 360
@@ -92,16 +98,21 @@ function DroneImpl({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Position + scale + opacity together in one worklet/view instead of
+  // three — they all recompute every frame regardless, so splitting them
+  // across separate `useAnimatedStyle`s and nested Animated.Views only adds
+  // worklet-invocation and view-tree overhead without buying anything.
   const iconStyle = useAnimatedStyle(() => {
     const rad = ((phaseDeg + angle.value) * Math.PI) / 180
     return {
-      transform: [{ translateX: Math.sin(rad) * ORBIT_RADIUS }, { translateY: -Math.cos(rad) * ORBIT_RADIUS }],
+      opacity: 0.75 + pulse.value * 0.25,
+      transform: [
+        { translateX: Math.sin(rad) * ORBIT_RADIUS },
+        { translateY: -Math.cos(rad) * ORBIT_RADIUS },
+        { scale: 1 + pulse.value * 0.12 },
+      ],
     }
   })
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.75 + pulse.value * 0.25,
-    transform: [{ scale: 1 + pulse.value * 0.12 }],
-  }))
   const beamStyle = useAnimatedStyle(() => {
     const rad = ((phaseDeg + angle.value) * Math.PI) / 180
     const dist = ORBIT_RADIUS * (1 - beam.value)
@@ -118,14 +129,11 @@ function DroneImpl({
   return (
     <View pointerEvents="none" style={{ position: 'absolute' }}>
       <Animated.View style={[{ position: 'absolute', width: 20, height: 20, marginLeft: -10, marginTop: -10 }, iconStyle]}>
-        <Animated.View
-          style={[
-            { shadowColor: glowColor, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
-            pulseStyle,
-          ]}
-        >
-          <DroneIcon size={20} color={color} animated />
-        </Animated.View>
+        {/* Flat additive glow tint instead of a native shadow — see the
+            component-level comment for why a real shadow here is expensive
+            on an already-animating view. */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: glowColor, borderRadius: 10, opacity: 0.35 }]} />
+        <DroneIcon size={20} color={color} flicker={flicker} />
       </Animated.View>
       <Animated.View
         style={[
@@ -141,7 +149,7 @@ function DroneImpl({
 
 const Drone = memo(DroneImpl)
 
-export function OrbitingBots({
+function OrbitingBotsImpl({
   count,
   color = '#c4b5fd',
   glowColor = 'rgba(168,85,247,0.65)',
@@ -154,6 +162,12 @@ export function OrbitingBots({
   beamColors?: [string, string, string]
   phaseOffset?: number
 }) {
+  // One flicker driver for every drone in this swarm — see DroneIcon.tsx.
+  // Called unconditionally (before the `count <= 0` bail-out below) since
+  // hooks can't be called conditionally; the cost of one idle shared value
+  // when there's nothing to render is negligible.
+  const flicker = useDroneRotorFlicker()
+
   if (count <= 0) return null
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -167,9 +181,17 @@ export function OrbitingBots({
             glowColor={glowColor}
             beamColors={beamColors}
             phaseOffset={phaseOffset}
+            flicker={flicker}
           />
         ))}
       </View>
     </View>
   )
 }
+
+// Memoized so a tap elsewhere (TapShootLayer's shots/particles/effects
+// state, which sits above this in the tree) never re-renders — let alone
+// reconciles — the entire swarm just because something unrelated changed.
+// With dozens/hundreds of drones, skipping that reconciliation walk on
+// every single tap is the single biggest win here.
+export const OrbitingBots = memo(OrbitingBotsImpl)
