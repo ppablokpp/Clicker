@@ -52,7 +52,7 @@ function TwinklingStar({ cx, cy }: { cx: number; cy: number }) {
 
 export function Starfield({ width, height }: { width: number; height: number }) {
   const brightStars = useMemo(
-    () => Array.from({ length: 55 }, () => ({ x: Math.random() * 100, y: Math.random() * 100 })),
+    () => Array.from({ length: 100 }, () => ({ x: Math.random() * 100, y: Math.random() * 100 })),
     [],
   )
 
@@ -60,7 +60,10 @@ export function Starfield({ width, height }: { width: number; height: number }) 
 
   return (
     <Svg style={{ position: 'absolute', width, height }} width={width} height={height} pointerEvents="none">
-      <DimStars width={width} height={height} count={180} />
+      {/* Denser than the web's own starfield (220/60) on purpose — the size
+          variety between the dim/twinkling tiers reads better with more of
+          each to actually fill the sky instead of looking sparse. */}
+      <DimStars width={width} height={height} count={340} />
       {brightStars.map((s, i) => (
         <TwinklingStar key={i} cx={(s.x / 100) * width} cy={(s.y / 100) * height} />
       ))}
