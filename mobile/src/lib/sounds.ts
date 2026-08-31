@@ -20,7 +20,7 @@ import { createAudioPlayer } from 'expo-audio'
 // matter how many fingers are firing. You still hear a rapid rat-a-tat
 // while tapping normally; what you *don't* get anymore is a real native
 // audio call for every single one of dozens of near-simultaneous shots.
-const POOL_SIZE = 4
+const POOL_SIZE = 6
 const players = Array.from({ length: POOL_SIZE }, () =>
   createAudioPlayer(require('../../assets/sounds/laser-shot.wav'), {
     keepAudioSessionActive: true,
@@ -30,9 +30,15 @@ const players = Array.from({ length: POOL_SIZE }, () =>
 let nextPlayerIndex = 0
 
 let lastShotAt = 0
-// Far below Multidisparo's real shot rate on purpose — see the file-level
-// comment. ~8 sounds/sec is still a fast, satisfying rat-a-tat by ear.
-const MIN_SHOT_INTERVAL_MS = 120
+// Raised from 120ms once the *actual* source of the sustained-tapping lag
+// turned out to be ShotBolt's mount/unmount churn (fixed via object
+// pooling in TapShootLayer), not audio itself — the two were compounding
+// each other in testing, which is likely why audio alone looked worse than
+// it actually is. Still well below Multidisparo's raw shot rate (~28/s) on
+// purpose, just less conservative now that the bigger cost is gone; pull
+// this back down if a fuller-sounding multishot starts reintroducing the
+// old symptoms (choppy t/s counter, trackedTouchCount warnings).
+const MIN_SHOT_INTERVAL_MS = 60
 
 export function playLaserShot() {
   const now = Date.now()
