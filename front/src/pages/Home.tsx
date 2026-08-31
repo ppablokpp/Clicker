@@ -1,4 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
@@ -881,8 +891,18 @@ export function Home() {
   // how many of these can be active at once (level 0 = 1, the game's
   // default). A new finger landing past the cap is ignored outright: no
   // click, no shot, nothing — it doesn't even start "counting" until an
-  // existing one lifts and frees a slot.
-  const activePointersRef = useRef<Set<number>>(new Set())
+  // existing one lifts and frees a slot. On desktop there's only ever one
+  // mouse pointerId no matter which button is down, so right-click and the
+  // Space bar (see the keydown listener below) get their own string keys
+  // instead — that's what actually lets a desktop player use more than one
+  // "hand" at once and feel Multidisparo's extra cannons the same way a
+  // second/third finger does on mobile.
+  const activePointersRef = useRef<Set<number | string>>(new Set())
+  const RIGHT_CLICK_KEY = 'right-click'
+  const SPACE_KEY = 'space'
+  // Last known mouse position — the Space bar has no coordinates of its
+  // own, so a space-triggered shot fires from wherever the cursor last was.
+  const cursorPosRef = useRef({ x: 0, y: 0 })
   const lastParticleAtRef = useRef(0)
   const heat = useMemo(
     () => getHeatLevel(clicksPerSecond, legendaryUnlockLevel > 0, legendaryThresholdTps),
@@ -1078,26 +1098,33 @@ export function Home() {
     }, PARTICLE_DURATION_MS)
   }, [])
 
-  const handlePointerDown = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+  // The actual "take a shot" logic, keyed by an arbitrary pointer key
+  // instead of always `e.pointerId` — a real touch/mouse pointerdown passes
+  // its own `e.pointerId`, but the Space bar and right-click (added so
+  // desktop players can feel Multidisparo's extra cannons at all, since a
+  // mouse only ever has one pointerId no matter which button is down) pass
+  // their own fixed string keys instead, so all three can hold independent
+  // slots in `activePointersRef` at once.
+  const fireShot = useCallback(
+    (pointerKey: number | string, clientX: number, clientY: number) => {
       if (!userId) {
         promptSignIn()
         return
       }
 
-      // Multidisparo's cap — a finger landing while the allowance is
-      // already full is ignored entirely, not queued for when a slot frees
-      // up, so it reads as "this tap just didn't register" rather than a
-      // delayed extra shot later.
-      if (!activePointersRef.current.has(e.pointerId) && activePointersRef.current.size >= multiShotValue) {
+      // Multidisparo's cap — a finger/click/key landing while the allowance
+      // is already full is ignored entirely, not queued for when a slot
+      // frees up, so it reads as "this tap just didn't register" rather
+      // than a delayed extra shot later.
+      if (!activePointersRef.current.has(pointerKey) && activePointersRef.current.size >= multiShotValue) {
         return
       }
-      activePointersRef.current.add(e.pointerId)
+      activePointersRef.current.add(pointerKey)
 
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
+      const x = clientX - rect.left
+      const y = clientY - rect.top
 
       // The impact point — the object's own center, not the tap — is what
       // magnet-proc effects (which have no coordinates of their own) and
@@ -1177,12 +1204,74 @@ export function Home() {
     ],
   )
 
+  const handlePointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      // A mouse only ever reports one pointerId regardless of which button
+      // is down, so a right-click held alongside a left-click would
+      // otherwise just re-occupy the same Multidisparo slot instead of
+      // taking a second one — giving it its own fixed key is what actually
+      // lets the two combine into 2 simultaneous shots.
+      const pointerKey = e.button === 2 ? RIGHT_CLICK_KEY : e.pointerId
+      fireShot(pointerKey, e.clientX, e.clientY)
+    },
+    [fireShot],
+  )
+
+  // Tracks the mouse for the Space-bar shortcut below, which has no
+  // coordinates of its own to fire from. Only updated for real mouse
+  // movement (not touch drags, which report pointer moves too) since a
+  // finger's last position isn't a meaningful "aim point" the way a cursor
+  // is.
+  const handlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse') cursorPosRef.current = { x: e.clientX, y: e.clientY }
+  }, [])
+
   // Frees the pointer's slot the moment it lifts (or the gesture is
   // cancelled, e.g. an OS gesture taking over) so the next finger down can
   // use it — a plain ref mutation, no re-render needed for either handler.
   const handlePointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    activePointersRef.current.delete(e.pointerId)
+    const pointerKey = e.button === 2 ? RIGHT_CLICK_KEY : e.pointerId
+    activePointersRef.current.delete(pointerKey)
   }, [])
+
+  // Right-click and Space both act as an extra "hand" for Multidisparo on
+  // desktop, where a single mouse cursor otherwise has no way to land more
+  // than one shot at once the way multiple fingers do on mobile.
+  const handleContextMenu = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+  }, [])
+
+  // None of Home's own modals should let Space "reach through" them to
+  // fire a shot on the (hidden, backdropped) game underneath — a modal's
+  // own backdrop already blocks pointer clicks via stopPropagation, but a
+  // window-level keydown listener bypasses that bubbling entirely, so this
+  // needs its own explicit check.
+  const isAnyModalOpen =
+    showPrestigeConfirm || showInventory || showShip || showTasks || showLog || infoModal !== null || showEventChallenge
+
+  useEffect(() => {
+    if (isAnyModalOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      // Don't hijack Space from an actually-focused control (a text field,
+      // a link) — only treat it as "fire" when nothing interactive has
+      // focus, i.e. the player is just looking at the game.
+      const target = e.target as HTMLElement | null
+      if (target && target !== document.body && target.tagName !== 'DIV') return
+      e.preventDefault()
+      fireShot(SPACE_KEY, cursorPosRef.current.x, cursorPosRef.current.y)
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      activePointersRef.current.delete(SPACE_KEY)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [fireShot, isAnyModalOpen])
 
   return (
     <div
@@ -1190,6 +1279,8 @@ export function Home() {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onPointerMove={handlePointerMove}
+      onContextMenu={handleContextMenu}
       className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
       {/* starfield — replaces the old scattered ambient glows entirely */}
