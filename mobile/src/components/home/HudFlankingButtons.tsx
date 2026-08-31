@@ -33,7 +33,15 @@ export function HudLeftButtons({ onShip, onInventory }: { onShip: () => void; on
   )
 }
 
-export function HudRightButtons({ onTasks, onLog }: { onTasks: () => void; onLog: () => void }) {
+export function HudRightButtons({
+  onTasks,
+  onLog,
+  hasClaimableTask = false,
+}: {
+  onTasks: () => void
+  onLog: () => void
+  hasClaimableTask?: boolean
+}) {
   const { strings } = useLanguage()
   return (
     <View className="justify-center gap-2">
@@ -44,7 +52,7 @@ export function HudRightButtons({ onTasks, onLog }: { onTasks: () => void; onLog
         iconColor="#6ee7b7"
         ledColor="#34d399"
         borderColor="rgba(52,211,153,0.2)"
-        lit={false}
+        lit={hasClaimableTask}
       />
       <CockpitIconButton
         icon={Route}

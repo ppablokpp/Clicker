@@ -14,7 +14,9 @@ import { TasksModal } from '../components/home/TasksModal'
 import { Starfield } from '../components/Starfield'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useTasksContext } from '../context/TasksContext'
 import { useTreeContext } from '../context/TreeContext'
+import { useMissions } from '../hooks/useMissions'
 import { formatPlatino } from '../lib/formatPlatino'
 import { getHeatLevel } from '../lib/heat'
 import { MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
@@ -38,6 +40,8 @@ export function HomeScreen() {
   const { totalClicks, lifetimePlatino, clicksPerSecond, prestigeTier, registerClick } = useClickCounterContext()
   const { autoClickLevel, autoClickCps, scoutDroneLevel, scoutDroneCps, multiplierValue, tapMultiplierValue } =
     useTreeContext()
+  const { claimed: claimedTasks } = useTasksContext()
+  const missions = useMissions()
   const { width, height } = useWindowDimensions()
   const [showShip, setShowShip] = useState(false)
   const [showInventory, setShowInventory] = useState(false)
@@ -62,6 +66,9 @@ export function HomeScreen() {
   // not the full formula.
   const totalMultiplier = multiplierValue * tapMultiplierValue
   const production = autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier
+  const hasClaimableTask = missions.some((mission) =>
+    mission.tiers.some((tier) => mission.progressValue >= tier.required && !claimedTasks.has(tier.id)),
+  )
 
   const handleTap = useCallback(() => {
     registerClick(1)
@@ -93,7 +100,11 @@ export function HomeScreen() {
                 label={strings.home.hudPlatinoLabel(currentMaterialName)}
                 value={formatPlatino(totalClicks, language)}
               />
-              <HudRightButtons onTasks={() => setShowTasks(true)} onLog={() => setShowLog(true)} />
+              <HudRightButtons
+                onTasks={() => setShowTasks(true)}
+                onLog={() => setShowLog(true)}
+                hasClaimableTask={hasClaimableTask}
+              />
             </View>
           </CockpitPanel>
         </View>

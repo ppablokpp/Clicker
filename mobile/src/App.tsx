@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { LanguageProvider } from './context/LanguageContext'
+import { TasksProvider } from './context/TasksContext'
 import { TreeProvider } from './context/TreeContext'
 import { RootNavigator } from './navigation/RootNavigator'
 
@@ -63,9 +64,11 @@ export default function App() {
           <LanguageProvider>
             <ClickCounterProvider>
               <TreeProvider>
-                <NavigationContainer>
-                  <RootNavigator />
-                </NavigationContainer>
+                <TasksProvider>
+                  <NavigationContainer>
+                    <RootNavigator />
+                  </NavigationContainer>
+                </TasksProvider>
               </TreeProvider>
             </ClickCounterProvider>
           </LanguageProvider>

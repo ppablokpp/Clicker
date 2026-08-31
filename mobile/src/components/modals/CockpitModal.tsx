@@ -3,6 +3,7 @@ import { X } from 'lucide-react-native'
 import type { ReactNode } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { DisplayText } from '../AppText'
+import { IconBadge } from '../IconBadge'
 import { RadialGlow } from '../RadialGlow'
 import { ScanlineTexture } from '../ScanlineTexture'
 
@@ -60,18 +61,7 @@ export function CockpitModal({
               <X size={16} color="#737373" />
             </Pressable>
             <View className="relative flex-row items-center gap-2.5">
-              <View
-                className="h-10 w-10 items-center justify-center rounded-full border"
-                style={{ borderColor: iconBackground[0] }}
-              >
-                <LinearGradient
-                  colors={iconBackground}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 999 }]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-                {icon}
-              </View>
+              <IconBadge icon={icon} iconSize={19} padding={10} gradientColors={iconBackground} borderColor={iconBackground[0]} />
               <View>
                 <DisplayText weight="bold" className="text-base text-white">
                   {title}

@@ -129,10 +129,6 @@ function DroneImpl({
   return (
     <View pointerEvents="none" style={{ position: 'absolute' }}>
       <Animated.View style={[{ position: 'absolute', width: 20, height: 20, marginLeft: -10, marginTop: -10 }, iconStyle]}>
-        {/* Flat additive glow tint instead of a native shadow — see the
-            component-level comment for why a real shadow here is expensive
-            on an already-animating view. */}
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: glowColor, borderRadius: 10, opacity: 0.35 }]} />
         <DroneIcon size={20} color={color} flicker={flicker} />
       </Animated.View>
       <Animated.View

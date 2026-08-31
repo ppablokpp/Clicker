@@ -1,14 +1,22 @@
 import { ClipboardList } from 'lucide-react-native'
+import { View } from 'react-native'
+import { useClickCounterContext } from '../../context/ClickCounterContext'
 import { useLanguage } from '../../context/LanguageContext'
-import { AppText } from '../AppText'
+import { useTasksContext } from '../../context/TasksContext'
+import { useMissions } from '../../hooks/useMissions'
 import { CockpitModal } from '../modals/CockpitModal'
+import { MissionCard } from './MissionCard'
 
 // Ported from front/src/pages/Home.tsx's showTasks panel (Tareas) — the
-// mission board, driven by TasksContext plus stats aggregated from several
-// other contexts. Not ported to mobile yet, so this shows a placeholder for
-// now, same as the web's own "coming soon" state elsewhere.
+// mission board. Now fully real: TasksContext (claim/claimed state) +
+// useMissions (progress values pulled from TreeContext/ClickCounterContext).
 export function TasksModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { strings } = useLanguage()
+  const { prestigeTier } = useClickCounterContext()
+  const { claimed, claimingId, claim } = useTasksContext()
+  const missions = useMissions()
+
+  const completedCount = missions.filter((m) => m.tiers.every((tier) => claimed.has(tier.id))).length
 
   return (
     <CockpitModal
@@ -19,8 +27,21 @@ export function TasksModal({ visible, onClose }: { visible: boolean; onClose: ()
       iconColor="#6ee7b7"
       glowColor="rgba(52,211,153,0.35)"
       title={strings.home.tasksTitle}
+      subtitle={strings.home.tasksProgress(String(completedCount), String(missions.length))}
     >
-      <AppText className="py-6 text-center text-sm text-neutral-500">{strings.home.trajectoryComingSoon}</AppText>
+      <View className="gap-3">
+        {missions.map((mission, i) => (
+          <MissionCard
+            key={mission.missionId}
+            mission={mission}
+            index={i}
+            currentMaterialTierIndex={prestigeTier}
+            claimedTasks={claimed}
+            claimingTaskId={claimingId}
+            onClaim={claim}
+          />
+        ))}
+      </View>
     </CockpitModal>
   )
 }

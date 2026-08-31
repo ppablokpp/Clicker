@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { View } from 'react-native'
 import { AppText } from '../AppText'
+import { IconBadge } from '../IconBadge'
 
 // One stat tile inside the Command Center modal — icon badge + title +
 // whatever description lines the caller passes in. Ported from the
@@ -18,11 +19,17 @@ export function ShipStatCard({
   children: ReactNode
 }) {
   return (
-    <View className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+    <View
+      style={{
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        padding: 14,
+      }}
+    >
       <View className="mb-1.5 flex-row items-center gap-2">
-        <View className="h-7 w-7 items-center justify-center rounded-full" style={{ backgroundColor: iconBg }}>
-          {icon}
-        </View>
+        <IconBadge icon={icon} iconSize={14} padding={8} background={iconBg} />
         <AppText weight="semibold" className="text-sm text-white">
           {title}
         </AppText>
