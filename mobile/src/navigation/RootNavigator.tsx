@@ -28,22 +28,7 @@ function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      // Default ('history') keeps a stack of every tab you've visited, in
-      // order — that's what iOS's edge swipe-back gesture was popping
-      // through (feeling like tabs were "stacking" on top of each other
-      // instead of the tab bar being the only way to switch between them).
-      // 'none' means switching tabs never grows any such history, so
-      // there's nothing left for that gesture (or the Android hardware back
-      // button) to go back *to* — the tab bar becomes the only way to
-      // navigate between tabs, same as the web version's own bottom nav.
-      backBehavior="none"
-      // Without this, React Navigation's own scene container defaults to a
-      // white background — invisible normally (each screen's own root View
-      // paints over it), but it's what actually shows through the gap during
-      // a ScrollView/FlatList's overscroll bounce (Leaderboard's list,
-      // Store/Stats) instead of the screen's own dark bg-color, since that
-      // gap is *behind* the scroll content, not part of it.
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#08080c' } }}
+      screenOptions={{ headerShown: false }}
       tabBar={(props) => <BottomNavPill {...props} />}
     >
       <Tab.Screen name="Tree" component={TreeScreen} options={{ title: strings.nav.tree }} />
