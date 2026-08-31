@@ -1,4 +1,5 @@
 import { Package } from 'lucide-react-native'
+import { memo } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { AppText } from '../AppText'
 import { CockpitModal } from '../modals/CockpitModal'
@@ -9,8 +10,10 @@ import { CockpitModal } from '../modals/CockpitModal'
 // MagnetContext, GemChestContext, ClickPacksContext) that aren't ported to
 // mobile yet — until they are, this always renders the same empty state the
 // web shows when you genuinely own nothing (`isInventoryEmpty`).
-export function InventoryModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function InventoryModalImpl({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { strings } = useLanguage()
+
+  if (!visible) return null
 
   return (
     <CockpitModal
@@ -26,3 +29,5 @@ export function InventoryModal({ visible, onClose }: { visible: boolean; onClose
     </CockpitModal>
   )
 }
+
+export const InventoryModal = memo(InventoryModalImpl)

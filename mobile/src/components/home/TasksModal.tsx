@@ -1,4 +1,5 @@
 import { ClipboardList } from 'lucide-react-native'
+import { memo } from 'react'
 import { View } from 'react-native'
 import { useClickCounterContext } from '../../context/ClickCounterContext'
 import { useLanguage } from '../../context/LanguageContext'
@@ -11,11 +12,19 @@ import { MissionCard } from './MissionCard'
 // Ported from front/src/pages/Home.tsx's showTasks panel (Tareas) — the
 // mission board. Now fully real: TasksContext (claim/claimed state) +
 // useMissions (progress values pulled from TreeContext/ClickCounterContext).
-export function TasksModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+//
+// Memoized, with an early `null` return while closed: this reads
+// ClickCounterContext directly (`prestigeTier`) *and* useMissions (which
+// also reads it, for luckyClicksFound) — both change reference on every
+// single tap, so without this every shot rebuilt all 5 MissionCards even
+// with the board fully closed, just because it happened to be mounted.
+function TasksModalImpl({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { strings } = useLanguage()
   const { prestigeTier } = useClickCounterContext()
   const { claimed, claimingId, claim } = useTasksContext()
   const missions = useMissions()
+
+  if (!visible) return null
 
   const completedCount = missions.filter((m) => m.tiers.every((tier) => claimed.has(tier.id))).length
 
@@ -55,3 +64,5 @@ export function TasksModal({ visible, onClose }: { visible: boolean; onClose: ()
     </CockpitModal>
   )
 }
+
+export const TasksModal = memo(TasksModalImpl)

@@ -29,7 +29,13 @@ export function LeaderboardScreen() {
           <Text className="text-center text-sm text-neutral-500">{strings.leaderboard.empty}</Text>
         </View>
       ) : (
+        // `style={{flex:1}}` is load-bearing, not decorative — without it
+        // FlatList (built on ScrollView) has no defined height inside this
+        // flex column and collapses to zero, so the data was arriving fine
+        // but the whole list rendered at zero height: only the sort pill
+        // above it (which sizes to its own content) was ever visible.
         <FlatList
+          style={{ flex: 1 }}
           data={leaderboard}
           keyExtractor={(entry) => entry.id}
           contentContainerStyle={{ padding: 12, paddingBottom: 100, gap: 8 }}

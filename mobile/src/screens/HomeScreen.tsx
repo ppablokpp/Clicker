@@ -67,6 +67,13 @@ export function HomeScreen() {
   const handleShowInventory = useCallback(() => setShowInventory(true), [])
   const handleShowTasks = useCallback(() => setShowTasks(true), [])
   const handleShowLog = useCallback(() => setShowLog(true), [])
+  // Same reasoning for the modals themselves (now memoized — see each
+  // one's own file): a fresh `() => setShowX(false)` arrow here would
+  // defeat that memo just as surely as it did for the flanking buttons.
+  const handleCloseShip = useCallback(() => setShowShip(false), [])
+  const handleCloseInventory = useCallback(() => setShowInventory(false), [])
+  const handleCloseTasks = useCallback(() => setShowTasks(false), [])
+  const handleCloseLog = useCallback(() => setShowLog(false), [])
 
   const currentTierIndex = prestigeTier
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
@@ -136,12 +143,12 @@ export function HomeScreen() {
           </CockpitPanel>
         </View>
 
-        <ShipModal visible={showShip} onClose={() => setShowShip(false)} />
-        <InventoryModal visible={showInventory} onClose={() => setShowInventory(false)} />
-        <TasksModal visible={showTasks} onClose={() => setShowTasks(false)} />
+        <ShipModal visible={showShip} onClose={handleCloseShip} />
+        <InventoryModal visible={showInventory} onClose={handleCloseInventory} />
+        <TasksModal visible={showTasks} onClose={handleCloseTasks} />
         <LogModal
           visible={showLog}
-          onClose={() => setShowLog(false)}
+          onClose={handleCloseLog}
           currentTierIndex={currentTierIndex}
           lifetimePlatino={lifetimePlatino}
         />

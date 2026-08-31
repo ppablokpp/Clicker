@@ -1,4 +1,5 @@
 import { ChartNoAxesCombined, Crosshair, Joystick, Split, Sparkles } from 'lucide-react-native'
+import { memo } from 'react'
 import { View } from 'react-native'
 import { useClickCounterContext } from '../../context/ClickCounterContext'
 import { useGemUpgradesContext } from '../../context/GemUpgradesContext'
@@ -17,7 +18,14 @@ import { ShipStatCard, ShipStatLine } from './ShipStatCard'
 // in an active *timed* luck powerup's own bonus, which isn't ported to
 // mobile yet (no Store), so that factor defaults to 1 rather than being
 // left out — `shipPower` itself is now exact (moneyMultiplier included).
-export function ShipModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+//
+// Memoized, with an early `null` return while closed: this reads
+// ClickCounterContext directly (`prestigeTier`), whose value changes on
+// every single tap (see useClickCounter.ts's own comment) — without both of
+// these, this modal was rebuilding its entire stat-card tree on every shot
+// even while fully closed, just because it happened to be mounted as one of
+// Home's children.
+function ShipModalImpl({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { strings, language } = useLanguage()
   const { prestigeTier } = useClickCounterContext()
   const { bestOwned } = useGemUpgradesContext()
@@ -35,6 +43,8 @@ export function ShipModal({ visible, onClose }: { visible: boolean; onClose: () 
     scoutDroneRate,
     offlineProductionValue,
   } = useTreeContext()
+
+  if (!visible) return null
 
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const numberFmt = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 })
@@ -122,3 +132,5 @@ export function ShipModal({ visible, onClose }: { visible: boolean; onClose: () 
     </CockpitModal>
   )
 }
+
+export const ShipModal = memo(ShipModalImpl)

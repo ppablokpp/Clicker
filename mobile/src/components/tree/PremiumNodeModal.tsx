@@ -19,6 +19,8 @@ export function PremiumNodeModal({ visible, onClose }: { visible: boolean; onClo
   const { catalog, owned, bestOwned, buyingId, buy } = useGemUpgradesContext()
   const [error, setError] = useState<string | null>(null)
 
+  if (!visible) return null
+
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const ownedCount = catalog.filter((u) => owned.has(u.id)).length
   const nextUpgrade = catalog[ownedCount]

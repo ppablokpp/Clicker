@@ -1,4 +1,5 @@
 import { Lock, Route } from 'lucide-react-native'
+import { memo } from 'react'
 import { Text, View } from 'react-native'
 import { AppText } from '../AppText'
 import { CockpitModal } from '../modals/CockpitModal'
@@ -12,7 +13,12 @@ import { MiniAsteroid } from './MiniAsteroid'
 // Ported from front/src/pages/Home.tsx's showLog panel; fully self-contained
 // (no new context needed) since it only reads prestigeTier/lifetimePlatino,
 // both already exposed by ClickCounterContext.
-export function LogModal({
+//
+// Memoized, with an early `null` return while closed — `lifetimePlatino`
+// only changes on Home's own once-a-second flush (not every tap), so this
+// one didn't need it as urgently as the others, but skipping the 5-tier
+// `.map()` while closed is still free to add.
+function LogModalImpl({
   visible,
   onClose,
   currentTierIndex,
@@ -24,6 +30,8 @@ export function LogModal({
   lifetimePlatino: number
 }) {
   const { strings, language } = useLanguage()
+
+  if (!visible) return null
 
   return (
     <CockpitModal
@@ -83,3 +91,5 @@ export function LogModal({
     </CockpitModal>
   )
 }
+
+export const LogModal = memo(LogModalImpl)
