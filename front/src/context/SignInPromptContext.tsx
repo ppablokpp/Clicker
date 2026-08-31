@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
 interface SignInPromptContextValue {
   isOpen: boolean
@@ -16,11 +16,11 @@ export function SignInPromptProvider({ children }: { children: ReactNode }) {
   const promptSignIn = useCallback(() => setIsOpen(true), [])
   const closePrompt = useCallback(() => setIsOpen(false), [])
 
-  return (
-    <SignInPromptContext.Provider value={{ isOpen, promptSignIn, closePrompt }}>
-      {children}
-    </SignInPromptContext.Provider>
-  )
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(() => ({ isOpen, promptSignIn, closePrompt }), [isOpen, promptSignIn, closePrompt])
+
+  return <SignInPromptContext.Provider value={value}>{children}</SignInPromptContext.Provider>
 }
 
 export function useSignInPrompt() {

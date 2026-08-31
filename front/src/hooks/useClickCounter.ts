@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { toLocalDateString } from '../lib/date'
 import { applyObjectProgress } from '../lib/spaceObjects'
@@ -361,25 +361,60 @@ export function useClickCounter() {
     [updateObjectDisplay],
   )
 
-  return {
-    totalClicks,
-    lifetimePlatino,
-    prestigeTier,
-    isConfirmingPrestige,
-    confirmPrestige,
-    clicksPerSecond,
-    registerClick,
-    syncTotalClicks,
-    syncTotalClicksIfNewer,
-    tickAutoClicks,
-    suspendSync,
-    resumeSync,
-    isSyncSuspended,
-    latestKeys,
-    latestGems,
-    objectsBroken,
-    objectProgress,
-    syncObjectState,
-    luckyClicksFound,
-  }
+  // Memoized — this is the ClickCounterContext Provider's own `value` prop
+  // (see ClickCounterContext.tsx), and it used to be rebuilt as a brand new
+  // object literal on *every* render of this hook, including every single
+  // `setTotalClicks` call (i.e. every tap). Since React Context re-renders
+  // every consumer whenever the `value` reference changes — regardless of
+  // whether the specific fields that consumer reads actually changed — an
+  // unmemoized value here meant every tap re-rendered every single
+  // ClickCounterContext consumer across the *entire app* (TreeContext,
+  // GemsContext, TasksContext, the always-mounted bottom nav bar, and every
+  // other still-mounted screen), not just Home. This is the single biggest
+  // source of sustained, tap-rate-scaling CPU work in a long session — see
+  // the sibling contexts, which all had the exact same unmemoized-value bug.
+  return useMemo(
+    () => ({
+      totalClicks,
+      lifetimePlatino,
+      prestigeTier,
+      isConfirmingPrestige,
+      confirmPrestige,
+      clicksPerSecond,
+      registerClick,
+      syncTotalClicks,
+      syncTotalClicksIfNewer,
+      tickAutoClicks,
+      suspendSync,
+      resumeSync,
+      isSyncSuspended,
+      latestKeys,
+      latestGems,
+      objectsBroken,
+      objectProgress,
+      syncObjectState,
+      luckyClicksFound,
+    }),
+    [
+      totalClicks,
+      lifetimePlatino,
+      prestigeTier,
+      isConfirmingPrestige,
+      confirmPrestige,
+      clicksPerSecond,
+      registerClick,
+      syncTotalClicks,
+      syncTotalClicksIfNewer,
+      tickAutoClicks,
+      suspendSync,
+      resumeSync,
+      isSyncSuspended,
+      latestKeys,
+      latestGems,
+      objectsBroken,
+      objectProgress,
+      syncObjectState,
+      luckyClicksFound,
+    ],
+  )
 }

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useSignInPrompt } from './SignInPromptContext'
 
@@ -69,7 +69,10 @@ export function GemCaseProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, promptSignIn])
 
-  return <GemCaseContext.Provider value={{ cost, isOpening, open }}>{children}</GemCaseContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(() => ({ cost, isOpening, open }), [cost, isOpening, open])
+  return <GemCaseContext.Provider value={value}>{children}</GemCaseContext.Provider>
 }
 
 export function useGemCaseContext() {

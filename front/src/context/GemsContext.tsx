@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 
@@ -49,7 +49,14 @@ export function GemsProvider({ children }: { children: ReactNode }) {
     setGems(newTotal)
   }, [])
 
-  return <GemsContext.Provider value={{ gems, syncGems }}>{children}</GemsContext.Provider>
+  // Memoized — an inline object literal here would be a fresh reference on
+  // every render, and React re-renders every context consumer whenever the
+  // `value` reference changes, regardless of which field it actually reads.
+  // Since this context sits behind ClickCounterContext (which changes on
+  // every tap), an unmemoized value meant every consumer of *this* context
+  // re-rendered on every single click too, app-wide, for the whole session.
+  const value = useMemo(() => ({ gems, syncGems }), [gems, syncGems])
+  return <GemsContext.Provider value={value}>{children}</GemsContext.Provider>
 }
 
 export function useGemsContext() {

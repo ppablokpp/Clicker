@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useKeysContext } from './KeysContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -118,11 +118,14 @@ export function DailyKeyProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncKeys, promptSignIn])
 
-  return (
-    <DailyKeyContext.Provider value={{ claimedToday, cooldownSecondsLeft, isClaiming, claim }}>
-      {children}
-    </DailyKeyContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ claimedToday, cooldownSecondsLeft, isClaiming, claim }),
+    [claimedToday, cooldownSecondsLeft, isClaiming, claim],
   )
+
+  return <DailyKeyContext.Provider value={value}>{children}</DailyKeyContext.Provider>
 }
 
 export function useDailyKeyContext() {

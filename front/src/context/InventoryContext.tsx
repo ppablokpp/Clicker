@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -57,11 +57,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  return (
-    <InventoryContext.Provider value={{ inventory, adjust, hasNewItem, markInventorySeen }}>
-      {children}
-    </InventoryContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ inventory, adjust, hasNewItem, markInventorySeen }),
+    [inventory, adjust, hasNewItem, markInventorySeen],
   )
+
+  return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>
 }
 
 export function useInventoryContext() {

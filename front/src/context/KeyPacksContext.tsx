@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -145,11 +146,14 @@ export function KeyPacksProvider({ children }: { children: ReactNode }) {
     [userId, ensureConfigured, getToken, syncKeys, promptSignIn],
   )
 
-  return (
-    <KeyPacksContext.Provider value={{ catalog, prices, priceAmountsMicros, buyingId, buy }}>
-      {children}
-    </KeyPacksContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ catalog, prices, priceAmountsMicros, buyingId, buy }),
+    [catalog, prices, priceAmountsMicros, buyingId, buy],
   )
+
+  return <KeyPacksContext.Provider value={value}>{children}</KeyPacksContext.Provider>
 }
 
 export function useKeyPacksContext() {

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 
@@ -49,7 +49,9 @@ export function KeysProvider({ children }: { children: ReactNode }) {
     setKeys(newTotal)
   }, [])
 
-  return <KeysContext.Provider value={{ keys, syncKeys }}>{children}</KeysContext.Provider>
+  // Memoized — see GemsContext's identical comment for why this matters.
+  const value = useMemo(() => ({ keys, syncKeys }), [keys, syncKeys])
+  return <KeysContext.Provider value={value}>{children}</KeysContext.Provider>
 }
 
 export function useKeysContext() {

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useSignInPrompt } from './SignInPromptContext'
 
@@ -166,25 +166,26 @@ export function GemChestProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, promptSignIn])
 
-  return (
-    <GemChestContext.Provider
-      value={{
-        catalog,
-        chestCost,
-        keyCost,
-        gemCost,
-        ownedChests,
-        isOpening,
-        isBuying,
-        openWithKeys,
-        openWithGems,
-        buyChest,
-        refetchCatalog: fetchCatalog,
-      }}
-    >
-      {children}
-    </GemChestContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({
+      catalog,
+      chestCost,
+      keyCost,
+      gemCost,
+      ownedChests,
+      isOpening,
+      isBuying,
+      openWithKeys,
+      openWithGems,
+      buyChest,
+      refetchCatalog: fetchCatalog,
+    }),
+    [catalog, chestCost, keyCost, gemCost, ownedChests, isOpening, isBuying, openWithKeys, openWithGems, buyChest, fetchCatalog],
   )
+
+  return <GemChestContext.Provider value={value}>{children}</GemChestContext.Provider>
 }
 
 export function useGemChestContext() {

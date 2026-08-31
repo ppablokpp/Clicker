@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -222,23 +223,24 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
     [userId, getToken, adjustInventory, promptSignIn],
   )
 
-  return (
-    <MagnetContext.Provider
-      value={{
-        catalog,
-        active,
-        secondsLeft,
-        cooldownSecondsLeft,
-        buyingId,
-        activatingId,
-        buy,
-        activate,
-        refetchCatalog: fetchCatalog,
-      }}
-    >
-      {children}
-    </MagnetContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({
+      catalog,
+      active,
+      secondsLeft,
+      cooldownSecondsLeft,
+      buyingId,
+      activatingId,
+      buy,
+      activate,
+      refetchCatalog: fetchCatalog,
+    }),
+    [catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate, fetchCatalog],
   )
+
+  return <MagnetContext.Provider value={value}>{children}</MagnetContext.Provider>
 }
 
 export function useMagnetContext() {

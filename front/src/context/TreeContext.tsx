@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -923,58 +923,106 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn])
 
-  return (
-    <TreeContext.Provider
-      value={{
-        ...state,
-        // Exposed so a prestige confirm (Home.tsx) can pull the
-        // just-reset tree levels immediately instead of waiting up to
-        // POLL_INTERVAL_MS for the next background poll to catch up.
-        refetch: fetchState,
-        awayCredit,
-        clearAwayCredit,
-        hasNewUpgrade,
-        markUpgradesSeen,
-        isBuying,
-        buyAutoClick,
-        grantAutoClickFree,
-        isBuyingLuck,
-        buyLuck,
-        isBuyingLuckChance,
-        buyLuckChance,
-        isBuyingMultiplier,
-        buyMultiplier,
-        isBuyingLegendaryUnlock,
-        buyLegendaryUnlock,
-        isBuyingLegendaryEase,
-        buyLegendaryEase,
-        isBuyingLegendaryGrowth,
-        buyLegendaryGrowth,
-        isBuyingLegendaryThreshold,
-        buyLegendaryThreshold,
-        isBuyingScoutDrone,
-        buyScoutDrone,
-        isBuyingScoutFrequency,
-        buyScoutFrequency,
-        isBuyingAutoMultiplier,
-        buyAutoMultiplier,
-        isBuyingTapMultiplier,
-        buyTapMultiplier,
-        isBuyingMultiShot,
-        buyMultiShot,
-        isBuyingAnomalyUnlock,
-        buyAnomalyUnlock,
-        isBuyingAnomalyReward,
-        buyAnomalyReward,
-        isBuyingAnomalyFrequency,
-        buyAnomalyFrequency,
-        isBuyingOfflineProduction,
-        buyOfflineProduction,
-      }}
-    >
-      {children}
-    </TreeContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap. This is
+  // the biggest offender of the 23: TreeContext sits directly behind
+  // ClickCounterContext (tickAutoClicks/syncTotalClicks come from it), so an
+  // unmemoized value here re-rendered every single tree-node display, the
+  // Home HUD's drone counts, and everything else reading from it on every
+  // click, for the entire session.
+  const value = useMemo(
+    () => ({
+      ...state,
+      // Exposed so a prestige confirm (Home.tsx) can pull the
+      // just-reset tree levels immediately instead of waiting up to
+      // POLL_INTERVAL_MS for the next background poll to catch up.
+      refetch: fetchState,
+      awayCredit,
+      clearAwayCredit,
+      hasNewUpgrade,
+      markUpgradesSeen,
+      isBuying,
+      buyAutoClick,
+      grantAutoClickFree,
+      isBuyingLuck,
+      buyLuck,
+      isBuyingLuckChance,
+      buyLuckChance,
+      isBuyingMultiplier,
+      buyMultiplier,
+      isBuyingLegendaryUnlock,
+      buyLegendaryUnlock,
+      isBuyingLegendaryEase,
+      buyLegendaryEase,
+      isBuyingLegendaryGrowth,
+      buyLegendaryGrowth,
+      isBuyingLegendaryThreshold,
+      buyLegendaryThreshold,
+      isBuyingScoutDrone,
+      buyScoutDrone,
+      isBuyingScoutFrequency,
+      buyScoutFrequency,
+      isBuyingAutoMultiplier,
+      buyAutoMultiplier,
+      isBuyingTapMultiplier,
+      buyTapMultiplier,
+      isBuyingMultiShot,
+      buyMultiShot,
+      isBuyingAnomalyUnlock,
+      buyAnomalyUnlock,
+      isBuyingAnomalyReward,
+      buyAnomalyReward,
+      isBuyingAnomalyFrequency,
+      buyAnomalyFrequency,
+      isBuyingOfflineProduction,
+      buyOfflineProduction,
+    }),
+    [
+      state,
+      fetchState,
+      awayCredit,
+      clearAwayCredit,
+      hasNewUpgrade,
+      markUpgradesSeen,
+      isBuying,
+      buyAutoClick,
+      grantAutoClickFree,
+      isBuyingLuck,
+      buyLuck,
+      isBuyingLuckChance,
+      buyLuckChance,
+      isBuyingMultiplier,
+      buyMultiplier,
+      isBuyingLegendaryUnlock,
+      buyLegendaryUnlock,
+      isBuyingLegendaryEase,
+      buyLegendaryEase,
+      isBuyingLegendaryGrowth,
+      buyLegendaryGrowth,
+      isBuyingLegendaryThreshold,
+      buyLegendaryThreshold,
+      isBuyingScoutDrone,
+      buyScoutDrone,
+      isBuyingScoutFrequency,
+      buyScoutFrequency,
+      isBuyingAutoMultiplier,
+      buyAutoMultiplier,
+      isBuyingTapMultiplier,
+      buyTapMultiplier,
+      isBuyingMultiShot,
+      buyMultiShot,
+      isBuyingAnomalyUnlock,
+      buyAnomalyUnlock,
+      isBuyingAnomalyReward,
+      buyAnomalyReward,
+      isBuyingAnomalyFrequency,
+      buyAnomalyFrequency,
+      isBuyingOfflineProduction,
+      buyOfflineProduction,
+    ],
   )
+
+  return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>
 }
 
 export function useTreeContext() {

@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -125,11 +126,11 @@ export function MoneyCaseProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, ensureConfigured, getToken, promptSignIn])
 
-  return (
-    <MoneyCaseContext.Provider value={{ price, isBuying, buy }}>
-      {children}
-    </MoneyCaseContext.Provider>
-  )
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(() => ({ price, isBuying, buy }), [price, isBuying, buy])
+
+  return <MoneyCaseContext.Provider value={value}>{children}</MoneyCaseContext.Provider>
 }
 
 export function useMoneyCaseContext() {

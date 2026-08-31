@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useSignInPrompt } from './SignInPromptContext'
 
@@ -168,13 +168,14 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, promptSignIn])
 
-  return (
-    <DailyCaseContext.Provider
-      value={{ catalog, chestCost, keyCost, ownedChests, isSpinning, isBuying, spin, buyChest, refetchCatalog: fetchCatalog }}
-    >
-      {children}
-    </DailyCaseContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ catalog, chestCost, keyCost, ownedChests, isSpinning, isBuying, spin, buyChest, refetchCatalog: fetchCatalog }),
+    [catalog, chestCost, keyCost, ownedChests, isSpinning, isBuying, spin, buyChest, fetchCatalog],
   )
+
+  return <DailyCaseContext.Provider value={value}>{children}</DailyCaseContext.Provider>
 }
 
 export function useDailyCaseContext() {

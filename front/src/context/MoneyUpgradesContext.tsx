@@ -170,11 +170,14 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
     return best
   }, [catalog, owned])
 
-  return (
-    <MoneyUpgradesContext.Provider value={{ catalog, owned, bestOwned, prices, buyingId, buy }}>
-      {children}
-    </MoneyUpgradesContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ catalog, owned, bestOwned, prices, buyingId, buy }),
+    [catalog, owned, bestOwned, prices, buyingId, buy],
   )
+
+  return <MoneyUpgradesContext.Provider value={value}>{children}</MoneyUpgradesContext.Provider>
 }
 
 export function useMoneyUpgradesContext() {

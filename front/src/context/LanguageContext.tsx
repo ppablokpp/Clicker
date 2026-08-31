@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { translations, type Language, type TranslationStrings } from '../i18n/translations'
 
 const STORAGE_KEY = 'clicker:language'
@@ -20,19 +20,22 @@ const LanguageContext = createContext<LanguageContextValue | null>(null)
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(detectInitialLanguage)
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     setLanguage((prev) => {
       const next: Language = prev === 'es' ? 'en' : 'es'
       localStorage.setItem(STORAGE_KEY, next)
       return next
     })
-  }
+  }, [])
 
-  return (
-    <LanguageContext.Provider value={{ language, toggleLanguage, strings: translations[language] }}>
-      {children}
-    </LanguageContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ language, toggleLanguage, strings: translations[language] }),
+    [language, toggleLanguage],
   )
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
 export function useLanguage() {

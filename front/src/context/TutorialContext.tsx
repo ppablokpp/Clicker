@@ -190,13 +190,15 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
 
   const currentStep = stepIndex !== null ? (steps[stepIndex] ?? null) : null
 
-  return (
-    <TutorialContext.Provider
-      value={{ isActive: stepIndex !== null, currentStep, skipDroneGrant, start, advance }}
-    >
-      {children}
-    </TutorialContext.Provider>
+  const isActive = stepIndex !== null
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ isActive, currentStep, skipDroneGrant, start, advance }),
+    [isActive, currentStep, skipDroneGrant, start, advance],
   )
+
+  return <TutorialContext.Provider value={value}>{children}</TutorialContext.Provider>
 }
 
 export function useTutorialContext() {

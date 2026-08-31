@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -85,11 +85,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const syncAnomaliesNeutralized = useCallback((count: number) => setAnomaliesNeutralized(count), [])
 
-  return (
-    <TasksContext.Provider value={{ claimed, claimingId, anomaliesNeutralized, syncAnomaliesNeutralized, claim }}>
-      {children}
-    </TasksContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ claimed, claimingId, anomaliesNeutralized, syncAnomaliesNeutralized, claim }),
+    [claimed, claimingId, anomaliesNeutralized, syncAnomaliesNeutralized, claim],
   )
+
+  return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
 }
 
 export function useTasksContext() {

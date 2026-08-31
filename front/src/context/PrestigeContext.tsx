@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useSignInPrompt } from './SignInPromptContext'
 
@@ -116,11 +116,14 @@ export function PrestigeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, promptSignIn])
 
-  return (
-    <PrestigeContext.Provider value={{ ...state, isBuyingReactor, buyReactor, isResetting, resetPrestige }}>
-      {children}
-    </PrestigeContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ ...state, isBuyingReactor, buyReactor, isResetting, resetPrestige }),
+    [state, isBuyingReactor, buyReactor, isResetting, resetPrestige],
   )
+
+  return <PrestigeContext.Provider value={value}>{children}</PrestigeContext.Provider>
 }
 
 export function usePrestigeContext() {

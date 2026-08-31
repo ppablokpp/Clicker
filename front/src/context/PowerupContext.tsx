@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -235,24 +236,25 @@ export function PowerupProvider({ children }: { children: ReactNode }) {
     setActive({ id: data.id, multiplier: data.multiplier, expiresAt: new Date(data.expiresAt).getTime() })
   }, [])
 
-  return (
-    <PowerupContext.Provider
-      value={{
-        catalog,
-        active,
-        secondsLeft,
-        cooldownSecondsLeft,
-        buyingId,
-        activatingId,
-        buy,
-        activate,
-        applyActivePowerup,
-        refetchCatalog: fetchCatalog,
-      }}
-    >
-      {children}
-    </PowerupContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({
+      catalog,
+      active,
+      secondsLeft,
+      cooldownSecondsLeft,
+      buyingId,
+      activatingId,
+      buy,
+      activate,
+      applyActivePowerup,
+      refetchCatalog: fetchCatalog,
+    }),
+    [catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate, applyActivePowerup, fetchCatalog],
   )
+
+  return <PowerupContext.Provider value={value}>{children}</PowerupContext.Provider>
 }
 
 export function usePowerupContext() {

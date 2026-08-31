@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -231,26 +231,40 @@ export function BattlesProvider({ children }: { children: ReactNode }) {
     [userId, getToken],
   )
 
-  return (
-    <BattlesContext.Provider
-      value={{
-        wager,
-        durationSeconds,
-        opponents,
-        battles,
-        isLoadingOpponents,
-        isLoadingBattles,
-        fetchOpponents,
-        fetchBattles,
-        getBattle,
-        challenge,
-        accept,
-        submitScore,
-      }}
-    >
-      {children}
-    </BattlesContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({
+      wager,
+      durationSeconds,
+      opponents,
+      battles,
+      isLoadingOpponents,
+      isLoadingBattles,
+      fetchOpponents,
+      fetchBattles,
+      getBattle,
+      challenge,
+      accept,
+      submitScore,
+    }),
+    [
+      wager,
+      durationSeconds,
+      opponents,
+      battles,
+      isLoadingOpponents,
+      isLoadingBattles,
+      fetchOpponents,
+      fetchBattles,
+      getBattle,
+      challenge,
+      accept,
+      submitScore,
+    ],
   )
+
+  return <BattlesContext.Provider value={value}>{children}</BattlesContext.Provider>
 }
 
 export function useBattlesContext() {

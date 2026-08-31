@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Trophy, BarChart3, Store, Network, Rocket } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
@@ -11,11 +12,13 @@ const PILL_ITEMS = [
   { to: '/tienda', key: 'store', icon: Store, end: false },
 ] as const
 
-// Fixed (position: fixed, never moves with scroll) minimalist pill with
-// every destination — one accent color throughout, no per-tab coloring.
+// Thin wrapper — the only thing here that reads ClickCounterContext, whose
+// value changes on every single tap (see useClickCounter.ts's own comment).
+// Splitting it out like this means only *this* trivial component re-renders
+// per tap; the actual pill markup below is memoized and only re-renders
+// when `isSyncSuspended` itself actually flips, not on every click, even
+// though this bar is mounted for the app's entire lifetime.
 export function BottomNavPill() {
-  const { strings } = useLanguage()
-  const location = useLocation()
   // Store's case-opening reel suspends total-clicks syncing for the length
   // of its reveal animation (see MiniCaseReel/resolveWin) — leaving the
   // page mid-animation unmounts it before that suspend is ever released
@@ -23,6 +26,12 @@ export function BottomNavPill() {
   // permanently wedging every future sync app-wide. Blocking navigation
   // for that same window is the actual fix, not just a courtesy.
   const { isSyncSuspended } = useClickCounterContext()
+  return <BottomNavPillContent isSyncSuspended={isSyncSuspended} />
+}
+
+const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspended }: { isSyncSuspended: boolean }) {
+  const { strings } = useLanguage()
+  const location = useLocation()
   // No nav during a battle — the bottom of the screen is the countdown
   // bar's spot instead.
   if (location.pathname.startsWith('/batalla')) return null
@@ -123,4 +132,4 @@ export function BottomNavPill() {
       </div>
     </div>
   )
-}
+})

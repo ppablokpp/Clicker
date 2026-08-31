@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -229,23 +230,24 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
     [userId, getToken, adjustInventory, promptSignIn],
   )
 
-  return (
-    <TimedLuckPowerupContext.Provider
-      value={{
-        catalog,
-        active,
-        secondsLeft,
-        cooldownSecondsLeft,
-        buyingId,
-        activatingId,
-        buy,
-        activate,
-        refetchCatalog: fetchCatalog,
-      }}
-    >
-      {children}
-    </TimedLuckPowerupContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({
+      catalog,
+      active,
+      secondsLeft,
+      cooldownSecondsLeft,
+      buyingId,
+      activatingId,
+      buy,
+      activate,
+      refetchCatalog: fetchCatalog,
+    }),
+    [catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, activatingId, buy, activate, fetchCatalog],
   )
+
+  return <TimedLuckPowerupContext.Provider value={value}>{children}</TimedLuckPowerupContext.Provider>
 }
 
 export function useTimedLuckPowerupContext() {

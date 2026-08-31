@@ -112,11 +112,14 @@ export function GemUpgradesProvider({ children }: { children: ReactNode }) {
     return best
   }, [catalog, owned])
 
-  return (
-    <GemUpgradesContext.Provider value={{ catalog, owned, bestOwned, buyingId, buy }}>
-      {children}
-    </GemUpgradesContext.Provider>
+  // Memoized — see GemsContext's comment for why an inline object literal
+  // here would cascade re-renders to every consumer on every tap.
+  const value = useMemo(
+    () => ({ catalog, owned, bestOwned, buyingId, buy }),
+    [catalog, owned, bestOwned, buyingId, buy],
   )
+
+  return <GemUpgradesContext.Provider value={value}>{children}</GemUpgradesContext.Provider>
 }
 
 export function useGemUpgradesContext() {
