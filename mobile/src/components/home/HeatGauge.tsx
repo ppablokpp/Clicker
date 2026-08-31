@@ -1,9 +1,16 @@
+import { memo } from 'react'
 import { Zap } from 'lucide-react-native'
 import { Text, View } from 'react-native'
 import { useLanguage } from '../../context/LanguageContext'
 import { getHeatLevel } from '../../lib/heat'
 
-export function HeatGauge({ clicksPerSecond }: { clicksPerSecond: number }) {
+// Memoized: HomeScreen re-renders on *every* tap (totalClicks changes per
+// shot), but this only actually needs to update on the ~200ms
+// clicksPerSecond tick — without this, a fast tapper forces this (and every
+// other HUD gauge/button) to fully reconcile on every single shot, the same
+// wasted-render pattern that used to overheat the drone swarm before it got
+// memoized.
+function HeatGaugeImpl({ clicksPerSecond }: { clicksPerSecond: number }) {
   const { strings } = useLanguage()
   const heat = getHeatLevel(clicksPerSecond)
   const heatLabel = heat.key ? strings.home.heat[heat.key] : null
@@ -28,3 +35,5 @@ export function HeatGauge({ clicksPerSecond }: { clicksPerSecond: number }) {
     </View>
   )
 }
+
+export const HeatGauge = memo(HeatGaugeImpl)

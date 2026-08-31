@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Stone } from 'lucide-react-native'
 import { Text, View } from 'react-native'
 import { useLanguage } from '../../context/LanguageContext'
@@ -5,7 +6,9 @@ import { useLanguage } from '../../context/LanguageContext'
 // `production` is the real total rate — fleet (auto-click + scout drones)
 // plus manual tap output — matching front/src/pages/Home.tsx's own header
 // formula: `autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier`.
-export function ProductionGauge({ production, cpsUnit }: { production: number; cpsUnit: string }) {
+// Memoized for the same reason as HeatGauge — it only changes on the
+// clicksPerSecond tick, not on every single tap's totalClicks update.
+function ProductionGaugeImpl({ production, cpsUnit }: { production: number; cpsUnit: string }) {
   const { strings } = useLanguage()
   return (
     <View className="flex-1 rounded-[3px] border border-violet-400/20 bg-violet-500/[0.06] px-2.5 py-1.5">
@@ -21,3 +24,5 @@ export function ProductionGauge({ production, cpsUnit }: { production: number; c
     </View>
   )
 }
+
+export const ProductionGauge = memo(ProductionGaugeImpl)

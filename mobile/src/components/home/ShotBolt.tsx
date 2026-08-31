@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { memo, useEffect } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { StyleSheet } from 'react-native'
 import Animated, {
   Easing,
   runOnJS,
@@ -9,11 +9,9 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { RadialGlow } from '../RadialGlow'
 
 const BOLT_LENGTH = 26
 const BOLT_THICKNESS = 3
-const AURA_SIZE = 30
 
 // A short blaster bolt fired from the tap point at the asteroid — ported
 // from front/src/pages/Home.tsx's shot-bolt (a plain CSS @keyframes
@@ -22,6 +20,23 @@ const AURA_SIZE = 30
 // reasoning as the web's onAnimationEnd: a busy frame can fall behind real
 // time, and the ripple/particles should never land before the bolt
 // visually gets there.
+//
+// No separate glow/aura layer (an earlier version had one, a small
+// react-native-svg RadialGlow behind the gradient core) — the web's own
+// version gets its glow for free from a single CSS `box-shadow` on one
+// `<div>`, which the browser composites essentially for free. Neither RN
+// equivalent is: a *second* native SVG view per bolt turned out to be
+// real, felt cost once Multidisparo lets several fingers fire at once —
+// with 3-4 fingers rapid-tapping, that's a dozen-plus concurrent SVG scenes
+// alive simultaneously, which is exactly what made rapid multi-finger
+// firing stutter/freeze while the equivalent web scene stayed smooth. A
+// native `shadow*` prop was tried instead of SVG and rejected too: this
+// view's `opacity` animates every frame (the fade-out), and an animated
+// opacity forces iOS to re-rasterize the shadow's bitmap every frame it
+// changes — same root cause as the debris-chip shadow removal earlier.
+// The gradient core alone (violet fading to white) already reads as a
+// glowing streak in motion; dropping the extra aura is the actual fix, not
+// a regression to patch around later.
 //
 // Wrapped in memo with a stable `onImpact` (id-based, not a per-item
 // closure — see AsteroidClickArea) and otherwise-primitive props, so a fast
@@ -81,38 +96,18 @@ function ShotBoltImpl({
           top: startY - BOLT_THICKNESS / 2,
           width: BOLT_LENGTH,
           height: BOLT_THICKNESS,
+          borderRadius: BOLT_THICKNESS / 2,
+          overflow: 'hidden',
         },
         style,
       ]}
     >
-      {/* Subtle aura around the bolt, matching the web's own
-          `shadow-[0_0_8px_2px_rgba(216,180,254,0.85)]` — a real radial
-          gradient (same RadialGlow used for the asteroid's aura and the
-          modal header lights), not a flat translucent shape: a solid-color
-          layer has a hard edge no matter how low its opacity, which reads
-          as a faint box, not a diffuse glow. RN's native shadow* props were
-          tried first and rejected — they get clipped by the gradient
-          fill's own `overflow: hidden` below (needed to keep the fill
-          inside the pill shape) and read far too faint on a bolt this thin
-          regardless. */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: BOLT_LENGTH / 2 - AURA_SIZE / 2,
-          top: BOLT_THICKNESS / 2 - AURA_SIZE / 2,
-        }}
-      >
-        <RadialGlow size={AURA_SIZE} color="rgba(216,180,254,0.65)" />
-      </View>
-      <Animated.View style={[{ flex: 1, borderRadius: BOLT_THICKNESS / 2, overflow: 'hidden' }]}>
-        <LinearGradient
-          colors={['rgba(196,181,253,0)', '#ddd6fe', '#ffffff']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+      <LinearGradient
+        colors={['rgba(196,181,253,0)', '#ddd6fe', '#ffffff']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFill}
+      />
     </Animated.View>
   )
 }

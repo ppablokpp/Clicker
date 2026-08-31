@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ClipboardList, Joystick, Package, Route } from 'lucide-react-native'
 import { View } from 'react-native'
 import { useLanguage } from '../../context/LanguageContext'
@@ -7,7 +8,12 @@ import { CockpitIconButton } from './CockpitIconButton'
 // front/src/pages/Home.tsx's layout (two stacked on each side). None carry
 // a "lit" notification dot yet since those depend on contexts not ported
 // to mobile (hasNewUpgrade/hasNewItem/hasClaimableTask/prestige.readyToPrestige).
-export function HudLeftButtons({ onShip, onInventory }: { onShip: () => void; onInventory: () => void }) {
+// Memoized — these never actually need to change while tapping, but were
+// getting fully reconciled on every shot regardless since HomeScreen itself
+// re-renders per tap. Needs its `onShip`/`onInventory` callback props to
+// stay referentially stable (useCallback, not inline arrows) at the call
+// site or the memo does nothing — see HomeScreen.tsx.
+function HudLeftButtonsImpl({ onShip, onInventory }: { onShip: () => void; onInventory: () => void }) {
   const { strings } = useLanguage()
   return (
     <View className="justify-center gap-2">
@@ -33,7 +39,9 @@ export function HudLeftButtons({ onShip, onInventory }: { onShip: () => void; on
   )
 }
 
-export function HudRightButtons({
+export const HudLeftButtons = memo(HudLeftButtonsImpl)
+
+function HudRightButtonsImpl({
   onTasks,
   onLog,
   hasClaimableTask = false,
@@ -66,3 +74,5 @@ export function HudRightButtons({
     </View>
   )
 }
+
+export const HudRightButtons = memo(HudRightButtonsImpl)

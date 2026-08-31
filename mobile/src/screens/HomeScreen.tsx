@@ -65,6 +65,16 @@ export function HomeScreen() {
   // flooring to 0.
   const popupCarryRef = useRef(0)
 
+  // Stable references — HudLeftButtons/HudRightButtons are memoized so they
+  // don't re-render on every tap (see HudFlankingButtons.tsx's own
+  // comment), which only actually holds if these callbacks aren't a fresh
+  // inline arrow function every single HomeScreen render (the same
+  // memo-defeating mistake the drone swarm had earlier).
+  const handleShowShip = useCallback(() => setShowShip(true), [])
+  const handleShowInventory = useCallback(() => setShowInventory(true), [])
+  const handleShowTasks = useCallback(() => setShowTasks(true), [])
+  const handleShowLog = useCallback(() => setShowLog(true), [])
+
   const currentTierIndex = prestigeTier
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
   const cpsUnit = `${MATERIAL_ABBREVIATIONS[currentTierIndex]}/s`
@@ -130,16 +140,12 @@ export function HomeScreen() {
               <ProductionGauge production={production} cpsUnit={cpsUnit} />
             </View>
             <View className="flex-row items-stretch gap-2">
-              <HudLeftButtons onShip={() => setShowShip(true)} onInventory={() => setShowInventory(true)} />
+              <HudLeftButtons onShip={handleShowShip} onInventory={handleShowInventory} />
               <PlatinoScreen
                 label={strings.home.hudPlatinoLabel(currentMaterialName)}
                 value={formatPlatino(totalClicks, language)}
               />
-              <HudRightButtons
-                onTasks={() => setShowTasks(true)}
-                onLog={() => setShowLog(true)}
-                hasClaimableTask={hasClaimableTask}
-              />
+              <HudRightButtons onTasks={handleShowTasks} onLog={handleShowLog} hasClaimableTask={hasClaimableTask} />
             </View>
           </CockpitPanel>
         </View>
