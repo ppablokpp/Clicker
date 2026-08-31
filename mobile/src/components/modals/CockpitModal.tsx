@@ -53,7 +53,7 @@ export function CockpitModal({
                 same way. */}
             <View pointerEvents="none" style={StyleSheet.absoluteFill} className="items-center">
               <View style={{ transform: [{ translateY: -64 }] }}>
-                <RadialGlow size={128} color={glowColor} opacity={0.5} />
+                <RadialGlow size={128} color={glowColor} />
               </View>
             </View>
             <Pressable onPress={onClose} accessibilityLabel="Close" className="absolute right-4 top-4">

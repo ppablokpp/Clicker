@@ -29,9 +29,13 @@ export function PlatinoScreen({ label, value }: { label: string; value: string }
       <View className="absolute bottom-1 left-1 h-2 w-2 border-b border-l border-violet-400/40" />
       <View className="absolute bottom-1 right-1 h-2 w-2 border-b border-r border-violet-400/40" />
       <ScanlineSweep />
-      <View className="items-center">
+      <View className="items-center gap-1">
         <Text className="font-mono text-[9px] font-semibold uppercase tracking-[3px] text-neutral-500">{label}</Text>
-        <DisplayText weight="bold" className="text-4xl text-white" style={{ fontVariant: ['tabular-nums'] }}>
+        <DisplayText
+          weight="bold"
+          className="text-white"
+          style={{ fontVariant: ['tabular-nums'], fontSize: 42, lineHeight: 46 }}
+        >
           {value}
         </DisplayText>
       </View>

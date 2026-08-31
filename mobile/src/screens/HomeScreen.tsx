@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useWindowDimensions, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { AsteroidClickArea } from '../components/home/AsteroidClickArea'
 import { CockpitPanel } from '../components/home/CockpitPanel'
 import { HeatGauge } from '../components/home/HeatGauge'
 import { HudLeftButtons, HudRightButtons } from '../components/home/HudFlankingButtons'
@@ -10,23 +9,29 @@ import { LogModal } from '../components/home/LogModal'
 import { PlatinoScreen } from '../components/home/PlatinoScreen'
 import { ProductionGauge } from '../components/home/ProductionGauge'
 import { ShipModal } from '../components/home/ShipModal'
+import { TapShootLayer } from '../components/home/TapShootLayer'
 import { TasksModal } from '../components/home/TasksModal'
 import { Starfield } from '../components/Starfield'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { formatPlatino } from '../lib/formatPlatino'
+import { getHeatLevel } from '../lib/heat'
 import { MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
 import { playLaserShot } from '../lib/sounds'
 import { computePrestigeProgress } from '../lib/trajectory'
 
 // Home's own header, styled as the top instrument panel of a ship (pilot's-
 // eye view of the asteroid below) — mirrors front/src/pages/Home.tsx, split
-// into CockpitPanel/HeatGauge/ProductionGauge/PlatinoScreen/AsteroidClickArea
-// instead of one large inline component. All 4 flanking modals exist now;
-// Log is fully real (only reads prestigeTier/lifetimePlatino). Command
-// Center and Tasks show a placeholder until Tree/Missions are ported to
-// mobile; Inventory shows the same empty state the web shows when you
-// genuinely own nothing, until Inventory/Powerup/Magnet contexts are ported.
+// into CockpitPanel/HeatGauge/ProductionGauge/PlatinoScreen/TapShootLayer
+// instead of one large inline component. TapShootLayer owns the *entire*
+// tap-to-shoot surface (header included, same as the web's own
+// containerRef), not just a zone around the asteroid — see its own comment
+// for why that doesn't also fire when tapping an actual button. All 4
+// flanking modals exist now; Log is fully real (only reads
+// prestigeTier/lifetimePlatino). Command Center and Tasks show a
+// placeholder until Tree/Missions are ported to mobile; Inventory shows
+// the same empty state the web shows when you genuinely own nothing, until
+// Inventory/Powerup/Magnet contexts are ported.
 export function HomeScreen() {
   const { strings, language } = useLanguage()
   const { totalClicks, lifetimePlatino, clicksPerSecond, prestigeTier, registerClick } = useClickCounterContext()
@@ -44,6 +49,7 @@ export function HomeScreen() {
     () => computePrestigeProgress(currentTierIndex, lifetimePlatino),
     [currentTierIndex, lifetimePlatino],
   )
+  const heat = getHeatLevel(clicksPerSecond)
 
   const handleTap = useCallback(() => {
     registerClick(1)
@@ -54,41 +60,40 @@ export function HomeScreen() {
     <SafeAreaView className="flex-1 bg-[#08080c]">
       <Starfield width={width} height={height} />
 
-      <View className="px-3 pt-2">
-        <CockpitPanel>
-          <View className="flex-row gap-2">
-            <HeatGauge clicksPerSecond={clicksPerSecond} />
-            <ProductionGauge clicksPerSecond={clicksPerSecond} cpsUnit={cpsUnit} />
-          </View>
-          <View className="flex-row items-stretch gap-2">
-            <HudLeftButtons onShip={() => setShowShip(true)} onInventory={() => setShowInventory(true)} />
-            <PlatinoScreen
-              label={strings.home.hudPlatinoLabel(currentMaterialName)}
-              value={formatPlatino(totalClicks, language)}
-            />
-            <HudRightButtons onTasks={() => setShowTasks(true)} onLog={() => setShowLog(true)} />
-          </View>
-        </CockpitPanel>
-      </View>
-
-      <ShipModal visible={showShip} onClose={() => setShowShip(false)} />
-      <InventoryModal visible={showInventory} onClose={() => setShowInventory(false)} />
-      <TasksModal visible={showTasks} onClose={() => setShowTasks(false)} />
-      <LogModal
-        visible={showLog}
-        onClose={() => setShowLog(false)}
-        currentTierIndex={currentTierIndex}
-        lifetimePlatino={lifetimePlatino}
-      />
-
-      <AsteroidClickArea
+      <TapShootLayer
         tierIndex={currentTierIndex}
         pct={prestige.pct}
         isMaxed={prestige.readyToPrestige}
+        rippleColor={heat.ripple}
         onTap={handleTap}
-      />
+      >
+        <View className="px-3 pt-2">
+          <CockpitPanel>
+            <View className="flex-row gap-2">
+              <HeatGauge clicksPerSecond={clicksPerSecond} />
+              <ProductionGauge clicksPerSecond={clicksPerSecond} cpsUnit={cpsUnit} />
+            </View>
+            <View className="flex-row items-stretch gap-2">
+              <HudLeftButtons onShip={() => setShowShip(true)} onInventory={() => setShowInventory(true)} />
+              <PlatinoScreen
+                label={strings.home.hudPlatinoLabel(currentMaterialName)}
+                value={formatPlatino(totalClicks, language)}
+              />
+              <HudRightButtons onTasks={() => setShowTasks(true)} onLog={() => setShowLog(true)} />
+            </View>
+          </CockpitPanel>
+        </View>
 
-      <View className="pb-24" />
+        <ShipModal visible={showShip} onClose={() => setShowShip(false)} />
+        <InventoryModal visible={showInventory} onClose={() => setShowInventory(false)} />
+        <TasksModal visible={showTasks} onClose={() => setShowTasks(false)} />
+        <LogModal
+          visible={showLog}
+          onClose={() => setShowLog(false)}
+          currentTierIndex={currentTierIndex}
+          lifetimePlatino={lifetimePlatino}
+        />
+      </TapShootLayer>
     </SafeAreaView>
   )
 }

@@ -22,7 +22,7 @@ export function HeatGauge({ clicksPerSecond }: { clicksPerSecond: number }) {
           </Text>
         )}
       </View>
-      <Text style={{ color: isActive ? heat.badge : '#d4d4d4' }} className="mt-0.5 font-mono text-sm font-bold">
+      <Text style={{ color: isActive ? heat.badge : '#d4d4d4' }} className="mt-0.5 font-mono text-base font-bold">
         {clicksPerSecond.toFixed(1)} {strings.home.tps}
       </Text>
     </View>

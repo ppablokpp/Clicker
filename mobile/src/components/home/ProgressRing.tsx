@@ -1,12 +1,14 @@
-import { useEffect } from 'react'
+import { memo, useEffect } from 'react'
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated'
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg'
 
 // Glowing ring around the asteroid that fills up towards the prestige
 // target. Once maxed, it stops being a progress indicator and becomes a
 // spinning gold halo instead. Ported from front/src/pages/Home.tsx's
-// ProgressRing (Framer Motion -> reanimated).
-export function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
+// ProgressRing (Framer Motion -> reanimated). Memoized for the same reason
+// as Asteroid — AsteroidClickArea's tap effects shouldn't force this to
+// re-render on every tap.
+function ProgressRingImpl({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
   const radius = 92
   const circumference = 2 * Math.PI * radius
   const offset = circumference * (1 - Math.max(0, Math.min(1, pct)))
@@ -52,3 +54,5 @@ export function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }
     </Animated.View>
   )
 }
+
+export const ProgressRing = memo(ProgressRingImpl)

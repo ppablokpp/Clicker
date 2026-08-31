@@ -9,12 +9,14 @@ export interface HeatLevel {
   key: HeatKey
   badge: string
   icon: string
+  /** Click-ripple tint for this tier — matches the web's HEAT_LEVELS.ripple. */
+  ripple: string
 }
 
 export const HEAT_LEVELS: HeatLevel[] = [
-  { min: 0, key: null, badge: '#d4d4d4', icon: '#525252' },
-  { min: 6, key: 'onFire', badge: '#fcd34d', icon: '#fbbf24' },
-  { min: 10, key: 'unstoppable', badge: '#fdba74', icon: '#fb923c' },
+  { min: 0, key: null, badge: '#d4d4d4', icon: '#525252', ripple: 'rgba(167,139,250,0.4)' },
+  { min: 6, key: 'onFire', badge: '#fcd34d', icon: '#fbbf24', ripple: 'rgba(251,191,36,0.5)' },
+  { min: 10, key: 'unstoppable', badge: '#fdba74', icon: '#fb923c', ripple: 'rgba(249,115,22,0.55)' },
 ]
 
 export function getHeatLevel(cps: number): HeatLevel {

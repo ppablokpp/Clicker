@@ -12,7 +12,7 @@ export function ProductionGauge({ clicksPerSecond, cpsUnit }: { clicksPerSecond:
           {strings.home.hudProdLabel}
         </Text>
       </View>
-      <Text className="mt-0.5 font-mono text-sm font-bold text-violet-200">
+      <Text className="mt-0.5 font-mono text-base font-bold text-violet-200">
         {clicksPerSecond.toFixed(1)} {cpsUnit}
       </Text>
     </View>

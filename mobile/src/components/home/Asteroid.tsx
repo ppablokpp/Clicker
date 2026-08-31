@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { memo, useEffect } from 'react'
 import { View } from 'react-native'
 import Animated, {
   Easing,
@@ -20,8 +20,11 @@ const OBJECT_TIERS = MATERIAL_TIER_COLORS.map((colors) => ({ ...colors, speckleC
 // The thing you're actually tap — a slowly bobbing/rotating rock. Its color
 // follows the real current Trayectoria tier, ported from
 // front/src/pages/Home.tsx's SpaceObject (Framer Motion -> reanimated,
-// inline SVG -> react-native-svg).
-export function Asteroid({ tierIndex, pct }: { tierIndex: number; pct: number }) {
+// inline SVG -> react-native-svg). Memoized so AsteroidClickArea's own tap
+// effects (shots/particles/ripples, which re-render it on every tap) never
+// force this — the SVG body, gradients and reanimated hook setup — to
+// rebuild unless tierIndex/pct actually changed.
+function AsteroidImpl({ tierIndex, pct }: { tierIndex: number; pct: number }) {
   const tier = OBJECT_TIERS[tierIndex] ?? OBJECT_TIERS[0]
   const rotate = useSharedValue(0)
   const bob = useSharedValue(0)
@@ -43,11 +46,12 @@ export function Asteroid({ tierIndex, pct }: { tierIndex: number; pct: number })
 
   return (
     <View className="items-center justify-center" style={{ width: 96, height: 96 }}>
-      {/* Subtle ambient glow, deliberately much fainter than a first pass at
-          this looked — the web version barely shows at all except right at
-          the rock's edge. */}
+      {/* Ambient glow — matches the web's own opacity range (0.22-0.72)
+          directly now that RadialGlow's gradient actually fades the whole
+          way like the web's does; the earlier extra damping here was
+          overcorrecting for a gradient-shape bug, not real overbrightness. */}
       <View pointerEvents="none" style={{ position: 'absolute' }}>
-        <RadialGlow size={96 + 48} color={tier.glow} opacity={(0.22 + pct * 0.5) * 0.35} />
+        <RadialGlow size={96 + 100} color={tier.glow} opacity={0.22 + pct * 0.5} />
       </View>
       <Animated.View style={spinStyle}>
         <Svg viewBox="0 0 100 100" width={76} height={76}>
@@ -84,3 +88,5 @@ export function Asteroid({ tierIndex, pct }: { tierIndex: number; pct: number })
     </View>
   )
 }
+
+export const Asteroid = memo(AsteroidImpl)
