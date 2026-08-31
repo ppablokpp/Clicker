@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { fetchTreeState, type TreeStateResponse } from '../services/treeApi'
+import { buyTreeNode, fetchTreeState, type TreeBuyKey, type TreeStateResponse } from '../services/treeApi'
 import { useClickCounterContext } from './ClickCounterContext'
 
 // Auto-click production only actually gets credited (persisted) when this
@@ -18,42 +18,143 @@ type TreeState = Omit<TreeStateResponse, 'totalClicks' | 'objectsBroken' | 'obje
 const EMPTY_STATE: TreeState = {
   autoClickLevel: 0,
   autoClickCps: 0,
+  autoClickNextCost: 0,
+  autoClickNextCps: 0,
+  luckLevel: 0,
   luckChance: 0,
   luckMultiplier: 1,
+  luckNextCost: 0,
+  luckChanceLevel: 0,
+  luckChanceNextCost: 0,
   scoutDroneLevel: 0,
+  scoutDroneNextCost: 0,
   scoutDroneRate: 2,
   scoutDroneCps: 0,
+  scoutFrequencyLevel: 0,
+  scoutFrequencyNextCost: 0,
+  multiplierLevel: 0,
   multiplierValue: 1,
+  multiplierNextValue: 2,
+  multiplierNextCost: 0,
+  legendaryUnlockLevel: 0,
+  legendaryUnlockNextCost: 100_000,
+  legendaryEaseLevel: 0,
+  legendaryStreakBase: 200,
+  legendaryEaseNextCost: 0,
+  legendaryGrowthLevel: 0,
+  legendaryBonusStep: 0.1,
+  legendaryGrowthNextCost: 0,
+  legendaryThresholdLevel: 0,
+  legendaryThresholdTps: 30,
+  legendaryThresholdNextCost: 0,
+  autoMultiplierLevel: 0,
   autoMultiplierValue: 0.5,
+  autoMultiplierNextValue: 1,
+  autoMultiplierNextCost: 0,
+  tapMultiplierLevel: 0,
   tapMultiplierValue: 1,
+  tapMultiplierNextCost: 0,
+  multiShotLevel: 0,
   multiShotValue: 1,
+  multiShotNextCost: 0,
+  anomalyUnlockLevel: 0,
+  anomalyUnlockNextCost: 5_000,
+  anomalyRewardLevel: 0,
+  anomalyRewardValue: 0,
+  anomalyRewardNextCost: 0,
+  anomalyFrequencyLevel: 0,
+  anomalyFrequencySeconds: 300,
+  anomalyFrequencyNextCost: 0,
+  offlineProductionLevel: 0,
   offlineProductionValue: 0.01,
+  offlineProductionNextCost: 5_000,
 }
 
 interface TreeContextValue extends TreeState {
   refetch: () => Promise<void>
+  // Which node's buy button is currently in flight — a single tracker
+  // instead of 19 individual booleans (one per node, matching the web),
+  // since only one purchase can realistically be in progress at a time and
+  // this is far more maintainable across 19 near-identical actions.
+  buyingKey: TreeBuyKey | null
+  buy: (key: TreeBuyKey) => Promise<{ ok: boolean; error?: string }>
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null)
 
-// Read-only subset of front/src/context/TreeContext.tsx — the fetch/poll/
-// local-tick machinery only, none of its 19 buy mutations (those back the
-// full pan/zoom Tree canvas, which is its own much larger port, deliberately
-// last per the plan). This alone is enough to show real fleet/production
-// numbers on Home and in the Command Center: how many drones you own, how
-// fast they're actually producing, the tap-power multipliers, etc.
+// front/src/context/TreeContext.tsx, ported in full: the fetch/poll/
+// local-tick machinery, all 19 buy endpoints, and the fields those need. A
+// single generic `buy(key)` (see services/treeApi.ts's buyTreeNode) drives
+// every node instead of 19 near-identical callbacks.
 export function TreeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicksIfNewer, tickAutoClicks, syncObjectState } = useClickCounterContext()
+  const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState } = useClickCounterContext()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
+  const [buyingKey, setBuyingKey] = useState<TreeBuyKey | null>(null)
   // Read from inside the fast tick interval without needing to restart it
-  // every time the rate changes (e.g. right after a purchase, once buying
-  // exists on mobile too).
+  // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
 
   useEffect(() => {
     cpsRef.current = state.autoClickCps + state.scoutDroneCps
   }, [state.autoClickCps, state.scoutDroneCps])
+
+  const applyState = useCallback((data: TreeStateResponse) => {
+    setState({
+      autoClickLevel: data.autoClickLevel,
+      autoClickCps: data.autoClickCps,
+      autoClickNextCost: data.autoClickNextCost,
+      autoClickNextCps: data.autoClickNextCps,
+      luckLevel: data.luckLevel,
+      luckChance: data.luckChance,
+      luckMultiplier: data.luckMultiplier,
+      luckNextCost: data.luckNextCost,
+      luckChanceLevel: data.luckChanceLevel,
+      luckChanceNextCost: data.luckChanceNextCost,
+      scoutDroneLevel: data.scoutDroneLevel,
+      scoutDroneNextCost: data.scoutDroneNextCost,
+      scoutDroneRate: data.scoutDroneRate,
+      scoutDroneCps: data.scoutDroneCps,
+      scoutFrequencyLevel: data.scoutFrequencyLevel,
+      scoutFrequencyNextCost: data.scoutFrequencyNextCost,
+      multiplierLevel: data.multiplierLevel,
+      multiplierValue: data.multiplierValue,
+      multiplierNextValue: data.multiplierNextValue,
+      multiplierNextCost: data.multiplierNextCost,
+      legendaryUnlockLevel: data.legendaryUnlockLevel,
+      legendaryUnlockNextCost: data.legendaryUnlockNextCost,
+      legendaryEaseLevel: data.legendaryEaseLevel,
+      legendaryStreakBase: data.legendaryStreakBase,
+      legendaryEaseNextCost: data.legendaryEaseNextCost,
+      legendaryGrowthLevel: data.legendaryGrowthLevel,
+      legendaryBonusStep: data.legendaryBonusStep,
+      legendaryGrowthNextCost: data.legendaryGrowthNextCost,
+      legendaryThresholdLevel: data.legendaryThresholdLevel,
+      legendaryThresholdTps: data.legendaryThresholdTps,
+      legendaryThresholdNextCost: data.legendaryThresholdNextCost,
+      autoMultiplierLevel: data.autoMultiplierLevel,
+      autoMultiplierValue: data.autoMultiplierValue,
+      autoMultiplierNextValue: data.autoMultiplierNextValue,
+      autoMultiplierNextCost: data.autoMultiplierNextCost,
+      tapMultiplierLevel: data.tapMultiplierLevel,
+      tapMultiplierValue: data.tapMultiplierValue,
+      tapMultiplierNextCost: data.tapMultiplierNextCost,
+      multiShotLevel: data.multiShotLevel,
+      multiShotValue: data.multiShotValue,
+      multiShotNextCost: data.multiShotNextCost,
+      anomalyUnlockLevel: data.anomalyUnlockLevel,
+      anomalyUnlockNextCost: data.anomalyUnlockNextCost,
+      anomalyRewardLevel: data.anomalyRewardLevel,
+      anomalyRewardValue: data.anomalyRewardValue,
+      anomalyRewardNextCost: data.anomalyRewardNextCost,
+      anomalyFrequencyLevel: data.anomalyFrequencyLevel,
+      anomalyFrequencySeconds: data.anomalyFrequencySeconds,
+      anomalyFrequencyNextCost: data.anomalyFrequencyNextCost,
+      offlineProductionLevel: data.offlineProductionLevel,
+      offlineProductionValue: data.offlineProductionValue,
+      offlineProductionNextCost: data.offlineProductionNextCost,
+    })
+  }, [])
 
   const fetchState = useCallback(async () => {
     if (!userId) return
@@ -61,20 +162,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       const token = await getToken()
       const data = await fetchTreeState(token)
       if (!data) return
-      setState({
-        autoClickLevel: data.autoClickLevel,
-        autoClickCps: data.autoClickCps,
-        luckChance: data.luckChance,
-        luckMultiplier: data.luckMultiplier,
-        scoutDroneLevel: data.scoutDroneLevel,
-        scoutDroneRate: data.scoutDroneRate,
-        scoutDroneCps: data.scoutDroneCps,
-        multiplierValue: data.multiplierValue,
-        autoMultiplierValue: data.autoMultiplierValue,
-        tapMultiplierValue: data.tapMultiplierValue,
-        multiShotValue: data.multiShotValue,
-        offlineProductionValue: data.offlineProductionValue,
-      })
+      applyState(data)
       // A read-only poll, not a spend/earn action — never allowed to move
       // the total backwards (see syncTotalClicksIfNewer's own comment for
       // why a plain syncTotalClicks here could randomly yank the counter
@@ -86,7 +174,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('No se pudo cargar el estado del árbol', err)
     }
-  }, [userId, getToken, syncTotalClicksIfNewer, syncObjectState])
+  }, [userId, getToken, applyState, syncTotalClicksIfNewer, syncObjectState])
 
   useEffect(() => {
     if (!userId) return
@@ -111,7 +199,32 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [userId, tickAutoClicks])
 
-  return <TreeContext.Provider value={{ ...state, refetch: fetchState }}>{children}</TreeContext.Provider>
+  // One generic buy action for all 19 nodes — each POST returns the same
+  // shape of fresh TreeState fields (whichever ones that node touches) plus
+  // an updated totalClicks (the spend), same as the web's own 19 individual
+  // buy* callbacks all did.
+  const buy = useCallback(
+    async (key: TreeBuyKey) => {
+      if (!userId) return { ok: false, error: 'not-signed-in' }
+      setBuyingKey(key)
+      try {
+        const token = await getToken()
+        const { ok, error, data } = await buyTreeNode(token, key)
+        if (!ok) return { ok: false, error }
+        applyState({ ...state, ...data } as TreeStateResponse)
+        if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+        return { ok: true }
+      } catch (err) {
+        console.error('No se pudo comprar la mejora', err)
+        return { ok: false, error: 'network' }
+      } finally {
+        setBuyingKey(null)
+      }
+    },
+    [userId, getToken, state, applyState, syncTotalClicks],
+  )
+
+  return <TreeContext.Provider value={{ ...state, buyingKey, buy, refetch: fetchState }}>{children}</TreeContext.Provider>
 }
 
 export function useTreeContext() {

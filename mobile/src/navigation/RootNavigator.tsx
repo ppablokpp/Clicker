@@ -6,17 +6,14 @@ import { HomeScreen } from '../screens/HomeScreen'
 import { LeaderboardScreen } from '../screens/LeaderboardScreen'
 import { PlaceholderScreen } from '../screens/PlaceholderScreen'
 import { SignInScreen } from '../screens/SignInScreen'
+import { TreeScreen } from '../screens/TreeScreen'
 
 // Exact 5-tab set/order from the web app's BottomNavPill.tsx: Tree ->
 // Leaderboard -> Home (default) -> Stats -> Store. Screens are placeholders
 // for now, swapped in one at a time per the build-order phases (Home first,
-// Leaderboard now real too).
+// Leaderboard and Tree now real too).
 const Tab = createBottomTabNavigator()
 
-function TreeScreen() {
-  const { strings } = useLanguage()
-  return <PlaceholderScreen label={strings.nav.tree} />
-}
 function StatsScreen() {
   const { strings } = useLanguage()
   return <PlaceholderScreen label={strings.nav.stats} />
