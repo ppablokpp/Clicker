@@ -60,19 +60,6 @@ export function PremiumNodeModal({ visible, onClose }: { visible: boolean; onClo
             shadowRadius: 30,
           }}
         >
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              right: -32,
-              top: -32,
-              height: 96,
-              width: 96,
-              borderRadius: 48,
-              backgroundColor: 'rgba(217,70,239,0.1)',
-            }}
-          />
-
           <Pressable onPress={onClose} hitSlop={10} style={{ position: 'absolute', right: 12, top: 12, zIndex: 1 }}>
             <X size={16} color="#737373" />
           </Pressable>

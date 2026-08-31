@@ -38,8 +38,14 @@ function ClickImpactEffectImpl({
   rippleColor: string
   onDone: (slotIndex: number) => void
 }) {
-  const rippleProgress = useSharedValue(0)
-  const floatProgress = useSharedValue(0)
+  // Start at 1, not 0 — both opacities below are computed as `1 - progress`
+  // (fades OUT as progress climbs from 0 to 1 during a real run), so an
+  // idle slot that's never fired needs progress *already at 1* to compute
+  // to invisible from the very first frame. Starting at 0 (this component's
+  // pre-pooling default) meant every idle slot showed a fully-opaque "+0"
+  // stacked at (0,0) until its first real use — see fireId===0 below.
+  const rippleProgress = useSharedValue(1)
+  const floatProgress = useSharedValue(1)
 
   useEffect(() => {
     if (fireId === 0) return
