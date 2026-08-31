@@ -18,7 +18,7 @@ export interface FamilyStyle {
 // MULTI_SHOT_NODE_STYLE / ANOMALY_NODE_STYLE (Tree.tsx).
 export const FAMILY_STYLES: Record<NodeFamily, FamilyStyle> = {
   default: { border: 'rgba(167,139,250,0.2)', background: '#14101f', iconColor: '#c4b5fd' },
-  premium: { border: 'rgba(129,140,248,0.25)', background: '#141a2e', iconColor: '#a5b4fc' },
+  premium: { border: 'rgba(129,140,248,0.25)', background: '#141a2e', iconColor: '#c7d2fe' },
   luck: { border: 'rgba(74,222,128,0.25)', background: '#0f1f16', iconColor: '#86efac' },
   legendary: { border: 'rgba(248,113,113,0.25)', background: '#1f0d0d', iconColor: '#fca5a5' },
   auto: { border: 'rgba(251,191,36,0.25)', background: '#1f1608', iconColor: '#fcd34d' },
@@ -61,6 +61,14 @@ export interface TreeNodeDef {
   levelField?: string
   /** Key into services/treeApi.ts's TREE_BUY_ENDPOINTS — undefined for nodes with no buy action yet (placeholders, premium). */
   buyKey?: TreeBuyKey
+  /**
+   * A real, interactive node whose buy flow doesn't go through TreeContext's
+   * generic buy(key) — currently only c1 (the gem-multiplier node, which
+   * spends gems via GemUpgradesContext instead of clicks via a
+   * TREE_BUY_ENDPOINTS key). TreeScreen/TreeNode use this to treat it as
+   * clickable even though it has no `buyKey`.
+   */
+  special?: 'premium'
 }
 
 export const TREE_NODES: TreeNodeDef[] = [
@@ -79,7 +87,7 @@ export const TREE_NODES: TreeNodeDef[] = [
 
   // Branch C — premium gem multiplier (GemUpgradesContext, not TreeContext
   // — not ported to mobile yet, so this stays permanently locked for now).
-  { id: 'c1', x: CENTER + 20, y: CENTER + 175, family: 'premium', iconName: 'gem' },
+  { id: 'c1', x: CENTER + 20, y: CENTER + 175, family: 'premium', iconName: 'gem', special: 'premium' },
 
   // Branch F — Sobrecarga / Dron buscador / Frecuencia / Autonomía.
   { id: 'e2b', x: CENTER + 30, y: CENTER - 180, family: 'auto', iconName: 'atom', levelField: 'autoMultiplierLevel', buyKey: 'autoMultiplier' },

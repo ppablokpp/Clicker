@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { PremiumNodeModal } from '../components/tree/PremiumNodeModal'
 import { TreeCanvas, type TreeCanvasHandle } from '../components/tree/TreeCanvas'
 import { TreeConnectors } from '../components/tree/TreeConnectors'
 import { TreeNode } from '../components/tree/TreeNode'
 import { TreeNodeModal } from '../components/tree/TreeNodeModal'
 import { TreeZoomControls } from '../components/tree/TreeZoomControls'
+import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTreeContext } from '../context/TreeContext'
 import { CENTER, getRevealState, TREE_NODES, type TreeNodeDef } from '../lib/treeNodes'
@@ -22,16 +24,22 @@ const DEFAULT_SCALE = 0.68
 export function TreeScreen() {
   const { strings } = useLanguage()
   const tree = useTreeContext()
+  const { catalog: premiumCatalog, owned: premiumOwned } = useGemUpgradesContext()
   const [selectedNode, setSelectedNode] = useState<TreeNodeDef | null>(null)
   const canvasRef = useRef<TreeCanvasHandle>(null)
 
+  const premiumOwnedCount = useMemo(
+    () => premiumCatalog.filter((u) => premiumOwned.has(u.id)).length,
+    [premiumCatalog, premiumOwned],
+  )
+
   const levelById = useMemo(() => {
-    const map: Record<string, number> = {}
+    const map: Record<string, number> = { c1: premiumOwnedCount }
     for (const node of TREE_NODES) {
       if (node.levelField) map[node.id] = Number((tree as unknown as Record<string, number>)[node.levelField] ?? 0)
     }
     return map
-  }, [tree])
+  }, [tree, premiumOwnedCount])
 
   const revealStateById = useMemo(() => {
     const map: Record<string, ReturnType<typeof getRevealState>> = {}
@@ -67,7 +75,11 @@ export function TreeScreen() {
         onReset={() => canvasRef.current?.resetView()}
       />
 
-      <TreeNodeModal node={selectedNode} visible={selectedNode !== null} onClose={() => setSelectedNode(null)} />
+      {selectedNode?.special === 'premium' ? (
+        <PremiumNodeModal visible={selectedNode !== null} onClose={() => setSelectedNode(null)} />
+      ) : (
+        <TreeNodeModal node={selectedNode} visible={selectedNode !== null} onClose={() => setSelectedNode(null)} />
+      )}
     </SafeAreaView>
   )
 }

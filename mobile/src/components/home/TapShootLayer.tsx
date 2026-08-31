@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useRef, useState } from 'react'
-import { type GestureResponderEvent, type LayoutChangeEvent, Pressable, View } from 'react-native'
+import { type GestureResponderEvent, type LayoutChangeEvent, View } from 'react-native'
 import { Asteroid } from './Asteroid'
 import { ClickImpactEffect } from './ClickImpactEffect'
 import { DebrisChip } from './DebrisChip'
@@ -11,6 +11,10 @@ const SHOT_DURATION_MS = 280
 const PARTICLE_DURATION_MS = 380
 const PARTICLE_COUNT = 4
 const MIN_PARTICLE_INTERVAL_MS = 90
+// Ripple tint for a lucky hit — always this green regardless of the current
+// heat tier's own ripple color, matching Home.tsx's `isLucky ? 'bg-green-
+// 400/70' : heat.ripple`.
+const LUCKY_RIPPLE_COLOR = 'rgba(74,222,128,0.7)'
 // Hoisted so it's the same array reference on every render — OrbitingBots
 // is memoized, and an inline array literal here would create a new
 // reference each time, defeating that memo for the scout-drone swarm.
@@ -30,6 +34,7 @@ interface Shot {
   impactX: number
   impactY: number
   displayAmount: number
+  isLucky: boolean
 }
 
 interface ParticleBurst {
@@ -43,16 +48,22 @@ interface ParticleBurst {
 // own structure: `containerRef` (the pointerdown listener) wraps the
 // *entire* screen (header included), not just a small zone around the
 // asteroid, so tapping anywhere that isn't itself an interactive control
-// fires a shot. React Native's touch responder system already gives an
-// inner Pressable (a header button, a tab-bar icon) exclusive claim over
-// its own touches — the outer Pressable here never also fires for that
-// same touch — so no explicit "stopPropagation" equivalent is needed, only
-// making this Pressable span everything.
+// fires a shot.
 //
-// The asteroid's own on-screen box is measured relative to this layer (via
-// `measureInWindow` on both, since the header's height pushes the asteroid
-// down by a variable amount depending on device) so shots fired from
-// anywhere aim at its real center, not a guessed position.
+// Multi-touch (Multidisparo): built on React Native's own low-level
+// responder props (onStartShouldSetResponder/onResponderGrant/Move/Release)
+// instead of `Pressable` — a `Pressable` only ever reports a single
+// press-in/press-out cycle for whichever ONE touch first claims it, so a
+// second finger landing on it never fires its own onPressIn at all (that
+// was the "solo te deja disparar con 1 dedo a la vez" bug). The raw
+// responder API instead hands every native touch event's full
+// `touches`/`changedTouches` arrays (one entry per active finger, each with
+// its own stable `identifier`) to whichever view is granted the responder —
+// the exact same underlying multitouch primitive the web's Pointer Events
+// (`activePointersRef` keyed by `pointerId`) are built on, just RN's own
+// version of it. A header button's own nested Pressable still claims its
+// own touch first via RN's innermost-view-first responder negotiation
+// (unchanged from before), so this doesn't disturb any other button.
 export function TapShootLayer({
   tierIndex,
   pct,
@@ -60,6 +71,7 @@ export function TapShootLayer({
   rippleColor,
   autoClickLevel,
   scoutDroneLevel,
+  multiShotValue,
   onTap,
   children,
 }: {
@@ -69,18 +81,24 @@ export function TapShootLayer({
   rippleColor: string
   autoClickLevel: number
   scoutDroneLevel: number
-  onTap: () => void
+  /** How many fingers can be shooting at once — Tree's Multidisparo node. */
+  multiShotValue: number
+  onTap: () => { amount: number; isLucky: boolean }
   children: ReactNode
 }) {
   const rootRef = useRef<View>(null)
   const asteroidBoxRef = useRef<View>(null)
   const impactCenterRef = useRef({ x: 0, y: 0 })
   const rootWindowRef = useRef({ x: 0, y: 0 })
+  // Every finger currently down that this layer is tracking as a shot slot
+  // — mirrors the web's activePointersRef exactly, keyed by RN's own
+  // per-touch `identifier` instead of a DOM pointerId.
+  const activeTouchesRef = useRef<Set<string>>(new Set())
 
   const shotsRef = useRef<Map<number, Shot>>(new Map())
   const [shotIds, setShotIds] = useState<number[]>([])
   const [effectIds, setEffectIds] = useState<number[]>([])
-  const effectsRef = useRef<Map<number, { x: number; y: number; amount: number }>>(new Map())
+  const effectsRef = useRef<Map<number, { x: number; y: number; amount: number; isLucky: boolean }>>(new Map())
   const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
   const lastParticleAtRef = useRef(0)
 
@@ -113,7 +131,7 @@ export function TapShootLayer({
     const jitterX = shot.impactX + (Math.random() - 0.5) * 28
     const jitterY = shot.impactY + (Math.random() - 0.5) * 28
     const effectId = nextEffectId++
-    effectsRef.current.set(effectId, { x: jitterX, y: jitterY, amount: shot.displayAmount })
+    effectsRef.current.set(effectId, { x: jitterX, y: jitterY, amount: shot.displayAmount, isLucky: shot.isLucky })
     setEffectIds((prev) => [...prev, effectId])
 
     const impactAt = Date.now()
@@ -131,34 +149,67 @@ export function TapShootLayer({
     }, PARTICLE_DURATION_MS)
   }, [])
 
-  const handlePressIn = useCallback(
-    (e: GestureResponderEvent) => {
-      // `locationX/Y` is relative to whichever (possibly deeply nested)
-      // view actually caught the touch, not necessarily this outer
-      // Pressable — a tap inside the header's own nested Views landed with
-      // the wrong offset because of that (looked like it fired from
-      // somewhere above your finger). `pageX/Y` is unambiguous (screen-
-      // absolute), so converting it with this layer's own cached window
-      // position gives the correct "relative to this Pressable" point
-      // regardless of how deep the touched view is nested.
-      const x = e.nativeEvent.pageX - rootWindowRef.current.x
-      const y = e.nativeEvent.pageY - rootWindowRef.current.y
+  // Fires one shot from a single touch point — called once per NEW finger
+  // landing (never for an already-tracked finger just moving), same as the
+  // web's fireShot firing once per real pointerdown.
+  const fireFromTouch = useCallback(
+    (pageX: number, pageY: number) => {
+      const x = pageX - rootWindowRef.current.x
+      const y = pageY - rootWindowRef.current.y
       const { x: impactX, y: impactY } = impactCenterRef.current
 
-      onTap()
+      const { amount, isLucky } = onTap()
 
       const dx = impactX - x
       const dy = impactY - y
       const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
       const id = nextShotId++
-      shotsRef.current.set(id, { id, startX: x, startY: y, dx, dy, angleDeg, impactX, impactY, displayAmount: 1 })
+      shotsRef.current.set(id, { id, startX: x, startY: y, dx, dy, angleDeg, impactX, impactY, displayAmount: amount, isLucky })
       setShotIds((prev) => [...prev, id])
     },
     [onTap],
   )
 
+  // Shared by onResponderGrant (the very first touch) and onResponderMove
+  // (every subsequent touch-count change while already the responder,
+  // including new fingers landing) — a touch only ever fires a shot the
+  // first time its identifier is seen; a move event carrying an
+  // already-tracked identifier is just that finger sliding, not a new tap.
+  const handleTouchesChanged = useCallback(
+    (e: GestureResponderEvent) => {
+      for (const touch of e.nativeEvent.changedTouches) {
+        const id = touch.identifier
+        if (activeTouchesRef.current.has(id)) continue
+        // Multidisparo's cap — a finger landing while the allowance is
+        // already full is ignored entirely, not queued for later.
+        if (activeTouchesRef.current.size >= multiShotValue) continue
+        activeTouchesRef.current.add(id)
+        fireFromTouch(touch.pageX, touch.pageY)
+      }
+    },
+    [fireFromTouch, multiShotValue],
+  )
+
+  const handleTouchesEnded = useCallback((e: GestureResponderEvent) => {
+    for (const touch of e.nativeEvent.changedTouches) {
+      activeTouchesRef.current.delete(touch.identifier)
+    }
+  }, [])
+
+  const handleTerminate = useCallback(() => {
+    activeTouchesRef.current.clear()
+  }, [])
+
   return (
-    <Pressable ref={rootRef} onPressIn={handlePressIn} className="flex-1">
+    <View
+      ref={rootRef}
+      style={{ flex: 1 }}
+      onStartShouldSetResponder={() => true}
+      onResponderGrant={handleTouchesChanged}
+      onResponderMove={handleTouchesChanged}
+      onResponderRelease={handleTouchesEnded}
+      onResponderTerminate={handleTerminate}
+    >
       {children}
 
       <View className="flex-1 items-center justify-center">
@@ -225,12 +276,12 @@ export function TapShootLayer({
             x={fx.x}
             y={fx.y}
             amount={fx.amount}
-            isLucky={false}
-            rippleColor={rippleColor}
+            isLucky={fx.isLucky}
+            rippleColor={fx.isLucky ? LUCKY_RIPPLE_COLOR : rippleColor}
             onDone={handleEffectDone}
           />
         )
       })}
-    </Pressable>
+    </View>
   )
 }

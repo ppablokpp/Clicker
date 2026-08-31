@@ -1,6 +1,7 @@
 import { ChartNoAxesCombined, Crosshair, Joystick, Split, Sparkles } from 'lucide-react-native'
 import { View } from 'react-native'
 import { useClickCounterContext } from '../../context/ClickCounterContext'
+import { useGemUpgradesContext } from '../../context/GemUpgradesContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { useTreeContext } from '../../context/TreeContext'
 import { MATERIAL_ABBREVIATIONS } from '../../lib/materialTiers'
@@ -11,15 +12,15 @@ import { ShipStatCard, ShipStatLine } from './ShipStatCard'
 
 // Ported from front/src/pages/Home.tsx's showShip panel (Centro de mando).
 // Both sections now read real numbers straight from TreeContext — the
-// "Tu nave" section's `shipPower`/`shipLuckChance` tiles are the one place
-// this is an approximation rather than the exact web formula: the web
-// multiplies in GemUpgradesContext's moneyMultiplier and an active timed
-// powerup's own luck bonus, neither of which is ported to mobile yet, so
-// those default to "not bought/active" (multiplier 1, no boost) rather
-// than being left out.
+// "Tu nave" section's `shipLuckChance` tile is still the one place this is
+// an approximation rather than the exact web formula: the web also folds
+// in an active *timed* luck powerup's own bonus, which isn't ported to
+// mobile yet (no Store), so that factor defaults to 1 rather than being
+// left out — `shipPower` itself is now exact (moneyMultiplier included).
 export function ShipModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { strings, language } = useLanguage()
   const { prestigeTier } = useClickCounterContext()
+  const { bestOwned } = useGemUpgradesContext()
   const {
     multiplierValue,
     tapMultiplierValue,
@@ -40,7 +41,8 @@ export function ShipModal({ visible, onClose }: { visible: boolean; onClose: () 
   const cpsUnit = `${MATERIAL_ABBREVIATIONS[prestigeTier]}/s`
   const currentMaterialName = strings.home.trajectoryTierNames[prestigeTier]
 
-  const shipPowerValue = multiplierValue * tapMultiplierValue
+  const moneyMultiplier = bestOwned?.multiplier ?? 1
+  const shipPowerValue = multiplierValue * tapMultiplierValue * moneyMultiplier
   const hasLuck = luckChance > 0
   const totalDroneProduction = autoClickCps + scoutDroneCps
 

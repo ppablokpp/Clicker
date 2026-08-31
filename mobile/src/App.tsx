@@ -12,6 +12,8 @@ import { useCallback, useEffect } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ClickCounterProvider } from './context/ClickCounterContext'
+import { GemUpgradesProvider } from './context/GemUpgradesContext'
+import { GemsProvider } from './context/GemsContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { TasksProvider } from './context/TasksContext'
 import { TreeProvider } from './context/TreeContext'
@@ -63,13 +65,17 @@ export default function App() {
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <LanguageProvider>
             <ClickCounterProvider>
-              <TreeProvider>
-                <TasksProvider>
-                  <NavigationContainer>
-                    <RootNavigator />
-                  </NavigationContainer>
-                </TasksProvider>
-              </TreeProvider>
+              <GemsProvider>
+                <GemUpgradesProvider>
+                  <TreeProvider>
+                    <TasksProvider>
+                      <NavigationContainer>
+                        <RootNavigator />
+                      </NavigationContainer>
+                    </TasksProvider>
+                  </TreeProvider>
+                </GemUpgradesProvider>
+              </GemsProvider>
             </ClickCounterProvider>
           </LanguageProvider>
         </ClerkProvider>

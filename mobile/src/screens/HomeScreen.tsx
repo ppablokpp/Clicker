@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useWindowDimensions, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { CockpitPanel } from '../components/home/CockpitPanel'
@@ -13,6 +13,7 @@ import { TapShootLayer } from '../components/home/TapShootLayer'
 import { TasksModal } from '../components/home/TasksModal'
 import { Starfield } from '../components/Starfield'
 import { useClickCounterContext } from '../context/ClickCounterContext'
+import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTasksContext } from '../context/TasksContext'
 import { useTreeContext } from '../context/TreeContext'
@@ -38,8 +39,18 @@ import { computePrestigeProgress } from '../lib/trajectory'
 export function HomeScreen() {
   const { strings, language } = useLanguage()
   const { totalClicks, lifetimePlatino, clicksPerSecond, prestigeTier, registerClick } = useClickCounterContext()
-  const { autoClickLevel, autoClickCps, scoutDroneLevel, scoutDroneCps, multiplierValue, tapMultiplierValue } =
-    useTreeContext()
+  const {
+    autoClickLevel,
+    autoClickCps,
+    scoutDroneLevel,
+    scoutDroneCps,
+    multiplierValue,
+    tapMultiplierValue,
+    multiShotValue,
+    luckChance,
+    luckMultiplier,
+  } = useTreeContext()
+  const { bestOwned } = useGemUpgradesContext()
   const { claimed: claimedTasks } = useTasksContext()
   const missions = useMissions()
   const { width, height } = useWindowDimensions()
@@ -47,6 +58,12 @@ export function HomeScreen() {
   const [showInventory, setShowInventory] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  // The popup only ever shows the carried-forward whole part (registerClick
+  // still gets the exact fractional `amount`) — same trick as the web's own
+  // popupCarryRef, so a sub-1 multiplier (e.g. ×0.5 somewhere) still nets
+  // out to the right total shown across many taps instead of always
+  // flooring to 0.
+  const popupCarryRef = useRef(0)
 
   const currentTierIndex = prestigeTier
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
@@ -57,23 +74,40 @@ export function HomeScreen() {
     [currentTierIndex, lifetimePlatino],
   )
   const heat = getHeatLevel(clicksPerSecond)
+  const moneyMultiplier = bestOwned?.multiplier ?? 1
   // Matches front/src/pages/Home.tsx's own header formula
   // (`autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier`).
-  // `totalMultiplier` there also folds in GemUpgradesContext's
-  // moneyMultiplier, an active powerup's multiplier, and the heat/legendary
-  // combo bonus — none of those are ported to mobile yet, so this is the
-  // real fleet rate plus manual output at the tree's own tap multipliers,
-  // not the full formula.
-  const totalMultiplier = multiplierValue * tapMultiplierValue
+  // The web's `totalMultiplier` also folds in an active click-multiplier
+  // powerup and the Milestones bonus/heat-legendary combo bonus — none of
+  // those are ported to mobile yet (no Store, no Stats), so this is
+  // everything real that's already here: the tree's own tap multipliers
+  // plus the gem-bought permanent multiplier.
+  const totalMultiplier = multiplierValue * tapMultiplierValue * moneyMultiplier
   const production = autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier
   const hasClaimableTask = missions.some((mission) =>
     mission.tiers.some((tier) => mission.progressValue >= tier.required && !claimedTasks.has(tier.id)),
   )
 
-  const handleTap = useCallback(() => {
-    registerClick(1)
+  // Called once per finger-down (TapShootLayer supports up to multiShotValue
+  // simultaneous shots) — returns the *display* amount (whole-numbered,
+  // carry-forward smoothed) so the caller can show the right "+N" on the
+  // shot that's about to fire, while registerClick still gets the exact
+  // fractional amount. Mirrors Home.tsx's own fireShot inline math exactly.
+  const handleTap = useCallback((): { amount: number; isLucky: boolean } => {
+    const hasLuck = luckChance > 0
+    const rolledLuckMultiplier = hasLuck && Math.random() < luckChance ? luckMultiplier : 1
+    const isLucky = rolledLuckMultiplier > 1
+    const amount = totalMultiplier * rolledLuckMultiplier
+
+    popupCarryRef.current += amount
+    const displayAmount = Math.floor(popupCarryRef.current)
+    popupCarryRef.current -= displayAmount
+
+    registerClick(amount, isLucky)
     playLaserShot()
-  }, [registerClick])
+
+    return { amount: displayAmount, isLucky }
+  }, [totalMultiplier, luckChance, luckMultiplier, registerClick])
 
   return (
     <SafeAreaView className="flex-1 bg-[#08080c]">
@@ -86,6 +120,7 @@ export function HomeScreen() {
         rippleColor={heat.ripple}
         autoClickLevel={autoClickLevel}
         scoutDroneLevel={scoutDroneLevel}
+        multiShotValue={multiShotValue}
         onTap={handleTap}
       >
         <View className="px-3 pt-2">

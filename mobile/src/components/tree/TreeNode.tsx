@@ -30,8 +30,10 @@ function TreeNodeImpl({
   const style = isLocked ? LOCKED_STYLE : FAMILY_STYLES[node.family]
   // Web only ever renders placeholder/unfinished-branch nodes (no buy
   // action) as a plain non-interactive div, at every reveal state — never
-  // a button, so tapping one here shouldn't open a modal either.
-  const isInteractive = !isLocked && node.buyKey !== undefined
+  // a button, so tapping one here shouldn't open a modal either. c1 (the
+  // gem-multiplier node) has no `buyKey` since its buy flow goes through
+  // GemUpgradesContext instead of TreeContext, but it's still a real node.
+  const isInteractive = !isLocked && (node.buyKey !== undefined || node.special !== undefined)
 
   return (
     <Pressable
