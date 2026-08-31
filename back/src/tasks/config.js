@@ -43,4 +43,12 @@ export const TASKS = [
   { id: 'first_anomaly', missionId: 'anomaly', tier: 1, type: 'counter', counterField: 'anomalies_neutralized', requiredCount: 1, reward: 5_000 },
   { id: 'anomaly_hunter', missionId: 'anomaly', tier: 2, type: 'counter', counterField: 'anomalies_neutralized', requiredCount: 5, reward: 10_000 },
   { id: 'sector_guardian', missionId: 'anomaly', tier: 3, type: 'counter', counterField: 'anomalies_neutralized', requiredCount: 15, reward: 20_000 },
+
+  // Mission: Encuentra destellos — counts real Destello procs (see
+  // migration 034_add_lucky_clicks_found.sql, added for exactly this task
+  // but never actually wired in here until now, which is why these three
+  // could never be claimed despite the frontend already showing progress).
+  { id: 'first_glimmers', missionId: 'lucky', tier: 1, type: 'counter', counterField: 'lucky_clicks_found', requiredCount: 100, reward: 5_000 },
+  { id: 'glimmer_streak', missionId: 'lucky', tier: 2, type: 'counter', counterField: 'lucky_clicks_found', requiredCount: 1_000, reward: 20_000 },
+  { id: 'glimmer_master', missionId: 'lucky', tier: 3, type: 'counter', counterField: 'lucky_clicks_found', requiredCount: 10_000, reward: 100_000 },
 ]

@@ -6,6 +6,7 @@ import { TASKS } from '../tasks/config.js'
 // column name should never be built from anything less than a fixed list.
 const COUNTER_COLUMNS = {
   anomalies_neutralized: 'anomalies_neutralized',
+  lucky_clicks_found: 'lucky_clicks_found',
 }
 
 export const tasksRepository = {
