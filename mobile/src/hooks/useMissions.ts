@@ -17,13 +17,17 @@ export interface Mission {
   missionId: string
   missionName: string
   icon: LucideIcon | typeof DroneIcon
-  badgeColor: string
+  /** Exact Tailwind `-500/20` background the web's badgeClass uses. */
+  badgeBg: string
+  /** Exact Tailwind `-300` text color the web's badgeClass uses. */
+  badgeText: string
   progressValue: number
   tiers: MissionTier[]
 }
 
 // Ported from front/src/pages/Home.tsx's inline `MISSIONS` array — same 5
-// missions, 3 escalating tiers each, same reward/required numbers. Progress
+// missions, 3 escalating tiers each, same reward/required numbers, same
+// exact `bg-{color}-500/20 text-{color}-300` badge colors. Progress
 // sources: autoClickLevel/scoutDroneLevel/multiShotValue come from
 // TreeContext (already ported), luckyClicksFound from ClickCounterContext
 // (already ported), anomaliesNeutralized from TasksContext — that one stays
@@ -40,7 +44,8 @@ export function useMissions(): Mission[] {
       missionId: 'drones',
       missionName: strings.home.missionDronesName,
       icon: DroneIcon,
-      badgeColor: 'rgba(167,139,250,0.2)',
+      badgeBg: 'rgba(139,92,246,0.2)',
+      badgeText: '#c4b5fd',
       progressValue: autoClickLevel,
       tiers: [
         { id: 'first_drone', name: strings.home.taskFirstDroneName, desc: strings.home.taskFirstDroneDesc, reward: 1_000, required: 1 },
@@ -52,7 +57,8 @@ export function useMissions(): Mission[] {
       missionId: 'scout',
       missionName: strings.home.missionScoutName,
       icon: DroneIcon,
-      badgeColor: 'rgba(251,191,36,0.2)',
+      badgeBg: 'rgba(245,158,11,0.2)',
+      badgeText: '#fcd34d',
       progressValue: scoutDroneLevel,
       tiers: [
         { id: 'first_scout_drone', name: strings.home.taskFirstScoutDroneName, desc: strings.home.taskFirstScoutDroneDesc, reward: 5_000, required: 1 },
@@ -64,7 +70,8 @@ export function useMissions(): Mission[] {
       missionId: 'lucky',
       missionName: strings.home.missionLuckyName,
       icon: Sparkles,
-      badgeColor: 'rgba(34,197,94,0.2)',
+      badgeBg: 'rgba(34,197,94,0.2)',
+      badgeText: '#86efac',
       progressValue: luckyClicksFound,
       tiers: [
         { id: 'first_glimmers', name: strings.home.taskFirstGlimmersName, desc: strings.home.taskFirstGlimmersDesc, reward: 5_000, required: 100 },
@@ -76,7 +83,8 @@ export function useMissions(): Mission[] {
       missionId: 'multishot',
       missionName: strings.home.missionMultiShotName,
       icon: Split,
-      badgeColor: 'rgba(6,182,212,0.2)',
+      badgeBg: 'rgba(6,182,212,0.2)',
+      badgeText: '#67e8f9',
       progressValue: multiShotValue,
       tiers: [
         { id: 'second_cannon', name: strings.home.taskSecondCannonName, desc: strings.home.taskSecondCannonDesc, reward: 2_000, required: 2 },
@@ -88,7 +96,8 @@ export function useMissions(): Mission[] {
       missionId: 'anomaly',
       missionName: strings.home.missionAnomalyName,
       icon: Orbit,
-      badgeColor: 'rgba(249,115,22,0.2)',
+      badgeBg: 'rgba(249,115,22,0.2)',
+      badgeText: '#fdba74',
       progressValue: anomaliesNeutralized,
       tiers: [
         { id: 'first_anomaly', name: strings.home.taskFirstAnomalyName, desc: strings.home.taskFirstAnomalyDesc, reward: 5_000, required: 1 },

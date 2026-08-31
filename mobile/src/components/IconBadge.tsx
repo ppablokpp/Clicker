@@ -19,6 +19,7 @@ export function IconBadge({
   background,
   gradientColors,
   borderColor,
+  rounded = 'full',
 }: {
   icon: ReactNode
   iconSize?: number
@@ -26,6 +27,8 @@ export function IconBadge({
   background?: string
   gradientColors?: [string, string]
   borderColor?: string
+  /** 'full' for a circle (most badges), a number for a rounded square (e.g. mission badges use the web's `rounded-lg`, 8). */
+  rounded?: 'full' | number
 }) {
   const size = iconSize + padding * 2
   return (
@@ -33,7 +36,7 @@ export function IconBadge({
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
+        borderRadius: rounded === 'full' ? size / 2 : rounded,
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',

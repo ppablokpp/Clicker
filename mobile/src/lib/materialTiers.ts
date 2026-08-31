@@ -88,3 +88,23 @@ export const MATERIAL_BUTTON_THEMES: readonly MaterialButtonTheme[] = [
     iconWrap: 'bg-gradient-to-br from-cyan-400/30 to-cyan-600/20 text-cyan-200',
   },
 ] as const
+
+export interface MaterialPillColors {
+  border: string
+  background: string
+  text: string
+}
+
+// Explicit RN color equivalents of MATERIAL_BUTTON_THEMES[i].pill above
+// (`border-{c}-400/20 bg-{c}-500/[0.07] text-{c}-200`) — NativeWind doesn't
+// reliably apply that Tailwind string's arbitrary-opacity utility
+// (`bg-{c}-500/[0.07]`) through a className prop the way a browser would,
+// so anything that needs this exact pill styling on native (the Tasks
+// claim button, for now) should use this instead of the className string.
+export const MATERIAL_PILL_COLORS: readonly MaterialPillColors[] = [
+  { border: 'rgba(167,139,250,0.2)', background: 'rgba(139,92,246,0.07)', text: '#ddd6fe' }, // Amatista
+  { border: 'rgba(148,163,184,0.2)', background: 'rgba(100,116,139,0.07)', text: '#e2e8f0' }, // Platino
+  { border: 'rgba(52,211,153,0.2)', background: 'rgba(16,185,129,0.07)', text: '#a7f3d0' }, // Esmeralda
+  { border: 'rgba(250,204,21,0.2)', background: 'rgba(234,179,8,0.07)', text: '#fef08a' }, // Oro
+  { border: 'rgba(34,211,238,0.2)', background: 'rgba(6,182,212,0.07)', text: '#a5f3fc' }, // Diamante
+] as const
