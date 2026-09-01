@@ -308,10 +308,28 @@ export function useClickCounter() {
     }
   }, [flush])
 
+  // `flush` isn't a stable reference (it depends on `getToken`, which Clerk
+  // hands back fresh every render, and this hook's own state updates on
+  // every tap/tick re-render it) — routed through a ref for the same reason
+  // TreeContext's own poll now is: putting `flush` directly in an
+  // interval/listener effect's deps would tear it down and re-subscribe on
+  // every one of those re-renders instead of ever letting it run
+  // undisturbed. This one is *not* just wasteful housekeeping like the web
+  // version's own equivalent comment says — on RN, the AppState effect
+  // below was actually re-subscribing (and its cleanup firing a real
+  // flush()) roughly every TICK_INTERVAL_MS while any auto-click production
+  // was active, i.e. dozens of times more often than the intended 30s
+  // cadence, quietly defeating the one-chunk-per-tick burst limit runFlush
+  // is built around.
+  const flushRef = useRef(flush)
   useEffect(() => {
-    const interval = setInterval(flush, FLUSH_INTERVAL_MS)
-    return () => clearInterval(interval)
+    flushRef.current = flush
   }, [flush])
+
+  useEffect(() => {
+    const interval = setInterval(() => flushRef.current(), FLUSH_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [])
 
   // Persists the *unflushed* buffer only — the confirmed total always comes
   // fresh from the server on load, so there's nothing to gain persisting it
@@ -347,7 +365,7 @@ export function useClickCounter() {
           peakCps: peakCpsRef.current,
         })
       }
-      flush()
+      flushRef.current()
     }
     const onChange = (state: AppStateStatus) => {
       if (state !== 'active') onBackground()
@@ -357,7 +375,7 @@ export function useClickCounter() {
       sub.remove()
       onBackground()
     }
-  }, [flush, userId])
+  }, [userId])
 
   const registerClick = useCallback(
     (amount = 1, isLucky = false) => {

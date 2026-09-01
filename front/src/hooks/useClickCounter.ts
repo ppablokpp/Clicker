@@ -161,29 +161,6 @@ export function useClickCounter() {
     }
   }, [userId, getToken, updateObjectDisplay])
 
-  // Replays whatever didn't make it to the server before the app last
-  // closed (see pendingClicksStorage.ts) — e.g. a crash, a killed tab, power
-  // loss, anything that skips the visibilitychange/pagehide flush below.
-  // Assignment (`=`), not addition: this only ever runs once per sign-in,
-  // while every pending ref is still at its freshly-initialized 0, so it's
-  // naturally idempotent against React StrictMode's dev-only double-invoke
-  // of effects (running it twice sets the same values both times instead of
-  // double-counting a phantom extra flush's worth of clicks).
-  useEffect(() => {
-    if (!userId) return
-    const persisted = loadPendingClicks(userId)
-    if (!persisted) return
-    pendingRef.current = persisted.pending
-    pendingRealClicksRef.current = persisted.pendingRealClicks
-    pendingLuckyHitsRef.current = persisted.pendingLuckyHits
-    peakCpsRef.current = Math.max(peakCpsRef.current, persisted.peakCps)
-    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
-    if (persisted.pendingLuckyHits > 0) {
-      setLuckyClicksFound(confirmedLuckyHitsRef.current + pendingLuckyHitsRef.current)
-    }
-    updateObjectDisplay()
-  }, [userId, updateObjectDisplay])
-
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
@@ -297,10 +274,54 @@ export function useClickCounter() {
     }
   }, [flush])
 
+  // Replays whatever didn't make it to the server before the app last
+  // closed (see pendingClicksStorage.ts) — e.g. a crash, a killed tab, power
+  // loss, anything that skips the visibilitychange/pagehide flush below —
+  // then immediately tries to sync it, instead of leaving it to sit until
+  // the next periodic tick (up to FLUSH_INTERVAL_MS away). A cold launch
+  // should reconcile with the server almost immediately, not display a
+  // locally-inflated total for up to 30s before anyone can tell whether
+  // it's caught up or not. Assignment (`=`), not addition: this only ever
+  // runs once per sign-in, while every pending ref is still at its
+  // freshly-initialized 0, so it's naturally idempotent against React
+  // StrictMode's dev-only double-invoke of effects (running it twice sets
+  // the same values both times instead of double-counting a phantom extra
+  // flush's worth of clicks).
   useEffect(() => {
-    const interval = setInterval(flush, FLUSH_INTERVAL_MS)
-    return () => clearInterval(interval)
+    if (!userId) return
+    const persisted = loadPendingClicks(userId)
+    if (!persisted) return
+    pendingRef.current = persisted.pending
+    pendingRealClicksRef.current = persisted.pendingRealClicks
+    pendingLuckyHitsRef.current = persisted.pendingLuckyHits
+    peakCpsRef.current = Math.max(peakCpsRef.current, persisted.peakCps)
+    setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+    if (persisted.pendingLuckyHits > 0) {
+      setLuckyClicksFound(confirmedLuckyHitsRef.current + pendingLuckyHitsRef.current)
+    }
+    updateObjectDisplay()
+    void flushNow()
+  }, [userId, updateObjectDisplay, flushNow])
+
+  // `flush` isn't a stable reference (it depends on `getToken`, which Clerk
+  // hands back fresh every render, and this hook's own state updates on
+  // every tap/tick re-render it) — routed through a ref for the same reason
+  // TreeContext's own poll now is: putting `flush` directly in an
+  // interval/listener effect's deps would tear it down and re-subscribe on
+  // every one of those re-renders instead of ever letting it run
+  // undisturbed. Harmless today only because `flush` itself already
+  // de-dupes concurrent calls via flushPromiseRef; still wasteful to
+  // reconstruct the timer and the visibilitychange/pagehide listeners below
+  // that often, so it's fixed the same way regardless.
+  const flushRef = useRef(flush)
+  useEffect(() => {
+    flushRef.current = flush
   }, [flush])
+
+  useEffect(() => {
+    const interval = setInterval(() => flushRef.current(), FLUSH_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [])
 
   // Persists the *unflushed* buffer only — the confirmed total always comes
   // fresh from the server on load, so there's nothing to gain persisting it
@@ -331,7 +352,7 @@ export function useClickCounter() {
           peakCps: peakCpsRef.current,
         })
       }
-      flush()
+      flushRef.current()
     }
     document.addEventListener('visibilitychange', onHide)
     window.addEventListener('pagehide', onHide)
@@ -340,7 +361,7 @@ export function useClickCounter() {
       window.removeEventListener('pagehide', onHide)
       onHide()
     }
-  }, [flush, userId])
+  }, [userId])
 
   const registerClick = useCallback(
     (amount = 1, isLucky = false) => {

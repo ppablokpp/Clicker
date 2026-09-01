@@ -227,8 +227,19 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     cpsRef.current = state.autoClickCps + state.scoutDroneCps
   }, [state.autoClickCps, state.scoutDroneCps])
 
+  // Guards against overlapping calls the same way useClickCounter's own
+  // flush() does — needed specifically because the effect below that
+  // schedules this on a timer can't be trusted to only ever have one
+  // in-flight at a time (see that effect's own comment for why), and unlike
+  // flush()'s /increment, this hits accrueAndGetState's SELECT ... FOR
+  // UPDATE — several overlapping calls for the same user queue up on that
+  // row lock instead of just wasting a request, and none of them ever
+  // resolves in reasonable time.
+  const fetchInFlightRef = useRef(false)
+
   const fetchState = useCallback(async () => {
-    if (!userId) return
+    if (!userId || fetchInFlightRef.current) return
+    fetchInFlightRef.current = true
     try {
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/me`, {
@@ -307,15 +318,36 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       console.error('No se pudo cargar el estado del árbol', err)
+    } finally {
+      fetchInFlightRef.current = false
     }
   }, [userId, getToken, syncTotalClicksIfNewer, syncObjectState])
 
+  // `fetchState` itself is *not* a stable reference — it (like almost every
+  // callback here) depends on `getToken`, which Clerk hands back as a fresh
+  // function on every render, and this provider re-renders constantly while
+  // any auto-click production is active (tickAutoClicks below updates
+  // totalClicks every TICK_INTERVAL_MS, and that flows through
+  // ClickCounterContext's own memoized value, whose reference then changes
+  // on the same cadence, re-rendering every consumer — including this
+  // provider). Putting `fetchState` in this effect's own deps would tear
+  // down and restart the interval on every one of those re-renders — i.e.
+  // every ~100ms, forever — so the 30s poll would never survive long enough
+  // to actually fire. Routing through a ref sidesteps that entirely: the
+  // interval itself is set up exactly once (empty deps) and always calls
+  // whatever the *latest* fetchState closure is via the ref, regardless of
+  // how often that closure's identity changes.
+  const fetchStateRef = useRef(fetchState)
+  useEffect(() => {
+    fetchStateRef.current = fetchState
+  }, [fetchState])
+
   useEffect(() => {
     if (!userId) return
-    fetchState()
-    const interval = setInterval(fetchState, POLL_INTERVAL_MS)
+    fetchStateRef.current()
+    const interval = setInterval(() => fetchStateRef.current(), POLL_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [userId, fetchState])
+  }, [userId])
 
   // Smooth local prediction between the infrequent real polls above — pure
   // display, reconciled every time a real poll or purchase lands (whichever

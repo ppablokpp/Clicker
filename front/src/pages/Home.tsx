@@ -562,11 +562,20 @@ const OrbitingBots = memo(function OrbitingBots({
                   delay, so the icon itself stays visually level instead of
                   tumbling around its own axis as it orbits. */}
               <div className={clockwise ? 'drone-spin-ccw' : 'drone-spin-cw'} style={orbitVars}>
-                <div
-                  className={`drone-pulse ${colorClass}`}
-                  style={{ ...pulseDelayVar, filter: `drop-shadow(0 0 6px ${glowColor})` }}
-                >
-                  <DroneIcon size={20} animated />
+                {/* Glow lives on this *static* wrapper, not on the element
+                    that actually scales below — a `filter: drop-shadow`
+                    traces the exact alpha silhouette of whatever it's
+                    applied to, so putting it directly on the pulsing
+                    (scale+opacity, forever) element forced the browser to
+                    recompute that filter every single frame, for every
+                    drone, continuously, regardless of any tap. Here the
+                    filter's own input geometry never changes — only its
+                    *child* pulses — which lets the browser composite the
+                    already-filtered layer instead of re-filtering it. */}
+                <div style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}>
+                  <div className={`drone-pulse ${colorClass}`} style={pulseDelayVar}>
+                    <DroneIcon size={20} animated />
+                  </div>
                 </div>
               </div>
 
@@ -1467,15 +1476,24 @@ export function Home() {
                     <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
                       {strings.home.hudPlatinoLabel(currentMaterialName)}
                     </span>
-                    <motion.span
-                      key={totalClicks}
-                      initial={{ scale: 1 }}
-                      animate={{ scale: [1.06, 1] }}
-                      transition={{ duration: 0.18, ease: 'easeOut' }}
-                      className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 [filter:drop-shadow(0_0_18px_rgba(167,139,250,0.25))] sm:text-5xl"
-                    >
+                    {/* Was a motion.span keyed on totalClicks, with a
+                        scale-pop animation on every change — totalClicks
+                        changes every tap AND every ~100ms straight while
+                        any auto-click production is running (see
+                        TreeContext's own local tick), so a `key` change
+                        that often meant React fully unmounting and
+                        remounting this element, retriggering Framer's
+                        animation *and* forcing the browser to recompute the
+                        drop-shadow filter below (which traces the actual
+                        digit shapes, themselves also changing) — all three
+                        at once, continuously, just from owning any drones,
+                        no tapping needed. A plain span still updates
+                        instantly on every change; it just doesn't restart
+                        an animation that was too fast to read as a "pop"
+                        anyway at that cadence. */}
+                    <span className="bg-clip-text text-center font-[Space_Grotesk] text-4xl font-bold leading-none tabular-nums text-transparent bg-gradient-to-b from-white to-neutral-400 [filter:drop-shadow(0_0_18px_rgba(167,139,250,0.25))] sm:text-5xl">
                       {formatPlatino(totalClicks, language)}
-                    </motion.span>
+                    </span>
                   </div>
                 </div>
 

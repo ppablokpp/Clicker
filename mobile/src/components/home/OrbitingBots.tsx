@@ -160,9 +160,11 @@ function OrbitingBotsImpl({
 }) {
   // One flicker driver for every drone in this swarm — see DroneIcon.tsx.
   // Called unconditionally (before the `count <= 0` bail-out below) since
-  // hooks can't be called conditionally; the cost of one idle shared value
-  // when there's nothing to render is negligible.
-  const flicker = useDroneRotorFlicker()
+  // hooks can't be called conditionally, but `active` (not just calling the
+  // hook itself) is what actually gates whether its animation loop runs —
+  // a real fast-cycling animation, not a free idle value, so it must not
+  // run for a swarm of zero drones.
+  const flicker = useDroneRotorFlicker(count > 0)
 
   if (count <= 0) return null
   return (

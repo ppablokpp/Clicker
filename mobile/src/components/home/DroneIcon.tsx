@@ -77,11 +77,18 @@ export const DroneIcon = memo(DroneIconImpl)
 
 // One shared flicker driver per swarm — call once in OrbitingBots and hand
 // the returned shared value to every Drone/DroneIcon in that swarm.
-export function useDroneRotorFlicker() {
+// `active` gates whether the loop actually runs: OrbitingBots calls this
+// unconditionally (hooks can't be called conditionally) even when its own
+// `count` is 0 and nothing will ever render with this value — without this
+// gate, that meant a real animation (a fast 160ms cycle, not just an idle
+// shared value) running forever for a swarm of *zero* drones, twice over
+// (Home mounts one OrbitingBots for auto-click drones and one for scout
+// drones, so a fresh account with neither owned still had two of these spinning).
+export function useDroneRotorFlicker(active: boolean) {
   const flicker = useSharedValue(0.15)
   useEffect(() => {
+    if (!active) return
     flicker.value = withRepeat(withSequence(withTiming(0.42, { duration: 80 }), withTiming(0.15, { duration: 80 })), -1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [active, flicker])
   return flicker
 }
