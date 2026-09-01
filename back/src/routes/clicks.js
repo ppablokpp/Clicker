@@ -10,7 +10,11 @@ export const clicksRouter = Router()
 // flush that got delayed a few seconds, legitimate bursts add up fast. The
 // frontend chunks anything bigger than this into multiple requests, so this
 // is purely an anti-abuse ceiling per request, not a hard cap on a session.
-const MAX_CLICKS_PER_REQUEST = 5000
+// Was 5000, sized for the old 1s flush cadence — scaled up 30x to match the
+// client's own flush interval going from 1s to 30s (see useClickCounter.ts),
+// so a normal active session at high multipliers still fits in a single
+// chunk instead of routinely needing several back to back.
+const MAX_CLICKS_PER_REQUEST = 150_000
 const MAX_CPS = 1000
 
 clicksRouter.get('/me', async (req, res) => {

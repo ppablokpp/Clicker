@@ -25,7 +25,7 @@ const CPS_WINDOW_MS = 2000
 // backend rejects a single increment larger than this, so flush() has to
 // split anything bigger into several requests instead of sending it all at
 // once (high multipliers can pile up thousands of pending clicks between ticks).
-const MAX_CLICKS_PER_REQUEST = 5000
+const MAX_CLICKS_PER_REQUEST = 150_000
 
 /**
  * The database is the source of truth for where the count *starts*, but the
@@ -95,7 +95,7 @@ export function useClickCounter() {
   // rather than the old boolean-guard's silent no-op, which would have let
   // a purchase fire against a stale total while a periodic flush happened
   // to already be in flight.
-  const flushPromiseRef = useRef<Promise<void> | null>(null)
+  const flushPromiseRef = useRef<Promise<boolean> | null>(null)
   const peakCpsRef = useRef(0)
   // Lets a case-opening reel hide the real total behind its reveal
   // animation instead of letting an unrelated background sync (e.g.
@@ -197,59 +197,54 @@ export function useClickCounter() {
     return () => clearInterval(interval)
   }, [])
 
-  // The actual network flush — factored out of `flush` so `flush` itself
-  // can stay a thin "join the in-flight one, or start a new one" wrapper
-  // (see flushPromiseRef's own comment for why that distinction matters now
-  // that purchases need to force a flush and *wait* for it).
-  const runFlush = useCallback(async () => {
-    if (pendingRef.current === 0 || !userId) return
+  // Sends AT MOST one <=MAX_CLICKS_PER_REQUEST chunk — deliberately never
+  // loops internally. A rapid-tapping session with high multipliers can
+  // pile up well over 5000 "amount" within one 30s window; looping here
+  // would fire several increment requests back to back the moment that
+  // happens, visible in the network tab as a sudden burst and real,
+  // sustained JS-thread work competing with the very tapping that caused
+  // it (worse on mobile, where each such request also drags in a handful of
+  // setState calls). Returns whether it actually succeeded (or had nothing
+  // to do) — `flushNow` below uses that to know whether it's safe to try
+  // another chunk or should give up.
+  const runFlushChunk = useCallback(async (): Promise<boolean> => {
+    if (pendingRef.current === 0 || !userId) return true
     try {
       const token = await getToken()
-      // Drains everything in <=MAX_CLICKS_PER_REQUEST chunks within this one
-      // flush call — otherwise a single burst bigger than the cap would get
-      // rejected every tick forever, since pendingRef only grows and never
-      // shrinks on failure. At a 30s cadence this loop running more than
-      // once is rare (only a genuinely huge burst), but leaving any part of
-      // it stranded until the *next* 30s tick would mean it sits unflushed
-      // (and unspendable — see flushNow) for far longer than before.
-      while (pendingRef.current > 0) {
-        const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
-        const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
-        const luckyHitsSent = Math.min(pendingLuckyHitsRef.current, realClicksSent)
-        const res = await fetch(`${API_URL}/api/clicks/increment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            amount: amountSent,
-            realClicks: realClicksSent,
-            luckyHits: luckyHitsSent,
-            peakCps: peakCpsRef.current,
-            localDate: toLocalDateString(new Date()),
-          }),
-          keepalive: true,
-        })
-        if (!res.ok) break // stays in pendingRef, retried next tick
-        const data = await res.json()
-        confirmedRef.current = data.totalClicks
-        pendingRef.current -= amountSent
-        pendingRealClicksRef.current -= realClicksSent
-        pendingLuckyHitsRef.current -= luckyHitsSent
-        setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
-        if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
-        if (typeof data.keys === 'number') setLatestKeys(data.keys)
-        if (typeof data.gems === 'number') setLatestGems(data.gems)
-        if (typeof data.luckyClicksFound === 'number') {
-          confirmedLuckyHitsRef.current = data.luckyClicksFound
-          setLuckyClicksFound(data.luckyClicksFound)
-        }
-        if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
-        if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
-        updateObjectDisplay()
+      const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
+      const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
+      const luckyHitsSent = Math.min(pendingLuckyHitsRef.current, realClicksSent)
+      const res = await fetch(`${API_URL}/api/clicks/increment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          amount: amountSent,
+          realClicks: realClicksSent,
+          luckyHits: luckyHitsSent,
+          peakCps: peakCpsRef.current,
+          localDate: toLocalDateString(new Date()),
+        }),
+        keepalive: true,
+      })
+      if (!res.ok) return false // stays in pendingRef, retried next tick
+      const data = await res.json()
+      confirmedRef.current = data.totalClicks
+      pendingRef.current -= amountSent
+      pendingRealClicksRef.current -= realClicksSent
+      pendingLuckyHitsRef.current -= luckyHitsSent
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+      if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
+      if (typeof data.keys === 'number') setLatestKeys(data.keys)
+      if (typeof data.gems === 'number') setLatestGems(data.gems)
+      if (typeof data.luckyClicksFound === 'number') {
+        confirmedLuckyHitsRef.current = data.luckyClicksFound
+        setLuckyClicksFound(data.luckyClicksFound)
       }
-      // Fully drained (or the loop broke out early on a failed request,
-      // leaving something in pendingRef on purpose) — either way, whatever
-      // localStorage currently holds is stale; this reconciles it to match
-      // reality instead of waiting for the next 5s persist tick.
+      if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
+      if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
+      updateObjectDisplay()
+      // Whatever localStorage currently holds is now stale — reconcile it
+      // to match reality instead of waiting for the next 5s persist tick.
       if (userId) {
         savePendingClicks(userId, {
           pending: pendingRef.current,
@@ -258,34 +253,49 @@ export function useClickCounter() {
           peakCps: peakCpsRef.current,
         })
       }
+      return true
     } catch (err) {
       console.error('No se pudo guardar el progreso de clicks', err)
+      return false
     }
   }, [userId, getToken, updateObjectDisplay])
 
-  // The exposed flush entry point — safe to call concurrently from multiple
-  // places (the periodic timer, a purchase's flushNow, the tab-hide
+  // The periodic/background flush entry point — safe to call concurrently
+  // from multiple places (the 30s timer, flushNow below, the tab-hide
   // handler): a second caller while one's already running joins the same
-  // promise instead of firing a duplicate overlapping request.
-  const flush = useCallback(() => {
+  // promise instead of firing a duplicate overlapping request. Always sends
+  // at most one chunk (see runFlushChunk) — this is the "keep the buffer
+  // roughly caught up" call, not a "guarantee it's fully caught up" one.
+  const flush = useCallback((): Promise<boolean> => {
     if (!flushPromiseRef.current) {
-      flushPromiseRef.current = runFlush().finally(() => {
+      flushPromiseRef.current = runFlushChunk().finally(() => {
         flushPromiseRef.current = null
       })
     }
     return flushPromiseRef.current
-  }, [runFlush])
+  }, [runFlushChunk])
 
   // For any action whose own request checks a click-derived balance or
   // threshold server-side (buying a tree node, claiming a task/milestone,
-  // paying a battle wager...) — forces the local buffer to the server
-  // *before* that action's own request fires, so it never gets evaluated
-  // against a total that's up to FLUSH_INTERVAL_MS stale. Never throws:
-  // `flush`/`runFlush` already swallow their own errors, so a network
-  // hiccup here just means the action proceeds against the last-known
-  // total (the same behavior every action already had before this existed),
-  // not that the action becomes impossible.
-  const flushNow = useCallback(() => flush(), [flush])
+  // paying a battle wager...) — forces the local buffer to be *fully*
+  // caught up with the server before that action's own request fires, so
+  // it never gets evaluated against a total that's stale by any amount.
+  // Unlike the periodic `flush()` (capped to one chunk per call, so normal
+  // play never bursts several requests at once), this repeatedly calls
+  // `flush()` — transparently joining whatever's already in flight each
+  // time — until nothing's left pending. That loop is limited only by
+  // network round-trip time, not FLUSH_INTERVAL_MS, so it stays fast even
+  // for a large backlog; it gives up (rather than spinning forever hammering
+  // a dead network) the moment a chunk actually fails, and never throws —
+  // a network hiccup here just means the action proceeds against the
+  // last-known total (the same behavior every action already had before
+  // this existed), not that the action becomes impossible.
+  const flushNow = useCallback(async () => {
+    while (pendingRef.current > 0) {
+      const ok = await flush()
+      if (!ok) break
+    }
+  }, [flush])
 
   useEffect(() => {
     const interval = setInterval(flush, FLUSH_INTERVAL_MS)
