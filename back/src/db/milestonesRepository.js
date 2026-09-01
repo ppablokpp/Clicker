@@ -1,6 +1,7 @@
 import { database } from './pool.js'
 import { STAT_CATEGORIES, MILESTONE_REWARD_TIERS, getMilestoneTierIndex } from '../stats/config.js'
 import { getPowerup } from '../powerups/catalog.js'
+import { accrueProduction } from './treeRepository.js'
 
 export const milestonesRepository = {
   async getClaimed(userId) {
@@ -26,6 +27,16 @@ export const milestonesRepository = {
     try {
       await client.query('BEGIN')
 
+      // total_clicks (one of the three possible statColumns below) only
+      // advances when this runs (see treeRepository.js's accrueProduction)
+      // — force it first so a milestone just reached via unflushed drone
+      // production isn't wrongly rejected as not-yet-reached.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+
       const userResult = await client.query(
         `SELECT total_clicks, best_cps, longest_streak, milestone_bonus_multiplier
          FROM users WHERE id = $1 FOR UPDATE`,
@@ -36,6 +47,7 @@ export const milestonesRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      user.total_clicks = accrued.totalClicks
 
       const statValue = Number(user[category.statColumn])
       if (statValue < milestone) {

@@ -1,5 +1,6 @@
 import { database } from './pool.js'
 import { BATTLE_WAGER } from '../game/battles.js'
+import { accrueProduction } from './treeRepository.js'
 
 export const battlesRepository = {
   // The "pick an opponent" list — same shape as the leaderboard query,
@@ -104,14 +105,16 @@ export const battlesRepository = {
         return { ok: false, reason: 'opponent-not-found' }
       }
 
-      const challengerRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [
-        challengerId,
-      ])
-      if (!challengerRow.rows[0]) {
+      // The wager is deducted in clicks, and total_clicks only advances
+      // when this runs (see treeRepository.js's accrueProduction) — force
+      // it first so the challenge isn't wrongly rejected against a total
+      // that's up to 30s stale.
+      const accrued = await accrueProduction(client, challengerId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
-      if (Number(challengerRow.rows[0].total_clicks) < BATTLE_WAGER) {
+      if (accrued.totalClicks < BATTLE_WAGER) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-clicks' }
       }
@@ -165,8 +168,14 @@ export const battlesRepository = {
         return { ok: false, reason: 'wrong-state' }
       }
 
-      const userRow = await client.query('SELECT total_clicks FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (Number(userRow.rows[0].total_clicks) < Number(battle.wager)) {
+      // Same reasoning as challenge() above — force pending drone
+      // production to be credited before checking the wager.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (accrued.totalClicks < Number(battle.wager)) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-clicks' }
       }

@@ -62,13 +62,155 @@ function scaleCost(cost, prestigeTier) {
 // Centro de mando times how long you were gone is the number you get.
 const AWAY_THRESHOLD_SECONDS = 20
 
-// Shared by accrueAndGetState and buyAutoClickLevel, which both run this
-// exact same accrual math before doing anything else.
+// Shared by every accrual call below.
 function accrueWhole(remainder, seconds, currentCps, offlineRate) {
   const rate = seconds > AWAY_THRESHOLD_SECONDS ? offlineRate : 1
   const raw = remainder + seconds * currentCps * rate
   const whole = Math.floor(raw)
   return { whole, remainder: raw - whole }
+}
+
+// Credits whatever the auto-click/scout-drone production has produced since
+// it was last accrued, using the caller's *already open* transaction
+// `client` (so this participates in the same lock/commit as whatever the
+// caller does next) — returns null if the user doesn't exist, otherwise the
+// fresh totals plus the rate components a couple of buy endpoints need for
+// their own response (autoClickCps etc.), so they don't have to re-query
+// them separately.
+//
+// Every endpoint below that checks total_clicks (or a field derived from
+// it) against a cost/threshold calls this FIRST, before its own read of
+// that balance — total_clicks only actually reflects production up to
+// whenever this last ran (a poll, or another such call), so skipping this
+// step means checking a total that can be stale by up to
+// TreeContext.POLL_INTERVAL_MS (30s) worth of drone output, which is
+// plenty for a legitimate purchase to get wrongly rejected as
+// "not-enough-clicks" even though the player's own screen shows enough.
+//
+// This used to be duplicated inline in accrueAndGetState AND (a second,
+// subtly different copy that forgot to reset the timer — see below) in
+// buyAutoClickLevel; every other buy endpoint didn't run it at all. Both
+// problems are fixed by having every one of them call this single
+// implementation instead.
+export async function accrueProduction(client, userId) {
+  const userRow = await client.query(
+    'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
+    [userId],
+  )
+  if (!userRow.rows[0]) return null
+  let objectsBroken = Number(userRow.rows[0].objects_broken)
+  let objectProgress = Number(userRow.rows[0].object_progress)
+  let totalClicks = Number(userRow.rows[0].total_clicks)
+  const prestigeTier = Number(userRow.rows[0].prestige_tier)
+
+  const nodeRow = await client.query(
+    `SELECT level, last_tick_at, remainder FROM user_permanent_upgrades
+     WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, AUTOCLICK_NODE_ID],
+  )
+  const node = nodeRow.rows[0] ?? { level: 0, last_tick_at: null, remainder: 0 }
+  const autoClickLevel = Number(node.level)
+
+  // Scout drones affect the cps this credits at (they share Autoclick's own
+  // timer — see the comment on user_permanent_upgrades' last_tick_at/
+  // remainder columns), so their rate has to be read here regardless of
+  // whether there's anything to credit yet.
+  const scoutDroneRow = await client.query(
+    `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, SCOUT_DRONE_NODE_ID],
+  )
+  const scoutDroneLevel = Number(scoutDroneRow.rows[0]?.level ?? 0)
+
+  const scoutFrequencyRow = await client.query(
+    `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, SCOUT_FREQUENCY_NODE_ID],
+  )
+  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0))
+
+  const autoMultiplierRow = await client.query(
+    `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, AUTO_MULTIPLIER_NODE_ID],
+  )
+  const sobrecargaPerDroneRate =
+    autoMultiplierValue(Number(autoMultiplierRow.rows[0]?.level ?? 0)) * prestigeTierMultiplier(prestigeTier)
+
+  const reactorRow = await client.query(
+    `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, PRESTIGE_REACTOR_NODE_ID],
+  )
+  const reactorMultiplier = prestigeReactorValue(Number(reactorRow.rows[0]?.level ?? 0))
+
+  const offlineProductionRow = await client.query(
+    `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, OFFLINE_PRODUCTION_NODE_ID],
+  )
+  const offlineRate = offlineProductionValue(Number(offlineProductionRow.rows[0]?.level ?? 0))
+
+  let creditedThisCall = 0
+
+  if (autoClickLevel > 0 && node.last_tick_at) {
+    const currentCps = (autoClickLevel * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
+    const elapsed = await client.query('SELECT EXTRACT(EPOCH FROM (now() - $1::timestamptz)) AS seconds', [
+      node.last_tick_at,
+    ])
+    const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
+    const { whole, remainder } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
+    creditedThisCall = whole
+
+    if (whole > 0) {
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks + $2, object_progress = object_progress + $2,
+             lifetime_platino = lifetime_platino + $2
+         WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
+        [userId, whole],
+      )
+      totalClicks = Number(updated.rows[0].total_clicks)
+      const objectResult = applyObjectProgress(
+        Number(updated.rows[0].objects_broken),
+        0,
+        Number(updated.rows[0].object_progress),
+      )
+      objectsBroken = objectResult.objectsBroken
+      objectProgress = objectResult.objectProgress
+      if (objectResult.broken > 0) {
+        await client.query('UPDATE users SET objects_broken = $2, object_progress = $3 WHERE id = $1', [
+          userId,
+          objectsBroken,
+          objectProgress,
+        ])
+      }
+    }
+
+    // Always resets the clock, whether or not `whole` was > 0 — this is the
+    // step buyAutoClickLevel's own old inline copy skipped, which let the
+    // *next* accrual (a poll, or another buy) re-credit this same elapsed
+    // span all over again, at whatever the (possibly just-increased) rate
+    // was by then.
+    await client.query(
+      `UPDATE user_permanent_upgrades SET last_tick_at = now(), remainder = $3
+       WHERE user_id = $1 AND upgrade_id = $2`,
+      [userId, AUTOCLICK_NODE_ID, remainder],
+    )
+  }
+
+  return {
+    totalClicks,
+    prestigeTier,
+    objectsBroken,
+    objectProgress,
+    creditedThisCall,
+    autoClickLevel,
+    scoutDroneLevel,
+    scoutFrequencyLevel: Number(scoutFrequencyRow.rows[0]?.level ?? 0),
+    scoutDroneRate,
+    autoMultiplierLevel: Number(autoMultiplierRow.rows[0]?.level ?? 0),
+    sobrecargaPerDroneRate,
+    reactorLevel: Number(reactorRow.rows[0]?.level ?? 0),
+    reactorMultiplier,
+    offlineProductionLevel: Number(offlineProductionRow.rows[0]?.level ?? 0),
+    offlineRate,
+  }
 }
 
 export const treeRepository = {
@@ -81,28 +223,35 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query(
-        'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
-        [userId],
-      )
-      if (!userRow.rows[0]) {
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return null
       }
-      let objectsBroken = Number(userRow.rows[0].objects_broken)
-      let objectProgress = Number(userRow.rows[0].object_progress)
+      const {
+        totalClicks,
+        objectsBroken,
+        objectProgress,
+        creditedThisCall,
+        autoClickLevel: level,
+        scoutDroneLevel,
+        scoutFrequencyLevel,
+        scoutDroneRate,
+        autoMultiplierLevel,
+        sobrecargaPerDroneRate,
+        reactorLevel,
+        reactorMultiplier,
+        offlineProductionLevel,
+        offlineRate,
+      } = accrued
+      // Shim so every `userRow.rows[0].prestige_tier` reference below
+      // (there are many, in the returned response payload) keeps working
+      // unchanged.
+      const userRow = { rows: [{ prestige_tier: accrued.prestigeTier }] }
 
-      const nodeRow = await client.query(
-        `SELECT level, last_tick_at, remainder FROM user_permanent_upgrades
-         WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTOCLICK_NODE_ID],
-      )
-      const node = nodeRow.rows[0] ?? { level: 0, last_tick_at: null, remainder: 0 }
-      const level = Number(node.level)
-
-      // Suerte's other child (Fortuna) and its own child (Azar) — read
-      // before the accrual below since they change the effective cps that
-      // accrual credits at.
+      // Suerte's other child (Fortuna) and its own child (Azar) — not part
+      // of accrual (no per-second output of their own), read here purely
+      // for the response payload below.
       const luckRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
         [userId, LUCK_NODE_ID],
@@ -114,108 +263,6 @@ export const treeRepository = {
         [userId, LUCK_CHANCE_NODE_ID],
       )
       const luckChanceLevel = Number(luckChanceRow.rows[0]?.level ?? 0)
-
-      // Drones buscadores — a second, independent production unit (level IS
-      // the count owned, same shape as Autoclick itself) plus Frecuencia,
-      // its own flat per-unit cps booster (mirrors Sobrecarga's shape).
-      const scoutDroneRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, SCOUT_DRONE_NODE_ID],
-      )
-      const scoutDroneLevel = Number(scoutDroneRow.rows[0]?.level ?? 0)
-
-      const scoutFrequencyRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, SCOUT_FREQUENCY_NODE_ID],
-      )
-      const scoutFrequencyLevel = Number(scoutFrequencyRow.rows[0]?.level ?? 0)
-      const scoutDroneRate = scoutFrequencyValue(scoutFrequencyLevel)
-
-      // Sobrecarga — a flat per-drone cps rate (replacing the old flat 0.5),
-      // so it feeds both the real accrual math below AND the displayed cps
-      // returned further down. Still a pure formula: order-independent,
-      // same as multiplying by any other node's value.
-      const autoMultiplierRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTO_MULTIPLIER_NODE_ID],
-      )
-      const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
-      const sobrecargaPerDroneRate =
-        autoMultiplierValue(autoMultiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
-
-      // Reactor — the one prestige upgrade so far, a permanent ×multiplier
-      // that survives every reset. Lives in its own table (never touched by
-      // the reset's DELETE FROM user_permanent_upgrades — see migration
-      // 026), applied the same way Sobrecarga is: real accrual AND display.
-      const reactorRow = await client.query(
-        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, PRESTIGE_REACTOR_NODE_ID],
-      )
-      const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
-      const reactorMultiplier = prestigeReactorValue(reactorLevel)
-
-      // Autonomía — Sobrecarga's own child, scales down the accrual rate
-      // applied to time spent genuinely away (see ACTIVE_WINDOW_SECONDS
-      // above / accrueWhole below).
-      const offlineProductionRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, OFFLINE_PRODUCTION_NODE_ID],
-      )
-      const offlineProductionLevel = Number(offlineProductionRow.rows[0]?.level ?? 0)
-      const offlineRate = offlineProductionValue(offlineProductionLevel)
-
-      // Regular drones and scout drones tick off the same shared timer
-      // below (see AUTOCLICK_NODE_ID's last_tick_at/remainder) — simplest
-      // way to accrue two independent production streams without a second
-      // set of timer columns, since they always advance together anyway.
-      const currentCps = (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
-
-      let totalClicks = Number(userRow.rows[0].total_clicks)
-      // What this specific call just credited — the frontend uses this to
-      // show a "your fleet extracted X while you were away" modal on the
-      // very first fetch after the app mounts (not on every routine 8s
-      // poll while already playing, which also runs through this same
-      // accrual path and would otherwise pop the modal constantly).
-      let creditedThisCall = 0
-
-      if (level > 0 && node.last_tick_at) {
-        const elapsed = await client.query('SELECT EXTRACT(EPOCH FROM (now() - $1::timestamptz)) AS seconds', [
-          node.last_tick_at,
-        ])
-        const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
-        const { whole, remainder } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
-        creditedThisCall = whole
-
-        if (whole > 0) {
-          const updated = await client.query(
-            `UPDATE users
-             SET total_clicks = total_clicks + $2, object_progress = object_progress + $2,
-                 lifetime_platino = lifetime_platino + $2
-             WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
-            [userId, whole],
-          )
-          totalClicks = Number(updated.rows[0].total_clicks)
-          const objectResult = applyObjectProgress(
-            Number(updated.rows[0].objects_broken),
-            0,
-            Number(updated.rows[0].object_progress),
-          )
-          objectsBroken = objectResult.objectsBroken
-          objectProgress = objectResult.objectProgress
-          if (objectResult.broken > 0) {
-            await client.query('UPDATE users SET objects_broken = $2, object_progress = $3 WHERE id = $1', [
-              userId,
-              objectsBroken,
-              objectProgress,
-            ])
-          }
-        }
-        await client.query(
-          `UPDATE user_permanent_upgrades SET last_tick_at = now(), remainder = $3
-           WHERE user_id = $1 AND upgrade_id = $2`,
-          [userId, AUTOCLICK_NODE_ID, remainder],
-        )
-      }
 
       // Same plain level-counter shape as luck — the base click-value
       // multiplier has no per-second output either.
@@ -368,11 +415,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -438,94 +492,16 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query(
-        'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
-        [userId],
-      )
-      if (!userRow.rows[0]) {
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
-      let objectsBroken = Number(userRow.rows[0].objects_broken)
-      let objectProgress = Number(userRow.rows[0].object_progress)
-
-      const nodeRow = await client.query(
-        `SELECT level, last_tick_at, remainder FROM user_permanent_upgrades
-         WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
-        [userId, AUTOCLICK_NODE_ID],
-      )
-      const node = nodeRow.rows[0] ?? { level: 0, last_tick_at: null, remainder: 0 }
-      const level = Number(node.level)
-
-      // Scout drones affect the cps this credits at, same as accrueAndGetState.
-      const scoutDroneRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, SCOUT_DRONE_NODE_ID],
-      )
-      const scoutDroneLevel = Number(scoutDroneRow.rows[0]?.level ?? 0)
-
-      const scoutFrequencyRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, SCOUT_FREQUENCY_NODE_ID],
-      )
-      const scoutFrequencyLevel = Number(scoutFrequencyRow.rows[0]?.level ?? 0)
-      const scoutDroneRate = scoutFrequencyValue(scoutFrequencyLevel)
-
-      const autoMultiplierRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, AUTO_MULTIPLIER_NODE_ID],
-      )
-      const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
-      const sobrecargaPerDroneRate =
-        autoMultiplierValue(autoMultiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
-
-      const reactorRow = await client.query(
-        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, PRESTIGE_REACTOR_NODE_ID],
-      )
-      const reactorLevel = Number(reactorRow.rows[0]?.level ?? 0)
-      const reactorMultiplier = prestigeReactorValue(reactorLevel)
-
-      const offlineProductionRow = await client.query(
-        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
-        [userId, OFFLINE_PRODUCTION_NODE_ID],
-      )
-      const offlineRate = offlineProductionValue(Number(offlineProductionRow.rows[0]?.level ?? 0))
-
-      let totalClicks = Number(userRow.rows[0].total_clicks)
-
-      if (level > 0 && node.last_tick_at) {
-        const elapsed = await client.query('SELECT EXTRACT(EPOCH FROM (now() - $1::timestamptz)) AS seconds', [
-          node.last_tick_at,
-        ])
-        const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
-        const currentCps = (level * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
-        const { whole } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
-        if (whole > 0) {
-          const updated = await client.query(
-            `UPDATE users
-             SET total_clicks = total_clicks + $2, object_progress = object_progress + $2,
-                 lifetime_platino = lifetime_platino + $2
-             WHERE id = $1 RETURNING total_clicks, objects_broken, object_progress`,
-            [userId, whole],
-          )
-          totalClicks = Number(updated.rows[0].total_clicks)
-          const objectResult = applyObjectProgress(
-            Number(updated.rows[0].objects_broken),
-            0,
-            Number(updated.rows[0].object_progress),
-          )
-          objectsBroken = objectResult.objectsBroken
-          objectProgress = objectResult.objectProgress
-          if (objectResult.broken > 0) {
-            await client.query('UPDATE users SET objects_broken = $2, object_progress = $3 WHERE id = $1', [
-              userId,
-              objectsBroken,
-              objectProgress,
-            ])
-          }
-        }
-      }
+      const { objectsBroken, objectProgress, autoClickLevel: level, sobrecargaPerDroneRate, reactorMultiplier } = accrued
+      let totalClicks = accrued.totalClicks
+      // Shim so every `userRow.rows[0].prestige_tier` reference below keeps
+      // working unchanged.
+      const userRow = { rows: [{ prestige_tier: accrued.prestigeTier }] }
 
       const cost = scaleCost(autoClickCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
@@ -654,11 +630,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -716,11 +699,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const luckRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -786,11 +776,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const multiplierRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -854,11 +851,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const legendaryUnlockRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -920,11 +924,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const legendaryUnlockRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -987,11 +998,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const legendaryUnlockRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1058,11 +1076,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const autoMultiplierRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1141,11 +1166,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const scoutDroneRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1223,11 +1255,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -1303,11 +1342,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const multiplierRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1371,11 +1417,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -1432,11 +1485,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const nodeRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -1494,11 +1554,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const anomalyUnlockRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1560,11 +1627,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const anomalyUnlockRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1627,11 +1701,18 @@ export const treeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT total_clicks, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Shim so every `userRow.rows[0].total_clicks`/`prestige_tier`
+      // reference below keeps working unchanged, now reading the
+      // post-accrual total instead of a possibly-stale one.
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
 
       const autoMultiplierRow = await client.query(
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,

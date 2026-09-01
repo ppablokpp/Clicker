@@ -1,5 +1,6 @@
 import { database } from './pool.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorCost, prestigeReactorValue } from '../game/prestige.js'
+import { accrueProduction } from './treeRepository.js'
 
 export const prestigeRepository = {
   // Powers the initial sync — current lifetime points plus the Reactor's
@@ -30,13 +31,17 @@ export const prestigeRepository = {
     try {
       await client.query('BEGIN')
 
-      const userRow = await client.query('SELECT objects_broken FROM users WHERE id = $1 FOR UPDATE', [userId])
-      if (!userRow.rows[0]) {
+      // objects_broken only advances when this runs (see
+      // treeRepository.js's accrueProduction) — force it first so an object
+      // that just broke from unflushed drone production doesn't wrongly
+      // read as "nothing to prestige".
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
 
-      const pointsEarned = Number(userRow.rows[0].objects_broken)
+      const pointsEarned = accrued.objectsBroken
       if (pointsEarned <= 0) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'nothing-to-prestige' }

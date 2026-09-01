@@ -1,6 +1,7 @@
 import { database } from './pool.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT, prestigeTierMultiplier } from '../game/trajectory.js'
+import { accrueProduction } from './treeRepository.js'
 
 // Applies to both chest types — buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
@@ -100,6 +101,16 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
+
+      // lifetime_platino only advances when this runs (see
+      // treeRepository.js's accrueProduction) — force it first so hitting
+      // the next tier's threshold via unflushed drone production isn't
+      // wrongly rejected as not-eligible.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
 
       const userRow = await client.query(
         'SELECT lifetime_platino, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
@@ -324,6 +335,15 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
+      // Credits pending drone production first — total_clicks only advances
+      // when this runs (see treeRepository.js's accrueProduction), so a
+      // click-priced tier could otherwise get wrongly rejected as
+      // not-enough-clicks against a total that's up to 30s stale.
+      const accrued = await accrueProduction(client, id)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
       const row = await client.query(
         'SELECT total_clicks, gems, powerup_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
@@ -333,6 +353,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      user.total_clicks = accrued.totalClicks
+      user.prestige_tier = accrued.prestigeTier
       if (user.powerup_cooldown_until && new Date(user.powerup_cooldown_until) > new Date()) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.powerup_cooldown_until }
@@ -437,6 +459,13 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
+      // Credits pending drone production first — see buyPowerup's own
+      // comment for why.
+      const accrued = await accrueProduction(client, id)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
       const row = await client.query(
         'SELECT total_clicks, gems, luck_powerup_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
@@ -446,6 +475,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      user.total_clicks = accrued.totalClicks
+      user.prestige_tier = accrued.prestigeTier
       if (user.luck_powerup_cooldown_until && new Date(user.luck_powerup_cooldown_until) > new Date()) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.luck_powerup_cooldown_until }
@@ -552,6 +583,13 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
+      // Credits pending drone production first — see buyPowerup's own
+      // comment for why.
+      const accrued = await accrueProduction(client, id)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
       const row = await client.query(
         'SELECT total_clicks, magnet_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
@@ -561,6 +599,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      user.total_clicks = accrued.totalClicks
+      user.prestige_tier = accrued.prestigeTier
       if (user.magnet_cooldown_until && new Date(user.magnet_cooldown_until) > new Date()) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.magnet_cooldown_until }
@@ -814,6 +854,13 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
+      // Credits pending drone production first — see buyPowerup's own
+      // comment for why.
+      const accrued = await accrueProduction(client, id)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
       const row = await client.query(
         'SELECT total_clicks, owned_click_chests, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
@@ -823,6 +870,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      user.total_clicks = accrued.totalClicks
+      user.prestige_tier = accrued.prestigeTier
       if (Number(user.owned_click_chests) >= MAX_OWNED_CHESTS) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'chest-limit-reached' }
@@ -1082,6 +1131,13 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
+      // Credits pending drone production first — see buyPowerup's own
+      // comment for why.
+      const accrued = await accrueProduction(client, id)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
       const row = await client.query(
         'SELECT total_clicks, owned_gem_chests, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [id],
@@ -1091,6 +1147,8 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      user.total_clicks = accrued.totalClicks
+      user.prestige_tier = accrued.prestigeTier
       if (Number(user.owned_gem_chests) >= MAX_OWNED_CHESTS) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'chest-limit-reached' }
