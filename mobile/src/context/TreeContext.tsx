@@ -88,7 +88,8 @@ const TreeContext = createContext<TreeContextValue | null>(null)
 // every node instead of 19 near-identical callbacks.
 export function TreeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState } = useClickCounterContext()
+  const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState, flushNow } =
+    useClickCounterContext()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
   const [buyingKey, setBuyingKey] = useState<TreeBuyKey | null>(null)
   // Read from inside the fast tick interval without needing to restart it
@@ -208,6 +209,11 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       if (!userId) return { ok: false, error: 'not-signed-in' }
       setBuyingKey(key)
       try {
+        // Every node's cost is clicks-denominated and checked server-side
+        // against a total that only advances on flush — force one first so
+        // this never gets wrongly rejected against a total that's up to
+        // FLUSH_INTERVAL_MS stale.
+        await flushNow()
         const token = await getToken()
         const { ok, error, data } = await buyTreeNode(token, key)
         if (!ok) return { ok: false, error }
@@ -221,7 +227,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         setBuyingKey(null)
       }
     },
-    [userId, getToken, state, applyState, syncTotalClicks],
+    [userId, getToken, state, applyState, syncTotalClicks, flushNow],
   )
 
   // Memoized — this component consumes ClickCounterContext (for

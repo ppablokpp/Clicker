@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -54,6 +55,7 @@ const DailyCaseContext = createContext<DailyCaseContextValue | null>(null)
 export function DailyCaseProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { promptSignIn } = useSignInPrompt()
+  const { flushNow } = useClickCounterContext()
   const [catalog, setCatalog] = useState<DailyCasePrize[]>([])
   const [chestCost, setChestCost] = useState(0)
   const [keyCost, setKeyCost] = useState(0)
@@ -150,6 +152,9 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
     }
     setIsBuying(true)
     try {
+      // Chest cost is clicks-denominated and checked server-side against a
+      // total that only advances on flush — force one first.
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/daily-case/buy-chest`, {
         method: 'POST',
@@ -166,7 +171,7 @@ export function DailyCaseProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuying(false)
     }
-  }, [userId, getToken, promptSignIn])
+  }, [userId, getToken, promptSignIn, flushNow])
 
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap.

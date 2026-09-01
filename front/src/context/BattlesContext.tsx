@@ -78,7 +78,7 @@ let cachedConfig: { wager: number; durationSeconds: number } | null = null
 
 export function BattlesProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [wager, setWager] = useState(cachedConfig?.wager ?? 10_000)
   const [durationSeconds, setDurationSeconds] = useState(cachedConfig?.durationSeconds ?? 30)
@@ -160,6 +160,9 @@ export function BattlesProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: 'not-signed-in' }
       }
       try {
+        // The wager is deducted in clicks, checked server-side against a
+        // total that only advances on flush — force one first.
+        await flushNow()
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/battles/challenge`, {
           method: 'POST',
@@ -175,7 +178,7 @@ export function BattlesProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: 'error' }
       }
     },
-    [userId, getToken, promptSignIn, syncTotalClicks],
+    [userId, getToken, promptSignIn, syncTotalClicks, flushNow],
   )
 
   const accept = useCallback(
@@ -185,6 +188,8 @@ export function BattlesProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: 'not-signed-in' }
       }
       try {
+        // Same as challenge above — the wager is deducted in clicks.
+        await flushNow()
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/battles/${battleId}/accept`, {
           method: 'POST',
@@ -199,7 +204,7 @@ export function BattlesProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: 'error' }
       }
     },
-    [userId, getToken, promptSignIn, syncTotalClicks],
+    [userId, getToken, promptSignIn, syncTotalClicks, flushNow],
   )
 
   const submitScore = useCallback(

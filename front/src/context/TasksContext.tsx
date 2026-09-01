@@ -23,7 +23,7 @@ const TasksContext = createContext<TasksContextValue | null>(null)
 
 export function TasksProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [claimed, setClaimed] = useState<Set<string>>(new Set())
   const [claimingId, setClaimingId] = useState<string | null>(null)
@@ -60,6 +60,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       }
       setClaimingId(taskId)
       try {
+        // 'counter'-type tasks (e.g. lucky_clicks_found) check a field that
+        // only advances on flush — force one first so a task just reached
+        // via unflushed taps isn't wrongly rejected as not-yet-complete.
+        await flushNow()
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/tasks/claim`, {
           method: 'POST',
@@ -80,7 +84,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         setClaimingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, promptSignIn],
+    [userId, getToken, syncTotalClicks, promptSignIn, flushNow],
   )
 
   const syncAnomaliesNeutralized = useCallback((count: number) => setAnomaliesNeutralized(count), [])

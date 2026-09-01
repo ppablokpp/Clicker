@@ -56,7 +56,7 @@ const MagnetContext = createContext<MagnetContextValue | null>(null)
 // whether one is currently running and lets you buy/activate one.
 export function MagnetProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<MagnetDef[]>([])
@@ -160,6 +160,9 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
       }
       setBuyingId(magnet.id)
       try {
+        // Cost is clicks-denominated and checked server-side against a
+        // total that only advances on flush — force one first.
+        await flushNow()
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/magnets/buy`, {
           method: 'POST',
@@ -185,7 +188,7 @@ export function MagnetProvider({ children }: { children: ReactNode }) {
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, adjustInventory, promptSignIn],
+    [userId, getToken, syncTotalClicks, adjustInventory, promptSignIn, flushNow],
   )
 
   const activate = useCallback(

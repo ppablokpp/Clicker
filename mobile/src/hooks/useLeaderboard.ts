@@ -3,9 +3,10 @@ import { fetchLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '.
 
 export type { LeaderboardSort, LeaderboardEntry }
 
-const REFRESH_INTERVAL_MS = 5000
-
-// Ported from front/src/hooks/useLeaderboard.ts exactly — same 5s poll.
+// Ported from front/src/hooks/useLeaderboard.ts — fetched once per
+// mount/sort change, no background polling. The ranking doesn't need to
+// update itself while the screen sits open; navigating to this tab (or
+// switching the sort toggle) is already what refreshes it in practice.
 export function useLeaderboard(sortBy: LeaderboardSort = 'clicks') {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -26,10 +27,8 @@ export function useLeaderboard(sortBy: LeaderboardSort = 'clicks') {
     }
 
     load()
-    const interval = setInterval(load, REFRESH_INTERVAL_MS)
     return () => {
       cancelled = true
-      clearInterval(interval)
     }
   }, [sortBy])
 

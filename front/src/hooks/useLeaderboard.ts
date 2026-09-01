@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const REFRESH_INTERVAL_MS = 5000
 
 export type LeaderboardSort = 'clicks' | 'cps'
 
@@ -37,11 +36,13 @@ export function useLeaderboard(sortBy: LeaderboardSort = 'clicks') {
       }
     }
 
+    // Fetched once per mount/sort change — no background polling. The
+    // ranking doesn't need to update itself while sitting open; switching
+    // to the "clicks"/"cps" tab (a genuine re-render of this screen) is
+    // already what refreshes it in practice.
     load()
-    const interval = setInterval(load, REFRESH_INTERVAL_MS)
     return () => {
       cancelled = true
-      clearInterval(interval)
     }
   }, [sortBy])
 

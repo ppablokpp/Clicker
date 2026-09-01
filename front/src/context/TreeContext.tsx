@@ -182,7 +182,8 @@ const EMPTY_STATE: TreeState = {
 
 export function TreeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState } = useClickCounterContext()
+  const { syncTotalClicks, syncTotalClicksIfNewer, tickAutoClicks, syncObjectState, flushNow } =
+    useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [state, setState] = useState<TreeState>(EMPTY_STATE)
   const [hasNewUpgrade, setHasNewUpgrade] = useState(false)
@@ -332,6 +333,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuying(true)
     try {
+      // Cost is clicks-denominated and checked server-side against a total
+      // that only advances on flush — force one first so this never gets
+      // wrongly rejected against a total that's up to 30s stale.
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/auto-click/buy`, {
         method: 'POST',
@@ -362,7 +367,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuying(false)
     }
-  }, [userId, getToken, syncTotalClicks, syncObjectState, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, syncObjectState, promptSignIn, flushNow])
 
   // Tutorial-only: same response shape and state-merge as buyAutoClick, but
   // hits the free-grant endpoint instead — no cost, no isBuying flag (the
@@ -408,6 +413,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingLuck(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/luck/buy`, {
         method: 'POST',
@@ -432,7 +438,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingLuck(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyLuckChance = useCallback(async () => {
     if (!userId) {
@@ -441,6 +447,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingLuckChance(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/luck-chance/buy`, {
         method: 'POST',
@@ -464,7 +471,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingLuckChance(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyMultiplier = useCallback(async () => {
     if (!userId) {
@@ -473,6 +480,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingMultiplier(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/multiplier/buy`, {
         method: 'POST',
@@ -497,7 +505,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingMultiplier(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyLegendaryUnlock = useCallback(async () => {
     if (!userId) {
@@ -506,6 +514,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingLegendaryUnlock(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/legendary-unlock/buy`, {
         method: 'POST',
@@ -528,7 +537,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingLegendaryUnlock(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyLegendaryEase = useCallback(async () => {
     if (!userId) {
@@ -537,6 +546,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingLegendaryEase(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/legendary-ease/buy`, {
         method: 'POST',
@@ -560,7 +570,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingLegendaryEase(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyLegendaryGrowth = useCallback(async () => {
     if (!userId) {
@@ -569,6 +579,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingLegendaryGrowth(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/legendary-growth/buy`, {
         method: 'POST',
@@ -592,7 +603,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingLegendaryGrowth(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyLegendaryThreshold = useCallback(async () => {
     if (!userId) {
@@ -601,6 +612,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingLegendaryThreshold(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/legendary-threshold/buy`, {
         method: 'POST',
@@ -624,7 +636,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingLegendaryThreshold(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyScoutDrone = useCallback(async () => {
     if (!userId) {
@@ -633,6 +645,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingScoutDrone(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/scout-drone/buy`, {
         method: 'POST',
@@ -657,7 +670,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingScoutDrone(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyScoutFrequency = useCallback(async () => {
     if (!userId) {
@@ -666,6 +679,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingScoutFrequency(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/scout-frequency/buy`, {
         method: 'POST',
@@ -690,7 +704,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingScoutFrequency(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyAutoMultiplier = useCallback(async () => {
     if (!userId) {
@@ -699,6 +713,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingAutoMultiplier(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/auto-multiplier/buy`, {
         method: 'POST',
@@ -728,7 +743,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingAutoMultiplier(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyTapMultiplier = useCallback(async () => {
     if (!userId) {
@@ -737,6 +752,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingTapMultiplier(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/tap-multiplier/buy`, {
         method: 'POST',
@@ -760,7 +776,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingTapMultiplier(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyMultiShot = useCallback(async () => {
     if (!userId) {
@@ -769,6 +785,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingMultiShot(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/multi-shot/buy`, {
         method: 'POST',
@@ -792,7 +809,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingMultiShot(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyAnomalyUnlock = useCallback(async () => {
     if (!userId) {
@@ -801,6 +818,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingAnomalyUnlock(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/anomaly-unlock/buy`, {
         method: 'POST',
@@ -825,7 +843,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingAnomalyUnlock(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyAnomalyReward = useCallback(async () => {
     if (!userId) {
@@ -834,6 +852,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingAnomalyReward(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/anomaly-reward/buy`, {
         method: 'POST',
@@ -857,7 +876,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingAnomalyReward(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyAnomalyFrequency = useCallback(async () => {
     if (!userId) {
@@ -866,6 +885,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingAnomalyFrequency(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/anomaly-frequency/buy`, {
         method: 'POST',
@@ -889,7 +909,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingAnomalyFrequency(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   const buyOfflineProduction = useCallback(async () => {
     if (!userId) {
@@ -898,6 +918,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
     setIsBuyingOfflineProduction(true)
     try {
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/tree/offline-production/buy`, {
         method: 'POST',
@@ -921,7 +942,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBuyingOfflineProduction(false)
     }
-  }, [userId, getToken, syncTotalClicks, promptSignIn])
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap. This is

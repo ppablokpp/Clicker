@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -33,6 +34,7 @@ const EMPTY_STATE: PrestigeState = {
 export function PrestigeProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
   const { promptSignIn } = useSignInPrompt()
+  const { flushNow } = useClickCounterContext()
   const [state, setState] = useState<PrestigeState>(EMPTY_STATE)
   const [isBuyingReactor, setIsBuyingReactor] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
@@ -100,6 +102,11 @@ export function PrestigeProvider({ children }: { children: ReactNode }) {
     }
     setIsResetting(true)
     try {
+      // Eligibility is checked server-side against objects_broken, which
+      // (like total_clicks) only advances on flush — force one first so a
+      // just-broken object from unflushed taps isn't wrongly rejected as
+      // "nothing to prestige".
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/prestige/reset`, {
         method: 'POST',
@@ -114,7 +121,7 @@ export function PrestigeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsResetting(false)
     }
-  }, [userId, getToken, promptSignIn])
+  }, [userId, getToken, promptSignIn, flushNow])
 
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap.

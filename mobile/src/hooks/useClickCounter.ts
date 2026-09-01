@@ -3,9 +3,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, type AppStateStatus } from 'react-native'
 import { toLocalDateString } from '../lib/date'
 import { applyObjectProgress } from '../lib/spaceObjects'
+import { clearPendingClicks, loadPendingClicks, savePendingClicks } from '../lib/pendingClicksStorage'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001'
-const FLUSH_INTERVAL_MS = 1000
+// How often the local buffer actually reaches the server. Was 1000ms; at
+// that cadence a purchase/claim's own request always saw an up-to-date
+// server total "for free". Now that it's 30s, every action that checks a
+// click-derived balance/threshold server-side (buying a tree node, claiming
+// a task, etc.) has to force a flush first — see flushNow below — or it
+// could wrongly reject something the player can clearly afford on screen,
+// using a total that's up to 30s stale.
+const FLUSH_INTERVAL_MS = 30_000
+// How often the *unflushed* buffer gets written to AsyncStorage — a
+// durability net for the case the AppState-background flush can't catch (a
+// crash, a force-quit, the OS killing the app), now that up to 30s of real
+// progress can be sitting unflushed at any moment. Deliberately more
+// frequent than the server flush itself, since this is a cheap local write,
+// not a network request.
+const PERSIST_INTERVAL_MS = 5_000
 const CPS_WINDOW_MS = 2000
 // Must match back/src/routes/clicks.js's MAX_CLICKS_PER_REQUEST — the
 // backend rejects a single increment larger than this, so flush() has to
@@ -23,8 +38,9 @@ const MAX_CLICKS_PER_REQUEST = 5000
  *
  * Ported from front/src/hooks/useClickCounter.ts — identical logic, only
  * the platform-specific bits changed: @clerk/expo instead of
- * @clerk/clerk-react, and react-native's AppState instead of the browser's
- * visibilitychange/pagehide events for "flush before the app goes away".
+ * @clerk/clerk-react, react-native's AppState instead of the browser's
+ * visibilitychange/pagehide events, and AsyncStorage instead of
+ * localStorage for the pending-buffer durability layer.
  */
 export function useClickCounter() {
   const { userId, getToken } = useAuth()
@@ -80,7 +96,13 @@ export function useClickCounter() {
   // an authoritative total lands (that total already includes whatever was
   // predicted, so keeping the local guess around after that would double-count it).
   const autoPendingRef = useRef(0)
-  const isFlushingRef = useRef(false)
+  // Holds the in-flight flush's own promise, not just a boolean — a second
+  // caller (e.g. a purchase's flushNow(), see below) needs to actually
+  // *wait* for an already-running flush to finish and join its result,
+  // rather than the old boolean-guard's silent no-op, which would have let
+  // a purchase fire against a stale total while a periodic flush happened
+  // to already be in flight.
+  const flushPromiseRef = useRef<Promise<void> | null>(null)
   const peakCpsRef = useRef(0)
   // Lets a case-opening reel hide the real total behind its reveal
   // animation instead of letting an unrelated background sync (e.g.
@@ -142,6 +164,35 @@ export function useClickCounter() {
     }
   }, [userId, getToken, updateObjectDisplay])
 
+  // Replays whatever didn't make it to the server before the app last
+  // closed (see pendingClicksStorage.ts) — e.g. a crash, a force-quit,
+  // anything that skips the AppState-background flush below. Assignment
+  // (`=`), not addition: this only ever runs once per sign-in, while every
+  // pending ref is still at its freshly-initialized 0, so it's naturally
+  // idempotent against a double-invoke of this effect (running it twice
+  // sets the same values both times instead of double-counting a phantom
+  // extra flush's worth of clicks).
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ;(async () => {
+      const persisted = await loadPendingClicks(userId)
+      if (cancelled || !persisted) return
+      pendingRef.current = persisted.pending
+      pendingRealClicksRef.current = persisted.pendingRealClicks
+      pendingLuckyHitsRef.current = persisted.pendingLuckyHits
+      peakCpsRef.current = Math.max(peakCpsRef.current, persisted.peakCps)
+      setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
+      if (persisted.pendingLuckyHits > 0) {
+        setLuckyClicksFound(confirmedLuckyHitsRef.current + pendingLuckyHitsRef.current)
+      }
+      updateObjectDisplay()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId, updateObjectDisplay])
+
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
@@ -153,16 +204,21 @@ export function useClickCounter() {
     return () => clearInterval(interval)
   }, [])
 
-  const flush = useCallback(async () => {
-    if (pendingRef.current === 0 || !userId || isFlushingRef.current) return
-    isFlushingRef.current = true
-
+  // The actual network flush — factored out of `flush` so `flush` itself
+  // can stay a thin "join the in-flight one, or start a new one" wrapper
+  // (see flushPromiseRef's own comment for why that distinction matters now
+  // that purchases need to force a flush and *wait* for it).
+  const runFlush = useCallback(async () => {
+    if (pendingRef.current === 0 || !userId) return
     try {
       const token = await getToken()
       // Drains everything in <=MAX_CLICKS_PER_REQUEST chunks within this one
       // flush call — otherwise a single burst bigger than the cap would get
       // rejected every tick forever, since pendingRef only grows and never
-      // shrinks on failure.
+      // shrinks on failure. At a 30s cadence this loop running more than
+      // once is rare (only a genuinely huge burst), but leaving any part of
+      // it stranded until the *next* 30s tick would mean it sits unflushed
+      // (and unspendable — see flushNow) for far longer than before.
       while (pendingRef.current > 0) {
         const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
         const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
@@ -196,32 +252,97 @@ export function useClickCounter() {
         if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
         updateObjectDisplay()
       }
+      // Fully drained (or the loop broke out early on a failed request,
+      // leaving something in pendingRef on purpose) — either way, whatever
+      // AsyncStorage currently holds is stale; this reconciles it to match
+      // reality instead of waiting for the next 5s persist tick.
+      if (userId) {
+        await savePendingClicks(userId, {
+          pending: pendingRef.current,
+          pendingRealClicks: pendingRealClicksRef.current,
+          pendingLuckyHits: pendingLuckyHitsRef.current,
+          peakCps: peakCpsRef.current,
+        })
+      }
     } catch (err) {
       console.error('No se pudo guardar el progreso de clicks', err)
-    } finally {
-      isFlushingRef.current = false
     }
   }, [userId, getToken, updateObjectDisplay])
+
+  // The exposed flush entry point — safe to call concurrently from multiple
+  // places (the periodic timer, a purchase's flushNow, the background
+  // handler): a second caller while one's already running joins the same
+  // promise instead of firing a duplicate overlapping request.
+  const flush = useCallback(() => {
+    if (!flushPromiseRef.current) {
+      flushPromiseRef.current = runFlush().finally(() => {
+        flushPromiseRef.current = null
+      })
+    }
+    return flushPromiseRef.current
+  }, [runFlush])
+
+  // For any action whose own request checks a click-derived balance or
+  // threshold server-side (buying a tree node, claiming a task...) — forces
+  // the local buffer to the server *before* that action's own request
+  // fires, so it never gets evaluated against a total that's up to
+  // FLUSH_INTERVAL_MS stale. Never throws: `flush`/`runFlush` already
+  // swallow their own errors, so a network hiccup here just means the
+  // action proceeds against the last-known total (the same behavior every
+  // action already had before this existed), not that the action becomes
+  // impossible.
+  const flushNow = useCallback(() => flush(), [flush])
 
   useEffect(() => {
     const interval = setInterval(flush, FLUSH_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [flush])
 
+  // Persists the *unflushed* buffer only — the confirmed total always comes
+  // fresh from the server on load, so there's nothing to gain persisting it
+  // — on a short interval so a crash between server flushes doesn't lose
+  // more than a few seconds of real progress (see pendingClicksStorage.ts).
+  useEffect(() => {
+    if (!userId) return
+    const interval = setInterval(() => {
+      void savePendingClicks(userId, {
+        pending: pendingRef.current,
+        pendingRealClicks: pendingRealClicksRef.current,
+        pendingLuckyHits: pendingLuckyHitsRef.current,
+        peakCps: peakCpsRef.current,
+      })
+    }, PERSIST_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [userId])
+
   // RN's analog of the web version's visibilitychange/pagehide listeners —
   // flush right away whenever the app is backgrounded (home button, app
   // switcher, incoming call) instead of waiting up to FLUSH_INTERVAL_MS,
   // and once more on unmount for the same reason pagehide covered there.
+  // Also persists the current buffer to AsyncStorage synchronously-ish
+  // (fire-and-forget, but kicked off before the network flush) as a second
+  // line of defense in case the app gets killed before that flush resolves.
   useEffect(() => {
+    const onBackground = () => {
+      if (userId) {
+        void savePendingClicks(userId, {
+          pending: pendingRef.current,
+          pendingRealClicks: pendingRealClicksRef.current,
+          pendingLuckyHits: pendingLuckyHitsRef.current,
+          peakCps: peakCpsRef.current,
+        })
+      }
+      flush()
+    }
     const onChange = (state: AppStateStatus) => {
-      if (state !== 'active') flush()
+      if (state !== 'active') onBackground()
     }
     const sub = AppState.addEventListener('change', onChange)
     return () => {
       sub.remove()
-      flush()
+      onBackground()
     }
-  }, [flush])
+  }, [flush, userId])
 
   const registerClick = useCallback(
     (amount = 1, isLucky = false) => {
@@ -312,6 +433,10 @@ export function useClickCounter() {
     if (!userId) return { ok: false, error: 'not-signed-in' }
     setIsConfirmingPrestige(true)
     try {
+      // Prestige checks lifetime_platino against a tier threshold — a
+      // click-derived value, so it needs the same pre-flush every other
+      // click-gated action gets (see flushNow's own comment).
+      await flushNow()
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/clicks/prestige`, {
         method: 'POST',
@@ -323,6 +448,7 @@ export function useClickCounter() {
       pendingRef.current = 0
       pendingRealClicksRef.current = 0
       autoPendingRef.current = 0
+      await clearPendingClicks(userId)
       setTotalClicks(data.totalClicks)
       setPrestigeTier(data.prestigeTier)
       if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
@@ -333,7 +459,7 @@ export function useClickCounter() {
     } finally {
       setIsConfirmingPrestige(false)
     }
-  }, [userId, getToken])
+  }, [userId, getToken, flushNow])
 
   const suspendSync = useCallback(() => {
     suspendSyncCountRef.current += 1
@@ -401,6 +527,7 @@ export function useClickCounter() {
       objectProgress,
       syncObjectState,
       luckyClicksFound,
+      flushNow,
     }),
     [
       totalClicks,
@@ -422,6 +549,7 @@ export function useClickCounter() {
       objectProgress,
       syncObjectState,
       luckyClicksFound,
+      flushNow,
     ],
   )
 }

@@ -21,7 +21,7 @@ function milestoneKey(categoryKey: string, milestone: number) {
 
 export function MilestonesProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { applyActivePowerup } = usePowerupContext()
   const { promptSignIn } = useSignInPrompt()
   const [claimed, setClaimed] = useState<Set<string>>(new Set())
@@ -66,6 +66,10 @@ export function MilestonesProvider({ children }: { children: ReactNode }) {
       const key = milestoneKey(categoryKey, milestone)
       setClaimingKey(key)
       try {
+        // Milestone thresholds are checked against click-derived totals
+        // that only advance on flush — force one first so a milestone just
+        // reached via unflushed taps isn't wrongly rejected.
+        await flushNow()
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/milestones/claim`, {
           method: 'POST',
@@ -87,7 +91,7 @@ export function MilestonesProvider({ children }: { children: ReactNode }) {
         setClaimingKey(null)
       }
     },
-    [userId, getToken, syncTotalClicks, applyActivePowerup, promptSignIn],
+    [userId, getToken, syncTotalClicks, applyActivePowerup, promptSignIn, flushNow],
   )
 
   // Memoized — see GemsContext's comment for why an inline object literal

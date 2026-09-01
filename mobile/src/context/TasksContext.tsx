@@ -18,7 +18,7 @@ const TasksContext = createContext<TasksContextValue | null>(null)
 
 export function TasksProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, flushNow } = useClickCounterContext()
   const [claimed, setClaimed] = useState<Set<string>>(new Set())
   const [claimingId, setClaimingId] = useState<string | null>(null)
   const [anomaliesNeutralized, setAnomaliesNeutralized] = useState(0)
@@ -48,6 +48,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       if (!userId) return { ok: false, error: 'not-signed-in' }
       setClaimingId(taskId)
       try {
+        // 'counter'-type tasks (e.g. lucky_clicks_found) check a field that
+        // only advances on flush — force one first so a task just reached
+        // via unflushed taps isn't wrongly rejected as not-yet-complete.
+        await flushNow()
         const token = await getToken()
         const { ok, data } = await claimTask(token, taskId)
         if (!ok) return { ok: false, error: data.error }
@@ -62,7 +66,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         setClaimingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks],
+    [userId, getToken, syncTotalClicks, flushNow],
   )
 
   // Memoized — this consumes ClickCounterContext (`syncTotalClicks`), so it

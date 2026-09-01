@@ -58,7 +58,7 @@ const TimedLuckPowerupContext = createContext<TimedLuckPowerupContextValue | nul
 // powerup can run at the same time, they're independent effects.
 export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAuth()
-  const { syncTotalClicks } = useClickCounterContext()
+  const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()
   const { syncGems } = useGemsContext()
@@ -165,6 +165,10 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
       }
       setBuyingId(powerup.id)
       try {
+        // Cost can be clicks-priced (checked server-side against a total
+        // that only advances on flush) — force one first regardless of
+        // this tier's currency, cheap and always correct.
+        await flushNow()
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/timed-luck-powerups/buy`, {
           method: 'POST',
@@ -191,7 +195,7 @@ export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) 
         setBuyingId(null)
       }
     },
-    [userId, getToken, syncTotalClicks, syncGems, adjustInventory, promptSignIn],
+    [userId, getToken, syncTotalClicks, syncGems, adjustInventory, promptSignIn, flushNow],
   )
 
   const activate = useCallback(
