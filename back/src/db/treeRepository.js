@@ -47,7 +47,7 @@ function scaleCost(cost, prestigeTier) {
 }
 
 // Binary, not blended: a gap at or under this is just normal active play
-// (the ~8s background poll, TreeContext.POLL_INTERVAL_MS, plus room for a
+// (the ~30s background poll, TreeContext.POLL_INTERVAL_MS, plus room for a
 // slow round trip or a missed tick) and gets the full online rate for its
 // entire length. A gap ABOVE this is genuinely "away", and gets the reduced
 // Autonomía rate (offlineProduction.js) for its *entire* length too — not
@@ -60,7 +60,13 @@ function scaleCost(cost, prestigeTier) {
 // of the ~14 the displayed "Producción offline" rate implied). Binary
 // avoids that: once you're classified as away, the number you see in
 // Centro de mando times how long you were gone is the number you get.
-const AWAY_THRESHOLD_SECONDS = 20
+// Was 20, sized 2.5x the old 8s poll — scaled up the same way when the poll
+// interval went from 8s to 30s (see useClickCounter.ts's own
+// FLUSH_INTERVAL_MS history), or literally every routine poll during normal
+// active play would exceed this and get wrongly credited at the reduced
+// away rate instead of the full one (which is exactly what happened: this
+// was the one spot that got missed when the interval changed).
+const AWAY_THRESHOLD_SECONDS = 90
 
 // Shared by every accrual call below.
 function accrueWhole(remainder, seconds, currentCps, offlineRate) {
