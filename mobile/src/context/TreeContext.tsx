@@ -4,11 +4,16 @@ import { buyTreeNode, fetchTreeState, type TreeBuyKey, type TreeStateResponse } 
 import { useClickCounterContext } from './ClickCounterContext'
 
 // Auto-click production only actually gets credited (persisted) when this
-// state is (re)fetched (see back/src/db/treeRepository.js) — kept
-// infrequent since the fast local tick below is what makes the display
-// feel smooth; this is purely how often the real total gets reconciled.
-// Matches front/src/context/TreeContext.tsx's own POLL_INTERVAL_MS exactly.
-const POLL_INTERVAL_MS = 8000
+// state is (re)fetched (see back/src/db/treeRepository.js's accrueAndGetState)
+// — kept infrequent since the fast local tick below is what makes the
+// display feel smooth; this is purely how often the real total gets
+// reconciled. Matches front/src/context/TreeContext.tsx's own
+// POLL_INTERVAL_MS exactly — was 8000, now matches the click-flush's own
+// FLUSH_INTERVAL_MS (see useClickCounter.ts): the server computes accrual
+// from elapsed wall-clock time since last credited, so stretching this
+// loses nothing, and a buy action re-runs this same accrual pass itself
+// before checking affordability anyway.
+const POLL_INTERVAL_MS = 30_000
 // Purely local, purely visual — predicts the display forward between real
 // polls using the known rate, never touches the network.
 const TICK_INTERVAL_MS = 100

@@ -6,10 +6,17 @@ import { playTreeUpgrade } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 // Auto-click production only actually gets credited (persisted) when this
-// state is (re)fetched (see back/src/db/treeRepository.js) — kept
-// infrequent since the fast local tick below is what makes the display
-// feel smooth; this is purely how often the real total gets reconciled.
-const POLL_INTERVAL_MS = 8000
+// state is (re)fetched (see back/src/db/treeRepository.js's accrueAndGetState)
+// — kept infrequent since the fast local tick below is what makes the
+// display feel smooth; this is purely how often the real total gets
+// reconciled. Was 8000; matches the click-flush's own FLUSH_INTERVAL_MS now
+// (see useClickCounter.ts) for the same reason — the server computes
+// accrual from elapsed wall-clock time since last credited, so stretching
+// this loses nothing (a poll after 30s of silence credits exactly the same
+// total as two 15s polls would have, just in one write instead of two) and
+// a buy action re-runs this same accrual pass itself before checking
+// affordability, so purchases never see a stale production total either.
+const POLL_INTERVAL_MS = 30_000
 // Purely local, purely visual — predicts the display forward between real
 // polls using the known rate, never touches the network.
 const TICK_INTERVAL_MS = 100
