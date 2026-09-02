@@ -1,16 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { memo, useEffect } from 'react'
 import { StyleSheet, View } from 'react-native'
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated'
-import { DroneIcon, useDroneRotorFlicker } from './DroneIcon'
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
+import { DroneIcon } from './DroneIcon'
 
 const ORBIT_RADIUS = 118
 const DEFAULT_BEAM_COLORS: [string, string, string] = ['rgba(196,181,253,0)', '#ddd6fe', '#ffffff']
@@ -33,9 +25,6 @@ const DEFAULT_BEAM_COLORS: [string, string, string] = ['rgba(196,181,253,0)', '#
 //     a well-known way to light the GPU on fire with enough of them on
 //     screen at once — the glow is a flat additive tint behind the icon
 //     instead, which is just alpha blending, not a re-rasterized shadow.
-//   - The rotor flicker is ONE shared value for the whole swarm (see
-//     useDroneRotorFlicker in DroneIcon.tsx), not one independent
-//     fast-updating (80ms) worklet per drone.
 function DroneImpl({
   index,
   count,
@@ -43,7 +32,6 @@ function DroneImpl({
   glowColor,
   beamColors,
   phaseOffset,
-  flicker,
 }: {
   index: number
   count: number
@@ -51,7 +39,6 @@ function DroneImpl({
   glowColor: string
   beamColors: [string, string, string]
   phaseOffset: number
-  flicker: SharedValue<number>
 }) {
   const orbitDurationMs = (18 + (index % 3) * 3) * 1000
   const phaseDeg = (index / count + phaseOffset) * 360
@@ -129,7 +116,7 @@ function DroneImpl({
   return (
     <View pointerEvents="none" style={{ position: 'absolute' }}>
       <Animated.View style={[{ position: 'absolute', width: 20, height: 20, marginLeft: -10, marginTop: -10 }, iconStyle]}>
-        <DroneIcon size={20} color={color} flicker={flicker} />
+        <DroneIcon size={20} color={color} />
       </Animated.View>
       <Animated.View
         style={[
@@ -158,14 +145,6 @@ function OrbitingBotsImpl({
   beamColors?: [string, string, string]
   phaseOffset?: number
 }) {
-  // One flicker driver for every drone in this swarm — see DroneIcon.tsx.
-  // Called unconditionally (before the `count <= 0` bail-out below) since
-  // hooks can't be called conditionally, but `active` (not just calling the
-  // hook itself) is what actually gates whether its animation loop runs —
-  // a real fast-cycling animation, not a free idle value, so it must not
-  // run for a swarm of zero drones.
-  const flicker = useDroneRotorFlicker(count > 0)
-
   if (count <= 0) return null
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -179,7 +158,6 @@ function OrbitingBotsImpl({
             glowColor={glowColor}
             beamColors={beamColors}
             phaseOffset={phaseOffset}
-            flicker={flicker}
           />
         ))}
       </View>

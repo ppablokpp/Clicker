@@ -1,15 +1,5 @@
-import { memo, useEffect } from 'react'
-import Animated, {
-  useAnimatedProps,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated'
+import { memo } from 'react'
 import Svg, { Circle, G, Line, Rect } from 'react-native-svg'
-
-const AnimatedG = Animated.createAnimatedComponent(G)
 
 const ARMS = [
   { x1: 16, y1: 16, x2: 6, y2: 6 },
@@ -25,31 +15,20 @@ const ROTORS = [
 ]
 
 // A small quadcopter silhouette — ported from front/src/components/DroneIcon.tsx.
-// `flicker` gates a fast opacity flicker on the rotor-blur circles (reads as
-// spinning blades catching light without actually animating rotation
-// per-frame) — reserved for the real orbiting drones on Home, every other
-// use (tree node, modal, pill) stays static (omit the prop). Memoized:
-// OrbitingBots can mount dozens of these, and an already-mounted one should
-// never re-render just because a sibling drone or a tap effect elsewhere
-// changes state.
+// Memoized: OrbitingBots can mount dozens of these, and an already-mounted
+// one should never re-render just because a sibling drone or a tap effect
+// elsewhere changes state.
 //
-// `flicker` is a shared value passed in from the *caller*, not created
-// internally per icon — a swarm of N drones flickering in perfect sync
-// looks identical to N independently-phased ones (unlike the orbit sweep or
-// the pulse/beam timing, this has no per-drone identity to preserve), so
-// OrbitingBots drives one shared value for the whole swarm instead of
-// paying for N independent fast-updating worklets.
-function DroneIconImpl({
-  size = 22,
-  color = 'currentColor',
-  flicker,
-}: {
-  size?: number
-  color?: string
-  flicker?: SharedValue<number>
-}) {
-  const animatedProps = useAnimatedProps(() => ({ opacity: flicker ? flicker.value : 0.15 }))
-
+// Used to take a `flicker` shared value animating the rotor-blur circles'
+// opacity (a fast 160ms cycle, one driver shared across the whole swarm).
+// Removed: react-native-svg has to re-render the whole vector each time,
+// so even a single shared driver still meant every drone's SVG repainting
+// on that same 160ms cadence, uncapped by count — cheaper than doing it
+// per-drone, but still a real, ever-growing cost with the swarm. The web
+// version dropped the same effect for the equivalent reason (see
+// front/src/components/DroneIcon.tsx); orbit + pulse + beam already carry
+// the swarm's sense of motion without it.
+function DroneIconImpl({ size = 22, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
       <G stroke={color} strokeWidth={1.4} strokeLinecap="round" opacity={0.85}>
@@ -57,11 +36,11 @@ function DroneIconImpl({
           <Line key={i} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} />
         ))}
       </G>
-      <AnimatedG fill={color} animatedProps={animatedProps}>
+      <G fill={color} opacity={0.15}>
         {ROTORS.map((r, i) => (
           <Circle key={i} cx={r.cx} cy={r.cy} r={4.5} />
         ))}
-      </AnimatedG>
+      </G>
       <G fill={color}>
         {ROTORS.map((r, i) => (
           <Circle key={i} cx={r.cx} cy={r.cy} r={1.3} />
@@ -74,21 +53,3 @@ function DroneIconImpl({
 }
 
 export const DroneIcon = memo(DroneIconImpl)
-
-// One shared flicker driver per swarm — call once in OrbitingBots and hand
-// the returned shared value to every Drone/DroneIcon in that swarm.
-// `active` gates whether the loop actually runs: OrbitingBots calls this
-// unconditionally (hooks can't be called conditionally) even when its own
-// `count` is 0 and nothing will ever render with this value — without this
-// gate, that meant a real animation (a fast 160ms cycle, not just an idle
-// shared value) running forever for a swarm of *zero* drones, twice over
-// (Home mounts one OrbitingBots for auto-click drones and one for scout
-// drones, so a fresh account with neither owned still had two of these spinning).
-export function useDroneRotorFlicker(active: boolean) {
-  const flicker = useSharedValue(0.15)
-  useEffect(() => {
-    if (!active) return
-    flicker.value = withRepeat(withSequence(withTiming(0.42, { duration: 80 }), withTiming(0.15, { duration: 80 })), -1)
-  }, [active, flicker])
-  return flicker
-}
