@@ -128,6 +128,54 @@ body::before {
   animation: twinkle 3.5s ease-in-out infinite;
 }
 
+/* Astronaut thruster flame.
+   Deliberately CSS keyframes on a transform only, not a Framer Motion
+   `animate` on the <g>: the previous version animated the *group's*
+   opacity as well as its scale, and group opacity on a stack of two
+   translucent paths forces the whole flame to be re-composited into an
+   offscreen buffer every frame — that's what read as an erratic flicker
+   rather than a steady flame.
+   `transform-box: fill-box` is the other half of the fix: without it an
+   SVG element's transform-origin resolves against the *viewport*, not the
+   element's own box, so the "shrink from the nozzle" origin was landing
+   somewhere else entirely and the flame jumped as it scaled. */
+@keyframes astro-thruster {
+  0% {
+    transform: scale(1, 1);
+  }
+  28% {
+    transform: scale(0.94, 1.16);
+  }
+  61% {
+    transform: scale(1.06, 0.9);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+.astro-flame {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: astro-thruster 1.15s ease-in-out infinite;
+}
+
+/* The inner core runs the same keyframes faster and reversed, so the two
+   layers drift in and out of phase — a flame that never repeats the same
+   shape, out of one keyframe block and zero opacity animation. */
+.astro-flame-core {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: astro-thruster 0.79s ease-in-out infinite reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .astro-flame,
+  .astro-flame-core {
+    animation: none;
+  }
+}
+
 @keyframes spin-slow {
   to {
     transform: rotate(360deg);
