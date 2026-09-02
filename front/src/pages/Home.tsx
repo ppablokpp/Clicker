@@ -544,7 +544,16 @@ const OrbitingBots = memo(function OrbitingBots({
     <div className="pointer-events-none absolute inset-0">
       {Array.from({ length: totalUnits }, (_, i) => {
         const big = isBigUnit(i)
-        const orbitDuration = 18 + (i % 3) * 3
+        // Tangential (visual, px/s) speed = 2π·radius / duration — radius
+        // changed (index.css: base ring ×0.85, the big ring another ×1.3 on
+        // top of that) but duration didn't automatically follow, which
+        // would've left the small ring visibly slower and the big ring
+        // visibly faster than the swarm's original speed. Scaling duration
+        // by the exact same per-ring ratio keeps px/s constant — the small
+        // ring laps a little quicker (smaller circle, same speed), the big
+        // one a little slower (bigger circle, same speed), matching how it
+        // looked before either ring's radius changed.
+        const orbitDuration = (18 + (i % 3) * 3) * 0.85 * (big ? 1.3 : 1)
         // Negative delay pre-advances the loop so drones start already
         // spread around the circle instead of all bunched at angle 0.
         const orbitDelay = -((i / totalUnits + phaseOffset) * orbitDuration)
@@ -557,6 +566,11 @@ const OrbitingBots = memo(function OrbitingBots({
           '--drone-orbit-duration': `${orbitDuration}s`,
           '--drone-orbit-delay': `${orbitDelay}s`,
         }
+        // Fused drones ride a second, wider ring — overriding the custom
+        // property here (read by .drone-radius-offset in index.css) cascades
+        // straight to this unit's own descendants without touching anyone
+        // else's, same trick already used for duration/delay above.
+        if (big) orbitVars['--drone-orbit-radius'] = 'var(--drone-orbit-radius-big)'
         const pulseDelayVar: Record<string, string> = { '--drone-pulse-delay': `${pulseDelay}s` }
         // A fused drone reads as "the same unit, leveled up" — just one
         // shade darker than the small ones, barely noticeable on its own,
@@ -1560,14 +1574,20 @@ export function Home() {
             beamShadow="rgba(252,211,77,0.8)"
             phaseOffset={0.4}
           />
-          {/* Scaled down from the object's own box — the ring used to hug
-              the object edge-to-edge, which read as oversized next to it. */}
-          <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
-            <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} />
-          </div>
+          {/* Ring + asteroid shrunk together by the same 0.85 the orbit
+              radius below was scaled by (index.css) — one shared wrapper so
+              the two always shrink in lockstep instead of two separately
+              hand-tuned scale factors drifting apart later. */}
+          <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.85)' }}>
+            {/* Scaled down from the object's own box — the ring used to hug
+                the object edge-to-edge, which read as oversized next to it. */}
+            <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
+              <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} />
+            </div>
 
-          <div className="absolute inset-0 flex items-center justify-center">
-            <SpaceObject tierIndex={currentTierIndex} pct={prestige.pct} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <SpaceObject tierIndex={currentTierIndex} pct={prestige.pct} />
+            </div>
           </div>
         </div>
 

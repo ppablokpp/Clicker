@@ -176,7 +176,13 @@ body::before {
    outside the ring" — mobile's own natural value already sits inside this
    range, so it renders unchanged there. */
 :root {
-  --drone-orbit-radius: clamp(105px, 32vmin, 165px);
+  --drone-orbit-radius: clamp(89px, 27.2vmin, 140px);
+  /* Fused (big) drones orbit further out, on their own ring beyond the
+     regular swarm's — same clamp shape as the base radius, just scaled up
+     ~30%, so it keeps the same "hugs the ring, grows a little with
+     viewport" behavior instead of a flat offset that could look wrong at
+     extreme viewport sizes. */
+  --drone-orbit-radius-big: clamp(116px, 35.4vmin, 182px);
 }
 
 @keyframes drone-spin-cw {
