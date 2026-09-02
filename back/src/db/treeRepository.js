@@ -3,7 +3,12 @@ import { AUTOCLICK_NODE_ID, AUTOCLICK_MAX_LEVEL, autoClickCost } from '../tree/a
 import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
 import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
 import { SCOUT_DRONE_NODE_ID, SCOUT_DRONE_MAX_LEVEL, scoutDroneCost } from '../tree/scoutDrone.js'
-import { SCOUT_FREQUENCY_NODE_ID, scoutFrequencyCost, scoutFrequencyValue } from '../tree/scoutFrequency.js'
+import {
+  SCOUT_FREQUENCY_NODE_ID,
+  SCOUT_FREQUENCY_MAX_LEVEL,
+  scoutFrequencyCost,
+  scoutFrequencyValue,
+} from '../tree/scoutFrequency.js'
 import { MULTIPLIER_NODE_ID, MULTIPLIER_MAX_LEVEL, multiplierCost, multiplierValue } from '../tree/multiplier.js'
 import { LEGENDARY_UNLOCK_NODE_ID, legendaryUnlockCost } from '../tree/legendaryUnlock.js'
 import {
@@ -385,7 +390,10 @@ export const treeRepository = {
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         scoutFrequencyLevel,
-        scoutFrequencyNextCost: scaleCost(scoutFrequencyCost(scoutFrequencyLevel), userRow.rows[0].prestige_tier),
+        scoutFrequencyNextCost: scoutFrequencyCost(
+          scoutFrequencyLevel,
+          tieredMaxLevel(SCOUT_FREQUENCY_MAX_LEVEL, userRow.rows[0].prestige_tier),
+        ),
         multiplierLevel,
         multiplierValue: multiplierValue(multiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
@@ -1227,7 +1235,7 @@ export const treeRepository = {
         [userId, SCOUT_FREQUENCY_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = scaleCost(scoutFrequencyCost(level), userRow.rows[0].prestige_tier)
+      const cost = scoutFrequencyCost(level, tieredMaxLevel(SCOUT_FREQUENCY_MAX_LEVEL, userRow.rows[0].prestige_tier))
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1263,7 +1271,10 @@ export const treeRepository = {
       return {
         ok: true,
         scoutFrequencyLevel: newLevel,
-        scoutFrequencyNextCost: scaleCost(scoutFrequencyCost(newLevel), userRow.rows[0].prestige_tier),
+        scoutFrequencyNextCost: scoutFrequencyCost(
+          newLevel,
+          tieredMaxLevel(SCOUT_FREQUENCY_MAX_LEVEL, userRow.rows[0].prestige_tier),
+        ),
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),

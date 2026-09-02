@@ -13,8 +13,13 @@ export const SCOUT_FREQUENCY_STEP = 1
 export const SCOUT_FREQUENCY_BASE_COST = 5_000
 export const SCOUT_FREQUENCY_COST_RATIO = 1.35
 
-export function scoutFrequencyCost(level) {
-  if (level >= SCOUT_FREQUENCY_MAX_LEVEL) return null
+// `maxLevel` defaults to the prestige-0 cap but callers pass a
+// tier-adjusted one — this node's cost no longer scales with prestige tier
+// (see scaleCost/tieredMaxLevel in treeRepository.js), each tier just
+// unlocks more levels of the same curve. Same treatment as Sobrecarga,
+// which this node mirrors exactly.
+export function scoutFrequencyCost(level, maxLevel = SCOUT_FREQUENCY_MAX_LEVEL) {
+  if (level >= maxLevel) return null
   return Math.ceil(SCOUT_FREQUENCY_BASE_COST * SCOUT_FREQUENCY_COST_RATIO ** level)
 }
 
