@@ -519,6 +519,7 @@ const OrbitingBots = memo(function OrbitingBots({
   beamClass = 'from-violet-300/0 via-violet-200 to-white',
   beamShadow = 'rgba(216,180,254,0.8)',
   phaseOffset = 0,
+  fuseEvery,
 }: {
   count: number
   colorClass?: string
@@ -526,15 +527,27 @@ const OrbitingBots = memo(function OrbitingBots({
   beamClass?: string
   beamShadow?: string
   phaseOffset?: number
+  // When set (regular drones only, so far — 10), every `fuseEvery` owned
+  // units render as a single bigger drone instead of that many small
+  // ones: 15 owned = 1 big + 5 small, always floor(count/N) big plus the
+  // count%N remainder as small. Purely a rendering choice — `count` itself
+  // (and everything cps-related upstream) is untouched, this only changes
+  // how many <DroneIcon>s get drawn and at what size.
+  fuseEvery?: number
 }) {
   if (count <= 0) return null
+  const bigUnits = fuseEvery ? Math.floor(count / fuseEvery) : 0
+  const smallUnits = fuseEvery ? count % fuseEvery : count
+  const totalUnits = bigUnits + smallUnits
+  const isBigUnit = (i: number) => i < bigUnits
   return (
     <div className="pointer-events-none absolute inset-0">
-      {Array.from({ length: count }, (_, i) => {
+      {Array.from({ length: totalUnits }, (_, i) => {
+        const big = isBigUnit(i)
         const orbitDuration = 18 + (i % 3) * 3
         // Negative delay pre-advances the loop so drones start already
         // spread around the circle instead of all bunched at angle 0.
-        const orbitDelay = -((i / count + phaseOffset) * orbitDuration)
+        const orbitDelay = -((i / totalUnits + phaseOffset) * orbitDuration)
         const pulseDelay = (i * 0.53) % 2.4
         const clockwise = i % 2 === 0
         // `Record<string, string>` instead of CSSProperties — custom
@@ -572,9 +585,9 @@ const OrbitingBots = memo(function OrbitingBots({
                     filter's own input geometry never changes — only its
                     *child* pulses — which lets the browser composite the
                     already-filtered layer instead of re-filtering it. */}
-                <div style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}>
+                <div style={{ filter: `drop-shadow(0 0 ${big ? 10 : 6}px ${glowColor})` }}>
                   <div className={`drone-pulse ${colorClass}`} style={pulseDelayVar}>
-                    <DroneIcon size={20} animated />
+                    <DroneIcon size={big ? 34 : 20} animated />
                   </div>
                 </div>
               </div>
@@ -1534,7 +1547,7 @@ export function Home() {
           data-tutorial="home-click-area"
           className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96"
         >
-            <OrbitingBots count={autoClickLevel} />
+            <OrbitingBots count={autoClickLevel} fuseEvery={10} />
           <OrbitingBots
             count={scoutDroneLevel}
             colorClass="text-amber-300"

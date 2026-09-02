@@ -240,7 +240,7 @@ function useTypewriter(text: string) {
 }
 
 export function TutorialOverlay() {
-  const { isActive, currentStep, advance } = useTutorialContext()
+  const { isActive, currentStep, isLastStep, advance } = useTutorialContext()
   const { strings } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
@@ -359,16 +359,27 @@ export function TutorialOverlay() {
         // Open-field mode: only cover the specific off-limits elements
         // (the HUD, the bottom nav) — the rest of the actual viewport, where
         // Home's real click surface already lives, stays completely
-        // undimmed and untouched.
+        // undimmed and untouched. No spotlight hole to draw the eye toward
+        // here either (unlike the `hole` branch above, the whole rest of
+        // the screen is fair game, not one highlighted target), so these
+        // blockers stay invisible too — just pointer-events-auto, no
+        // bg-black/* — instead of visibly darkening the HUD/nav for no
+        // reason.
         blockRects.map((r, i) => (
           <div
             key={i}
-            className="pointer-events-auto fixed bg-black/75"
+            className="pointer-events-auto fixed"
             style={{ top: r.top, left: r.left, width: r.right - r.left, height: r.bottom - r.top }}
           />
         ))
       ) : (
-        <div className="pointer-events-auto fixed inset-0 bg-black/75" />
+        // Pure narration (no target, no blockTargets) — a step that's just
+        // talking, not pointing at anything to tap. Dimming here would
+        // suggest a spotlight that isn't there, so this stays fully
+        // invisible: still `pointer-events-auto` (nothing behind it is
+        // reachable while the step is up), just no `bg-black/*` painted
+        // over the actual screen.
+        <div className="pointer-events-auto fixed inset-0" />
       )}
 
       {/* C0-PI + its speech bubble — bottom-anchored so it never competes
@@ -401,7 +412,7 @@ export function TutorialOverlay() {
                 onClick={advance}
                 className="mt-3 w-full rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
               >
-                {currentStep.id === 'closing' ? strings.tutorial.finish : strings.tutorial.next}
+                {isLastStep ? strings.tutorial.finish : strings.tutorial.next}
               </button>
             )}
           </div>

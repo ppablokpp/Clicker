@@ -95,7 +95,7 @@ interface TreeContextValue extends TreeState {
   hasNewUpgrade: boolean
   markUpgradesSeen: () => void
   isBuying: boolean
-  buyAutoClick: () => Promise<{ ok: boolean; error?: string }>
+  buyAutoClick: () => Promise<{ ok: boolean; error?: string; newLevel?: number }>
   grantAutoClickFree: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLuck: boolean
   buyLuck: () => Promise<{ ok: boolean; error?: string }>
@@ -402,7 +402,11 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       }
       playTreeUpgrade()
       setHasNewUpgrade(true)
-      return { ok: true }
+      // newLevel surfaced to the caller — Tree.tsx checks it against the
+      // drone-fusion tutorial's trigger (level 10, tier 0) right after a
+      // real (non-free) purchase, which this state update alone doesn't
+      // expose (it lands in context state, not in what's returned here).
+      return { ok: true, newLevel: data.autoClickLevel as number }
     } catch (err) {
       console.error('No se pudo comprar la mejora', err)
       return { ok: false, error: 'error' }

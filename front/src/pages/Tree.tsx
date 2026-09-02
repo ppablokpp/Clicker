@@ -29,7 +29,7 @@ import {
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
-import { useTutorialContext } from '../context/TutorialContext'
+import { useTutorialContext, DRONE_FUSION_STEPS } from '../context/TutorialContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
@@ -464,6 +464,19 @@ export function Tree() {
   } = useTreeContext()
   const isAutoClickMaxed = autoClickNextCost === null
   const canAffordAutoClick = autoClickNextCost !== null && totalClicks >= autoClickNextCost
+  // Reaching level 10 on your very first run (tier 0, Amatista) is when the
+  // fleet visually starts fusing drones together on Home (see OrbitingBots'
+  // `fuseEvery` prop there) — a one-off, ad-hoc tutorial explains that the
+  // instant it happens, gated on the *result* of a real purchase (not a
+  // level readback afterward, which would still show the pre-render stale
+  // value) so it can never double-fire for the same purchase.
+  const handleBuyAutoClick = async () => {
+    const result = await buyAutoClick()
+    if (result.ok && result.newLevel === 10 && prestigeTier === 0) {
+      setShowAutoClickModal(false)
+      tutorial.start({ steps: DRONE_FUSION_STEPS })
+    }
+  }
   const isLuckMaxed = luckNextCost === null
   const canAffordLuck = luckNextCost !== null && totalClicks >= luckNextCost
   const isLuckChanceMaxed = luckChanceNextCost === null
@@ -1888,7 +1901,7 @@ export function Tree() {
                           setShowAutoClickModal(false)
                         }
                       }
-                    : buyAutoClick
+                    : handleBuyAutoClick
                 }
                 isBuying={isBuying}
                 canAfford={canAffordAutoClick}

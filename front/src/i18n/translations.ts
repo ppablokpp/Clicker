@@ -349,6 +349,8 @@ export interface TranslationStrings {
     pointTreeRootText: string
     pointTreeBuyText: string
     closingText: string
+    droneFusionIntroText: string
+    droneFusionHomeText: string
   }
 }
 
@@ -792,6 +794,10 @@ export const translations: Record<Language, TranslationStrings> = {
       pointTreeBuyText: 'Consigue tu primer dron. Te ayudará con la extracción.',
       closingText:
         'Esta es la sala de progreso de tu nave. Desde aquí irás mejorando cada sistema y ampliando tu flota. Buena suerte ahí fuera.',
+      droneFusionIntroText:
+        '¡Buen trabajo, comandante! Tu flota está creciendo. A partir de ahora, cada diez drones se fusionarán automáticamente en una unidad más grande y eficiente. Vamos a verlo.',
+      droneFusionHomeText:
+        '¡Mira! Tus diez drones se han fusionado en una unidad más grande y potente. Cada vez que reúnas diez más, se fusionarán en otra igual, así tu flota se mantiene ágil aunque no pare de crecer.',
     },
   },
   en: {
@@ -1232,6 +1238,10 @@ export const translations: Record<Language, TranslationStrings> = {
       pointTreeBuyText: "Get your first drone. It'll help with the extraction.",
       closingText:
         "This is your ship's progress room. From here you'll keep upgrading every system and growing your fleet. Good luck out there.",
+      droneFusionIntroText:
+        "Great work, commander! Your fleet is growing. From now on, every ten drones will automatically merge into one bigger, more efficient unit. Let's take a look.",
+      droneFusionHomeText:
+        "Look! Your ten drones have merged into one bigger, more powerful unit. Every time you gather ten more, they'll merge into another one just like it, keeping your fleet lean no matter how large it grows.",
     },
   },
 }

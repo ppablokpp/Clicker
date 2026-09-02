@@ -95,6 +95,19 @@ function buildSteps(skipDroneGrant: boolean): TutorialStepDef[] {
   return ALL_STEPS.filter((s) => s.id !== 'pointTreeRoot' && s.id !== 'pointTreeBuy')
 }
 
+// One-off, ad-hoc sequence — not part of the onboarding flow at all, never
+// checked/persisted server-side (see `start`'s `steps` option and `finish`
+// below skipping the tutorial-complete POST for these). Triggered from
+// Tree.tsx the moment the Drones node's level hits 10 — see the comment on
+// that call site for why 10 specifically. Two narration-only steps (no
+// target/blockTargets, same "full dim + C0-PI talks + Siguiente" shape the
+// onboarding's own `intro`/`closing` steps use): one right where the
+// purchase happened, one after hopping to Home to show the merged result.
+export const DRONE_FUSION_STEPS: TutorialStepDef[] = [
+  { id: 'droneFusionIntro', autoAdvanceOnClick: false, route: '/arbol' },
+  { id: 'droneFusionHome', autoAdvanceOnClick: false, route: '/' },
+]
+
 interface StartOptions {
   // Set when replaying via the "?" button and the drone node is already
   // past level 0 — skips the forced-buy step entirely instead of trying
@@ -104,11 +117,16 @@ interface StartOptions {
   // steps (intro story, tap-the-asteroid, go-to-tree-tab) instead of
   // bouncing the player back to Home just to replay the intro.
   startAt?: string
+  // Runs this exact sequence instead of the onboarding one (see
+  // DRONE_FUSION_STEPS) — completely ad-hoc, doesn't touch
+  // tutorial_completed/skipDroneGrant at all.
+  steps?: TutorialStepDef[]
 }
 
 interface TutorialContextValue {
   isActive: boolean
   currentStep: TutorialStepDef | null
+  isLastStep: boolean
   skipDroneGrant: boolean
   start: (options?: StartOptions) => void
   advance: () => void
@@ -121,11 +139,18 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   // null = not running. A real index (including 0) = currently on that step.
   const [stepIndex, setStepIndex] = useState<number | null>(null)
   const [skipDroneGrant, setSkipDroneGrant] = useState(false)
+  // Non-null while running an ad-hoc sequence started via `start({ steps })`
+  // (e.g. DRONE_FUSION_STEPS) instead of the onboarding one — overrides
+  // buildSteps() entirely and, in `finish`, skips the tutorial-complete POST
+  // (that flag means the *onboarding* flow specifically, not "any tutorial
+  // ever shown").
+  const [customSteps, setCustomSteps] = useState<TutorialStepDef[] | null>(null)
   const hasCheckedRef = useRef(false)
 
-  // Recomputed only when skipDroneGrant actually changes (i.e. on `start`) —
-  // this is the one array `stepIndex` indexes into for the whole run.
-  const steps = useMemo(() => buildSteps(skipDroneGrant), [skipDroneGrant])
+  // Recomputed only when skipDroneGrant/customSteps actually change (i.e. on
+  // `start`) — this is the one array `stepIndex` indexes into for the whole
+  // run.
+  const steps = useMemo(() => customSteps ?? buildSteps(skipDroneGrant), [customSteps, skipDroneGrant])
 
   // Auto-starts exactly once per real sign-in, the very first time this
   // account is seen with tutorial_completed still false — everything after
@@ -153,21 +178,34 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     })()
   }, [userId, getToken])
 
-  const finish = useCallback(async () => {
-    setStepIndex(null)
-    if (!userId) return
-    try {
-      const token = await getToken()
-      await fetch(`${API_URL}/api/users/tutorial-complete`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    } catch (err) {
-      console.error('No se pudo guardar el progreso del tutorial', err)
-    }
-  }, [userId, getToken])
+  const finish = useCallback(
+    async (wasCustom: boolean) => {
+      setStepIndex(null)
+      setCustomSteps(null)
+      // Ad-hoc sequences (DRONE_FUSION_STEPS etc.) never touch this — see
+      // `no hace falta guardar nada de bd` on that feature: nothing here is
+      // checked or persisted, so finishing one is purely a local state reset.
+      if (wasCustom || !userId) return
+      try {
+        const token = await getToken()
+        await fetch(`${API_URL}/api/users/tutorial-complete`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      } catch (err) {
+        console.error('No se pudo guardar el progreso del tutorial', err)
+      }
+    },
+    [userId, getToken],
+  )
 
   const start = useCallback((options?: StartOptions) => {
+    if (options?.steps) {
+      setCustomSteps(options.steps)
+      setStepIndex(0)
+      return
+    }
+    setCustomSteps(null)
     const skip = options?.skipDroneGrant ?? false
     setSkipDroneGrant(skip)
     const activeSteps = buildSteps(skip)
@@ -181,21 +219,22 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       if (prev === null) return prev
       const next = prev + 1
       if (next >= steps.length) {
-        void finish()
+        void finish(customSteps !== null)
         return null
       }
       return next
     })
-  }, [steps, finish])
+  }, [steps, finish, customSteps])
 
   const currentStep = stepIndex !== null ? (steps[stepIndex] ?? null) : null
 
   const isActive = stepIndex !== null
+  const isLastStep = stepIndex !== null && stepIndex === steps.length - 1
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap.
   const value = useMemo(
-    () => ({ isActive, currentStep, skipDroneGrant, start, advance }),
-    [isActive, currentStep, skipDroneGrant, start, advance],
+    () => ({ isActive, currentStep, isLastStep, skipDroneGrant, start, advance }),
+    [isActive, currentStep, isLastStep, skipDroneGrant, start, advance],
   )
 
   return <TutorialContext.Provider value={value}>{children}</TutorialContext.Provider>
