@@ -17,8 +17,12 @@ export const AUTO_MULTIPLIER_STEP = 0.5
 export const AUTO_MULTIPLIER_BASE_COST = 1_000
 export const AUTO_MULTIPLIER_COST_RATIO = 1.5
 
-export function autoMultiplierCost(level) {
-  if (level >= AUTO_MULTIPLIER_MAX_LEVEL) return null
+// `maxLevel` defaults to the prestige-0 cap but callers pass a
+// tier-adjusted one — this node's cost no longer scales with prestige tier
+// (see scaleCost/tieredMaxLevel in treeRepository.js), each tier just
+// unlocks more levels of the same curve.
+export function autoMultiplierCost(level, maxLevel = AUTO_MULTIPLIER_MAX_LEVEL) {
+  if (level >= maxLevel) return null
   return Math.ceil(AUTO_MULTIPLIER_BASE_COST * AUTO_MULTIPLIER_COST_RATIO ** level)
 }
 

@@ -11,13 +11,16 @@
 export const AUTOCLICK_NODE_ID = 'auto_click'
 export const AUTOCLICK_MAX_LEVEL = 30
 
-export const AUTOCLICK_BASE_COST = 250
-export const AUTOCLICK_COST_RATIO = 1.3
+export const AUTOCLICK_BASE_COST = 150
+export const AUTOCLICK_COST_RATIO = 1.35
 export const AUTOCLICK_CPS_PER_LEVEL = 0.5
 
-// Cost to go from `level` owned to `level + 1`.
-export function autoClickCost(level) {
-  if (level >= AUTOCLICK_MAX_LEVEL) return null
+// Cost to go from `level` owned to `level + 1`. `maxLevel` defaults to the
+// prestige-0 cap but callers pass a tier-adjusted one — this node's cost no
+// longer scales with prestige tier (see scaleCost/tieredMaxLevel in
+// treeRepository.js), each tier just unlocks more levels of the same curve.
+export function autoClickCost(level, maxLevel = AUTOCLICK_MAX_LEVEL) {
+  if (level >= maxLevel) return null
   return Math.ceil(AUTOCLICK_BASE_COST * AUTOCLICK_COST_RATIO ** level)
 }
 

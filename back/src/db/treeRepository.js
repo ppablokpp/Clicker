@@ -1,10 +1,10 @@
 import { database } from './pool.js'
-import { AUTOCLICK_NODE_ID, autoClickCost } from '../tree/autoClick.js'
+import { AUTOCLICK_NODE_ID, AUTOCLICK_MAX_LEVEL, autoClickCost } from '../tree/autoClick.js'
 import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
 import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
-import { SCOUT_DRONE_NODE_ID, scoutDroneCost } from '../tree/scoutDrone.js'
+import { SCOUT_DRONE_NODE_ID, SCOUT_DRONE_MAX_LEVEL, scoutDroneCost } from '../tree/scoutDrone.js'
 import { SCOUT_FREQUENCY_NODE_ID, scoutFrequencyCost, scoutFrequencyValue } from '../tree/scoutFrequency.js'
-import { MULTIPLIER_NODE_ID, multiplierCost, multiplierValue } from '../tree/multiplier.js'
+import { MULTIPLIER_NODE_ID, MULTIPLIER_MAX_LEVEL, multiplierCost, multiplierValue } from '../tree/multiplier.js'
 import { LEGENDARY_UNLOCK_NODE_ID, legendaryUnlockCost } from '../tree/legendaryUnlock.js'
 import {
   LEGENDARY_EASE_NODE_ID,
@@ -23,7 +23,12 @@ import {
   legendaryThresholdCost,
   legendaryThresholdTps,
 } from '../tree/legendaryThreshold.js'
-import { AUTO_MULTIPLIER_NODE_ID, autoMultiplierCost, autoMultiplierValue } from '../tree/autoMultiplier.js'
+import {
+  AUTO_MULTIPLIER_NODE_ID,
+  AUTO_MULTIPLIER_MAX_LEVEL,
+  autoMultiplierCost,
+  autoMultiplierValue,
+} from '../tree/autoMultiplier.js'
 import { TAP_MULTIPLIER_NODE_ID, tapMultiplierCost, tapMultiplierValue } from '../tree/tapMultiplier.js'
 import { MULTI_SHOT_NODE_ID, multiShotCost, multiShotValue } from '../tree/multiShot.js'
 import { ANOMALY_UNLOCK_NODE_ID, anomalyUnlockCost } from '../tree/anomalyUnlock.js'
@@ -44,6 +49,19 @@ import { prestigeTierMultiplier } from '../game/trajectory.js'
 // which must pass through unchanged rather than turning into `null * 5`.
 function scaleCost(cost, prestigeTier) {
   return cost === null ? null : cost * prestigeTierMultiplier(Number(prestigeTier))
+}
+
+// Drones, Dron buscador, Potencia and Sobrecarga are the tree's raw
+// production drivers. Unlike every other node, their cost does NOT go
+// through scaleCost above — instead each prestige tier past 0 unlocks
+// TIERED_LEVELS_PER_PRESTIGE more levels of the exact same (unscaled) cost
+// curve, so a level bought at tier 1 costs the same raw platino as at tier
+// 0, while the *value* it produces still scales with prestigeTierMultiplier
+// same as before — that's what makes each prestige a real speed-up instead
+// of just a rescaled copy of the same game.
+const TIERED_LEVELS_PER_PRESTIGE = 10
+function tieredMaxLevel(baseMaxLevel, prestigeTier) {
+  return baseMaxLevel + TIERED_LEVELS_PER_PRESTIGE * Number(prestigeTier)
 }
 
 // Binary, not blended: a gap at or under this is just normal active play
@@ -131,7 +149,11 @@ export async function accrueProduction(client, userId) {
     `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
     [userId, SCOUT_FREQUENCY_NODE_ID],
   )
-  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0))
+  // Mirrors sobrecargaPerDroneRate below — Frecuencia is Drones buscadores'
+  // own Sobrecarga, so its rate has to scale with prestige tier the same
+  // way (it didn't used to; scout drone production silently stopped
+  // benefiting from prestiging at all until this was caught).
+  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) * prestigeTierMultiplier(prestigeTier)
 
   const autoMultiplierRow = await client.query(
     `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -350,7 +372,7 @@ export const treeRepository = {
         // stream below, kept apart so the "Drones" card never mixes the two
         // unit types' output.
         autoClickCps: level * sobrecargaPerDroneRate * reactorMultiplier,
-        autoClickNextCost: scaleCost(autoClickCost(level), userRow.rows[0].prestige_tier),
+        autoClickNextCost: autoClickCost(level, tieredMaxLevel(AUTOCLICK_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         autoClickNextCps: (level + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         luckLevel,
         luckChance: luckLevel > 0 ? luckChanceValue(luckChanceLevel) : 0,
@@ -359,7 +381,7 @@ export const treeRepository = {
         luckChanceLevel,
         luckChanceNextCost: scaleCost(luckChanceCost(luckChanceLevel), userRow.rows[0].prestige_tier),
         scoutDroneLevel,
-        scoutDroneNextCost: scaleCost(scoutDroneCost(scoutDroneLevel), userRow.rows[0].prestige_tier),
+        scoutDroneNextCost: scoutDroneCost(scoutDroneLevel, tieredMaxLevel(SCOUT_DRONE_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         scoutFrequencyLevel,
@@ -367,7 +389,7 @@ export const treeRepository = {
         multiplierLevel,
         multiplierValue: multiplierValue(multiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
-        multiplierNextCost: scaleCost(multiplierCost(multiplierLevel), userRow.rows[0].prestige_tier),
+        multiplierNextCost: multiplierCost(multiplierLevel, tieredMaxLevel(MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         legendaryUnlockLevel,
         legendaryUnlockNextCost: scaleCost(legendaryUnlockCost(legendaryUnlockLevel), userRow.rows[0].prestige_tier),
         legendaryEaseLevel,
@@ -383,7 +405,10 @@ export const treeRepository = {
         autoMultiplierValue: sobrecargaPerDroneRate,
         autoMultiplierNextValue:
           autoMultiplierValue(autoMultiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
-        autoMultiplierNextCost: scaleCost(autoMultiplierCost(autoMultiplierLevel), userRow.rows[0].prestige_tier),
+        autoMultiplierNextCost: autoMultiplierCost(
+          autoMultiplierLevel,
+          tieredMaxLevel(AUTO_MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier),
+        ),
         tapMultiplierLevel,
         tapMultiplierValue: tapMultiplierValue(tapMultiplierLevel),
         tapMultiplierNextCost: scaleCost(tapMultiplierCost(tapMultiplierLevel), userRow.rows[0].prestige_tier),
@@ -509,7 +534,7 @@ export const treeRepository = {
       // working unchanged.
       const userRow = { rows: [{ prestige_tier: accrued.prestigeTier }] }
 
-      const cost = scaleCost(autoClickCost(level), userRow.rows[0].prestige_tier)
+      const cost = autoClickCost(level, tieredMaxLevel(AUTOCLICK_MAX_LEVEL, userRow.rows[0].prestige_tier))
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -540,7 +565,7 @@ export const treeRepository = {
         ok: true,
         autoClickLevel: newLevel,
         autoClickCps: newLevel * sobrecargaPerDroneRate * reactorMultiplier,
-        autoClickNextCost: scaleCost(autoClickCost(newLevel), userRow.rows[0].prestige_tier),
+        autoClickNextCost: autoClickCost(newLevel, tieredMaxLevel(AUTOCLICK_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         autoClickNextCps: (newLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         totalClicks,
         objectsBroken,
@@ -615,7 +640,7 @@ export const treeRepository = {
         ok: true,
         autoClickLevel: newLevel,
         autoClickCps: newLevel * sobrecargaPerDroneRate * reactorMultiplier,
-        autoClickNextCost: scaleCost(autoClickCost(newLevel), userRow.rows[0].prestige_tier),
+        autoClickNextCost: autoClickCost(newLevel, tieredMaxLevel(AUTOCLICK_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         autoClickNextCps: (newLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         totalClicks: Number(userRow.rows[0].total_clicks),
         objectsBroken: Number(userRow.rows[0].objects_broken),
@@ -654,7 +679,7 @@ export const treeRepository = {
         [userId, MULTIPLIER_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = scaleCost(multiplierCost(level), userRow.rows[0].prestige_tier)
+      const cost = multiplierCost(level, tieredMaxLevel(MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier))
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -685,7 +710,7 @@ export const treeRepository = {
         multiplierLevel: newLevel,
         multiplierValue: multiplierValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextValue: multiplierValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
-        multiplierNextCost: scaleCost(multiplierCost(newLevel), userRow.rows[0].prestige_tier),
+        multiplierNextCost: multiplierCost(newLevel, tieredMaxLevel(MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -1109,7 +1134,7 @@ export const treeRepository = {
         [userId, SCOUT_DRONE_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = scaleCost(scoutDroneCost(level), userRow.rows[0].prestige_tier)
+      const cost = scoutDroneCost(level, tieredMaxLevel(SCOUT_DRONE_MAX_LEVEL, userRow.rows[0].prestige_tier))
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1137,7 +1162,9 @@ export const treeRepository = {
         `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
         [userId, SCOUT_FREQUENCY_NODE_ID],
       )
-      const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0))
+      const scoutDroneRate =
+        scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) *
+        prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
 
       const reactorRow = await client.query(
         `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1150,7 +1177,7 @@ export const treeRepository = {
       return {
         ok: true,
         scoutDroneLevel: newLevel,
-        scoutDroneNextCost: scaleCost(scoutDroneCost(newLevel), userRow.rows[0].prestige_tier),
+        scoutDroneNextCost: scoutDroneCost(newLevel, tieredMaxLevel(SCOUT_DRONE_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         scoutDroneRate,
         scoutDroneCps: newLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
@@ -1232,7 +1259,7 @@ export const treeRepository = {
 
       await client.query('COMMIT')
       const newLevel = level + 1
-      const scoutDroneRate = scoutFrequencyValue(newLevel)
+      const scoutDroneRate = scoutFrequencyValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
       return {
         ok: true,
         scoutFrequencyLevel: newLevel,
@@ -1279,7 +1306,7 @@ export const treeRepository = {
         [userId, AUTO_MULTIPLIER_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
-      const cost = scaleCost(autoMultiplierCost(level), userRow.rows[0].prestige_tier)
+      const cost = autoMultiplierCost(level, tieredMaxLevel(AUTO_MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier))
       if (cost === null) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'max-level' }
@@ -1326,7 +1353,10 @@ export const treeRepository = {
         autoMultiplierValue: sobrecargaPerDroneRate,
         autoMultiplierNextValue:
           autoMultiplierValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
-        autoMultiplierNextCost: scaleCost(autoMultiplierCost(newLevel), userRow.rows[0].prestige_tier),
+        autoMultiplierNextCost: autoMultiplierCost(
+          newLevel,
+          tieredMaxLevel(AUTO_MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier),
+        ),
         autoClickCps: autoClickLevel * sobrecargaPerDroneRate * reactorMultiplier,
         autoClickNextCps: (autoClickLevel + 1) * sobrecargaPerDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),

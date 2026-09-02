@@ -14,7 +14,11 @@ export const SCOUT_DRONE_BASE_COST = 3_200
 export const SCOUT_DRONE_COST_RATIO = 1.3
 export const SCOUT_DRONE_CPS_PER_LEVEL = 2
 
-export function scoutDroneCost(level) {
-  if (level >= SCOUT_DRONE_MAX_LEVEL) return null
+// `maxLevel` defaults to the prestige-0 cap but callers pass a
+// tier-adjusted one — this node's cost no longer scales with prestige tier
+// (see scaleCost/tieredMaxLevel in treeRepository.js), each tier just
+// unlocks more levels of the same curve.
+export function scoutDroneCost(level, maxLevel = SCOUT_DRONE_MAX_LEVEL) {
+  if (level >= maxLevel) return null
   return Math.ceil(SCOUT_DRONE_BASE_COST * SCOUT_DRONE_COST_RATIO ** level)
 }
