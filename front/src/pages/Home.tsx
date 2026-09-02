@@ -558,6 +558,10 @@ const OrbitingBots = memo(function OrbitingBots({
           '--drone-orbit-delay': `${orbitDelay}s`,
         }
         const pulseDelayVar: Record<string, string> = { '--drone-pulse-delay': `${pulseDelay}s` }
+        // A fused drone reads as "the same unit, leveled up" — just one
+        // shade darker than the small ones, barely noticeable on its own,
+        // with the size/glow-radius difference doing the actual work.
+        const droneColorClass = big ? 'text-violet-400' : colorClass
         return (
           <div
             key={i}
@@ -586,8 +590,8 @@ const OrbitingBots = memo(function OrbitingBots({
                     *child* pulses — which lets the browser composite the
                     already-filtered layer instead of re-filtering it. */}
                 <div style={{ filter: `drop-shadow(0 0 ${big ? 10 : 6}px ${glowColor})` }}>
-                  <div className={`drone-pulse ${colorClass}`} style={pulseDelayVar}>
-                    <DroneIcon size={big ? 34 : 20} animated />
+                  <div className={`drone-pulse ${droneColorClass}`} style={pulseDelayVar}>
+                    <DroneIcon size={big ? 30 : 20} animated />
                   </div>
                 </div>
               </div>
