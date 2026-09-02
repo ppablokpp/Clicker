@@ -7,8 +7,9 @@ import { OrbitingBots } from './OrbitingBots'
 import { ProgressRing } from './ProgressRing'
 import { TapEffectsPool, type TapEffectsPoolHandle } from './TapEffectsPool'
 
-// Every `fuseEvery` regular drones render as one bigger unit on a wider
-// ring — see OrbitingBots' own comment. Matches the web's own 10.
+// Every `fuseEvery` owned drones render as one bigger unit on a wider ring
+// — see OrbitingBots' own comment. Applies to both swarms (regular and
+// scout), each keeping its own palette. Matches the web's own 10.
 const FUSE_EVERY = 10
 // Hoisted so it's the same array reference on every render — OrbitingBots
 // is memoized, and an inline array literal here would create a new
@@ -206,6 +207,7 @@ export function TapShootLayer({
                   bigColor="#fbbf24"
                   beamColors={SCOUT_BEAM_COLORS}
                   phaseOffset={0.4}
+                  fuseEvery={FUSE_EVERY}
                 />
                 {/* Ring + asteroid shrunk together by the same 0.85 the orbit
                     radii were scaled by (OrbitingBots) — one shared wrapper so

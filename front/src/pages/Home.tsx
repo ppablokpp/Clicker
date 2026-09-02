@@ -452,6 +452,7 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
 const OrbitingBots = memo(function OrbitingBots({
   count,
   colorClass = 'text-violet-300',
+  bigColorClass = 'text-violet-400',
   glowColor = 'rgba(168,85,247,0.65)',
   beamClass = 'from-violet-300/0 via-violet-200 to-white',
   beamShadow = 'rgba(216,180,254,0.8)',
@@ -460,16 +461,19 @@ const OrbitingBots = memo(function OrbitingBots({
 }: {
   count: number
   colorClass?: string
+  /** Tint for a fused unit — one shade deeper than `colorClass`, so it reads
+   *  as "the same unit, leveled up" rather than a different kind of drone. */
+  bigColorClass?: string
   glowColor?: string
   beamClass?: string
   beamShadow?: string
   phaseOffset?: number
-  // When set (regular drones only, so far — 10), every `fuseEvery` owned
-  // units render as a single bigger drone instead of that many small
-  // ones: 15 owned = 1 big + 5 small, always floor(count/N) big plus the
-  // count%N remainder as small. Purely a rendering choice — `count` itself
-  // (and everything cps-related upstream) is untouched, this only changes
-  // how many <DroneIcon>s get drawn and at what size.
+  // When set, every `fuseEvery` owned units render as a single bigger drone
+  // on a wider ring instead of that many small ones: 15 owned = 1 big + 5
+  // small, always floor(count/N) big plus the count%N remainder as small.
+  // Purely a rendering choice — `count` itself (and everything cps-related
+  // upstream) is untouched, this only changes how many <DroneIcon>s get
+  // drawn and at what size. Both swarms use it; each keeps its own palette.
   fuseEvery?: number
 }) {
   if (count <= 0) return null
@@ -525,7 +529,7 @@ const OrbitingBots = memo(function OrbitingBots({
         // A fused drone reads as "the same unit, leveled up" — just one
         // shade darker than the small ones, barely noticeable on its own,
         // with the size/glow-radius difference doing the actual work.
-        const droneColorClass = big ? 'text-violet-400' : colorClass
+        const droneColorClass = big ? bigColorClass : colorClass
         return (
           <div
             key={i}
@@ -1483,10 +1487,12 @@ export function Home() {
           <OrbitingBots
             count={scoutDroneLevel}
             colorClass="text-amber-300"
+            bigColorClass="text-amber-400"
             glowColor="rgba(251,191,36,0.65)"
             beamClass="from-amber-300/0 via-amber-200 to-white"
             beamShadow="rgba(252,211,77,0.8)"
             phaseOffset={0.4}
+            fuseEvery={10}
           />
           {/* Ring + asteroid shrunk together by the same 0.85 the orbit
               radius below was scaled by (index.css) — one shared wrapper so

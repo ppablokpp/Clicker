@@ -183,14 +183,14 @@ function OrbitingBotsImpl({
   bigColor?: string
   beamColors?: [string, string, string]
   phaseOffset?: number
-  // When set (regular drones only, so far — 10), every `fuseEvery` owned
-  // units render as ONE bigger drone on a wider ring instead of that many
-  // small ones: 15 owned = 1 big + 5 small. `count` itself (and everything
-  // cps-related upstream) is untouched — but unlike the web, where this is
-  // mostly a visual idea, here it's also the single biggest performance
-  // lever there is: every drone on screen costs two per-frame worklets and
-  // their native view updates forever, so collapsing 20 of them into 2 cuts
-  // that by an order of magnitude.
+  // When set, every `fuseEvery` owned units render as ONE bigger drone on a
+  // wider ring instead of that many small ones: 15 owned = 1 big + 5 small.
+  // Both swarms (regular and scout) use it, each with its own palette.
+  // `count` itself (and everything cps-related upstream) is untouched — but
+  // unlike the web, where this is mostly a visual idea, here it's also the
+  // single biggest performance lever there is: every drone on screen costs
+  // two per-frame worklets and their native view updates forever, so
+  // collapsing 20 of them into 2 cuts that by an order of magnitude.
   fuseEvery?: number
 }) {
   if (count <= 0) return null
