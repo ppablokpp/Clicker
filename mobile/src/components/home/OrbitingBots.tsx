@@ -4,7 +4,11 @@ import { StyleSheet, View } from 'react-native'
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 import { DroneIcon } from './DroneIcon'
 
-const ORBIT_RADIUS = 118
+// Kept in step with front/src/index.css's --drone-orbit-radius pair: the
+// base ring, and a second one ~37.5% wider that only the fused drones ride.
+const ORBIT_RADIUS = 100
+const ORBIT_RADIUS_BIG = 138
+// How many owned drones collapse into one bigger unit — see `fuseEvery`.
 const DEFAULT_BEAM_COLORS: [string, string, string] = ['rgba(196,181,253,0)', '#ddd6fe', '#ffffff']
 
 // One drone: swings around the asteroid at a fixed radius, pulses gently,
@@ -13,41 +17,58 @@ const DEFAULT_BEAM_COLORS: [string, string, string] = ['rgba(196,181,253,0)', '#
 // mount dozens/hundreds of instances (one per auto-click/scout-drone level,
 // uncapped), so every choice here is about keeping that scaling cheap, not
 // just "using reanimated":
-//   - `memo()` + only primitive/shared-value props, so a tap elsewhere
-//     (which re-renders TapShootLayer, this swarm's ultimate ancestor)
-//     never re-renders an already-mounted drone.
-//   - Position, scale and opacity for the icon are ONE `useAnimatedStyle`
-//     on ONE view — not three separate animated views/worklets — since
-//     they all update every frame together anyway.
+//   - `memo()` + only primitive props, so a tap elsewhere (which re-renders
+//     TapShootLayer, this swarm's ultimate ancestor) never re-renders an
+//     already-mounted drone.
+//   - Position, rotation, scale and opacity for the icon are ONE
+//     `useAnimatedStyle` on ONE view — not several separate animated
+//     views/worklets — since they all update every frame together anyway.
+//     A worklet invocation plus its native view update costs far more than
+//     the two Math.sin/cos calls inside it, so merging is what matters here,
+//     not shaving the trig.
 //   - No `shadow*` props on anything that also animates every frame: iOS
 //     has to re-rasterize a shadow's bitmap on every change to the view it
 //     sits on, so an animated-opacity/scale/position view WITH a shadow is
 //     a well-known way to light the GPU on fire with enough of them on
-//     screen at once — the glow is a flat additive tint behind the icon
+//     screen at once — the glow is a flat tint circle behind the icon
 //     instead, which is just alpha blending, not a re-rasterized shadow.
+//   - The beam holds a byte-identical style for the ~78% of its cycle it
+//     spends spent/invisible, so Reanimated's own diffing skips pushing any
+//     native update for it across that whole stretch (see beamStyle).
 function DroneImpl({
   index,
   count,
+  big,
   color,
-  glowColor,
   beamColors,
   phaseOffset,
 }: {
   index: number
   count: number
+  big: boolean
   color: string
-  glowColor: string
   beamColors: [string, string, string]
   phaseOffset: number
 }) {
-  const orbitDurationMs = (18 + (index % 3) * 3) * 1000
+  const radius = big ? ORBIT_RADIUS_BIG : ORBIT_RADIUS
+  const size = big ? 30 : 20
+  // Tangential (visual) speed held constant across both rings: a wider ring
+  // covers more distance per lap, so it gets a proportionally longer lap.
+  // Same 1.375 ratio the two radii above differ by — keep the two in step.
+  const orbitDurationMs = (18 + (index % 3) * 3) * 1000 * (big ? 1.375 : 1)
   const phaseDeg = (index / count + phaseOffset) * 360
   const clockwise = index % 2 === 0
-  const pulseDelayMs = ((index * 0.53) % 2.4) * 1000
+  const pulseDelayMs = ((index * 0.53) % 1.8) * 1000
 
   const angle = useSharedValue(0)
   const pulse = useSharedValue(0)
-  const beam = useSharedValue(0)
+  // Starts SPENT (1), not 0. At 0 this computes to "sitting on the drone at
+  // full opacity", so every beam was parked visibly on top of its drone
+  // until its stagger timer below fired — up to ~1.8s of stuck beams on
+  // every fresh mount, then correct forever after. The web had the exact
+  // same bug via a positive CSS animation-delay; both now start in the
+  // resting state instead of leaking a pre-start one.
+  const beam = useSharedValue(1)
 
   useEffect(() => {
     angle.value = withRepeat(withTiming(clockwise ? 360 : -360, { duration: orbitDurationMs, easing: Easing.linear }), -1)
@@ -85,38 +106,54 @@ function DroneImpl({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Position + scale + opacity together in one worklet/view instead of
-  // three — they all recompute every frame regardless, so splitting them
-  // across separate `useAnimatedStyle`s and nested Animated.Views only adds
-  // worklet-invocation and view-tree overhead without buying anything.
   const iconStyle = useAnimatedStyle(() => {
-    const rad = ((phaseDeg + angle.value) * Math.PI) / 180
+    const deg = phaseDeg + angle.value
+    const rad = (deg * Math.PI) / 180
     return {
       opacity: 0.75 + pulse.value * 0.25,
       transform: [
-        { translateX: Math.sin(rad) * ORBIT_RADIUS },
-        { translateY: -Math.cos(rad) * ORBIT_RADIUS },
+        { translateX: Math.sin(rad) * radius },
+        { translateY: -Math.cos(rad) * radius },
+        // Rides the orbit rather than staying level. The web used to spend
+        // a whole extra always-running animation counter-rotating this back
+        // upright; the icon is a quadcopter with 4-fold symmetry, so letting
+        // it turn just reads as slowly spinning on its own axis. Free here
+        // (this worklet already runs), and it keeps the two clients matched.
+        { rotate: `${deg}deg` },
         { scale: 1 + pulse.value * 0.12 },
       ],
     }
   })
   const beamStyle = useAnimatedStyle(() => {
-    const rad = ((phaseDeg + angle.value) * Math.PI) / 180
-    const dist = ORBIT_RADIUS * (1 - beam.value)
+    // Spent and invisible for ~78% of every cycle. Returning a constant
+    // style across that stretch means Reanimated diffs it as unchanged and
+    // pushes nothing to the native view — no transform update, no trig —
+    // until the next shot actually starts. Without this the beam kept
+    // recomputing and re-applying a full transform every frame purely to
+    // move something at opacity 0, once per drone, forever.
+    if (beam.value >= 1) {
+      return { opacity: 0, transform: [{ translateX: 0 }, { translateY: 0 }, { rotate: '0deg' }] }
+    }
+    const deg = phaseDeg + angle.value
+    const rad = (deg * Math.PI) / 180
+    const dist = radius * (1 - beam.value)
     return {
       opacity: 1 - beam.value,
-      transform: [
-        { translateX: Math.sin(rad) * dist },
-        { translateY: -Math.cos(rad) * dist },
-        { rotate: `${phaseDeg + angle.value}deg` },
-      ],
+      transform: [{ translateX: Math.sin(rad) * dist }, { translateY: -Math.cos(rad) * dist }, { rotate: `${deg}deg` }],
     }
   })
 
   return (
     <View pointerEvents="none" style={{ position: 'absolute' }}>
-      <Animated.View style={[{ position: 'absolute', width: 20, height: 20, marginLeft: -10, marginTop: -10 }, iconStyle]}>
-        <DroneIcon size={20} color={color} />
+      {/* No glow behind the icon on purpose. A real shadow is out (it would
+          have to be re-rasterized on a view that scales every frame — see
+          the file header), and a flat tint circle standing in for the web's
+          `filter: drop-shadow` was tried and reads as an aura/halo rather
+          than a glow at this size. The drone is drawn bare. */}
+      <Animated.View
+        style={[{ position: 'absolute', width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2 }, iconStyle]}
+      >
+        <DroneIcon size={size} color={color} />
       </Animated.View>
       <Animated.View
         style={[
@@ -135,31 +172,48 @@ const Drone = memo(DroneImpl)
 function OrbitingBotsImpl({
   count,
   color = '#c4b5fd',
-  glowColor = 'rgba(168,85,247,0.65)',
+  bigColor = '#a78bfa',
   beamColors = DEFAULT_BEAM_COLORS,
   phaseOffset = 0,
+  fuseEvery,
 }: {
   count: number
   color?: string
-  glowColor?: string
+  /** Tint for a fused unit — one shade deeper than `color`, matching the web. */
+  bigColor?: string
   beamColors?: [string, string, string]
   phaseOffset?: number
+  // When set (regular drones only, so far — 10), every `fuseEvery` owned
+  // units render as ONE bigger drone on a wider ring instead of that many
+  // small ones: 15 owned = 1 big + 5 small. `count` itself (and everything
+  // cps-related upstream) is untouched — but unlike the web, where this is
+  // mostly a visual idea, here it's also the single biggest performance
+  // lever there is: every drone on screen costs two per-frame worklets and
+  // their native view updates forever, so collapsing 20 of them into 2 cuts
+  // that by an order of magnitude.
+  fuseEvery?: number
 }) {
   if (count <= 0) return null
+  const bigUnits = fuseEvery ? Math.floor(count / fuseEvery) : 0
+  const smallUnits = fuseEvery ? count % fuseEvery : count
+  const totalUnits = bigUnits + smallUnits
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <View className="flex-1 items-center justify-center">
-        {Array.from({ length: count }, (_, i) => (
-          <Drone
-            key={i}
-            index={i}
-            count={count}
-            color={color}
-            glowColor={glowColor}
-            beamColors={beamColors}
-            phaseOffset={phaseOffset}
-          />
-        ))}
+        {Array.from({ length: totalUnits }, (_, i) => {
+          const big = i < bigUnits
+          return (
+            <Drone
+              key={i}
+              index={i}
+              count={totalUnits}
+              big={big}
+              color={big ? bigColor : color}
+              beamColors={beamColors}
+              phaseOffset={phaseOffset}
+            />
+          )
+        })}
       </View>
     </View>
   )

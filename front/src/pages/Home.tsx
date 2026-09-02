@@ -1204,6 +1204,17 @@ export function Home() {
     if (isAnyModalOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code !== 'Space') return
+      // Held-down Space is ONE shot, not a burst. The OS auto-repeats
+      // keydown while a key is held (a pointerdown has no such thing, which
+      // is why mouse/touch never had this problem), and fireShot's own
+      // multiShot guard doesn't stop it: that only rejects a *new* pointer
+      // key once the allowance is full, and SPACE_KEY is already in the set
+      // by then, so every repeat sailed straight through and fired again.
+      // Keyed off `e.repeat` rather than "is SPACE_KEY already tracked?" so
+      // a genuinely fresh press still works even if a keyup went missing
+      // (holding Space while the window loses focus, say) and left the key
+      // stuck in activePointersRef.
+      if (e.repeat) return
       // Don't hijack Space from an actually-focused control (a text field,
       // a link) — only treat it as "fire" when nothing interactive has
       // focus, i.e. the player is just looking at the game.
