@@ -545,15 +545,16 @@ const OrbitingBots = memo(function OrbitingBots({
       {Array.from({ length: totalUnits }, (_, i) => {
         const big = isBigUnit(i)
         // Tangential (visual, px/s) speed = 2π·radius / duration — radius
-        // changed (index.css: base ring ×0.85, the big ring another ×1.3 on
-        // top of that) but duration didn't automatically follow, which
+        // changed (index.css: base ring ×0.85, the big ring another ×1.375
+        // on top of that) but duration didn't automatically follow, which
         // would've left the small ring visibly slower and the big ring
         // visibly faster than the swarm's original speed. Scaling duration
         // by the exact same per-ring ratio keeps px/s constant — the small
         // ring laps a little quicker (smaller circle, same speed), the big
         // one a little slower (bigger circle, same speed), matching how it
-        // looked before either ring's radius changed.
-        const orbitDuration = (18 + (i % 3) * 3) * 0.85 * (big ? 1.3 : 1)
+        // looked before either ring's radius changed. Keep the 1.375 in
+        // sync with --drone-orbit-radius-big's own multiplier in index.css.
+        const orbitDuration = (18 + (i % 3) * 3) * 0.85 * (big ? 1.375 : 1)
         // Negative delay pre-advances the loop so drones start already
         // spread around the circle instead of all bunched at angle 0.
         const orbitDelay = -((i / totalUnits + phaseOffset) * orbitDuration)

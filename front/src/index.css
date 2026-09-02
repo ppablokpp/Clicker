@@ -179,10 +179,13 @@ body::before {
   --drone-orbit-radius: clamp(89px, 27.2vmin, 140px);
   /* Fused (big) drones orbit further out, on their own ring beyond the
      regular swarm's — same clamp shape as the base radius, just scaled up
-     ~30%, so it keeps the same "hugs the ring, grows a little with
+     ~37.5%, so it keeps the same "hugs the ring, grows a little with
      viewport" behavior instead of a flat offset that could look wrong at
-     extreme viewport sizes. */
-  --drone-orbit-radius-big: clamp(116px, 35.4vmin, 182px);
+     extreme viewport sizes. Keep the 1.375 here in sync with the matching
+     duration multiplier in Home.tsx's OrbitingBots (`big ? 1.375 : 1`) —
+     that's what keeps this wider ring's visual speed matching the small
+     ring's instead of drifting faster just because the circle got bigger. */
+  --drone-orbit-radius-big: clamp(122px, 37.4vmin, 193px);
 }
 
 @keyframes drone-spin-cw {
