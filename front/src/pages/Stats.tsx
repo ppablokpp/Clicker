@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarCheck, Flame, Medal } from 'lucide-react'
+import { BarChart3, CalendarCheck, CircleUserRound, Flame, Medal } from 'lucide-react'
+import { Profile } from './Profile'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
 import { useClickDays } from '../hooks/useClickDays'
@@ -81,6 +82,10 @@ export function Stats() {
   const days = useMemo(() => getCalendarDays(clickDays), [clickDays])
   const monthFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short' }), [locale])
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Which half of this tab is showing — the profile or the stats
+  // themselves. Local state rather than a route: the bottom nav treats both
+  // as the same tab, exactly like Leaderboard's own pill.
+  const [view, setView] = useState<'profile' | 'stats'>('profile')
 
   // Today lands as the leftmost visible card — scrolling back reveals the
   // past, scrolling forward reveals the few upcoming padding days.
@@ -111,7 +116,36 @@ export function Stats() {
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
-      <div className="mx-auto max-w-2xl">
+      {/* Same floating pill, same position, as Leaderboard's own sort
+          toggle — this tab holds two views (the profile and these stats)
+          and this is what switches between them. */}
+      <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center sm:top-24">
+        <div className="pointer-events-auto inline-flex items-center rounded-full border border-white/10 bg-[#0d0d14]/90 p-1 shadow-lg shadow-black/30 backdrop-blur-sm">
+          <button
+            onClick={() => setView('profile')}
+            aria-label={strings.profile.profileTab}
+            className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
+              view === 'profile' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <CircleUserRound size={19} />
+          </button>
+          <button
+            onClick={() => setView('stats')}
+            aria-label={strings.profile.statsTab}
+            className={`flex w-16 items-center justify-center rounded-full py-2 transition-colors ${
+              view === 'stats' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            <BarChart3 size={17} />
+          </button>
+        </div>
+      </div>
+
+      {view === 'profile' ? (
+        <Profile />
+      ) : (
+      <div className="mx-auto max-w-2xl pt-16">
         <div className="mb-10 flex items-end gap-3">
           <div
             ref={scrollRef}
@@ -225,6 +259,7 @@ export function Stats() {
           })}
         </div>
       </div>
+      )}
     </div>
   )
 }

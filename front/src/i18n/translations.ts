@@ -129,6 +129,33 @@ export interface TranslationStrings {
     clicksTab: string
     cpsTab: string
   }
+  profile: {
+    profileTab: string
+    statsTab: string
+    title: string
+    subtitle: string
+    usernameLabel: string
+    usernamePlaceholder: string
+    usernameHint: string
+    save: string
+    saving: string
+    saved: string
+    changePhoto: string
+    uploading: string
+    photoHint: string
+    emailLabel: string
+    noEmail: string
+    languageLabel: string
+    languageHint: string
+    signOut: string
+    signedOutTitle: string
+    signedOutBody: string
+    signIn: string
+    errorUsernameTaken: string
+    errorUsernameInvalid: string
+    errorPhoto: string
+    errorGeneric: string
+  }
   store: {
     title: string
     subtitle: string
@@ -484,6 +511,33 @@ export const translations: Record<Language, TranslationStrings> = {
       fallbackName: 'Jugador',
       clicksTab: 'Ranking de platino',
       cpsTab: 'Ranking de velocidad',
+    },
+    profile: {
+      profileTab: 'Perfil',
+      statsTab: 'Estadísticas',
+      title: 'Tu perfil',
+      subtitle: 'Así te ven el resto de comandantes en la clasificación.',
+      usernameLabel: 'Nombre de piloto',
+      usernamePlaceholder: 'Tu nombre',
+      usernameHint: 'Entre 3 y 20 caracteres. Es el nombre que aparece en la clasificación.',
+      save: 'Guardar',
+      saving: 'Guardando...',
+      saved: 'Guardado',
+      changePhoto: 'Cambiar foto',
+      uploading: 'Subiendo...',
+      photoHint: 'JPG o PNG, máximo 5 MB.',
+      emailLabel: 'Correo',
+      noEmail: 'Sin correo',
+      languageLabel: 'Idioma',
+      languageHint: 'Cambia el idioma de toda la interfaz.',
+      signOut: 'Cerrar sesión',
+      signedOutTitle: 'Inicia sesión para ver tu perfil',
+      signedOutBody: 'Necesitas una cuenta para guardar tu nombre, tu foto y tu progreso.',
+      signIn: 'Iniciar sesión',
+      errorUsernameTaken: 'Ese nombre ya está en uso. Prueba con otro.',
+      errorUsernameInvalid: 'Ese nombre no es válido. Usa entre 3 y 20 caracteres.',
+      errorPhoto: 'No se pudo subir la foto. Inténtalo de nuevo.',
+      errorGeneric: 'Algo ha fallado. Inténtalo de nuevo.',
     },
     store: {
       title: 'Tienda',
@@ -929,6 +983,33 @@ export const translations: Record<Language, TranslationStrings> = {
       fallbackName: 'Player',
       clicksTab: 'Platinum ranking',
       cpsTab: 'Speed ranking',
+    },
+    profile: {
+      profileTab: 'Profile',
+      statsTab: 'Stats',
+      title: 'Your profile',
+      subtitle: 'This is how other commanders see you on the leaderboard.',
+      usernameLabel: 'Pilot name',
+      usernamePlaceholder: 'Your name',
+      usernameHint: 'Between 3 and 20 characters. This is the name shown on the leaderboard.',
+      save: 'Save',
+      saving: 'Saving...',
+      saved: 'Saved',
+      changePhoto: 'Change photo',
+      uploading: 'Uploading...',
+      photoHint: 'JPG or PNG, 5 MB max.',
+      emailLabel: 'Email',
+      noEmail: 'No email',
+      languageLabel: 'Language',
+      languageHint: 'Changes the language across the whole interface.',
+      signOut: 'Sign out',
+      signedOutTitle: 'Sign in to see your profile',
+      signedOutBody: 'You need an account to save your name, your photo and your progress.',
+      signIn: 'Sign in',
+      errorUsernameTaken: 'That name is already taken. Try another one.',
+      errorUsernameInvalid: 'That name is not valid. Use between 3 and 20 characters.',
+      errorPhoto: "Couldn't upload the photo. Please try again.",
+      errorGeneric: 'Something went wrong. Please try again.',
     },
     store: {
       title: 'Store',

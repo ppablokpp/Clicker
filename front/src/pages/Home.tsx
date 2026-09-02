@@ -1276,8 +1276,10 @@ export function Home() {
           of their own row), there's no realistic viewport height where it'd
           ever clip the asteroid section, which goes back to being truly
           viewport-centered below instead of centering itself in the
-          leftover space. Only Home gets this treatment; every other screen
-          keeps the plain global Header. The tab bar carries a matching
+          leftover space. Only Home gets a top console like this; the other
+          screens have nothing up there at all now (the old global header —
+          wordmark, language toggle, avatar — is gone, its pieces living in
+          the profile screen instead). The tab bar carries a matching
           cockpit look on every screen. */}
       <div data-tutorial="home-hud" className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-3 sm:pt-4">
         <div className="relative mx-auto w-full max-w-md px-3 sm:max-w-lg sm:px-4">

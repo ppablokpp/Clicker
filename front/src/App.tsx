@@ -1,7 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
-import { Header } from './components/Header'
 import { BottomNavPill } from './components/BottomNavPill'
 import { SignInModal } from './components/SignInModal'
 import { FleetAwayModal } from './components/FleetAwayModal'
@@ -67,7 +66,6 @@ function ClickerApp() {
                                                 <Route path="/arbol" element={<Tree />} />
                                                 <Route path="/batalla/:battleId" element={<Battle />} />
                                               </Routes>
-                                              <Header />
                                               <BottomNavPill />
                                               <SignInModal />
                                               <FleetAwayModal />

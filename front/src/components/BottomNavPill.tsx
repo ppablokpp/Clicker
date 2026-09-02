@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Trophy, BarChart3, Store, Network, Rocket } from 'lucide-react'
+import { Trophy, CircleUserRound, Store, Network, Rocket } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 
@@ -8,7 +8,9 @@ const PILL_ITEMS = [
   { to: '/arbol', key: 'tree', icon: Network, end: false },
   { to: '/clasificacion', key: 'leaderboard', icon: Trophy, end: false },
   { to: '/', key: 'home', icon: Rocket, end: true },
-  { to: '/estadisticas', key: 'stats', icon: BarChart3, end: false },
+  // Profile icon, not a chart one: this tab opens on the profile now and
+  // the stats sit behind its own pill (see Stats.tsx).
+  { to: '/estadisticas', key: 'stats', icon: CircleUserRound, end: false },
   { to: '/tienda', key: 'store', icon: Store, end: false },
 ] as const
 
