@@ -151,7 +151,7 @@ export function Profile() {
       <button
         onClick={() => setShowUsernameModal(true)}
         aria-label={strings.profile.editName}
-        className="mt-14 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+        className="mt-12 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
       >
         @{username || strings.profile.usernamePlaceholder}
       </button>

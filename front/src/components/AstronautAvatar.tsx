@@ -16,6 +16,18 @@ function generateStars(count: number, size: number, opacity: number): string {
   return stars.join(', ')
 }
 
+// Taller than the original bust so the thruster flame below has somewhere
+// to go — everything else keeps its exact original coordinates.
+const VIEWBOX_W = 180
+const VIEWBOX_H = 236
+// Where the starfield porthole centers, as a fraction of the full height —
+// the head/shoulders area, not the container's own vertical middle (which
+// the added flame height below would otherwise pull the center down past).
+// A bit below the helmet's own center (66) rather than right on it: dead
+// center on the helmet read as sitting too high once the body below it
+// got taller (boots, flame) — this frames the head *and* the shoulder line.
+const PORTHOLE_CENTER_Y = 106 / VIEWBOX_H
+
 // Stands in for a profile photo — this game has no camera roll, it has a
 // character. Drawn as flat, chunky, sticker-style shapes (no photoreal
 // shading) to match ClankUp's own violet/fuchsia gradient language, already
@@ -28,32 +40,46 @@ function generateStars(count: number, size: number, opacity: number): string {
 // a rewrite. Everything else (suit, pack, badge) is the "standard issue"
 // body underneath.
 //
+// No legs — tried, and jointed limbs made it read as a robot instead of a
+// character. What "feet" turned into instead: a glowing thruster underneath
+// sells "floating" as propulsion rather than an amputation, ties into the
+// existing bob animation narratively, and gets its own faster flicker.
+//
 // A single instance, not a swarm — unlike OrbitingBots' hundred-drone
 // scaling concerns, one Framer Motion element floating on one screen costs
 // nothing, so there's no reason to hand-roll this in CSS keyframes instead.
 export function AstronautAvatar({ size = 168 }: { size?: number }) {
-  // Same footprint the old glow halo used (1.5x the character) — a porthole
-  // of Home's own night sky instead of a soft violet aura.
+  const svgHeight = size * (VIEWBOX_H / VIEWBOX_W)
+  // Same footprint the old glow halo used (1.5x the character's width) — a
+  // porthole of Home's own night sky instead of a soft violet aura.
   const skySize = size * 1.5
   const starsDim = useMemo(() => generateStars(70, skySize, 0.5), [skySize])
   const starsBright = useMemo(() => generateStars(20, skySize, 0.9), [skySize])
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+    <div className="relative" style={{ width: size, height: svgHeight }}>
       {/* Starfield porthole — clipped to a circle via overflow-hidden, with
           a thin rim so it reads as a distinct window rather than blending
-          into the page's own identical background. */}
+          into the page's own identical background. Positioned explicitly
+          on the helmet rather than flex-centered against the container,
+          since the flame's extra height below would otherwise drag a
+          centered porthole down off the head. */}
       <div
         className="pointer-events-none absolute overflow-hidden rounded-full border border-white/10 bg-[#08080c]"
-        style={{ width: skySize, height: skySize }}
+        style={{
+          width: skySize,
+          height: skySize,
+          left: size / 2 - skySize / 2,
+          top: svgHeight * PORTHOLE_CENTER_Y - skySize / 2,
+        }}
       >
         <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsDim }} />
         <div className="animate-twinkle absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsBright }} />
       </div>
       <motion.svg
-        viewBox="0 0 180 200"
+        viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
         width={size}
-        height={size * (200 / 180)}
+        height={svgHeight}
         className="relative"
         animate={{ y: [0, -6, 0] }}
         transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
@@ -76,7 +102,30 @@ export function AstronautAvatar({ size = 168 }: { size?: number }) {
             <stop offset="0%" stopColor="#c4b5fd" />
             <stop offset="100%" stopColor="#e879f9" />
           </linearGradient>
+          <linearGradient id="astroFlameOuter" x1="50%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stopColor="#a855f7" />
+            <stop offset="100%" stopColor="#e879f9" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="astroFlameInner" x1="50%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="55%" stopColor="#e9d5ff" />
+            <stop offset="100%" stopColor="#c4b5fd" stopOpacity="0.15" />
+          </linearGradient>
         </defs>
+
+        {/* Thruster flame — wide enough to show from behind both boots (not
+            just glowing in the gap between them), tucked in under the suit
+            body (drawn first, so the torso's own rounded bottom overlaps
+            its top instead of a visible seam), flickering on its own faster
+            cycle than the character's slow bob. */}
+        <motion.g
+          style={{ transformOrigin: '90px 180px' }}
+          animate={{ scaleY: [1, 1.18, 0.94, 1], opacity: [0.85, 1, 0.88, 1] }}
+          transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <path d="M90 176 C118 188 130 204 90 230 C50 204 62 188 90 176 Z" fill="url(#astroFlameOuter)" opacity="0.55" />
+          <path d="M90 182 C108 191 115 202 90 219 C65 202 72 191 90 182 Z" fill="url(#astroFlameInner)" />
+        </motion.g>
 
         {/* Backpack lungs — peek out from behind the shoulders. */}
         <rect x="24" y="108" width="20" height="52" rx="8" fill="#8b7bb8" />
@@ -84,6 +133,15 @@ export function AstronautAvatar({ size = 168 }: { size?: number }) {
 
         {/* Suit body. */}
         <rect x="42" y="106" width="96" height="86" rx="34" fill="url(#astroSuit)" />
+        {/* Boots — peeking straight out from under the suit's own rounded
+            bottom, no leg segment in between. That's the difference from
+            the jointed-limb version that read as a robot: there's nothing
+            here to hinge, just feet the suit tapers directly into, with the
+            thruster flame glowing out from between them. */}
+        <rect x="56" y="180" width="27" height="21" rx="10" fill="#8b7bb8" stroke="#6f5f96" strokeWidth="1.5" />
+        <rect x="97" y="180" width="27" height="21" rx="10" fill="#8b7bb8" stroke="#6f5f96" strokeWidth="1.5" />
+        <path d="M58 191 h23" stroke="#6f5f96" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
+        <path d="M99 191 h23" stroke="#6f5f96" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
         {/* Shoulder pauldrons. */}
         <rect x="34" y="100" width="34" height="42" rx="15" fill="#eceafb" stroke="#c9c4e0" strokeWidth="1.5" />
         <rect x="112" y="100" width="34" height="42" rx="15" fill="#eceafb" stroke="#c9c4e0" strokeWidth="1.5" />
@@ -91,9 +149,28 @@ export function AstronautAvatar({ size = 168 }: { size?: number }) {
             and not a blob. */}
         <path d="M62 150 h56" stroke="#c9c4e0" strokeWidth="2" strokeLinecap="round" />
         <path d="M90 150 v34" stroke="#c9c4e0" strokeWidth="2" strokeLinecap="round" />
-        {/* Chest badge — a placeholder rank/level slot, not just decoration. */}
+        {/* Chest badge — a placeholder rank/level slot, not just decoration.
+            A tiny ringed planet ties it to the game's own asteroid-mining
+            theme more directly than a generic star/diamond would, and
+            leaves room to later tint the circle itself by the player's real
+            prestige tier without fighting the icon inside it. Ring drawn
+            first, sphere on top: the sphere's own circle naturally covers
+            the ring's "behind the planet" arc, which is what actually sells
+            the ringed-planet look at this size rather than a flat ellipse
+            floating in front of a ball. */}
         <circle cx="90" cy="150" r="15" fill="url(#astroBadge)" />
-        <path d="M90 142 l4.5 9 -4.5 9 -4.5 -9 z" fill="#fff" opacity="0.9" />
+        <ellipse
+          cx="90"
+          cy="150"
+          rx="12"
+          ry="3.2"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="1.6"
+          opacity="0.9"
+          transform="rotate(-20 90 150)"
+        />
+        <circle cx="90" cy="150" r="6" fill="#fff" opacity="0.95" />
 
         {/* Neck seal, sitting right at the helmet/suit join. */}
         <rect x="68" y="98" width="44" height="16" rx="8" fill="#b9b3d6" />
