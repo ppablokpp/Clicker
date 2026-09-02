@@ -591,7 +591,7 @@ const OrbitingBots = memo(function OrbitingBots({
                     already-filtered layer instead of re-filtering it. */}
                 <div style={{ filter: `drop-shadow(0 0 ${big ? 10 : 6}px ${glowColor})` }}>
                   <div className={`drone-pulse ${droneColorClass}`} style={pulseDelayVar}>
-                    <DroneIcon size={big ? 30 : 20} animated />
+                    <DroneIcon size={big ? 30 : 20} />
                   </div>
                 </div>
               </div>

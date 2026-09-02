@@ -152,22 +152,6 @@ body::before {
   animation: prestige-pulse 2s ease-out infinite;
 }
 
-/* Fast opacity flicker on a drone's rotor-blur circles — reads as spinning
-   blades catching light without actually animating rotation per-frame. */
-@keyframes rotor-blur {
-  0%,
-  100% {
-    opacity: 0.15;
-  }
-  50% {
-    opacity: 0.42;
-  }
-}
-
-.animate-rotor-blur {
-  animation: rotor-blur 0.16s ease-in-out infinite;
-}
-
 /* Home's OrbitingBots swarm (autoclick + scout drones) — plain CSS
    keyframes instead of Framer Motion. Uncapped, one drone per upgrade
    level: with dozens/hundreds of them each running 3 independent infinite
