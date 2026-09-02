@@ -20,6 +20,7 @@ export interface TreeStateResponse {
   scoutDroneCps: number
   scoutFrequencyLevel: number
   scoutFrequencyNextCost: number | null
+  scoutDroneNextRate: number
   multiplierLevel: number
   multiplierValue: number
   multiplierNextValue: number

@@ -423,6 +423,7 @@ export function Tree() {
     buyScoutDrone,
     scoutFrequencyLevel,
     scoutFrequencyNextCost,
+    scoutDroneNextRate,
     isBuyingScoutFrequency,
     buyScoutFrequency,
     autoMultiplierLevel,
@@ -2440,7 +2441,7 @@ export function Tree() {
                 <span>
                   {strings.tree.nextProduction}{' '}
                   <span className="font-semibold text-white">
-                    {(scoutDroneRate + 1).toLocaleString(locale, { maximumFractionDigits: 2 })} {cpsUnit}
+                    {scoutDroneNextRate.toLocaleString(locale, { maximumFractionDigits: 2 })} {cpsUnit}
                   </span>
                 </span>
               )}

@@ -394,6 +394,8 @@ export const treeRepository = {
           scoutFrequencyLevel,
           tieredMaxLevel(SCOUT_FREQUENCY_MAX_LEVEL, userRow.rows[0].prestige_tier),
         ),
+        scoutDroneNextRate:
+          scoutFrequencyValue(scoutFrequencyLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierLevel,
         multiplierValue: multiplierValue(multiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
@@ -1268,6 +1270,8 @@ export const treeRepository = {
       await client.query('COMMIT')
       const newLevel = level + 1
       const scoutDroneRate = scoutFrequencyValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
+      const scoutDroneNextRate =
+        scoutFrequencyValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
       return {
         ok: true,
         scoutFrequencyLevel: newLevel,
@@ -1275,6 +1279,7 @@ export const treeRepository = {
           newLevel,
           tieredMaxLevel(SCOUT_FREQUENCY_MAX_LEVEL, userRow.rows[0].prestige_tier),
         ),
+        scoutDroneNextRate,
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),

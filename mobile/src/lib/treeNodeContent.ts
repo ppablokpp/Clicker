@@ -143,7 +143,7 @@ export function getNodeModalContent(
           { label: t.currentProduction, value: `${tree.scoutDroneRate.toLocaleString(locale, { maximumFractionDigits: 2 })} ${cpsUnit}` },
           ...(maxed
             ? []
-            : [{ label: t.nextProduction, value: `${(tree.scoutDroneRate + 1).toLocaleString(locale, { maximumFractionDigits: 2 })} ${cpsUnit}` }]),
+            : [{ label: t.nextProduction, value: `${tree.scoutDroneNextRate.toLocaleString(locale, { maximumFractionDigits: 2 })} ${cpsUnit}` }]),
         ],
       }
     }

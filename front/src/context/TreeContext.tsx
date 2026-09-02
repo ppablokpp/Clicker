@@ -38,6 +38,7 @@ interface TreeState {
   scoutDroneCps: number
   scoutFrequencyLevel: number
   scoutFrequencyNextCost: number | null
+  scoutDroneNextRate: number
   multiplierLevel: number
   multiplierValue: number
   multiplierNextValue: number
@@ -149,6 +150,7 @@ const EMPTY_STATE: TreeState = {
   scoutDroneCps: 0,
   scoutFrequencyLevel: 0,
   scoutFrequencyNextCost: 0,
+  scoutDroneNextRate: 3,
   multiplierLevel: 0,
   multiplierValue: 1,
   multiplierNextValue: 2,
@@ -264,6 +266,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           scoutDroneCps: data.scoutDroneCps,
           scoutFrequencyLevel: data.scoutFrequencyLevel,
           scoutFrequencyNextCost: data.scoutFrequencyNextCost,
+          scoutDroneNextRate: data.scoutDroneNextRate,
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
           multiplierNextValue: data.multiplierNextValue,
@@ -730,6 +733,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         ...prev,
         scoutFrequencyLevel: data.scoutFrequencyLevel,
         scoutFrequencyNextCost: data.scoutFrequencyNextCost,
+        scoutDroneNextRate: data.scoutDroneNextRate,
         scoutDroneRate: data.scoutDroneRate,
         scoutDroneCps: data.scoutDroneCps,
       }))
