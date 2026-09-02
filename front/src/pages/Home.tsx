@@ -5,22 +5,19 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useAuth } from '@clerk/clerk-react'
 import {
   Zap,
   Rocket,
   Joystick,
-  Gem,
   Archive,
   Dices,
   Magnet,
-  Key,
   Package,
   ClipboardList,
   Crosshair,
@@ -64,6 +61,7 @@ import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
 import type { AsteroidColors } from '../components/Asteroid'
+import { TapEffectsLayer, type TapEffectsHandle } from '../components/TapEffectsLayer'
 
 interface InfoModalData {
   icon: LucideIcon
@@ -72,79 +70,6 @@ interface InfoModalData {
   desc: string
   durationSeconds: number
 }
-
-interface ClickEffect {
-  id: number
-  x: number
-  y: number
-  ripple: string
-  amount: number
-  isLucky: boolean
-  /** Set only for a magnet proc "click" — shows the currency icon next to the +N instead of the lucky "!". */
-  icon?: 'key' | 'gem'
-}
-
-let effectId = 0
-
-// A short blaster bolt fired from the tap point to the space object on
-// every click — like the original travelling dot, just elongated and
-// rotated to face its own direction of travel. dx/dy/angleDeg are computed
-// once at creation time (positions never move mid-flight): rotate is set
-// as a Framer style prop (not a manual CSS transform string), so it
-// composes cleanly with the animated x/y translate on the very same
-// element — no need for the two-element split OrbitingBots' static offset
-// requires (that one sets transform via a literal string, which is what
-// Framer can't share the element with).
-interface ShotEffect {
-  id: number
-  startX: number
-  startY: number
-  dx: number
-  dy: number
-  angleDeg: number
-  // Everything the ripple/+N popup and particle burst need once the bolt
-  // actually finishes — carried on the shot itself instead of a second,
-  // independent setTimeout(SHOT_DURATION_MS) racing the real animation
-  // (see the impact handler below for why that used to fall behind on a
-  // busy mobile thread).
-  impactX: number
-  impactY: number
-  displayAmount: number
-  isLucky: boolean
-  rippleClass: string
-}
-
-const BOLT_LENGTH = 26
-const BOLT_THICKNESS = 3
-
-let shotId = 0
-// Must match the shot's own Framer transition duration below — the ripple/
-// +N effect waits this long before landing, so it appears exactly when the
-// shot visually arrives at the object instead of at an arbitrary offset.
-const SHOT_DURATION_MS = 280
-
-// Small debris chips that burst outward from the object on every hit, same
-// recipe as Battle.tsx's duel screen — spawned from the object's own center
-// at impact time, not from the tap point.
-interface ParticleChip {
-  angle: number
-  distance: number
-  size: number
-}
-interface ParticleBurst {
-  id: number
-  x: number
-  y: number
-  chips: ParticleChip[]
-}
-let particleId = 0
-const PARTICLE_DURATION_MS = 380
-const PARTICLE_COUNT = 4
-// A fast tapper can fire well past 20-30 shots/second — spawning a burst on
-// every single one piles up too many simultaneously-animated elements and
-// visibly janks on mobile. Bursts are throttled independently of shots so
-// the laser bolts themselves stay perfectly responsive either way.
-const MIN_PARTICLE_INTERVAL_MS = 90
 
 // Escalates the whole screen's feel with click speed — a free "combo meter"
 // with no server round trip, purely derived from clicksPerSecond. Legendario
@@ -502,16 +427,28 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
 // Every animation here is plain CSS (see the `drone-*` keyframes/classes
 // in index.css) instead of Framer Motion. With this swarm uncapped and
 // potentially in the hundreds, Framer was recreating each drone's
-// transition objects and reconciling all 3 of its per-drone animations on
-// every Home re-render — which happens ~10x/sec purely from the autoclick
-// tick, unrelated to the swarm itself — and that reconciliation cost is
-// what actually scaled with drone count into visible lag, not the raw
-// element count. CSS keyframes run on the compositor, fully decoupled
-// from React's render cycle, so re-renders no longer touch a mounted
-// drone at all. Wrapped in `memo` on top of that so React doesn't even
-// re-run this component's own render (rebuilding `count` elements' worth
-// of JSX) unless a prop here actually changed — which in practice means
-// only when the player buys another level, not on every click/tick.
+// transition objects and reconciling its per-drone animations on every
+// Home re-render — which happens ~10x/sec purely from the autoclick tick,
+// unrelated to the swarm itself — and that reconciliation cost is what
+// actually scaled with drone count into visible lag, not the raw element
+// count. CSS keyframes run on the compositor, fully decoupled from React's
+// render cycle, so re-renders no longer touch a mounted drone at all.
+// Wrapped in `memo` on top of that so React doesn't even re-run this
+// component's own render (rebuilding `count` elements' worth of JSX)
+// unless a prop here actually changed — which in practice means only when
+// the player buys another level, not on every click/tick.
+//
+// Compositor-driven or not, every always-running animation here is a live
+// layer that exists for as long as its drone does, and the swarm is
+// uncapped — so what each drone costs per frame is what actually decides
+// whether 20 of them idling on screen keep a phone cool or cook it. Two
+// things were cut on those grounds:
+//   - A counter-rotation that cancelled the orbit's own spin to keep the
+//     icon level. The icon is a quadcopter with 4-fold symmetry, so letting
+//     it ride the orbit just reads as slowly spinning on its own axis.
+//   - The beam's dead phase: it stays (it's the swarm reading as *working*,
+//     not decoration) but no longer animates a transform nobody can see for
+//     78% of every cycle — see @keyframes drone-beam in index.css.
 const OrbitingBots = memo(function OrbitingBots({
   count,
   colorClass = 'text-violet-300',
@@ -558,7 +495,19 @@ const OrbitingBots = memo(function OrbitingBots({
         // Negative delay pre-advances the loop so drones start already
         // spread around the circle instead of all bunched at angle 0.
         const orbitDelay = -((i / totalUnits + phaseOffset) * orbitDuration)
-        const pulseDelay = (i * 0.53) % 2.4
+        // Negative, exactly like orbitDelay above, and for a reason that's
+        // visible on any reload: a *positive* animation-delay leaves the
+        // element showing its own base styles until its turn comes, and the
+        // beam's base styles are "fully opaque, no transform" — so every
+        // beam sat parked and visible on top of its drone for up to a whole
+        // delay's worth of seconds before its first shot, then behaved
+        // correctly forever after (the delay only ever applies once, ahead
+        // of iteration 1). A negative delay instead starts the animation
+        // already that far in, so there's no pre-start state to leak: the
+        // swarm comes up mid-cycle, as if it had been firing all along.
+        // Modulo the real 1.8s cycle length so the offset always lands
+        // inside one period while still staggering each drone differently.
+        const pulseDelay = -((i * 0.53) % 1.8)
         const clockwise = i % 2 === 0
         // `Record<string, string>` instead of CSSProperties — custom
         // properties (--foo) aren't part of that type, and both wrappers
@@ -590,32 +539,33 @@ const OrbitingBots = memo(function OrbitingBots({
                 old Framer version (which composes the whole transform
                 itself) could on one node. */}
             <div className="drone-radius-offset">
-              {/* Counter-rotates opposite the parent orbit, same duration/
-                  delay, so the icon itself stays visually level instead of
-                  tumbling around its own axis as it orbits. */}
-              <div className={clockwise ? 'drone-spin-ccw' : 'drone-spin-cw'} style={orbitVars}>
-                {/* Glow lives on this *static* wrapper, not on the element
-                    that actually scales below — a `filter: drop-shadow`
-                    traces the exact alpha silhouette of whatever it's
-                    applied to, so putting it directly on the pulsing
-                    (scale+opacity, forever) element forced the browser to
-                    recompute that filter every single frame, for every
-                    drone, continuously, regardless of any tap. Here the
-                    filter's own input geometry never changes — only its
-                    *child* pulses — which lets the browser composite the
-                    already-filtered layer instead of re-filtering it. */}
-                <div style={{ filter: `drop-shadow(0 0 ${big ? 10 : 6}px ${glowColor})` }}>
-                  <div className={`drone-pulse ${droneColorClass}`} style={pulseDelayVar}>
-                    <DroneIcon size={big ? 30 : 20} />
-                  </div>
+              {/* The pulse WRAPS the glow, never the other way round, and
+                  that order is load-bearing. `filter: drop-shadow` applies
+                  to an element's fully rendered content — descendants
+                  included — so with the pulse nested *inside* the filter
+                  (as it was), its scale changed the filter's own input
+                  every frame, forcing the browser to re-rasterize the SVG
+                  and re-trace/re-blur its alpha silhouette 60x a second,
+                  per drone, forever. Exactly the same failure the rotor
+                  flicker had (see DroneIcon.tsx), just driven by the scale
+                  instead.
+                  Nested this way the filtered element's content is fully
+                  static, so it's rasterized and filtered ONCE and cached;
+                  the pulse then just transforms that finished layer, which
+                  is pure compositor work. */}
+              <div className="drone-pulse" style={pulseDelayVar}>
+                <div className={droneColorClass} style={{ filter: `drop-shadow(0 0 ${big ? 10 : 6}px ${glowColor})` }}>
+                  <DroneIcon size={big ? 30 : 20} />
                 </div>
               </div>
 
               {/* The shot — a short bolt fired straight at the counter every
                   pulse (same travelling-dot shape the main click shot uses,
-                  just vertical since the drone's own orbit rotation,
-                  applied one level up, already points "down" at the ring
-                  center). */}
+                  just vertical since the drone's own orbit rotation, applied
+                  one level up, already points "down" at the ring center).
+                  It only does real work for the ~22% of its cycle it's
+                  actually visible — see @keyframes drone-beam in index.css
+                  for how the resting 78% was made genuinely idle. */}
               <div
                 className={`drone-beam w-[3px] rounded-full bg-gradient-to-b ${beamClass}`}
                 style={{ ...pulseDelayVar, height: 10, boxShadow: `0 0 6px 1px ${beamShadow}` }}
@@ -888,9 +838,12 @@ export function Home() {
     ownedMagnets.length === 0
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
-  const [effects, setEffects] = useState<ClickEffect[]>([])
-  const [shots, setShots] = useState<ShotEffect[]>([])
-  const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
+  // Every per-tap visual (bolt, ripple/+N, debris) is owned by
+  // TapEffectsLayer and driven imperatively through this ref — deliberately
+  // NOT React state up here, since state for something that changes on every
+  // tap would re-render this whole (very large, ~20-context) component
+  // several times per tap. See that component's own header comment.
+  const tapEffectsRef = useRef<TapEffectsHandle>(null)
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
   const [prestigeError, setPrestigeError] = useState<string | null>(null)
   const [showInventory, setShowInventory] = useState(false)
@@ -952,7 +905,6 @@ export function Home() {
   // Last known mouse position — the Space bar has no coordinates of its
   // own, so a space-triggered shot fires from wherever the cursor last was.
   const cursorPosRef = useRef({ x: 0, y: 0 })
-  const lastParticleAtRef = useRef(0)
   const heat = useMemo(
     () => getHeatLevel(clicksPerSecond, legendaryUnlockLevel > 0, legendaryThresholdTps),
     [clicksPerSecond, legendaryUnlockLevel, legendaryThresholdTps],
@@ -966,22 +918,18 @@ export function Home() {
   useEffect(() => {
     if (prevKeysRef.current !== null && keys > prevKeysRef.current && activeMagnet?.currency === 'keys') {
       const amount = keys - prevKeysRef.current
-      const id = effectId++
       const { x, y } = lastPosRef.current
-      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'key' }])
+      tapEffectsRef.current?.spawnEffect({ x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'key' })
       playMagnetProc('keys')
-      window.setTimeout(() => setEffects((prev) => prev.filter((fx) => fx.id !== id)), 900)
     }
     prevKeysRef.current = keys
   }, [keys, activeMagnet, heat.ripple])
   useEffect(() => {
     if (prevGemsRef.current !== null && gems > prevGemsRef.current && activeMagnet?.currency === 'gems') {
       const amount = gems - prevGemsRef.current
-      const id = effectId++
       const { x, y } = lastPosRef.current
-      setEffects((prev) => [...prev, { id, x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'gem' }])
+      tapEffectsRef.current?.spawnEffect({ x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'gem' })
       playMagnetProc('gems')
-      window.setTimeout(() => setEffects((prev) => prev.filter((fx) => fx.id !== id)), 900)
     }
     prevGemsRef.current = gems
   }, [gems, activeMagnet, heat.ripple])
@@ -1110,43 +1058,6 @@ export function Home() {
     }
   }
 
-  // Fires exactly when a bolt's own Framer animation reports finishing
-  // (see the shot's onAnimationComplete below) — never on a fixed timer,
-  // so the ripple/+N and particle burst can't land before, or after, the
-  // bolt has actually visually arrived regardless of how far behind a busy
-  // mobile thread's frame delivery has fallen.
-  const handleShotImpact = useCallback((shot: ShotEffect) => {
-    setShots((current) => current.filter((s) => s.id !== shot.id))
-
-    const jitterX = shot.impactX + (Math.random() - 0.5) * 28
-    const jitterY = shot.impactY + (Math.random() - 0.5) * 28
-    const id = effectId++
-    setEffects((prev) => [
-      ...prev,
-      { id, x: jitterX, y: jitterY, ripple: shot.rippleClass, amount: shot.displayAmount, isLucky: shot.isLucky },
-    ])
-    window.setTimeout(() => {
-      setEffects((prev) => prev.filter((fx) => fx.id !== id))
-    }, 900)
-
-    // Debris burst — same recipe as Battle.tsx's duel screen, throttled
-    // separately from shots so a fast tapper doesn't pile up dozens of
-    // animated chips at once.
-    const impactAt = Date.now()
-    if (impactAt - lastParticleAtRef.current < MIN_PARTICLE_INTERVAL_MS) return
-    lastParticleAtRef.current = impactAt
-    const pId = particleId++
-    const chips: ParticleChip[] = Array.from({ length: PARTICLE_COUNT }, () => ({
-      angle: Math.random() * 360,
-      distance: 38 + Math.random() * 48,
-      size: 3.5 + Math.random() * 4,
-    }))
-    setParticleBursts((current) => [...current, { id: pId, x: shot.impactX, y: shot.impactY, chips }])
-    window.setTimeout(() => {
-      setParticleBursts((current) => current.filter((b) => b.id !== pId))
-    }, PARTICLE_DURATION_MS)
-  }, [])
-
   // The actual "take a shot" logic, keyed by an arbitrary pointer key
   // instead of always `e.pointerId` — a real touch/mouse pointerdown passes
   // its own `e.pointerId`, but the Space bar and right-click (added so
@@ -1209,35 +1120,26 @@ export function Home() {
       registerClick(amount, isLucky)
       playLaserShot()
 
-      // Fire a shot from the tap point at the space object — the ripple/+N
-      // and particle burst below only land once the bolt's own Framer
-      // animation actually reports finishing (see handleShotImpact), not
-      // after a fixed SHOT_DURATION_MS timer. A busy mobile thread can fall
-      // behind real time, so a wall-clock timer used to remove the bolt (and
-      // fire the impact effects) before the animation had visually caught
-      // up — bolts that looked like they stopped short of the object. A
-      // small random offset around the object's center keeps rapid clicks
-      // from stacking their ripple on the exact same pixel.
-      const sId = shotId++
+      // Fire a shot from the tap point at the space object. Handed straight
+      // to TapEffectsLayer rather than stored here: this is per-tap state,
+      // and keeping it out of Home is what stops every single tap from
+      // re-rendering this whole component (see that file's header comment).
+      // The layer spawns the ripple/+N and debris itself once the bolt's own
+      // animation actually reports finishing, never on a wall-clock timer.
       const dx = objX - x
       const dy = objY - y
-      const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI
-      setShots((prev) => [
-        ...prev,
-        {
-          id: sId,
-          startX: x,
-          startY: y,
-          dx,
-          dy,
-          angleDeg,
-          impactX: objX,
-          impactY: objY,
-          displayAmount,
-          isLucky,
-          rippleClass: isLucky ? 'bg-green-400/70' : heat.ripple,
-        },
-      ])
+      tapEffectsRef.current?.fireShot({
+        startX: x,
+        startY: y,
+        dx,
+        dy,
+        angleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
+        impactX: objX,
+        impactY: objY,
+        displayAmount,
+        isLucky,
+        rippleClass: isLucky ? 'bg-green-400/70' : heat.ripple,
+      })
     },
     [
       userId,
@@ -1616,34 +1518,10 @@ export function Home() {
         )}
       </div>
 
-      {/* click ripples + floating +N */}
-      <AnimatePresence>
-        {effects.map((fx) => (
-          <div key={fx.id} className="pointer-events-none absolute inset-0 z-20">
-            <span
-              className={`animate-ripple absolute rounded-full ${fx.ripple} ${fx.isLucky ? 'h-36 w-36' : 'h-24 w-24'}`}
-              style={{ left: fx.x, top: fx.y }}
-            />
-            <span
-              className={`animate-float-up absolute flex select-none items-center gap-1 font-bold ${
-                fx.isLucky
-                  ? 'text-lg text-green-300 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]'
-                  : fx.icon === 'key'
-                    ? 'text-sm text-amber-300'
-                    : fx.icon === 'gem'
-                      ? 'text-sm text-indigo-300'
-                      : 'text-sm text-white'
-              }`}
-              style={{ left: fx.x, top: fx.y }}
-            >
-              +{fx.amount}
-              {fx.isLucky && '!'}
-              {fx.icon === 'key' && <Key size={11} />}
-              {fx.icon === 'gem' && <Gem size={11} />}
-            </span>
-          </div>
-        ))}
-      </AnimatePresence>
+      {/* Every per-tap visual — bolt, ripple/+N, debris — with its own state
+          held inside, so a tap never re-renders Home. Driven imperatively
+          via tapEffectsRef; takes no props on purpose (see its own comment). */}
+      <TapEffectsLayer ref={tapEffectsRef} />
 
       {/* Anomalía spawn — a small asteroid flying across the whole screen
           like a shooting star; stopPropagation inside Meteor's own button
@@ -1657,58 +1535,6 @@ export function Home() {
           onCapture={handleMeteorCapture}
           onMiss={handleMeteorMiss}
         />
-      )}
-
-      {/* shots — a short blaster bolt fired at the object per click, purely
-          visual and plain CSS now (see .shot-bolt/@keyframes shot-fly) —
-          native onAnimationEnd still gates the impact effects on the bolt
-          actually finishing, same fix as before, just off the browser's own
-          animation event instead of Framer's. */}
-      {shots.map((shot) => (
-        <div
-          key={shot.id}
-          className="shot-bolt pointer-events-none absolute z-20 rounded-full bg-gradient-to-r from-violet-300/0 via-violet-200 to-white shadow-[0_0_8px_2px_rgba(216,180,254,0.85)]"
-          style={
-            {
-              left: shot.startX - BOLT_LENGTH / 2,
-              top: shot.startY - BOLT_THICKNESS / 2,
-              width: BOLT_LENGTH,
-              height: BOLT_THICKNESS,
-              '--shot-dx': `${shot.dx}px`,
-              '--shot-dy': `${shot.dy}px`,
-              '--shot-angle': `${shot.angleDeg}deg`,
-              '--shot-duration': `${SHOT_DURATION_MS}ms`,
-            } as CSSProperties
-          }
-          onAnimationEnd={() => handleShotImpact(shot)}
-        />
-      ))}
-
-      {/* Debris — small chips bursting off the object on every hit. */}
-      {particleBursts.map((burst) =>
-        burst.chips.map((chip, i) => {
-          const rad = (chip.angle * Math.PI) / 180
-          const dx = Math.cos(rad) * chip.distance
-          const dy = Math.sin(rad) * chip.distance
-          return (
-            <span
-              key={`${burst.id}-${i}`}
-              className="debris-chip pointer-events-none absolute z-20 rounded-sm bg-violet-100"
-              style={
-                {
-                  left: burst.x - chip.size / 2,
-                  top: burst.y - chip.size / 2,
-                  width: chip.size,
-                  height: chip.size,
-                  boxShadow: '0 0 8px 1px rgba(233,213,255,0.9)',
-                  '--chip-dx': `${dx}px`,
-                  '--chip-dy': `${dy}px`,
-                  '--chip-duration': `${PARTICLE_DURATION_MS}ms`,
-                } as CSSProperties
-              }
-            />
-          )
-        }),
       )}
 
       {showInventory && (
