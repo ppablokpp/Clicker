@@ -11,28 +11,26 @@ function detectInitialLanguage(): Language {
 
 interface LanguageContextValue {
   language: Language
-  toggleLanguage: () => void
+  /** Sets the language directly — for a real selector (pick ES or pick EN), not a cycle-through toggle. */
+  setLanguage: (lang: Language) => void
   strings: TranslationStrings
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>(detectInitialLanguage)
+  const [language, setLanguageState] = useState<Language>(detectInitialLanguage)
 
-  const toggleLanguage = useCallback(() => {
-    setLanguage((prev) => {
-      const next: Language = prev === 'es' ? 'en' : 'es'
-      localStorage.setItem(STORAGE_KEY, next)
-      return next
-    })
+  const setLanguage = useCallback((next: Language) => {
+    setLanguageState(next)
+    localStorage.setItem(STORAGE_KEY, next)
   }, [])
 
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap.
   const value = useMemo(
-    () => ({ language, toggleLanguage, strings: translations[language] }),
-    [language, toggleLanguage],
+    () => ({ language, setLanguage, strings: translations[language] }),
+    [language, setLanguage],
   )
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>

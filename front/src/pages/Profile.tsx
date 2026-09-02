@@ -1,37 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Camera, Check, CircleUserRound, Globe, LogOut, Mail } from 'lucide-react'
+import { Check, CircleUserRound, LogOut, Mail, Settings, X } from 'lucide-react'
+import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
+import type { Language } from '../i18n/translations'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 const USERNAME_MIN = 3
 const USERNAME_MAX = 20
-// How long the green "Saved" confirmation sticks around before the button
-// goes back to its normal state.
-const SAVED_FLASH_MS = 2200
 
-type Status = 'idle' | 'busy' | 'saved'
+type Status = 'idle' | 'busy'
 
-// Clerk owns the identity (name, photo, email); our own `users` table only
-// mirrors it, and only at sign-in — see back/src/routes/users.js's /sync,
-// which reads straight off the Clerk user. So every edit here goes to Clerk
-// first and then re-fires that same sync endpoint, which is what actually
-// makes a new name/photo show up on the leaderboard instead of waiting for
-// the player's next sign-in. No backend changes needed for any of this.
+// Clerk owns the identity (name, email); our own `users` table only mirrors
+// it, and only at sign-in — see back/src/routes/users.js's /sync, which
+// reads straight off the Clerk user. So every edit here goes to Clerk first
+// and then re-fires that same sync endpoint, which is what actually makes a
+// new name show up on the leaderboard instead of waiting for the player's
+// next sign-in. No backend changes needed for any of this.
 export function Profile() {
-  const { strings, language, toggleLanguage } = useLanguage()
+  const { strings } = useLanguage()
   const { user, isLoaded } = useUser()
   const { getToken } = useAuth()
-  const { signOut } = useClerk()
   const { promptSignIn } = useSignInPrompt()
 
+  const [showUsernameModal, setShowUsernameModal] = useState(false)
   const [username, setUsername] = useState('')
   const [nameStatus, setNameStatus] = useState<Status>('idle')
-  const [photoStatus, setPhotoStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Seeded from Clerk once it loads (and again if the account changes),
   // never on every render — otherwise it would clobber whatever the player
@@ -55,9 +52,10 @@ export function Profile() {
     }
   }
 
-  const flash = (set: (s: Status) => void) => {
-    set('saved')
-    window.setTimeout(() => set('idle'), SAVED_FLASH_MS)
+  const cancelEdit = () => {
+    setUsername(user?.username ?? user?.firstName ?? '')
+    setError(null)
+    setShowUsernameModal(false)
   }
 
   const handleSaveName = async () => {
@@ -72,7 +70,8 @@ export function Profile() {
     try {
       await user.update({ username: trimmed })
       await resync()
-      flash(setNameStatus)
+      setNameStatus('idle')
+      setShowUsernameModal(false)
       return
     } catch (err) {
       const clerkError = (err as { errors?: { code?: string; message?: string }[] })?.errors?.[0]
@@ -95,7 +94,8 @@ export function Profile() {
       try {
         await user.update({ firstName: trimmed })
         await resync()
-        flash(setNameStatus)
+        setNameStatus('idle')
+        setShowUsernameModal(false)
       } catch (fallbackErr) {
         console.error('No se pudo guardar el nombre', fallbackErr)
         setNameStatus('idle')
@@ -104,186 +104,218 @@ export function Profile() {
     }
   }
 
-  const handlePhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    // Clear the input either way, so picking the *same* file again still
-    // fires a change event.
-    e.target.value = ''
-    if (!file || !user) return
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError(strings.profile.errorPhoto)
-      return
-    }
-    setError(null)
-    setPhotoStatus('busy')
-    try {
-      await user.setProfileImage({ file })
-      await resync()
-      flash(setPhotoStatus)
-    } catch (err) {
-      console.error('No se pudo actualizar la foto', err)
-      setPhotoStatus('idle')
-      setError(strings.profile.errorPhoto)
-    }
-  }
-
   if (isLoaded && !user) {
     return (
-      <div className="mx-auto max-w-md pt-16">
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-6 py-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
-            <CircleUserRound size={26} />
-          </div>
-          <div>
-            <p className="text-base font-semibold text-white">{strings.profile.signedOutTitle}</p>
-            <p className="mt-1 text-sm text-neutral-500">{strings.profile.signedOutBody}</p>
-          </div>
-          <button
-            onClick={promptSignIn}
-            className="mt-1 rounded-xl border border-violet-400/30 bg-violet-500/10 px-5 py-2.5 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
-          >
-            {strings.profile.signIn}
-          </button>
+      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 pt-24 text-center sm:pt-28">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
+          <CircleUserRound size={26} />
         </div>
+        <div>
+          <p className="text-base font-semibold text-white">{strings.profile.signedOutTitle}</p>
+          <p className="mt-1 text-sm text-neutral-500">{strings.profile.signedOutBody}</p>
+        </div>
+        <button
+          onClick={promptSignIn}
+          className="mt-1 rounded-xl border border-violet-400/30 bg-violet-500/10 px-5 py-2.5 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
+        >
+          {strings.profile.signIn}
+        </button>
       </div>
     )
   }
 
   if (!isLoaded) {
-    return (
-      <div className="mx-auto max-w-md pt-16">
-        <div className="h-48 animate-pulse rounded-2xl border border-white/5 bg-white/[0.02]" />
-      </div>
-    )
+    return <div className="mx-auto max-w-md pt-24 sm:pt-28" />
   }
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? null
-  const avatarUrl = user?.imageUrl ?? null
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center px-4 pt-24 sm:pt-28">
+      {/* Settings — gear top-right, same fixed strip the tab's own
+          profile/stats pill sits in. Everything account-adjacent (language,
+          email, sign out) lives behind it, keeping this main view down to
+          just the character and the name. */}
+      <button
+        onClick={() => setShowSettings(true)}
+        aria-label={strings.profile.settingsLabel}
+        className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
+      >
+        <Settings size={16} />
+      </button>
+
+      <div className="mt-6">
+        <AstronautAvatar />
+      </div>
+
+      {/* Tapping the name itself opens the edit modal below — no separate
+          pencil icon sitting next to it. */}
+      <button
+        onClick={() => setShowUsernameModal(true)}
+        aria-label={strings.profile.editName}
+        className="mt-14 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+      >
+        @{username || strings.profile.usernamePlaceholder}
+      </button>
+
+      {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
+      {showUsernameModal && (
+        <EditUsernameModal
+          username={username}
+          setUsername={setUsername}
+          status={nameStatus}
+          error={error}
+          onSave={handleSaveName}
+          onClose={cancelEdit}
+        />
+      )}
+    </div>
+  )
+}
+
+// Opened by tapping the name itself — a small, focused modal instead of an
+// inline pencil-triggered edit, so the main view stays down to just the
+// character and the name it's actually showing.
+function EditUsernameModal({
+  username,
+  setUsername,
+  status,
+  error,
+  onSave,
+  onClose,
+}: {
+  username: string
+  setUsername: (value: string) => void
+  status: Status
+  error: string | null
+  onSave: () => void
+  onClose: () => void
+}) {
+  const { strings } = useLanguage()
 
   return (
-    <div className="mx-auto max-w-md pt-16">
-      <header className="mb-6 text-center">
-        <h1 className="font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white">{strings.profile.title}</h1>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">{strings.profile.subtitle}</p>
-      </header>
-
-      {/* Identity card — the avatar and the name that actually show up on
-          the leaderboard, edited right where they're previewed. */}
-      <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-        <div className="flex flex-col items-center">
-          <div className="relative">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt=""
-                className="h-24 w-24 rounded-full object-cover ring-2 ring-white/10"
-              />
-            ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/5 text-neutral-600 ring-2 ring-white/10">
-                <CircleUserRound size={40} />
-              </div>
-            )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={photoStatus === 'busy'}
-              aria-label={strings.profile.changePhoto}
-              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-neutral-300 shadow-lg shadow-black/40 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
-            >
-              {photoStatus === 'saved' ? <Check size={15} className="text-green-300" /> : <Camera size={15} />}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handlePhotoPicked}
-              className="hidden"
-            />
-          </div>
-          <p className="mt-3 text-xs text-neutral-600">
-            {photoStatus === 'busy' ? strings.profile.uploading : strings.profile.photoHint}
-          </p>
-        </div>
-
-        <div className="mt-6">
-          <label htmlFor="profile-username" className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-            {strings.profile.usernameLabel}
-          </label>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="profile-username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              maxLength={USERNAME_MAX}
-              placeholder={strings.profile.usernamePlaceholder}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:border-violet-400/40 focus:outline-none"
-            />
-            <button
-              onClick={handleSaveName}
-              disabled={nameStatus === 'busy'}
-              className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                nameStatus === 'saved'
-                  ? 'border-green-400/30 bg-green-500/10 text-green-300'
-                  : 'border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15'
-              }`}
-            >
-              {nameStatus === 'busy'
-                ? strings.profile.saving
-                : nameStatus === 'saved'
-                  ? strings.profile.saved
-                  : strings.profile.save}
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-neutral-600">{strings.profile.usernameHint}</p>
-        </div>
-
-        {error && (
-          <p className="mt-3 rounded-lg border border-red-400/20 bg-red-500/[0.07] px-3 py-2 text-xs text-red-200">
-            {error}
-          </p>
-        )}
-      </section>
-
-      {/* Account row — read-only, just so the player can see which account
-          they're actually signed in as. */}
-      <section className="mt-3 flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-          <Mail size={16} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">
-            {strings.profile.emailLabel}
-          </p>
-          <p className="truncate text-sm text-neutral-300">{email ?? strings.profile.noEmail}</p>
-        </div>
-      </section>
-
-      {/* Language — used to live in the global header; it's a per-account
-          preference, so this is where it belongs now that the header is gone. */}
-      <section className="mt-3 flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-          <Globe size={16} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">
-            {strings.profile.languageLabel}
-          </p>
-          <p className="truncate text-sm text-neutral-300">{strings.profile.languageHint}</p>
-        </div>
-        <button
-          onClick={toggleLanguage}
-          className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm font-bold tracking-wide text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          {language.toUpperCase()}
-        </button>
-      </section>
-
-      <button
-        onClick={() => signOut()}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 text-sm font-semibold text-neutral-400 transition-colors hover:border-red-400/20 hover:bg-red-500/[0.07] hover:text-red-200"
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] p-5 shadow-2xl shadow-black/50 sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <LogOut size={16} />
-        {strings.profile.signOut}
-      </button>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-[Space_Grotesk] text-base font-bold text-white">{strings.profile.editName}</h2>
+          <button
+            onClick={onClose}
+            aria-label={strings.profile.cancel}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        <input
+          autoFocus
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSave()
+            if (e.key === 'Escape') onClose()
+          }}
+          maxLength={USERNAME_MAX}
+          placeholder={strings.profile.usernamePlaceholder}
+          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:border-violet-400/40 focus:outline-none"
+        />
+        {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+
+        <button
+          onClick={onSave}
+          disabled={status === 'busy'}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15 disabled:opacity-50"
+        >
+          <Check size={16} />
+          {strings.profile.save}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Language + account actions — split out of the main view entirely per its
+// own trigger button's comment. A plain overlay sheet rather than a new
+// route: it's a handful of controls, not a screen of its own.
+function SettingsSheet({ onClose }: { onClose: () => void }) {
+  const { strings, language, setLanguage } = useLanguage()
+  const { user } = useUser()
+  const { signOut } = useClerk()
+  const email = user?.primaryEmailAddress?.emailAddress ?? null
+
+  const LANGUAGES: { value: Language; label: string }[] = [
+    { value: 'es', label: 'ES' },
+    { value: 'en', label: 'EN' },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] p-5 shadow-2xl shadow-black/50 sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-[Space_Grotesk] text-base font-bold text-white">{strings.profile.settingsLabel}</h2>
+          <button
+            onClick={onClose}
+            aria-label={strings.profile.cancel}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Language — a real selector (both options shown, pick one
+            directly), not a single button that cycles through on every
+            click. */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-neutral-300">{strings.profile.languageLabel}</p>
+          <div
+            role="radiogroup"
+            aria-label={strings.profile.languageLabel}
+            className="inline-flex rounded-full border border-white/10 bg-black/30 p-1"
+          >
+            {LANGUAGES.map((opt) => (
+              <button
+                key={opt.value}
+                role="radio"
+                aria-checked={language === opt.value}
+                onClick={() => setLanguage(opt.value)}
+                className={`w-12 rounded-full py-1.5 text-xs font-bold tracking-wide transition-colors ${
+                  language === opt.value ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="my-4 h-px bg-white/5" />
+
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
+            <Mail size={14} />
+          </div>
+          <p className="min-w-0 flex-1 truncate text-sm text-neutral-400">{email ?? strings.profile.noEmail}</p>
+        </div>
+
+        {/* Always this red, not just on hover — signing out is the one
+            genuinely destructive action on this whole screen and should
+            read that way at a glance, not only when a cursor happens to be
+            over it (which touch never triggers anyway). */}
+        <button
+          onClick={() => signOut()}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/[0.12]"
+        >
+          <LogOut size={16} />
+          {strings.profile.signOut}
+        </button>
+      </div>
     </div>
   )
 }

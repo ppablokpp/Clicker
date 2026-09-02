@@ -25,18 +25,20 @@ export function Leaderboard() {
   const [showBattles, setShowBattles] = useState(false)
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
+    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
       <button
         onClick={() => setShowBattles(true)}
         aria-label={strings.battle.buttonLabel}
-        className="fixed right-4 top-20 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-24"
+        className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
       >
         <Swords size={16} />
       </button>
 
       {showBattles && <BattlesModal onClose={() => setShowBattles(false)} onNavigate={navigate} userId={userId ?? null} />}
 
-      <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center sm:top-24">
+      {/* Top offset matches every other screen's own top-of-screen chrome
+          now that there's no global header pushing content down first. */}
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center sm:top-6">
         <div className="pointer-events-auto inline-flex items-center rounded-full border border-white/10 bg-[#0d0d14]/90 p-1 shadow-lg shadow-black/30 backdrop-blur-sm">
           <button
             onClick={() => setSortBy('clicks')}
@@ -59,7 +61,7 @@ export function Leaderboard() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl pt-16">
+      <div className="mx-auto max-w-2xl pt-20 sm:pt-24">
         {!isLoading && leaderboard.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
             {strings.leaderboard.empty}

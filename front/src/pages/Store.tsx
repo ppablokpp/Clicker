@@ -42,7 +42,7 @@ export function Store() {
   const [showGemPacks, setShowGemPacks] = useState(false)
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
+    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-6 sm:px-6 sm:pb-24 sm:pt-8">
       <div className="mx-auto max-w-2xl">
         <header className="mb-8">
           <div className="flex items-center justify-between gap-3">

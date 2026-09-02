@@ -89,19 +89,32 @@ export function Stats() {
 
   // Today lands as the leftmost visible card — scrolling back reveals the
   // past, scrolling forward reveals the few upcoming padding days.
+  //
+  // `view` is in the dependency array (and checked first) because the
+  // stats strip only exists in the DOM while `view === 'stats'` — with the
+  // profile now the default view, this effect's very first run finds
+  // `scrollRef.current` still null and does nothing, and with `days` as the
+  // only other dependency (stable once click-days finish loading) it never
+  // ran again, so opening the stats tab later showed the calendar sitting
+  // at its start instead of jumping to today. Re-running on every switch
+  // *to* stats is what actually gets a real element to scroll.
   useEffect(() => {
+    if (view !== 'stats') return
     const el = scrollRef.current
     if (!el) return
     const todayIndex = days.findIndex((d) => d.isToday)
     if (todayIndex >= 0) el.scrollLeft = todayIndex * DAY_CARD_SPAN
-  }, [days])
+  }, [days, view])
 
   // A plain vertical mouse wheel does nothing on a horizontal-only
   // scroller by default (only touch/trackpad swipes do) — redirect it here
   // so a desktop mouse wheel can scroll the strip too. Needs a real DOM
   // listener (not JSX onWheel) since React registers wheel as passive,
-  // which silently ignores preventDefault.
+  // which silently ignores preventDefault. Same `view` reasoning as the
+  // scroll-to-today effect above: without it, this ran once against a null
+  // ref (profile being the default view) and never attached at all.
   useEffect(() => {
+    if (view !== 'stats') return
     const el = scrollRef.current
     if (!el) return
     const handleWheel = (e: WheelEvent) => {
@@ -112,14 +125,18 @@ export function Stats() {
     }
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [])
+  }, [view])
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-20 sm:px-6 sm:pb-24 sm:pt-24">
+    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
       {/* Same floating pill, same position, as Leaderboard's own sort
           toggle — this tab holds two views (the profile and these stats)
-          and this is what switches between them. */}
-      <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center sm:top-24">
+          and this is what switches between them. Top offset matches
+          Profile's own settings-gear button, since the two share this same
+          top strip (there's no more global header pushing everything down
+          below it — each screen just clears its own top-of-screen chrome
+          now). */}
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center sm:top-6">
         <div className="pointer-events-auto inline-flex items-center rounded-full border border-white/10 bg-[#0d0d14]/90 p-1 shadow-lg shadow-black/30 backdrop-blur-sm">
           <button
             onClick={() => setView('profile')}
@@ -145,7 +162,7 @@ export function Stats() {
       {view === 'profile' ? (
         <Profile />
       ) : (
-      <div className="mx-auto max-w-2xl pt-16">
+      <div className="mx-auto max-w-2xl pt-20 sm:pt-24">
         <div className="mb-10 flex items-end gap-3">
           <div
             ref={scrollRef}
