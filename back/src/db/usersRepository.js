@@ -1241,6 +1241,42 @@ export const usersRepository = {
     }))
   },
 
+  // Backs the public "visit this player's profile" page — anyone can open
+  // it from a leaderboard row or a battle history entry, so this only ever
+  // returns fields already visible on the leaderboard itself plus a couple
+  // of read-only stats, nothing account-sensitive (no email, no click
+  // buffer/currency balances). Rank is computed here rather than reusing
+  // getLeaderboard's own row order, since a player outside the top 100
+  // wouldn't have one there at all — this works for anyone with any score.
+  async getPublicProfile(id) {
+    const result = await database.query(
+      `SELECT u.id, u.username, u.prestige_tier, u.lifetime_platino, u.best_cps, u.longest_streak,
+              u.cases_opened, u.total_real_clicks, u.created_at,
+              (SELECT COUNT(*) + 1 FROM users WHERE lifetime_platino > u.lifetime_platino) AS rank,
+              (SELECT COUNT(*) FROM users WHERE lifetime_platino > 0) AS total_ranked
+       FROM users u
+       WHERE u.id = $1`,
+      [id],
+    )
+    const row = result.rows[0]
+    if (!row) return null
+    return {
+      id: row.id,
+      username: row.username,
+      prestigeTier: Number(row.prestige_tier ?? 0),
+      lifetimePlatino: Number(row.lifetime_platino),
+      bestCps: Number(row.best_cps),
+      longestStreak: Number(row.longest_streak),
+      casesOpened: Number(row.cases_opened ?? 0),
+      totalRealClicks: Number(row.total_real_clicks ?? 0),
+      createdAt: row.created_at,
+      // A score of 0 means never ranked — rank/total would otherwise show
+      // a misleading "#1 of 1" for a player who has literally never clicked.
+      rank: row.lifetime_platino > 0 ? Number(row.rank) : null,
+      totalRanked: Number(row.total_ranked),
+    }
+  },
+
   // Idempotent on purpose — the "?" replay button re-fires this every time
   // the tutorial is manually re-watched, not just on the one real first-run.
   async markTutorialCompleted(id) {

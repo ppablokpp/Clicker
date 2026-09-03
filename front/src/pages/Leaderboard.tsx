@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLeaderboard, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
+import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { useBattlesContext } from '../context/BattlesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
@@ -74,55 +75,51 @@ export function Leaderboard() {
             const style = RANK_STYLES[rank]
             const isLocalPlayer = entry.id === userId
             return (
-              <li
-                key={entry.id}
-                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-                  isLocalPlayer
-                    ? 'border-violet-400/20 bg-violet-500/[0.07]'
-                    : 'border-white/5 bg-white/[0.02]'
-                }`}
-              >
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-                    style ?? 'border-white/5 bg-white/[0.03] text-neutral-400'
+              <li key={entry.id}>
+                {/* The local player's own row goes to their own (editable)
+                    profile tab instead of the read-only public page every
+                    other row opens — tapping "you" should land somewhere
+                    you can actually change something. */}
+                <button
+                  onClick={() => navigate(isLocalPlayer ? '/estadisticas' : `/perfil/${entry.id}`)}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                    isLocalPlayer
+                      ? 'border-violet-400/20 bg-violet-500/[0.07] hover:bg-violet-500/[0.11]'
+                      : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
                   }`}
                 >
-                  {rank <= 3 ? <Medal size={15} /> : rank}
-                </div>
-
-                {entry.avatarUrl ? (
-                  <img
-                    src={entry.avatarUrl}
-                    alt=""
-                    className="h-7 w-7 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-                    <User size={14} />
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+                      style ?? 'border-white/5 bg-white/[0.03] text-neutral-400'
+                    }`}
+                  >
+                    {rank <= 3 ? <Medal size={15} /> : rank}
                   </div>
-                )}
 
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm font-medium ${
-                    isLocalPlayer ? 'text-violet-200' : 'text-neutral-200'
-                  }`}
-                >
-                  {entry.username ?? strings.leaderboard.fallbackName}
-                  {isLocalPlayer && (
-                    <span className="ml-2 rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
-                      {strings.leaderboard.you}
-                    </span>
-                  )}
-                </span>
-                <span className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100">
-                  {sortBy === 'cps' ? (
-                    <>
-                      {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
-                    </>
-                  ) : (
-                    entry.lifetimePlatino.toLocaleString(locale)
-                  )}
-                </span>
+                  <AstronautHeadshot size={28} />
+
+                  <span
+                    className={`min-w-0 flex-1 truncate text-sm font-medium ${
+                      isLocalPlayer ? 'text-violet-200' : 'text-neutral-200'
+                    }`}
+                  >
+                    {entry.username ?? strings.leaderboard.fallbackName}
+                    {isLocalPlayer && (
+                      <span className="ml-2 rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
+                        {strings.leaderboard.you}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100">
+                    {sortBy === 'cps' ? (
+                      <>
+                        {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
+                      </>
+                    ) : (
+                      entry.lifetimePlatino.toLocaleString(locale)
+                    )}
+                  </span>
+                </button>
               </li>
             )
           })}

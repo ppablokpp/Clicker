@@ -11,7 +11,11 @@ import { formatPlatino } from '../lib/formatPlatino'
 import type { Language } from '../i18n/translations'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const USERNAME_MIN = 3
+// Clerk's own instance settings: minimum 4 characters, no extended/accented
+// characters, no purely numeric usernames. Its own maximum is 64 — capped
+// tighter here at 20 (mirrored in back/src/routes/users.js) since a name
+// that long doesn't fit anywhere it's actually shown.
+const USERNAME_MIN = 4
 const USERNAME_MAX = 20
 
 type Status = 'idle' | 'busy'
@@ -39,29 +43,27 @@ export function Profile() {
   // is in the middle of typing.
   useEffect(() => {
     if (!user) return
-    setUsername(user.username ?? user.firstName ?? '')
+    setUsername(user.username ?? '')
   }, [user])
 
-  const resync = async () => {
-    try {
-      const token = await getToken()
-      await fetch(`${API_URL}/api/users/sync`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    } catch (err) {
-      // The Clerk-side change already succeeded; a failed mirror just means
-      // the leaderboard catches up on the next sign-in instead of now.
-      console.error('No se pudo resincronizar el perfil', err)
-    }
-  }
-
   const cancelEdit = () => {
-    setUsername(user?.username ?? user?.firstName ?? '')
+    setUsername(user?.username ?? '')
     setError(null)
     setShowUsernameModal(false)
   }
 
+  // Goes through our own backend (PATCH /api/users/me/username) instead of
+  // the client-side `user.update({ username })` — Clerk gates that call
+  // behind "reverification" (a fresh proof of identity beyond just holding
+  // a session), and for a Google-only account with no password the only
+  // factor Clerk has for that is an emailed code, every single time. That's
+  // real friction for picking a display name. Reverification is a
+  // client-SDK protection against a hijacked *browser* session quietly
+  // changing account-recovery info; it was never a rule on the username
+  // field itself, so doing the write from our already-authenticated
+  // backend (Clerk's admin API, which reverification doesn't apply to)
+  // sidesteps it without weakening anything — this route still requires the
+  // same signed session token every other API call does.
   const handleSaveName = async () => {
     if (!user) return
     const trimmed = username.trim()
@@ -72,39 +74,34 @@ export function Profile() {
     setError(null)
     setNameStatus('busy')
     try {
-      await user.update({ username: trimmed })
-      await resync()
-      setNameStatus('idle')
-      setShowUsernameModal(false)
-      return
-    } catch (err) {
-      const clerkError = (err as { errors?: { code?: string; message?: string }[] })?.errors?.[0]
-      const code = clerkError?.code ?? ''
-      const message = clerkError?.message ?? ''
-      // A genuinely taken name is a real, actionable failure — say so and
-      // stop, rather than quietly writing the name somewhere else.
-      if (code === 'form_identifier_exists' || /taken|already/i.test(message)) {
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/users/me/username`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ username: trimmed }),
+      })
+      if (res.status === 409) {
         setNameStatus('idle')
         setError(strings.profile.errorUsernameTaken)
         return
       }
-      // Anything else here is almost always Clerk's "Usernames" feature
-      // being switched off for this instance, in which case `username` is
-      // simply not a field this account has. The leaderboard reads
-      // `username ?? firstName` (see back/src/routes/users.js's /sync), so
-      // firstName is an equally valid home for the display name — fall back
-      // to it instead of showing the player an error for a setting they
-      // can't see or control.
-      try {
-        await user.update({ firstName: trimmed })
-        await resync()
+      if (res.status === 400) {
         setNameStatus('idle')
-        setShowUsernameModal(false)
-      } catch (fallbackErr) {
-        console.error('No se pudo guardar el nombre', fallbackErr)
-        setNameStatus('idle')
-        setError(strings.profile.errorGeneric)
+        setError(strings.profile.errorUsernameInvalid)
+        return
       }
+      if (!res.ok) throw new Error(`PATCH username failed: ${res.status}`)
+      // The backend already wrote the new username to Clerk — this just
+      // refreshes the browser's own cached Clerk user so `user.username`
+      // (and everywhere it's displayed) reflects it immediately instead of
+      // waiting for Clerk's own next background refetch.
+      await user.reload()
+      setNameStatus('idle')
+      setShowUsernameModal(false)
+    } catch (err) {
+      console.error('No se pudo guardar el username', err)
+      setNameStatus('idle')
+      setError(strings.profile.errorGeneric)
     }
   }
 

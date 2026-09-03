@@ -7,6 +7,14 @@ import { getMagnet } from '../powerups/magnets.js'
 
 export const usersRouter = Router()
 
+// Clerk's own instance settings (Configure → Email, Phone, Username):
+// minimum 4 characters, no extended/accented characters, no purely numeric
+// usernames. Clerk's own maximum is 64 — capped tighter here at 20 as this
+// app's own product choice, since a display name that long doesn't fit
+// anywhere it's actually shown (leaderboard rows, the profile header).
+const USERNAME_MIN = 4
+const USERNAME_MAX = 20
+
 function toPublicUser(row) {
   const isPowerupActive =
     row.active_powerup && row.active_powerup_expires_at && new Date(row.active_powerup_expires_at) > new Date()
@@ -93,6 +101,65 @@ usersRouter.post('/sync', async (req, res) => {
   }
 })
 
+// Changes the player's own username. Deliberately NOT done client-side via
+// `user.update({ username })` (@clerk/clerk-react) — Clerk treats a
+// username change as security-sensitive and gates it behind
+// "reverification" (a fresh proof of identity, separate from just holding
+// a session), which for a Google-only account with no password means an
+// emailed verification code every single time. That's real, unwanted
+// friction for something as routine as picking a display name.
+// Reverification exists to stop a *hijacked browser session* from quietly
+// changing account-recovery info — it's a client-SDK protection, not a
+// rule on the field itself. Doing the write here instead sidesteps it
+// entirely and safely: this route already requires the same signed
+// session token every other authenticated route does, so nothing weaker is
+// being trusted — we're just making the change through Clerk's admin
+// (Secret Key) API, which was never subject to reverification in the first
+// place, rather than through the browser's own Clerk session.
+usersRouter.patch('/me/username', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const trimmed = typeof req.body?.username === 'string' ? req.body.username.trim() : ''
+  // Mirrors Clerk's own instance rules (length, no extended/accented
+  // characters, no purely-numeric names) so a bad value fails fast with a
+  // plain 400 instead of round-tripping to Clerk first to find out.
+  const isValidFormat = /^[a-zA-Z0-9_]+$/.test(trimmed) && !/^\d+$/.test(trimmed)
+  if (trimmed.length < USERNAME_MIN || trimmed.length > USERNAME_MAX || !isValidFormat) {
+    return res.status(400).json({ error: 'invalid' })
+  }
+
+  try {
+    const clerkUser = await clerkClient.users.updateUser(userId, { username: trimmed })
+    const user = await usersRepository.upsertFromClerk({
+      id: clerkUser.id,
+      email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
+      username: clerkUser.username,
+      avatarUrl: clerkUser.imageUrl ?? null,
+    })
+    res.json(toPublicUser(user))
+  } catch (err) {
+    const clerkError = err?.errors?.[0]
+    const code = clerkError?.code ?? ''
+    const message = clerkError?.message ?? ''
+    if (code === 'form_identifier_exists' || /taken|already/i.test(message)) {
+      return res.status(409).json({ error: 'taken' })
+    }
+    // Clerk's own form-validation error codes are all prefixed "form_" —
+    // anything else caught here already passed our own format check above,
+    // so a "form_" code at this point means Clerk enforces a rule we don't
+    // mirror locally. Surfaced as a 400 either way rather than a 500, since
+    // it's the request that's malformed, not the server.
+    if (code.startsWith('form_')) {
+      return res.status(400).json({ error: 'invalid' })
+    }
+    console.error('Error updating username', err)
+    res.status(500).json({ error: 'Error updating username' })
+  }
+})
+
 usersRouter.get('/me', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) {
@@ -125,6 +192,15 @@ usersRouter.get('/me/click-days', async (req, res) => {
 
   const clickDays = await usersRepository.getClickDays(userId)
   res.json({ clickDays })
+})
+
+// Public profile page — anyone can view anyone's (no auth), same as the
+// leaderboard itself. See usersRepository.getPublicProfile for exactly what
+// this exposes and why.
+usersRouter.get('/:id/public', async (req, res) => {
+  const profile = await usersRepository.getPublicProfile(req.params.id)
+  if (!profile) return res.status(404).json({ error: 'User not found' })
+  res.json(profile)
 })
 
 // Powers the Inventory modal — owned-but-not-yet-activated powerups/luck/

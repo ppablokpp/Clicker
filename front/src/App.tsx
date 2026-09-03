@@ -29,6 +29,7 @@ import { TutorialProvider } from './context/TutorialContext'
 import { TutorialOverlay } from './components/TutorialOverlay'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
+import { PublicProfile } from './pages/PublicProfile'
 import { Store } from './pages/Store'
 import { Stats } from './pages/Stats'
 import { Tree } from './pages/Tree'
@@ -61,6 +62,7 @@ function ClickerApp() {
                                               <Routes>
                                                 <Route path="/" element={<Home />} />
                                                 <Route path="/clasificacion" element={<Leaderboard />} />
+                                                <Route path="/perfil/:userId" element={<PublicProfile />} />
                                                 <Route path="/estadisticas" element={<Stats />} />
                                                 <Route path="/tienda" element={<Store />} />
                                                 <Route path="/arbol" element={<Tree />} />
