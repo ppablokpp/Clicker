@@ -147,6 +147,12 @@ export interface TranslationStrings {
     errorUsernameTaken: string
     errorUsernameInvalid: string
     errorGeneric: string
+    rankLabel: string
+    rankOf: (total: string) => string
+    rankUnranked: string
+    rankFirst: string
+    rankGap: (amount: string, name: string) => string
+    rankViewAll: string
   }
   store: {
     title: string
@@ -522,6 +528,12 @@ export const translations: Record<Language, TranslationStrings> = {
       errorUsernameTaken: 'Ese nombre ya está en uso. Prueba con otro.',
       errorUsernameInvalid: 'Ese nombre no es válido. Usa entre 3 y 20 caracteres.',
       errorGeneric: 'Algo ha fallado. Inténtalo de nuevo.',
+      rankLabel: 'Puesto mundial',
+      rankOf: (total) => `de ${total} jugadores`,
+      rankUnranked: 'Sin clasificar todavía',
+      rankFirst: 'Nadie por delante',
+      rankGap: (amount, name) => `${amount} para adelantar a ${name}`,
+      rankViewAll: 'Ver clasificación',
     },
     store: {
       title: 'Tienda',
@@ -986,6 +998,12 @@ export const translations: Record<Language, TranslationStrings> = {
       errorUsernameTaken: 'That name is already taken. Try another one.',
       errorUsernameInvalid: 'That name is not valid. Use between 3 and 20 characters.',
       errorGeneric: 'Something went wrong. Please try again.',
+      rankLabel: 'World rank',
+      rankOf: (total) => `of ${total} players`,
+      rankUnranked: 'Not ranked yet',
+      rankFirst: 'No one ahead of you',
+      rankGap: (amount, name) => `${amount} to overtake ${name}`,
+      rankViewAll: 'View leaderboard',
     },
     store: {
       title: 'Store',

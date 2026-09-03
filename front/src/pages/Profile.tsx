@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, CircleUserRound, LogOut, Mail, Settings, X } from 'lucide-react'
+import { Check, ChevronRight, CircleUserRound, Crown, LogOut, Mail, Settings, X } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
+import { useLeaderboard } from '../hooks/useLeaderboard'
+import { formatPlatino } from '../lib/formatPlatino'
 import type { Language } from '../i18n/translations'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -151,10 +154,12 @@ export function Profile() {
       <button
         onClick={() => setShowUsernameModal(true)}
         aria-label={strings.profile.editName}
-        className="mt-12 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+        className="mt-8 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
       >
         @{username || strings.profile.usernamePlaceholder}
       </button>
+
+      <RankCard />
 
       {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
       {showUsernameModal && (
@@ -168,6 +173,134 @@ export function Profile() {
         />
       )}
     </div>
+  )
+}
+
+// The one competitive number this game has, and the reason the leaderboard
+// tab exists — so it gets the space directly under the name.
+//
+// Shown as the player's *neighbourhood* rather than as a lone figure: the
+// rank above, the player themselves, and the rank below, stitched together
+// by a vertical hairline so the three read as rungs of a ladder. A bare
+// "#12" tells you where you are; this tells you who you're chasing and by
+// how much, which is the thing that actually makes a ranking worth opening.
+// The ladder is structural, not decorative — the rows are literally in
+// leaderboard order and the hairline is the axis they sit on.
+//
+// No backend work behind any of it: /api/leaderboard already returns the
+// full sorted list, so the rank is the player's own index in it.
+function RankCard() {
+  const { strings, language } = useLanguage()
+  const { userId } = useAuth()
+  const navigate = useNavigate()
+  const { leaderboard, isLoading } = useLeaderboard('clicks')
+
+  // Reserve the card's height while loading so the name above it doesn't
+  // jump once the ranking lands.
+  if (isLoading) return <div className="mt-6 h-[168px] w-full" />
+
+  const index = leaderboard.findIndex((entry) => entry.id === userId)
+  if (index < 0) {
+    return (
+      <p className="mt-6 text-sm text-neutral-600">{strings.profile.rankUnranked}</p>
+    )
+  }
+
+  const me = leaderboard[index]
+  const above = index > 0 ? leaderboard[index - 1] : null
+  const below = index + 1 < leaderboard.length ? leaderboard[index + 1] : null
+  // How far along the player is toward the score of whoever is directly
+  // ahead. `above` is by definition >= `me`, so this can't exceed 1.
+  const progress = above && above.lifetimePlatino > 0 ? me.lifetimePlatino / above.lifetimePlatino : 1
+
+  const rows = [above, me, below]
+    .map((entry, i) => (entry ? { entry, rank: index + i } : null))
+    .filter((row): row is { entry: (typeof leaderboard)[number]; rank: number } => row !== null)
+
+  return (
+    <button
+      onClick={() => navigate('/clasificacion')}
+      aria-label={strings.profile.rankViewAll}
+      className="mt-6 w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition-colors hover:border-white/[0.14]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+            {strings.profile.rankLabel}
+          </p>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="font-[Space_Grotesk] text-lg font-bold text-violet-300/60">#</span>
+            <span className="bg-gradient-to-br from-violet-200 via-violet-300 to-fuchsia-400 bg-clip-text font-[Space_Grotesk] text-5xl font-bold leading-none tabular-nums text-transparent">
+              {index + 1}
+            </span>
+            <span className="ml-2 text-xs text-neutral-500">
+              {strings.profile.rankOf(leaderboard.length.toLocaleString(language === 'en' ? 'en-US' : 'es-ES'))}
+            </span>
+          </div>
+        </div>
+        <ChevronRight size={18} className="mt-1 shrink-0 text-neutral-600" />
+      </div>
+
+      {/* The ladder. */}
+      <div className="relative mt-4 flex flex-col gap-1">
+        <div className="absolute bottom-3 left-[15px] top-3 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+        {rows.map(({ entry, rank }) => {
+          const isMe = entry.id === me.id
+          return (
+            <div
+              key={entry.id}
+              className={`relative flex items-center gap-3 rounded-lg px-2 py-1.5 ${
+                isMe ? 'bg-violet-500/[0.09]' : ''
+              }`}
+            >
+              <span
+                className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${
+                  isMe
+                    ? 'bg-gradient-to-br from-violet-400 to-fuchsia-500 text-white'
+                    : 'border border-white/10 bg-[#0d0d14] text-neutral-500'
+                }`}
+              >
+                {rank}
+              </span>
+              <span
+                className={`min-w-0 flex-1 truncate text-sm ${
+                  isMe ? 'font-semibold text-violet-100' : 'text-neutral-500'
+                }`}
+              >
+                {entry.username ?? strings.leaderboard.fallbackName}
+              </span>
+              <span className={`shrink-0 text-xs tabular-nums ${isMe ? 'text-violet-200' : 'text-neutral-600'}`}>
+                {formatPlatino(entry.lifetimePlatino, language)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* The chase. Rank 1 has nothing to chase, so it gets the state that
+          says so rather than an empty progress bar sitting at 100%. */}
+      {above ? (
+        <div className="mt-3">
+          <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400"
+              style={{ width: `${Math.min(progress, 1) * 100}%` }}
+            />
+          </div>
+          <p className="mt-2 text-[11px] text-neutral-500">
+            {strings.profile.rankGap(
+              formatPlatino(above.lifetimePlatino - me.lifetimePlatino, language),
+              above.username ?? strings.leaderboard.fallbackName,
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-yellow-300/90">
+          <Crown size={13} />
+          {strings.profile.rankFirst}
+        </div>
+      )}
+    </button>
   )
 }
 
