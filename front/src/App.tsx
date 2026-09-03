@@ -30,6 +30,7 @@ import { TutorialOverlay } from './components/TutorialOverlay'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { PublicProfile } from './pages/PublicProfile'
+import { CustomizeAstronaut } from './pages/CustomizeAstronaut'
 import { Store } from './pages/Store'
 import { Stats } from './pages/Stats'
 import { Tree } from './pages/Tree'
@@ -63,6 +64,7 @@ function ClickerApp() {
                                                 <Route path="/" element={<Home />} />
                                                 <Route path="/clasificacion" element={<Leaderboard />} />
                                                 <Route path="/perfil/:userId" element={<PublicProfile />} />
+                                                <Route path="/personalizar" element={<CustomizeAstronaut />} />
                                                 <Route path="/estadisticas" element={<Stats />} />
                                                 <Route path="/tienda" element={<Store />} />
                                                 <Route path="/arbol" element={<Tree />} />

@@ -39,7 +39,13 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
   // read-only drill-down reached by tapping a leaderboard row, not one of
   // the app's own tabs, so the only way back is its own back button —
   // showing the tab bar there would make it look like a sixth destination.
-  if (location.pathname.startsWith('/batalla') || location.pathname.startsWith('/perfil/')) return null
+  if (
+    location.pathname.startsWith('/batalla') ||
+    location.pathname.startsWith('/perfil/') ||
+    location.pathname.startsWith('/personalizar')
+  ) {
+    return null
+  }
 
   return (
     <div

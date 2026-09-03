@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, ChevronRight, Crown, LogOut, Mail, Settings, X } from 'lucide-react'
+import { Check, ChevronRight, Crown, LogOut, Mail, Pencil, Settings, X } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { formatPlatino } from '../lib/formatPlatino'
+import { loadStyleIds } from '../lib/astronautStyles'
 import type { Language } from '../i18n/translations'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -31,6 +32,11 @@ export function Profile() {
   const { user, isLoaded } = useUser()
   const { getToken } = useAuth()
   const { promptSignIn } = useSignInPrompt()
+  const navigate = useNavigate()
+  // Read once on mount rather than held in a context: the customization
+  // screen is a separate route, so coming back from it remounts this and
+  // picks up whatever was saved there.
+  const [styleIds] = useState(() => loadStyleIds())
 
   const [showUsernameModal, setShowUsernameModal] = useState(false)
   const [username, setUsername] = useState('')
@@ -145,9 +151,24 @@ export function Profile() {
         <Settings size={16} />
       </button>
 
-      <div className="mt-6">
-        <AstronautAvatar />
-      </div>
+      {/* The whole character is the button, with the pencil as its
+          affordance rather than as a separate target — a small icon is a
+          poor tap area, and "tap yourself to change yourself" is the
+          obvious gesture once something marks it as editable.
+          The pill sits half over the porthole's lower-right edge on
+          purpose: fully inside reads as part of the artwork, fully outside
+          reads as unrelated chrome; straddling the rim is what makes it
+          read as attached to the avatar. */}
+      <button
+        onClick={() => navigate('/personalizar')}
+        aria-label={strings.profile.customizeAria}
+        className="group relative mt-6 rounded-full transition-transform active:scale-[0.98]"
+      >
+        <AstronautAvatar styleIds={styleIds} />
+        <span className="pointer-events-none absolute bottom-[14%] right-[2%] flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-violet-200 shadow-lg shadow-black/40 transition-colors group-hover:bg-[#1d1d28] group-hover:text-violet-100">
+          <Pencil size={15} />
+        </span>
+      </button>
 
       {/* Tapping the name itself opens the edit modal below — no separate
           pencil icon sitting next to it. */}

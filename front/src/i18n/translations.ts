@@ -157,6 +157,13 @@ export interface TranslationStrings {
     notFoundTitle: string
     notFoundBody: string
     backButton: string
+    customizeTitle: string
+    customizeAria: string
+    slotHelmet: string
+    slotSuit: string
+    slotBoots: string
+    slotAccent: string
+    styleNames: Record<string, string>
   }
   store: {
     title: string
@@ -542,6 +549,29 @@ export const translations: Record<Language, TranslationStrings> = {
       notFoundTitle: 'Jugador no encontrado',
       notFoundBody: 'Puede que esta cuenta ya no exista.',
       backButton: 'Volver',
+      customizeTitle: 'Personalizar',
+      customizeAria: 'Personalizar astronauta',
+      slotHelmet: 'Casco',
+      slotSuit: 'Traje',
+      slotBoots: 'Botas',
+      slotAccent: 'Detalles',
+      styleNames: {
+        estandar: 'Estándar',
+        platino: 'Platino',
+        esmeralda: 'Esmeralda',
+        oro: 'Oro',
+        carmesi: 'Carmesí',
+        grafito: 'Grafito',
+        acero: 'Acero',
+        menta: 'Menta',
+        arena: 'Arena',
+        coral: 'Coral',
+        ambar: 'Ámbar',
+        cian: 'Cian',
+        violeta: 'Violeta',
+        rosa: 'Rosa',
+        nieve: 'Nieve',
+      },
     },
     store: {
       title: 'Tienda',
@@ -1016,6 +1046,29 @@ export const translations: Record<Language, TranslationStrings> = {
       notFoundTitle: 'Player not found',
       notFoundBody: 'This account may no longer exist.',
       backButton: 'Back',
+      customizeTitle: 'Customize',
+      customizeAria: 'Customize astronaut',
+      slotHelmet: 'Helmet',
+      slotSuit: 'Suit',
+      slotBoots: 'Boots',
+      slotAccent: 'Details',
+      styleNames: {
+        estandar: 'Standard',
+        platino: 'Platinum',
+        esmeralda: 'Emerald',
+        oro: 'Gold',
+        carmesi: 'Crimson',
+        grafito: 'Graphite',
+        acero: 'Steel',
+        menta: 'Mint',
+        arena: 'Sand',
+        coral: 'Coral',
+        ambar: 'Amber',
+        cian: 'Cyan',
+        violeta: 'Violet',
+        rosa: 'Pink',
+        nieve: 'Snow',
+      },
     },
     store: {
       title: 'Store',
