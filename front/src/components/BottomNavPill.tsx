@@ -8,10 +8,10 @@ const PILL_ITEMS = [
   { to: '/arbol', key: 'tree', icon: Network, end: false },
   { to: '/clasificacion', key: 'leaderboard', icon: Trophy, end: false },
   { to: '/', key: 'home', icon: Rocket, end: true },
+  { to: '/tienda', key: 'store', icon: Store, end: false },
   // Profile icon, not a chart one: this tab opens on the profile now and
   // the stats sit behind its own pill (see Stats.tsx).
   { to: '/estadisticas', key: 'stats', icon: CircleUserRound, end: false },
-  { to: '/tienda', key: 'store', icon: Store, end: false },
 ] as const
 
 // Thin wrapper — the only thing here that reads ClickCounterContext, whose
