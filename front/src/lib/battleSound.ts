@@ -7,14 +7,20 @@
  */
 
 import { unlockAudioSession } from './audioSessionUnlock'
+import { isSoundEnabled } from './soundSettings'
 
 let ctx: AudioContext | null = null
 let masterOutput: DynamicsCompressorNode | null = null
 let lastShotAt = 0
 const MIN_SHOT_INTERVAL = 0.035
 
+// Muting happens here rather than at each call site: every play* function
+// below already bails on a null context, so one check covers the whole file
+// and no new sound can accidentally ship without honouring the setting. It
+// also means a muted session never creates an AudioContext at all.
 function getContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
+  if (!isSoundEnabled()) return null
   const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!AudioCtor) return null
   unlockAudioSession()

@@ -139,6 +139,7 @@ export interface TranslationStrings {
     emailLabel: string
     noEmail: string
     languageLabel: string
+    soundLabel: string
     settingsLabel: string
     signOut: string
     signedOutTitle: string
@@ -539,6 +540,7 @@ export const translations: Record<Language, TranslationStrings> = {
       emailLabel: 'Correo',
       noEmail: 'Sin correo',
       languageLabel: 'Idioma',
+      soundLabel: 'Sonido',
       settingsLabel: 'Ajustes',
       signOut: 'Cerrar sesión',
       signedOutTitle: 'Inicia sesión para tener un perfil',
@@ -1053,6 +1055,7 @@ export const translations: Record<Language, TranslationStrings> = {
       emailLabel: 'Email',
       noEmail: 'No email',
       languageLabel: 'Language',
+      soundLabel: 'Sound',
       settingsLabel: 'Settings',
       signOut: 'Sign out',
       signedOutTitle: 'Sign in to get a profile',

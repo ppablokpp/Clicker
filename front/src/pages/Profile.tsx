@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, ChevronRight, Crown, LogOut, Mail, Pencil, Settings, X } from 'lucide-react'
+import { Check, ChevronRight, Crown, LogOut, Mail, Pencil, Settings, Volume2, VolumeX, X } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -9,6 +9,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { formatPlatino } from '../lib/formatPlatino'
 import { loadStyleIds } from '../lib/astronautStyles'
+import { isSoundEnabled, setSoundEnabled } from '../lib/soundSettings'
 import { fetchMyStyle } from '../lib/astronautStyleApi'
 import type { Language } from '../i18n/translations'
 
@@ -430,6 +431,15 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
   const email = user?.primaryEmailAddress?.emailAddress ?? null
   // Same fix as EditUsernameModal's — see its own comment.
   useLockBodyScroll(true)
+  // Seeded from the stored setting rather than defaulting to true, so the
+  // switch shows the real state the moment the sheet opens instead of
+  // flicking to it afterwards.
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled())
+  const toggleSound = () => {
+    const next = !soundOn
+    setSoundOn(next)
+    setSoundEnabled(next)
+  }
 
   const LANGUAGES: { value: Language; label: string }[] = [
     { value: 'es', label: 'ES' },
@@ -453,6 +463,34 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
             className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white/[0.06] hover:text-neutral-200"
           >
             <X size={15} />
+          </button>
+        </div>
+
+        {/* Sound — a switch, not a two-option selector like the language
+            below: this is one thing being on or off, and a switch says that
+            without the player having to read two labels to work out which
+            one they're currently on. */}
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-400">
+              {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+            </div>
+            <p className="text-sm text-neutral-300">{strings.profile.soundLabel}</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={soundOn}
+            aria-label={strings.profile.soundLabel}
+            onClick={toggleSound}
+            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${
+              soundOn ? 'border-violet-400/40 bg-violet-500/30' : 'border-white/10 bg-black/40'
+            }`}
+          >
+            <span
+              className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-all ${
+                soundOn ? 'left-[26px] bg-violet-300' : 'left-[3px] bg-neutral-500'
+              }`}
+            />
           </button>
         </div>
 
