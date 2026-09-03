@@ -16,6 +16,27 @@ export const usersRouter = Router()
 const USERNAME_MIN = 4
 const USERNAME_MAX = 20
 
+// Cosmetic slots the astronaut has. Kept as a bare allow-list because the
+// server deliberately doesn't know what any given *option id* means — see
+// migration 035: the catalogue lives in the client
+// (front/src/lib/astronautStyles.ts), which already falls back to a slot's
+// default for an id it doesn't recognise. So this validates shape (known
+// slot, short plain id) and nothing more, which is what keeps retuning or
+// renaming a colourway a frontend-only change.
+const ASTRONAUT_SLOTS = ['helmet', 'suit', 'boots', 'belt', 'bracelet', 'accent']
+const STYLE_ID_RE = /^[a-z0-9_-]{1,32}$/
+
+function parseAstronautStyle(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const out = {}
+  for (const [slot, id] of Object.entries(input)) {
+    if (!ASTRONAUT_SLOTS.includes(slot)) return null
+    if (typeof id !== 'string' || !STYLE_ID_RE.test(id)) return null
+    out[slot] = id
+  }
+  return out
+}
+
 function toPublicUser(row) {
   const isPowerupActive =
     row.active_powerup && row.active_powerup_expires_at && new Date(row.active_powerup_expires_at) > new Date()
@@ -50,6 +71,7 @@ function toPublicUser(row) {
     casesOpened: Number(row.cases_opened ?? 0),
     milestoneBonusMultiplier: Number(row.milestone_bonus_multiplier ?? 1),
     tutorialCompleted: Boolean(row.tutorial_completed),
+    astronautStyle: row.astronaut_style ?? null,
     activePowerup: isPowerupActive
       ? {
           id: row.active_powerup,
@@ -213,6 +235,27 @@ usersRouter.post('/claim-anonymous', async (req, res) => {
   } catch (err) {
     console.error('Error claiming anonymous progress', err)
     res.status(500).json({ error: 'Error claiming anonymous progress' })
+  }
+})
+
+// Saves what the astronaut is wearing. Guest-capable on purpose (the
+// wrapped getAuth): playing without an account is a first-class mode here,
+// and a guest's character should look like theirs too — theirs just lives
+// on their guest row until they sign in, at which point claimAnonymousProgress
+// carries the whole users row over with everything else.
+usersRouter.put('/me/astronaut-style', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const style = parseAstronautStyle(req.body?.style)
+  if (!style) return res.status(400).json({ error: 'invalid' })
+
+  try {
+    const saved = await usersRepository.updateAstronautStyle(userId, style)
+    res.json({ astronautStyle: saved })
+  } catch (err) {
+    console.error('Error saving astronaut style', err)
+    res.status(500).json({ error: 'Error saving astronaut style' })
   }
 })
 

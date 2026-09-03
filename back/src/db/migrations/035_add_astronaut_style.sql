@@ -1,0 +1,16 @@
+-- The player's astronaut customization: which colourway is equipped in each
+-- cosmetic slot (helmet, suit, boots, belt, bracelet, accent). Stored as one
+-- JSONB bag of slot -> option id rather than a column per slot, because the
+-- set of slots is expected to keep growing (and because a slot's options are
+-- purely a client-side catalogue — see front/src/lib/astronautStyles.ts).
+--
+-- The server deliberately does NOT know what the ids mean. It validates the
+-- shape only (known slot keys, short plain-text values); the client resolves
+-- an id to a palette and already falls back to the slot's default when it
+-- meets one it doesn't recognise. That keeps retuning or renaming a
+-- colourway a frontend-only change, with no migration and no stale server
+-- copy of the catalogue to drift out of sync.
+--
+-- NULL means "never customized" and renders as the default kit, so existing
+-- rows need no backfill.
+ALTER TABLE users ADD COLUMN astronaut_style JSONB;

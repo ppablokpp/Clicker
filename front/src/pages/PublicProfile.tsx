@@ -4,6 +4,7 @@ import { ChevronLeft, Crown } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { formatPlatino } from '../lib/formatPlatino'
+import { normalizeStyle } from '../lib/astronautStyleApi'
 import { STAT_CATEGORIES } from '../stats/config'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -19,6 +20,8 @@ interface PublicProfileData {
   createdAt: string
   rank: number | null
   totalRanked: number
+  /** Their equipped cosmetics; null for anyone who never customized. */
+  astronautStyle: unknown
 }
 
 // The "visit someone else's profile" page — same character/name layout as
@@ -80,8 +83,11 @@ export function PublicProfile() {
 
       {status !== 'not-found' && (
         <>
+          {/* Their character, not the default one — the whole point of
+              storing the cosmetics server-side is that a visitor sees what
+              this player actually built. */}
           <div className={`mt-6 transition-opacity ${status === 'loading' ? 'opacity-0' : 'opacity-100'}`}>
-            <AstronautAvatar />
+            <AstronautAvatar styleIds={normalizeStyle(profile?.astronautStyle)} />
           </div>
 
           <p className="mt-8 min-h-[2.25rem] font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white">

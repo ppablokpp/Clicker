@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, Palette } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { AstronautPiecePreview } from '../components/AstronautPiecePreview'
 import { useLanguage } from '../context/LanguageContext'
+import { useAppAuth } from '../hooks/useAppAuth'
+import { fetchMyStyle, saveMyStyle } from '../lib/astronautStyleApi'
 import {
   ACCENT_STYLES,
   BELT_STYLES,
@@ -166,17 +168,61 @@ function SlotIcon({ kind, size = 23 }: { kind: SlotKey | 'accessories'; size?: n
 export function CustomizeAstronaut() {
   const navigate = useNavigate()
   const { strings } = useLanguage()
+  const { getToken } = useAppAuth()
+  // Seeded from the local cache so the character paints correctly on the
+  // first frame, then reconciled with the server row — which is the real
+  // source of truth, since it's what other players see.
   const [styleIds, setStyleIds] = useState<AstronautStyleIds>(() => loadStyleIds())
   const [tabId, setTabId] = useState(TABS[0].id)
+  const saveTimer = useRef<number | null>(null)
+  // The choice that hasn't reached the server yet. Held separately from
+  // state so the unmount cleanup can still see (and flush) it.
+  const pendingSave = useRef<AstronautStyleIds | null>(null)
 
-  // Persisted on every tap rather than behind a save button: there's no
-  // failure case to confirm and nothing to lose, so a "save" step would
-  // only be ceremony between the player and the thing they can already see.
+  useEffect(() => {
+    let cancelled = false
+    void fetchMyStyle(getToken).then((remote) => {
+      // A failed fetch returns null on purpose — keep whatever is already
+      // on screen rather than repainting the character as the default kit.
+      if (!cancelled && remote) setStyleIds(remote)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [getToken])
+
+  // Applied and cached instantly, pushed to the server on a short debounce.
+  // No save button: there's nothing to confirm and nothing to lose, so it
+  // would only be ceremony between the player and what they can already
+  // see. The debounce exists because flicking through six options fires six
+  // choices in a second, and only the last one matters.
   const choose = (key: SlotKey, id: string) => {
     const next = { ...styleIds, [key]: id }
     setStyleIds(next)
     saveStyleIds(next)
+    pendingSave.current = next
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => {
+      pendingSave.current = null
+      void saveMyStyle(getToken, next)
+    }, 400)
   }
+
+  // Leaving the screen mid-debounce has to *flush* the pending save, not
+  // cancel it — the last thing tapped before hitting back is exactly the
+  // choice the player cared about, and it's the one still sitting in the
+  // timer. `saveMyStyle` is a plain fetch with no component state behind
+  // it, so it completes fine after this unmounts.
+  useEffect(
+    () => () => {
+      if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
+      if (pendingSave.current) {
+        void saveMyStyle(getToken, pendingSave.current)
+        pendingSave.current = null
+      }
+    },
+    [getToken],
+  )
 
   const tab = TABS.find((t) => t.id === tabId) ?? TABS[0]
 

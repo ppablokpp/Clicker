@@ -35,11 +35,22 @@ export const usersRepository = {
                  active_powerup, active_powerup_expires_at, active_luck_powerup, active_luck_powerup_expires_at,
                  powerup_cooldown_until, luck_powerup_cooldown_until,
                  milestone_bonus_multiplier, created_at, cases_opened, gems, keys,
-                 owned_click_chests, owned_gem_chests, tutorial_completed,
+                 owned_click_chests, owned_gem_chests, tutorial_completed, astronaut_style,
                  (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today`,
       [id, email, username, avatarUrl],
     )
     return result.rows[0]
+  },
+
+  // Cosmetic only — see migration 035 for why the server stores these ids
+  // without knowing what they mean. The caller has already validated the
+  // shape; this just writes it.
+  async updateAstronautStyle(id, style) {
+    const result = await database.query(
+      `UPDATE users SET astronaut_style = $2, updated_at = now() WHERE id = $1 RETURNING astronaut_style`,
+      [id, style],
+    )
+    return result.rows[0]?.astronaut_style ?? null
   },
 
   // Creates the row a guest (`anon_<uuid>`) id needs to exist before any
@@ -1414,7 +1425,7 @@ export const usersRepository = {
   async getPublicProfile(id) {
     const result = await database.query(
       `SELECT u.id, u.username, u.prestige_tier, u.lifetime_platino, u.best_cps, u.longest_streak,
-              u.cases_opened, u.total_real_clicks, u.created_at,
+              u.cases_opened, u.total_real_clicks, u.created_at, u.astronaut_style,
               (SELECT COUNT(*) + 1 FROM users WHERE lifetime_platino > u.lifetime_platino AND id !~ '^anon_') AS rank,
               (SELECT COUNT(*) FROM users WHERE lifetime_platino > 0 AND id !~ '^anon_') AS total_ranked
        FROM users u
@@ -1433,6 +1444,9 @@ export const usersRepository = {
       casesOpened: Number(row.cases_opened ?? 0),
       totalRealClicks: Number(row.total_real_clicks ?? 0),
       createdAt: row.created_at,
+      // What their astronaut is wearing, so a visitor sees the character
+      // they actually built. Null means never customized → default kit.
+      astronautStyle: row.astronaut_style ?? null,
       // A score of 0 means never ranked — rank/total would otherwise show
       // a misleading "#1 of 1" for a player who has literally never clicked.
       rank: row.lifetime_platino > 0 ? Number(row.rank) : null,

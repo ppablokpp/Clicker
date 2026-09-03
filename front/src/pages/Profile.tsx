@@ -9,6 +9,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { formatPlatino } from '../lib/formatPlatino'
 import { loadStyleIds } from '../lib/astronautStyles'
+import { fetchMyStyle } from '../lib/astronautStyleApi'
 import type { Language } from '../i18n/translations'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -33,10 +34,21 @@ export function Profile() {
   const { getToken } = useAuth()
   const { promptSignIn } = useSignInPrompt()
   const navigate = useNavigate()
-  // Read once on mount rather than held in a context: the customization
-  // screen is a separate route, so coming back from it remounts this and
-  // picks up whatever was saved there.
-  const [styleIds] = useState(() => loadStyleIds())
+  // Seeded from the local cache so the character paints on the first frame,
+  // then reconciled with the server row — which is the real source of
+  // truth, and what makes the look follow the account across devices.
+  // Re-read on every mount: coming back from the customization screen
+  // remounts this, which is what picks up a change made there.
+  const [styleIds, setStyleIds] = useState(() => loadStyleIds())
+  useEffect(() => {
+    let cancelled = false
+    void fetchMyStyle(getToken).then((remote) => {
+      if (!cancelled && remote) setStyleIds(remote)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [getToken])
 
   const [showUsernameModal, setShowUsernameModal] = useState(false)
   const [username, setUsername] = useState('')
