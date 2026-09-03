@@ -11,6 +11,10 @@ import {
   BELT_STYLES,
   BOOT_STYLES,
   BRACELET_STYLES,
+  ANTENNA_SHAPES,
+  PACK_SHAPES,
+  TRAIL_SHAPES,
+  BADGE_SHAPES,
   HELMET_STYLES,
   SUIT_STYLES,
   loadStyleIds,
@@ -19,25 +23,33 @@ import {
 } from '../lib/astronautStyles'
 
 type SlotKey = keyof AstronautStyleIds
-type SlotLabel = 'slotHelmet' | 'slotSuit' | 'slotBoots' | 'slotBracelet' | 'slotBelt' | 'slotAccent'
 
-// A tab can hold more than one slot — "accessories" is where every worn-over
-// piece lives, so bracelets and belts share it rather than each eating a tab
-// of their own and pushing the strip past what fits on a phone.
-const TABS: { id: string; icon: SlotKey | 'accessories'; label: SlotLabel; slots: SlotKey[] }[] = [
-  { id: 'helmet', icon: 'helmet', label: 'slotHelmet', slots: ['helmet'] },
-  { id: 'suit', icon: 'suit', label: 'slotSuit', slots: ['suit'] },
+// Tabs group slots by where they live on the character, so a tab is "this
+// part of the astronaut" rather than one item each — twelve slots would
+// otherwise need twelve tabs, which no phone strip survives.
+const TABS: {
+  id: string
+  icon: 'helmet' | 'suit' | 'boots' | 'accessories' | 'accent'
+  label: 'tabHead' | 'tabBody' | 'slotBoots' | 'slotBracelet' | 'slotAccent'
+  slots: SlotKey[]
+}[] = [
+  { id: 'head', icon: 'helmet', label: 'tabHead', slots: ['helmet', 'antenna'] },
+  { id: 'body', icon: 'suit', label: 'tabBody', slots: ['suit', 'pack'] },
   { id: 'boots', icon: 'boots', label: 'slotBoots', slots: ['boots'] },
   { id: 'accessories', icon: 'accessories', label: 'slotBracelet', slots: ['bracelet', 'belt'] },
-  { id: 'accent', icon: 'accent', label: 'slotAccent', slots: ['accent'] },
+  { id: 'accent', icon: 'accent', label: 'slotAccent', slots: ['accent', 'badge', 'trail'] },
 ]
 
-const SLOT_LABELS: Record<SlotKey, SlotLabel> = {
+const SLOT_LABELS: Record<SlotKey, string> = {
   helmet: 'slotHelmet',
+  antenna: 'slotAntenna',
   suit: 'slotSuit',
+  pack: 'slotPack',
   boots: 'slotBoots',
   bracelet: 'slotBracelet',
   belt: 'slotBelt',
+  trail: 'slotTrail',
+  badge: 'slotBadge',
   accent: 'slotAccent',
 }
 
@@ -55,6 +67,14 @@ function optionIds(slot: SlotKey): string[] {
       return BELT_STYLES.map((o) => o.id)
     case 'accent':
       return ACCENT_STYLES.map((o) => o.id)
+    case 'antenna':
+      return ANTENNA_SHAPES.map((o) => o.id)
+    case 'pack':
+      return PACK_SHAPES.map((o) => o.id)
+    case 'trail':
+      return TRAIL_SHAPES.map((o) => o.id)
+    case 'badge':
+      return BADGE_SHAPES.map((o) => o.id)
   }
 }
 
@@ -86,6 +106,10 @@ function PieceForOption({ slot, id }: { slot: SlotKey; id: string }) {
       const style = ACCENT_STYLES.find((o) => o.id === id)
       return style ? <AstronautPiecePreview slot="accent" style={style} /> : null
     }
+    // Shape-only slots all take the same `{ id }` shape, so they share one
+    // branch instead of six identical lookups.
+    default:
+      return <AstronautPiecePreview slot={slot} style={{ id }} />
   }
 }
 
@@ -103,7 +127,7 @@ function PieceForOption({ slot, id }: { slot: SlotKey; id: string }) {
 // Each glyph carries its own viewBox cropped to its content, so the pieces
 // all end up optically similar in size despite living at wildly different
 // coordinates in the character.
-function SlotIcon({ kind, size = 23 }: { kind: SlotKey | 'accessories'; size?: number }) {
+function SlotIcon({ kind, size = 23 }: { kind: string; size?: number }) {
   switch (kind) {
     case 'helmet':
       return (
@@ -144,6 +168,14 @@ function SlotIcon({ kind, size = 23 }: { kind: SlotKey | 'accessories'; size?: n
         <svg width={size} height={size} viewBox="4 20 92 58" fill="none" stroke="currentColor" aria-hidden="true">
           <ellipse cx="36" cy="38" rx="22" ry="9.5" strokeWidth="10" transform="rotate(-14 36 38)" />
           <ellipse cx="52" cy="62" rx="25" ry="11" strokeWidth="11" transform="rotate(-14 52 62)" />
+        </svg>
+      )
+    case 'effects':
+      // The thruster plume — the effects tab's own headline piece, and the
+      // one shape that already means "something is coming off the suit".
+      return (
+        <svg width={size} height={size} viewBox="14 10 72 80" fill="currentColor" aria-hidden="true">
+          <path d="M50 14 C76 30 84 52 50 88 C16 52 24 30 50 14 Z" />
         </svg>
       )
     default:
@@ -258,7 +290,7 @@ export function CustomizeAstronaut() {
             <button
               key={t.id}
               onClick={() => setTabId(t.id)}
-              aria-label={strings.profile[t.label]}
+              aria-label={strings.profile[t.label] as string}
               aria-pressed={tabId === t.id}
               className={`flex flex-1 items-center justify-center rounded-full py-3 transition-colors ${
                 tabId === t.id ? 'bg-white text-neutral-900' : 'text-neutral-400 hover:text-neutral-200'
@@ -272,7 +304,7 @@ export function CustomizeAstronaut() {
         {tab.slots.map((slot) => (
           <div key={slot} className="mt-5 w-full">
             <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
-              {strings.profile[SLOT_LABELS[slot]]}
+              {strings.profile[SLOT_LABELS[slot] as keyof typeof strings.profile] as string}
             </p>
             {/* Each option renders the actual piece in its own colourway, so
                 the grid reads as a rack of items rather than a paint tray.

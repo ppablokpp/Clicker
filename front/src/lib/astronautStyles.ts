@@ -64,6 +64,8 @@ export interface AccentStyle {
   swatch: string
   /** Flat trim (zip pull button, chest name tag). */
   color: string
+  /** Chest badge disc — the symbol on top of it is its own slot. */
+  badge: { from: string; to: string }
   /** Life-support pack behind the shoulders — the gear the thruster feeds. */
   pack: { from: string; to: string }
   /** Thruster flame — outer plume and inner core. */
@@ -82,11 +84,58 @@ export interface BraceletStyle {
   color: string
 }
 
-// The chest badge is deliberately NOT customizable: it's a rank/level slot,
-// not decoration, so it has to mean the same thing on every player's
-// avatar. Letting it take the accent colour would make a status marker
-// look like a style choice.
-export const BADGE_GRADIENT = { from: '#c4b5fd', to: '#e879f9' } as const
+/**
+ * Shape-only slots. Unlike the material slots above, these carry no colours
+ * at all — the geometry lives in AstronautAvatar and takes its palette from
+ * whatever it's attached to (the antenna from the helmet, the pack and
+ * trail from the trim, and so on).
+ *
+ * That split is the point of this batch: the six original slots are all
+ * recolours, and recolours have a ceiling — six helmets that differ only in
+ * glass stop feeling like six items. These change the *silhouette*, which
+ * is what still reads at 28px in a leaderboard row.
+ */
+export interface ShapeOption {
+  id: string
+}
+
+/**
+ * Head furniture. Smallest geometry in the game, most visible spot on it.
+ * The crest and dish that were here got cut: both fought the helmet's own
+ * dome for the silhouette instead of sitting on it.
+ *
+ * No "none" option here or in any other slot: every slot always has
+ * something equipped. An empty slot isn't a look, it's a hole — and it
+ * would also mean the cheapest possible avatar is the one wearing the least,
+ * which is backwards for a catalogue you're meant to want to fill.
+ */
+export const ANTENNA_SHAPES: ShapeOption[] = [{ id: 'estandar' }, { id: 'doble' }, { id: 'halo' }]
+
+/** Life-support pack — peeks past the shoulders, so it changes the outline. */
+export const PACK_SHAPES: ShapeOption[] = [
+  { id: 'estandar' },
+  { id: 'plana' },
+  { id: 'carga' },
+  { id: 'aletas' },
+  { id: 'cilindros' },
+  { id: 'reactor' },
+  { id: 'alas' },
+]
+
+/**
+ * What comes out of the thruster. Lives under the trim tab rather than an
+ * effects tab of its own — it's one more thing the accent colour drives,
+ * not a category.
+ */
+export const TRAIL_SHAPES: ShapeOption[] = [{ id: 'llama' }, { id: 'ionico' }, { id: 'anillos' }]
+
+/**
+ * The symbol inside the chest badge. The badge disc itself now takes the
+ * trim colour like everything else in that tab — it was fixed while it was
+ * meant to be a rank marker, but as a chosen symbol it's decoration, and
+ * decoration that refuses to match the outfit just looks like an oversight.
+ */
+export const BADGE_SHAPES: ShapeOption[] = [{ id: 'planeta' }, { id: 'estrella' }, { id: 'rayo' }]
 
 // --- Helmets -------------------------------------------------------------
 // The shell stays the standard white/lilac for almost every helmet and only
@@ -263,6 +312,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     id: 'violeta',
     swatch: '#a855f7',
     color: '#a855f7',
+    badge: { from: '#c4b5fd', to: '#a855f7' },
     pack: { from: '#8b46cc', to: '#63339a' },
     flame: { outer: '#a855f7', innerMid: '#e9d5ff', innerTo: '#c4b5fd' },
   },
@@ -270,6 +320,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     id: 'oro',
     swatch: '#fbbf24',
     color: '#fbbf24',
+    badge: { from: '#fde68a', to: '#f59e0b' },
     pack: { from: '#d9a02a', to: '#a97b1c' },
     flame: { outer: '#f59e0b', innerMid: '#fef3c7', innerTo: '#fcd34d' },
   },
@@ -277,6 +328,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     id: 'cian',
     swatch: '#22d3ee',
     color: '#22d3ee',
+    badge: { from: '#a5f3fc', to: '#22d3ee' },
     pack: { from: '#1fb2cb', to: '#15829a' },
     flame: { outer: '#06b6d4', innerMid: '#cffafe', innerTo: '#67e8f9' },
   },
@@ -284,6 +336,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     id: 'esmeralda',
     swatch: '#34d399',
     color: '#34d399',
+    badge: { from: '#a7f3d0', to: '#10b981' },
     pack: { from: '#2bb489', to: '#1d8767' },
     flame: { outer: '#10b981', innerMid: '#d1fae5', innerTo: '#6ee7b7' },
   },
@@ -291,6 +344,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     id: 'grafito',
     swatch: '#64748b',
     color: '#64748b',
+    badge: { from: '#cbd5e1', to: '#64748b' },
     pack: { from: '#5a6675', to: '#3b4552' },
     flame: { outer: '#64748b', innerMid: '#e2e8f0', innerTo: '#94a3b8' },
   },
@@ -298,6 +352,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     id: 'carmesi',
     swatch: '#fb7185',
     color: '#fb7185',
+    badge: { from: '#fecdd3', to: '#fb7185' },
     pack: { from: '#e05f70', to: '#ad4453' },
     flame: { outer: '#e11d48', innerMid: '#ffe4e6', innerTo: '#fda4af' },
   },
@@ -339,6 +394,10 @@ export interface AstronautStyleIds {
   boots: string
   belt: string
   bracelet: string
+  antenna: string
+  pack: string
+  trail: string
+  badge: string
   accent: string
 }
 
@@ -349,6 +408,10 @@ export interface ResolvedAstronautStyle {
   boots: BootStyle
   belt: BeltStyle
   bracelet: BraceletStyle
+  antenna: ShapeOption
+  pack: ShapeOption
+  trail: ShapeOption
+  badge: ShapeOption
   accent: AccentStyle
 }
 
@@ -358,6 +421,10 @@ export const DEFAULT_STYLE_IDS: AstronautStyleIds = {
   boots: 'estandar',
   belt: 'violeta',
   bracelet: 'violeta',
+  antenna: 'estandar',
+  pack: 'estandar',
+  trail: 'llama',
+  badge: 'planeta',
   accent: 'violeta',
 }
 
@@ -376,6 +443,10 @@ export function resolveStyle(ids: AstronautStyleIds): ResolvedAstronautStyle {
     boots: pick(BOOT_STYLES, ids.boots),
     belt: pick(BELT_STYLES, ids.belt),
     bracelet: pick(BRACELET_STYLES, ids.bracelet),
+    antenna: pick(ANTENNA_SHAPES, ids.antenna),
+    pack: pick(PACK_SHAPES, ids.pack),
+    trail: pick(TRAIL_SHAPES, ids.trail),
+    badge: pick(BADGE_SHAPES, ids.badge),
     accent: pick(ACCENT_STYLES, ids.accent),
   }
 }
@@ -398,6 +469,10 @@ export function loadStyleIds(): AstronautStyleIds {
       boots: typeof parsed.boots === 'string' ? parsed.boots : DEFAULT_STYLE_IDS.boots,
       belt: typeof parsed.belt === 'string' ? parsed.belt : DEFAULT_STYLE_IDS.belt,
       bracelet: typeof parsed.bracelet === 'string' ? parsed.bracelet : DEFAULT_STYLE_IDS.bracelet,
+      antenna: typeof parsed.antenna === 'string' ? parsed.antenna : DEFAULT_STYLE_IDS.antenna,
+      pack: typeof parsed.pack === 'string' ? parsed.pack : DEFAULT_STYLE_IDS.pack,
+      trail: typeof parsed.trail === 'string' ? parsed.trail : DEFAULT_STYLE_IDS.trail,
+      badge: typeof parsed.badge === 'string' ? parsed.badge : DEFAULT_STYLE_IDS.badge,
       accent: typeof parsed.accent === 'string' ? parsed.accent : DEFAULT_STYLE_IDS.accent,
     }
   } catch {

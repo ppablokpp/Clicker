@@ -14,14 +14,14 @@ export function normalizeStyle(raw: unknown): AstronautStyleIds {
   const partial = raw as Partial<Record<keyof AstronautStyleIds, unknown>>
   const pickId = (slot: keyof AstronautStyleIds) =>
     typeof partial[slot] === 'string' ? (partial[slot] as string) : DEFAULT_STYLE_IDS[slot]
-  return {
-    helmet: pickId('helmet'),
-    suit: pickId('suit'),
-    boots: pickId('boots'),
-    belt: pickId('belt'),
-    bracelet: pickId('bracelet'),
-    accent: pickId('accent'),
+  // Built from the default rather than by listing slots by hand — a new
+  // slot then normalises correctly the moment it's added, instead of
+  // silently coming back undefined until someone remembers this file.
+  const out = { ...DEFAULT_STYLE_IDS }
+  for (const slot of Object.keys(out) as (keyof AstronautStyleIds)[]) {
+    out[slot] = pickId(slot)
   }
+  return out
 }
 
 /**

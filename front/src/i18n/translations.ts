@@ -165,6 +165,12 @@ export interface TranslationStrings {
     slotBracelet: string
     slotBelt: string
     slotAccent: string
+    slotAntenna: string
+    slotPack: string
+    slotTrail: string
+    slotBadge: string
+    tabHead: string
+    tabBody: string
     styleNames: Record<string, string>
   }
   store: {
@@ -556,11 +562,31 @@ export const translations: Record<Language, TranslationStrings> = {
       slotHelmet: 'Casco',
       slotSuit: 'Traje',
       slotBoots: 'Botas',
-      slotBracelet: 'Pulseras',
+      slotBracelet: 'Brazaletes',
       slotBelt: 'Cinturón',
       slotAccent: 'Detalles',
+      slotAntenna: 'Antena',
+      slotPack: 'Mochila',
+      slotTrail: 'Propulsor',
+      slotBadge: 'Insignia',
+      tabHead: 'Cabeza',
+      tabBody: 'Cuerpo',
       styleNames: {
         estandar: 'Estándar',
+        doble: 'Doble',
+        halo: 'Halo',
+        plana: 'Plana',
+        cilindros: 'Cilindros',
+        reactor: 'Reactor',
+        alas: 'Alas',
+        planeta: 'Planeta',
+        carga: 'Carga',
+        aletas: 'Aletas',
+        llama: 'Llama',
+        ionico: 'Iónico',
+        anillos: 'Anillos',
+        estrella: 'Estrella',
+        rayo: 'Rayo',
         esmeralda: 'Esmeralda',
         oro: 'Oro',
         carmesi: 'Carmesí',
@@ -1053,8 +1079,28 @@ export const translations: Record<Language, TranslationStrings> = {
       slotBracelet: 'Bracelets',
       slotBelt: 'Belt',
       slotAccent: 'Details',
+      slotAntenna: 'Antenna',
+      slotPack: 'Backpack',
+      slotTrail: 'Thruster',
+      slotBadge: 'Badge',
+      tabHead: 'Head',
+      tabBody: 'Body',
       styleNames: {
         estandar: 'Standard',
+        doble: 'Double',
+        halo: 'Halo',
+        plana: 'Flat',
+        cilindros: 'Canisters',
+        reactor: 'Reactor',
+        alas: 'Wings',
+        planeta: 'Planet',
+        carga: 'Cargo',
+        aletas: 'Fins',
+        llama: 'Flame',
+        ionico: 'Ion',
+        anillos: 'Rings',
+        estrella: 'Star',
+        rayo: 'Bolt',
         esmeralda: 'Emerald',
         oro: 'Gold',
         carmesi: 'Crimson',

@@ -23,7 +23,18 @@ const USERNAME_MAX = 20
 // default for an id it doesn't recognise. So this validates shape (known
 // slot, short plain id) and nothing more, which is what keeps retuning or
 // renaming a colourway a frontend-only change.
-const ASTRONAUT_SLOTS = ['helmet', 'suit', 'boots', 'belt', 'bracelet', 'accent']
+const ASTRONAUT_SLOTS = [
+  'helmet',
+  'suit',
+  'boots',
+  'belt',
+  'bracelet',
+  'accent',
+  'antenna',
+  'pack',
+  'trail',
+  'badge',
+]
 const STYLE_ID_RE = /^[a-z0-9_-]{1,32}$/
 
 function parseAstronautStyle(input) {

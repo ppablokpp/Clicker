@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { BADGE_GRADIENT, DEFAULT_STYLE_IDS, resolveStyle, type AstronautStyleIds } from '../lib/astronautStyles'
+import { DEFAULT_STYLE_IDS, resolveStyle, type AstronautStyleIds } from '../lib/astronautStyles'
 
 // A whole starfield from one 1x1px element — every star is just another
 // point in a single giant box-shadow list, so there's no per-star DOM cost.
@@ -106,7 +106,15 @@ export function AstronautAvatar({
         viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
         width={size}
         height={svgHeight}
-        className="relative"
+        // SVG clips to its viewBox by default, and cosmetics are exactly the
+        // things that don't respect it — the halo sits above the crown, the
+        // shock rings spread past the boots, the wings reach the side edges.
+        // Letting the drawing overflow is the right fix rather than growing
+        // the viewBox: a bigger box would scale the whole character down to
+        // reserve room that almost every combination leaves empty. The
+        // starfield porthole is a separate element painted underneath, so it
+        // keeps its own circular clip regardless of what spills out here.
+        className="relative overflow-visible"
         animate={{ y: [0, -6, 0] }}
         transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
       >
@@ -153,8 +161,8 @@ export function AstronautAvatar({
             <stop offset="100%" stopColor={accent.pack.to} />
           </linearGradient>
           <linearGradient id={`${uid}-badge`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={BADGE_GRADIENT.from} />
-            <stop offset="100%" stopColor={BADGE_GRADIENT.to} />
+            <stop offset="0%" stopColor={accent.badge.from} />
+            <stop offset="100%" stopColor={accent.badge.to} />
           </linearGradient>
           <linearGradient id={`${uid}-flameOuter`} x1="50%" y1="0%" x2="50%" y2="100%">
             <stop offset="0%" stopColor={accent.flame.outer} />
@@ -199,23 +207,106 @@ export function AstronautAvatar({
             overlaps the flame's top instead of leaving a seam. Animated in
             CSS, not Framer: see .astro-flame in index.css for why the old
             group-opacity version flickered. */}
-        <g className="astro-flame">
-          <path
-            d="M90 178 C120 190 132 206 90 232 C48 206 60 190 90 178 Z"
-            fill={`url(#${uid}-flameOuter)`}
-            opacity="0.55"
-          />
-          <path
-            className="astro-flame-core"
-            d="M90 184 C109 193 116 204 90 221 C64 204 71 193 90 184 Z"
-            fill={`url(#${uid}-flameInner)`}
-          />
-        </g>
+        {/* Thruster exhaust — the shape is its own slot, the colour comes
+            from the trim. Everything here is drawn before the torso so the
+            body's rounded bottom overlaps its top instead of leaving a
+            seam. */}
+        {s.trail.id === 'llama' && (
+          <g className="astro-flame">
+            <path
+              d="M90 178 C120 190 132 206 90 232 C48 206 60 190 90 178 Z"
+              fill={`url(#${uid}-flameOuter)`}
+              opacity="0.55"
+            />
+            <path
+              className="astro-flame-core"
+              d="M90 184 C109 193 116 204 90 221 C64 204 71 193 90 184 Z"
+              fill={`url(#${uid}-flameInner)`}
+            />
+          </g>
+        )}
+        {/* Ion trail: discrete pulses falling away instead of a plume. */}
+        {s.trail.id === 'ionico' && (
+          <g className="astro-flame">
+            {[
+              { cy: 190, r: 11, o: 0.75 },
+              { cy: 206, r: 8.5, o: 0.55 },
+              { cy: 219, r: 6, o: 0.38 },
+              { cy: 229, r: 3.6, o: 0.22 },
+            ].map((d) => (
+              <circle key={d.cy} cx="90" cy={d.cy} r={d.r} fill={accent.flame.innerTo} opacity={d.o} />
+            ))}
+          </g>
+        )}
+        {/* Shock rings: widening as they fall, like pressure waves. */}
+        {s.trail.id === 'anillos' && (
+          <g className="astro-flame" fill="none" stroke={accent.flame.outer}>
+            <ellipse cx="90" cy="192" rx="13" ry="4.5" strokeWidth="4" opacity="0.8" />
+            <ellipse cx="90" cy="208" rx="19" ry="6" strokeWidth="3.4" opacity="0.5" />
+            <ellipse cx="90" cy="224" rx="25" ry="7.5" strokeWidth="2.8" opacity="0.28" />
+          </g>
+        )}
 
         {/* Life-support pack — only its shoulders peek out from behind the
-            torso, the rest reading as depth behind the arms. */}
-        <rect x="30" y="104" width="19" height="46" rx="9" fill={`url(#${uid}-pack)`} />
-        <rect x="131" y="104" width="19" height="46" rx="9" fill={`url(#${uid}-pack)`} />
+            torso, the rest reading as depth behind the arms. Its silhouette
+            is a slot; its colour follows the trim, since the pack is what
+            the thruster feeds. */}
+        {s.pack.id === 'estandar' && (
+          <>
+            <rect x="30" y="104" width="19" height="46" rx="9" fill={`url(#${uid}-pack)`} />
+            <rect x="131" y="104" width="19" height="46" rx="9" fill={`url(#${uid}-pack)`} />
+          </>
+        )}
+        {/* One wide slab behind the whole torso — reads as a flat backpack
+            rather than twin tanks. */}
+        {s.pack.id === 'plana' && (
+          <rect x="34" y="100" width="112" height="52" rx="18" fill={`url(#${uid}-pack)`} />
+        )}
+        {/* Taller, fatter tanks with visible caps: the heavy-duty kit. */}
+        {s.pack.id === 'carga' && (
+          <>
+            <rect x="22" y="98" width="28" height="60" rx="13" fill={`url(#${uid}-pack)`} />
+            <rect x="130" y="98" width="28" height="60" rx="13" fill={`url(#${uid}-pack)`} />
+            <rect x="22" y="110" width="28" height="5" fill={accent.color} opacity="0.75" />
+            <rect x="130" y="110" width="28" height="5" fill={accent.color} opacity="0.75" />
+          </>
+        )}
+        {/* Swept fins instead of tanks — the only pack that reads as speed. */}
+        {s.pack.id === 'aletas' && (
+          <>
+            <path d="M46 104 L20 132 L46 154 Z" fill={`url(#${uid}-pack)`} />
+            <path d="M134 104 L160 132 L134 154 Z" fill={`url(#${uid}-pack)`} />
+          </>
+        )}
+        {/* Horizontal canisters — stacked crosswise, so the outline is
+            steps rather than the vertical columns every other pack uses. */}
+        {s.pack.id === 'cilindros' && (
+          <>
+            <rect x="20" y="106" width="42" height="15" rx="7.5" fill={`url(#${uid}-pack)`} />
+            <rect x="20" y="126" width="42" height="15" rx="7.5" fill={`url(#${uid}-pack)`} />
+            <rect x="118" y="106" width="42" height="15" rx="7.5" fill={`url(#${uid}-pack)`} />
+            <rect x="118" y="126" width="42" height="15" rx="7.5" fill={`url(#${uid}-pack)`} />
+          </>
+        )}
+        {/* A single glowing core behind the shoulders — the one pack that
+            reads as power rather than as storage. */}
+        {s.pack.id === 'reactor' && (
+          <>
+            <rect x="38" y="102" width="104" height="46" rx="20" fill={`url(#${uid}-pack)`} />
+            <circle cx="34" cy="125" r="15" fill={`url(#${uid}-pack)`} />
+            <circle cx="146" cy="125" r="15" fill={`url(#${uid}-pack)`} />
+            <circle cx="34" cy="125" r="7" fill={accent.color} className="animate-pulse-glow" />
+            <circle cx="146" cy="125" r="7" fill={accent.color} className="animate-pulse-glow" />
+          </>
+        )}
+        {/* Full wings — the widest silhouette in the slot by a distance,
+            and the only one visible from across a leaderboard row. */}
+        {s.pack.id === 'alas' && (
+          <>
+            <path d="M50 104 C22 106 4 122 2 144 C24 138 40 132 52 148 Z" fill={`url(#${uid}-pack)`} />
+            <path d="M130 104 C158 106 176 122 178 144 C156 138 140 132 128 148 Z" fill={`url(#${uid}-pack)`} />
+          </>
+        )}
 
         {/* Arms — one continuous round-capped stroke each, no joint
             anywhere along it. Drawn before the pauldrons so the shoulder
@@ -302,31 +393,44 @@ export function AstronautAvatar({
         <rect x="81" y="167.5" width="18" height="12" rx="3.5" fill={belt.band.mid} stroke={belt.band.to} strokeWidth="1.2" />
         <rect x="86" y="170.5" width="8" height="6" rx="1.5" fill={belt.band.from} opacity="0.85" />
 
-        {/* Chest badge — a placeholder rank/level slot, not just decoration,
-            worn on the chest the way a mission patch is rather than
-            centred like a logo. A tiny ringed planet ties it to the game's
-            own asteroid-mining theme more directly than a generic
-            star/diamond would. Ring drawn first, sphere on top: the
-            sphere's own circle naturally covers the ring's "behind the
-            planet" arc, which is what actually sells the ringed-planet look
-            at this size rather than a flat ellipse floating in front of a
-            ball. */}
+        {/* Chest badge — worn the way a mission patch is rather than centred
+            like a logo. The disc takes the trim colour and the symbol on it
+            is its own slot; the symbol is drawn in white so it stays legible
+            whatever the disc underneath is doing. */}
         <circle cx="68" cy="137" r="11" fill={`url(#${uid}-badge)`} />
-        <ellipse
-          cx="68"
-          cy="137"
-          rx="8.8"
-          ry="2.4"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="1.4"
-          opacity="0.9"
-          transform="rotate(-20 68 137)"
-        />
-        <circle cx="68" cy="137" r="4.4" fill="#fff" opacity="0.95" />
-        {/* Blank name tag on the opposite chest, on the badge's own centre
-            line so the two read as a matched pair rather than as two
-            unrelated stickers. */}
+        <g fill="#fff">
+          {/* Ring first, sphere on top: the sphere's own circle covers the
+              ring's "behind the planet" arc, which is what sells the ringed
+              planet at this size rather than a flat ellipse floating in
+              front of a ball. */}
+          {s.badge.id === 'planeta' && (
+            <>
+              <ellipse
+                cx="68"
+                cy="137"
+                rx="8.8"
+                ry="2.4"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="1.4"
+                opacity="0.9"
+                transform="rotate(-20 68 137)"
+              />
+              <circle cx="68" cy="137" r="4.4" opacity="0.95" />
+            </>
+          )}
+          {s.badge.id === 'estrella' && (
+            <path
+              d="M68 130 L69.65 134.73 L74.66 134.84 L70.66 137.87 L72.12 142.66 L68 139.8 L63.88 142.66 L65.34 137.87 L61.34 134.84 L66.35 134.73 Z"
+              opacity="0.95"
+            />
+          )}
+          {s.badge.id === 'rayo' && <path d="M70.5 130 l-5.5 8.4 h3.6 l-2 6.6 6 -8.6 h-3.6 z" opacity="0.95" />}
+        </g>
+        {/* Name tag on the opposite chest, on the badge's own centre line so
+            the two read as a matched pair rather than as two unrelated
+            stickers. Fixed, not a slot: it's the counterweight that keeps
+            the chest from looking lopsided. */}
         <rect x="101" y="132.5" width="24" height="9" rx="4.5" fill={accent.color} opacity="0.85" />
 
         {/* Neck seal, sitting right at the helmet/suit join. */}
@@ -365,10 +469,37 @@ export function AstronautAvatar({
           {/* Two stars from the porthole behind, caught in the glass. */}
           <circle cx="104" cy="60" r="1.6" fill="#ffffff" opacity="0.75" />
           <circle cx="97" cy="72" r="1.1" fill="#ffffff" opacity="0.5" />
-          {/* Antenna. */}
-          <path d="M124 30 L138 12" stroke={shell.stroke} strokeWidth="3" strokeLinecap="round" />
-          <circle cx="138" cy="12" r="5" fill={s.helmet.visor.via} className="animate-pulse-glow" />
+
+          {/* Head furniture. The bulb takes the visor's colour so the head
+              reads as one piece. */}
+          {s.antenna.id === 'estandar' && (
+            <>
+              <path d="M124 30 L138 12" stroke={shell.stroke} strokeWidth="3" strokeLinecap="round" />
+              <circle cx="138" cy="12" r="5" fill={accent.color} className="animate-pulse-glow" />
+            </>
+          )}
+          {s.antenna.id === 'doble' && (
+            <>
+              <path d="M124 30 L138 12" stroke={shell.stroke} strokeWidth="3" strokeLinecap="round" />
+              <circle cx="138" cy="12" r="4.6" fill={accent.color} className="animate-pulse-glow" />
+              <path d="M56 30 L42 12" stroke={shell.stroke} strokeWidth="3" strokeLinecap="round" />
+              <circle cx="42" cy="12" r="4.6" fill={accent.color} className="animate-pulse-glow" />
+            </>
+          )}
+          {s.antenna.id === 'halo' && (
+            <ellipse
+              cx="90"
+              cy="8"
+              rx="33"
+              ry="8.5"
+              fill="none"
+              stroke={accent.color}
+              strokeWidth="4.5"
+              className="animate-pulse-glow"
+            />
+          )}
         </g>
+
       </motion.svg>
     </div>
   )

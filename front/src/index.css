@@ -169,9 +169,27 @@ body::before {
   animation: astro-thruster 0.79s ease-in-out infinite reverse;
 }
 
+/* The companion drone drifts on its own slower cycle than the character's
+   bob, so the two never look locked together — which is what makes it read
+   as a separate thing flying alongside rather than as part of the sprite. */
+@keyframes astro-pet-bob {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-7px) translateX(3px);
+  }
+}
+
+.animate-pet-bob {
+  animation: astro-pet-bob 3.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .astro-flame,
-  .astro-flame-core {
+  .astro-flame-core,
+  .animate-pet-bob {
     animation: none;
   }
 }

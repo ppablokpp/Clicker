@@ -1,5 +1,13 @@
 import { useId } from 'react'
-import type { AccentStyle, BeltStyle, BootStyle, BraceletStyle, HelmetStyle, SuitStyle } from '../lib/astronautStyles'
+import type {
+  AccentStyle,
+  BeltStyle,
+  BootStyle,
+  BraceletStyle,
+  HelmetStyle,
+  ShapeOption,
+  SuitStyle,
+} from '../lib/astronautStyles'
 
 // One equipment piece drawn on its own, the way a shop shows an item off a
 // mannequin — not a crop of the avatar. That distinction is the whole point
@@ -23,7 +31,13 @@ type PiecePreviewProps = { size?: number } & (
   | { slot: 'bracelet'; style: BraceletStyle }
   | { slot: 'belt'; style: BeltStyle }
   | { slot: 'accent'; style: AccentStyle }
+  // Shape-only slots: the option carries no colour, so the preview picks a
+  // neutral one. What's being sold here is the silhouette.
+  | { slot: 'antenna' | 'pack' | 'trail' | 'badge'; style: ShapeOption }
 )
+
+const SHAPE_INK = '#cfc8e4'
+const SHAPE_GLOW = '#a855f7'
 
 export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps) {
   const uid = useId()
@@ -35,7 +49,152 @@ export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps
       {props.slot === 'bracelet' && <BraceletPiece uid={uid} style={props.style} />}
       {props.slot === 'belt' && <BeltPiece uid={uid} style={props.style} />}
       {props.slot === 'accent' && <AccentPiece uid={uid} style={props.style} />}
+      {(props.slot === 'antenna' || props.slot === 'pack' || props.slot === 'trail' || props.slot === 'badge') && (
+        <ShapePiece slot={props.slot} id={props.style.id} />
+      )}
     </svg>
+  )
+}
+
+// Every shape-only option in one place. They share a neutral ink so the
+// card sells the outline rather than a colour the piece won't actually
+// have — these all inherit their real palette from the slot they attach to
+// once worn.
+function ShapePiece({ slot, id }: { slot: string; id: string }) {
+  if (slot === 'antenna') {
+    // Drawn over a hint of helmet crown so the piece has something to sit
+    // on — an antenna floating alone doesn't read as headgear.
+    const crown = <path d="M18 84 A32 32 0 0 1 82 84 Z" fill={SHAPE_INK} opacity="0.18" />
+    return (
+      <>
+        {crown}
+        {id === 'estandar' && (
+          <>
+            <path d="M62 56 L80 32" stroke={SHAPE_INK} strokeWidth="5" strokeLinecap="round" />
+            <circle cx="82" cy="28" r="8" fill={SHAPE_GLOW} />
+          </>
+        )}
+        {id === 'doble' && (
+          <>
+            <path d="M62 56 L80 32" stroke={SHAPE_INK} strokeWidth="5" strokeLinecap="round" />
+            <circle cx="82" cy="28" r="7" fill={SHAPE_GLOW} />
+            <path d="M38 56 L20 32" stroke={SHAPE_INK} strokeWidth="5" strokeLinecap="round" />
+            <circle cx="18" cy="28" r="7" fill={SHAPE_GLOW} />
+          </>
+        )}
+        {id === 'halo' && (
+          <ellipse cx="50" cy="30" rx="34" ry="10" fill="none" stroke={SHAPE_GLOW} strokeWidth="7" />
+        )}
+      </>
+    )
+  }
+
+  if (slot === 'pack') {
+    return (
+      <>
+        {id === 'estandar' && (
+          <>
+            <rect x="24" y="24" width="20" height="52" rx="10" fill={SHAPE_INK} />
+            <rect x="56" y="24" width="20" height="52" rx="10" fill={SHAPE_INK} />
+          </>
+        )}
+        {id === 'plana' && <rect x="14" y="26" width="72" height="48" rx="16" fill={SHAPE_INK} />}
+        {id === 'carga' && (
+          <>
+            <rect x="18" y="16" width="28" height="68" rx="13" fill={SHAPE_INK} />
+            <rect x="54" y="16" width="28" height="68" rx="13" fill={SHAPE_INK} />
+            <rect x="18" y="34" width="28" height="6" fill={SHAPE_GLOW} />
+            <rect x="54" y="34" width="28" height="6" fill={SHAPE_GLOW} />
+          </>
+        )}
+        {id === 'aletas' && (
+          <>
+            <path d="M44 18 L8 52 L44 82 Z" fill={SHAPE_INK} />
+            <path d="M56 18 L92 52 L56 82 Z" fill={SHAPE_INK} />
+          </>
+        )}
+        {id === 'cilindros' && (
+          <>
+            <rect x="10" y="26" width="80" height="17" rx="8.5" fill={SHAPE_INK} />
+            <rect x="10" y="49" width="80" height="17" rx="8.5" fill={SHAPE_INK} />
+          </>
+        )}
+        {id === 'reactor' && (
+          <>
+            <rect x="22" y="30" width="56" height="40" rx="16" fill={SHAPE_INK} />
+            <circle cx="18" cy="50" r="14" fill={SHAPE_INK} />
+            <circle cx="82" cy="50" r="14" fill={SHAPE_INK} />
+            <circle cx="18" cy="50" r="6.5" fill={SHAPE_GLOW} />
+            <circle cx="82" cy="50" r="6.5" fill={SHAPE_GLOW} />
+          </>
+        )}
+        {id === 'alas' && (
+          <>
+            <path d="M46 24 C22 27 4 44 2 68 C24 60 36 56 48 74 Z" fill={SHAPE_INK} />
+            <path d="M54 24 C78 27 96 44 98 68 C76 60 64 56 52 74 Z" fill={SHAPE_INK} />
+          </>
+        )}
+      </>
+    )
+  }
+
+  if (slot === 'trail') {
+    return (
+      <>
+        {/* Narrow at the nozzle, bulging as it expands, then drawn to a
+            point. Deliberately NOT the worn shape: on the character the
+            flame is read in context, tucked under the boots with only its
+            lower half showing, so a wide top works there. Alone on a card
+            that same shape is widest right at the top and reads as a leaf. */}
+        {id === 'llama' && (
+          <path d="M36 12 C18 32 16 58 50 92 C84 58 82 32 64 12 Z" fill={SHAPE_GLOW} opacity="0.85" />
+        )}
+        {id === 'ionico' && (
+          <>
+            <circle cx="50" cy="24" r="13" fill={SHAPE_GLOW} opacity="0.9" />
+            <circle cx="50" cy="48" r="10" fill={SHAPE_GLOW} opacity="0.65" />
+            <circle cx="50" cy="68" r="7" fill={SHAPE_GLOW} opacity="0.45" />
+            <circle cx="50" cy="83" r="4.5" fill={SHAPE_GLOW} opacity="0.28" />
+          </>
+        )}
+        {id === 'anillos' && (
+          <g fill="none" stroke={SHAPE_GLOW}>
+            <ellipse cx="50" cy="26" rx="16" ry="6" strokeWidth="5" opacity="0.9" />
+            <ellipse cx="50" cy="52" rx="26" ry="9" strokeWidth="4" opacity="0.6" />
+            <ellipse cx="50" cy="78" rx="35" ry="11" strokeWidth="3.2" opacity="0.35" />
+          </g>
+        )}
+      </>
+    )
+  }
+
+  // Badge symbols, shown on a disc so the card reads as the finished badge
+  // rather than as a floating glyph — the disc is what you'd actually wear.
+  return (
+    <>
+      <circle cx="50" cy="50" r="32" fill={SHAPE_GLOW} opacity="0.85" />
+      <g fill="#ffffff">
+        {id === 'planeta' && (
+          <>
+            <ellipse
+              cx="50"
+              cy="50"
+              rx="25"
+              ry="7"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="4"
+              transform="rotate(-20 50 50)"
+            />
+            <circle cx="50" cy="50" r="12.5" />
+          </>
+        )}
+        {id === 'estrella' && (
+          <path d="M50 30 l4.7 13.5 14.3 .3 -11.4 8.7 4.2 13.7 -11.8 -8 -11.8 8 4.2 -13.7 -11.4 -8.7 14.3 -.3 z" />
+        )}
+        {id === 'rayo' && <path d="M57 28 l-15 24 h10 l-6 20 17 -25 h-10 z" />}
+      </g>
+    </>
   )
 }
 
@@ -69,9 +228,6 @@ function HelmetPiece({ uid, style }: { uid: string; style: HelmetStyle }) {
           <stop offset="100%" stopColor="#1b0b33" stopOpacity="0.5" />
         </radialGradient>
       </defs>
-      {/* Antenna first, so the dome overlaps its base. */}
-      <path d="M74 24 L86 10" stroke={shell.stroke} strokeWidth="3.4" strokeLinecap="round" />
-      <circle cx="87" cy="9" r="4.4" fill={visor.via} />
       <circle cx="50" cy="52" r="37" fill={`url(#${uid}-shell)`} stroke={shell.stroke} strokeWidth="2.2" />
       <ellipse cx="48.5" cy="54" rx="26" ry="22.5" fill={`url(#${uid}-visor)`} />
       <ellipse cx="48.5" cy="54" rx="26" ry="22.5" fill={`url(#${uid}-depth)`} />
