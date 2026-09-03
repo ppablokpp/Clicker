@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useGemsContext } from './GemsContext'
 import { useSignInPrompt } from './SignInPromptContext'
 import { playTreeUpgrade } from '../lib/caseSound'
@@ -34,7 +34,7 @@ const GemUpgradesContext = createContext<GemUpgradesContextValue | null>(null)
 // Same sequential-tier ladder as UpgradesContext (clicks) — just spends
 // gems instead. No RevenueCat involved.
 export function GemUpgradesProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncGems } = useGemsContext()
   const { promptSignIn } = useSignInPrompt()
   const [catalog, setCatalog] = useState<GemUpgradeDef[]>([])

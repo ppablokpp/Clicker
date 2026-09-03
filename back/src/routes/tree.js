@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuth } from '@clerk/express'
+import { getAuth } from '../auth/getAuth.js'
 import { treeRepository } from '../db/treeRepository.js'
 
 export const treeRouter = Router()

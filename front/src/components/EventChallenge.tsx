@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { motion } from 'framer-motion'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
 import { useTasksContext } from '../context/TasksContext'
@@ -79,7 +79,7 @@ interface EventChallengeProps {
 // always names the player's real current material (`prestigeTier`), since
 // the payout itself is 5% of their actual current material, not the rock's.
 export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { prestigeTier, syncTotalClicks } = useClickCounterContext()
   const { multiShotValue } = useTreeContext()
   const { syncAnomaliesNeutralized } = useTasksContext()

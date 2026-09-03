@@ -1,4 +1,10 @@
 import { Router } from 'express'
+// Real-money (RevenueCat) route: deliberately Clerk's own getAuth, NOT the
+// guest-capable wrapper. A purchase has to be tied to an account the buyer
+// can actually recover — clearing this browser's storage must never be able
+// to destroy something someone paid for — so an anon bearer token yields no
+// userId here and the request 401s, which is what makes the frontend prompt
+// a sign-in before charging anyone.
 import { getAuth } from '@clerk/express'
 import { permanentUpgradesRepository } from '../db/permanentUpgradesRepository.js'
 import { MONEY_UPGRADE_CATALOG } from '../powerups/moneyUpgrades.js'

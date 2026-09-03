@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from './useAppAuth'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 // Every day the user has ever clicked at least once, as 'YYYY-MM-DD'
 // strings — powers the stats-page calendar strip.
 export function useClickDays() {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const [clickDays, setClickDays] = useState<Set<string>>(new Set())
 
   useEffect(() => {

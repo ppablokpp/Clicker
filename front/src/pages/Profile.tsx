@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, ChevronRight, CircleUserRound, Crown, LogOut, Mail, Settings, X } from 'lucide-react'
+import { Check, ChevronRight, Crown, LogOut, Mail, Settings, X } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -106,11 +106,13 @@ export function Profile() {
   }
 
   if (isLoaded && !user) {
+    // Same character as the signed-in view, not a generic person icon —
+    // this IS your character already, playing and saving progress as a
+    // guest (see useAppAuth.ts); signing in is what gives it a name and
+    // makes that progress portable, not what creates it.
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 pt-24 text-center sm:pt-28">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
-          <CircleUserRound size={26} />
-        </div>
+        <AstronautAvatar />
         <div>
           <p className="text-base font-semibold text-white">{strings.profile.signedOutTitle}</p>
           <p className="mt-1 text-sm text-neutral-500">{strings.profile.signedOutBody}</p>

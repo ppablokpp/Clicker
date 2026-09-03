@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -135,7 +135,7 @@ interface TutorialContextValue {
 const TutorialContext = createContext<TutorialContextValue | null>(null)
 
 export function TutorialProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   // null = not running. A real index (including 0) = currently on that step.
   const [stepIndex, setStepIndex] = useState<number | null>(null)
   const [skipDroneGrant, setSkipDroneGrant] = useState(false)

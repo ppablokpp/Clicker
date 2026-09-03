@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useKeysContext } from './KeysContext'
 import { useSignInPrompt } from './SignInPromptContext'
 import { playChestPurchase } from '../lib/caseSound'
@@ -33,7 +33,7 @@ function msUntilNextUtcMidnight(): number {
 // Once per calendar day, claim exactly one key — the same daily-cooldown
 // idea the case itself used to have, just moved here.
 export function DailyKeyProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncKeys } = useKeysContext()
   const { promptSignIn } = useSignInPrompt()
   const [claimedToday, setClaimedToday] = useState(false)

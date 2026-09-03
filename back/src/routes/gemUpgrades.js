@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuth } from '@clerk/express'
+import { getAuth } from '../auth/getAuth.js'
 import { permanentUpgradesRepository } from '../db/permanentUpgradesRepository.js'
 import { MONEY_UPGRADE_CATALOG, getMoneyUpgrade } from '../powerups/moneyUpgrades.js'
 

@@ -26,6 +26,27 @@ import { treeRouter } from './routes/tree.js'
 import { prestigeRouter } from './routes/prestige.js'
 import { battlesRouter } from './routes/battles.js'
 
+// Safety net for the whole process, not just one route: Express 4 never
+// catches a rejected promise thrown from an `async (req, res) => {...}`
+// handler on its own, and Node (15+) terminates the entire process on any
+// unhandled rejection by default — one bad query in ANY route (a lot of
+// them still have no try/catch of their own; a real gap, but a much
+// bigger, separate cleanup than this) was silently taking down every
+// other in-flight request too, including totally unrelated ones, until
+// `node --watch` happened to pick up an unrelated file save and restart
+// it. This is what actually explains "the leaderboard works, then doesn't,
+// then does again" — the specific route that failed almost never matters,
+// the process dying under it does. Logging and moving on, instead of
+// crashing, is strictly better than the previous behavior even though the
+// *ideal* fix is still to catch each error at its own route so the
+// request that triggered it gets a clean 500 instead of hanging.
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection (kept process alive)', err)
+})
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (kept process alive)', err)
+})
+
 const app = express()
 const PORT = process.env.PORT || 3001
 

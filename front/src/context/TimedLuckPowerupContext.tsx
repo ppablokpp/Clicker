@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -57,7 +57,7 @@ const TimedLuckPowerupContext = createContext<TimedLuckPowerupContextValue | nul
 // separate active slot — a click-multiplier powerup and a timed luck
 // powerup can run at the same time, they're independent effects.
 export function TimedLuckPowerupProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()

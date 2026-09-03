@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from './useAppAuth'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -22,7 +22,7 @@ const EMPTY_STATS: UserStats = {
 }
 
 export function useUserStats() {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const [stats, setStats] = useState<UserStats>(EMPTY_STATS)
   const [isLoading, setIsLoading] = useState(true)
 

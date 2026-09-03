@@ -42,6 +42,166 @@ export const usersRepository = {
     return result.rows[0]
   },
 
+  // Creates the row a guest (`anon_<uuid>`) id needs to exist before any
+  // other route can write child data against it — every child table's
+  // `user_id` is a real foreign key to `users(id)`. No Clerk profile to
+  // pull in here, unlike upsertFromClerk, so this is a bare insert: every
+  // other column just takes its own schema DEFAULT, identical to what a
+  // brand-new real account starts with too.
+  async ensureAnonUser(id) {
+    await database.query(`INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id])
+  },
+
+  // Folds a guest session's progress into the account it just signed into,
+  // or discards it — whichever is safe. Product decision (confirmed
+  // explicitly, not assumed): if the Clerk account already has *any*
+  // progress of its own — meaning it was signed into before, quite
+  // possibly from a different device — that progress is never touched.
+  // Only a genuinely fresh account (never clicked, ever) adopts the guest
+  // data, wholesale. Returns whether it actually claimed anything.
+  //
+  // "Fresh" is checked against total_clicks/lifetime_platino rather than
+  // "does a row exist" — /sync's own upsert means the Clerk row already
+  // exists by the time this runs (the frontend always calls /sync first),
+  // so existence alone can't distinguish a brand-new account from a
+  // returning one.
+  async claimAnonymousProgress(anonId, clerkId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const { rows } = await client.query(`SELECT * FROM users WHERE id = ANY($1) FOR UPDATE`, [[clerkId, anonId]])
+      const clerkRow = rows.find((r) => r.id === clerkId)
+      const anonRow = rows.find((r) => r.id === anonId)
+
+      // Nothing to claim (the guest row was never created, or already
+      // claimed once) or nowhere safe to attach it (frontend always syncs
+      // before calling this — a missing Clerk row means that didn't
+      // happen, so there's nothing to guess at here).
+      if (!anonRow || !clerkRow) {
+        await client.query('ROLLBACK')
+        return false
+      }
+
+      const isFresh = Number(clerkRow.total_clicks) === 0 && Number(clerkRow.lifetime_platino) === 0
+      if (!isFresh) {
+        // Real progress already exists on this account — leave it exactly
+        // as it is. The guest row is simply left behind: orphaned, but
+        // harmless (nothing ever queries or displays a `anon_...` row
+        // again once it's not the id in local storage anymore).
+        await client.query('ROLLBACK')
+        return false
+      }
+
+      // Re-point every child table's rows from the guest id to the real
+      // one. The six tables where `user_id` is part of the primary key go
+      // through an insert-or-skip-duplicate + delete — defends against a
+      // same-key row already existing on the destination, even though
+      // `isFresh` above already makes that practically impossible for an
+      // account that's never clicked. The three purchase-log tables key on
+      // their own transaction_id instead, so a plain UPDATE can never
+      // collide regardless.
+      await client.query(
+        `INSERT INTO click_days (user_id, click_date)
+         SELECT $2, click_date FROM click_days WHERE user_id = $1
+         ON CONFLICT (user_id, click_date) DO NOTHING`,
+        [anonId, clerkId],
+      )
+      await client.query(
+        `INSERT INTO user_inventory (user_id, item_id, quantity)
+         SELECT $2, item_id, quantity FROM user_inventory WHERE user_id = $1
+         ON CONFLICT (user_id, item_id) DO NOTHING`,
+        [anonId, clerkId],
+      )
+      await client.query(
+        `INSERT INTO user_milestone_claims (user_id, category_key, milestone, claimed_at)
+         SELECT $2, category_key, milestone, claimed_at FROM user_milestone_claims WHERE user_id = $1
+         ON CONFLICT (milestone, category_key, user_id) DO NOTHING`,
+        [anonId, clerkId],
+      )
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, purchased_at, level, last_tick_at, remainder)
+         SELECT $2, upgrade_id, purchased_at, level, last_tick_at, remainder FROM user_permanent_upgrades WHERE user_id = $1
+         ON CONFLICT (upgrade_id, user_id) DO NOTHING`,
+        [anonId, clerkId],
+      )
+      await client.query(
+        `INSERT INTO user_prestige_upgrades (user_id, upgrade_id, level)
+         SELECT $2, upgrade_id, level FROM user_prestige_upgrades WHERE user_id = $1
+         ON CONFLICT (upgrade_id, user_id) DO NOTHING`,
+        [anonId, clerkId],
+      )
+      await client.query(
+        `INSERT INTO user_task_claims (user_id, task_id, claimed_at)
+         SELECT $2, task_id, claimed_at FROM user_task_claims WHERE user_id = $1
+         ON CONFLICT (user_id, task_id) DO NOTHING`,
+        [anonId, clerkId],
+      )
+      await client.query(`UPDATE redeemed_case_purchases SET user_id = $2 WHERE user_id = $1`, [anonId, clerkId])
+      await client.query(`UPDATE redeemed_gem_purchases SET user_id = $2 WHERE user_id = $1`, [anonId, clerkId])
+      await client.query(`UPDATE redeemed_key_purchases SET user_id = $2 WHERE user_id = $1`, [anonId, clerkId])
+      // Every child row above is now either re-pointed or discarded as a
+      // duplicate — safe to clear whatever's left under the guest id.
+      await client.query(`DELETE FROM click_days WHERE user_id = $1`, [anonId])
+      await client.query(`DELETE FROM user_inventory WHERE user_id = $1`, [anonId])
+      await client.query(`DELETE FROM user_milestone_claims WHERE user_id = $1`, [anonId])
+      await client.query(`DELETE FROM user_permanent_upgrades WHERE user_id = $1`, [anonId])
+      await client.query(`DELETE FROM user_prestige_upgrades WHERE user_id = $1`, [anonId])
+      await client.query(`DELETE FROM user_task_claims WHERE user_id = $1`, [anonId])
+
+      // Fold the guest's own game-state columns onto the (still-fresh)
+      // Clerk row — everything except identity/profile fields, which are
+      // already correctly set from Clerk itself via /sync and must never
+      // be overwritten by a guest row that never had any of them.
+      await client.query(
+        `UPDATE users AS u SET
+           total_clicks = a.total_clicks,
+           best_cps = a.best_cps,
+           current_streak = a.current_streak,
+           longest_streak = a.longest_streak,
+           last_active_date = a.last_active_date,
+           active_powerup = a.active_powerup,
+           active_powerup_expires_at = a.active_powerup_expires_at,
+           milestone_bonus_multiplier = a.milestone_bonus_multiplier,
+           active_luck_powerup = a.active_luck_powerup,
+           active_luck_powerup_expires_at = a.active_luck_powerup_expires_at,
+           powerup_cooldown_until = a.powerup_cooldown_until,
+           luck_powerup_cooldown_until = a.luck_powerup_cooldown_until,
+           last_key_claim_date = a.last_key_claim_date,
+           cases_opened = a.cases_opened,
+           gems = a.gems,
+           keys = a.keys,
+           owned_click_chests = a.owned_click_chests,
+           owned_gem_chests = a.owned_gem_chests,
+           active_magnet = a.active_magnet,
+           active_magnet_expires_at = a.active_magnet_expires_at,
+           magnet_cooldown_until = a.magnet_cooldown_until,
+           total_real_clicks = a.total_real_clicks,
+           objects_broken = a.objects_broken,
+           object_progress = a.object_progress,
+           prestige_points = a.prestige_points,
+           lifetime_platino = a.lifetime_platino,
+           prestige_tier = a.prestige_tier,
+           last_event_reward_at = a.last_event_reward_at,
+           anomalies_neutralized = a.anomalies_neutralized,
+           tutorial_completed = a.tutorial_completed,
+           lucky_clicks_found = a.lucky_clicks_found,
+           updated_at = now()
+         FROM users AS a
+         WHERE u.id = $1 AND a.id = $2`,
+        [clerkId, anonId],
+      )
+      await client.query(`DELETE FROM users WHERE id = $1`, [anonId])
+
+      await client.query('COMMIT')
+      return true
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   // The "already claimed today" flag is computed in SQL against CURRENT_DATE
   // rather than in JS — comparing a DATE column's parsed value against
   // "today" in JS risks a timezone mismatch with what the DB considers today.
@@ -1224,10 +1384,13 @@ export const usersRepository = {
   // drop you down the board.
   async getLeaderboard(limit = 100, sortBy = 'clicks') {
     const column = sortBy === 'cps' ? 'best_cps' : 'lifetime_platino'
+    // Guest (`anon_<uuid>`) rows never show here — playing without an
+    // account stays off the record entirely, on purpose, until whoever's
+    // behind it actually signs in.
     const result = await database.query(
       `SELECT id, username, avatar_url, lifetime_platino, best_cps
        FROM users
-       WHERE ${column} > 0
+       WHERE ${column} > 0 AND id !~ '^anon_'
        ORDER BY ${column} DESC
        LIMIT $1`,
       [limit],
@@ -1252,8 +1415,8 @@ export const usersRepository = {
     const result = await database.query(
       `SELECT u.id, u.username, u.prestige_tier, u.lifetime_platino, u.best_cps, u.longest_streak,
               u.cases_opened, u.total_real_clicks, u.created_at,
-              (SELECT COUNT(*) + 1 FROM users WHERE lifetime_platino > u.lifetime_platino) AS rank,
-              (SELECT COUNT(*) FROM users WHERE lifetime_platino > 0) AS total_ranked
+              (SELECT COUNT(*) + 1 FROM users WHERE lifetime_platino > u.lifetime_platino AND id !~ '^anon_') AS rank,
+              (SELECT COUNT(*) FROM users WHERE lifetime_platino > 0 AND id !~ '^anon_') AS total_ranked
        FROM users u
        WHERE u.id = $1`,
       [id],

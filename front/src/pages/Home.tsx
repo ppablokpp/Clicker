@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import {
   Zap,
   Rocket,
@@ -646,7 +646,7 @@ function CockpitModalChrome() {
 }
 
 export function Home() {
-  const { userId } = useAuth()
+  const { userId } = useAppAuth()
   const navigate = useNavigate()
   const { promptSignIn } = useSignInPrompt()
   const {

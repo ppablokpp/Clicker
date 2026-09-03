@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { getAuth, clerkClient } from '@clerk/express'
+import { getAuth as getClerkAuth, clerkClient } from '@clerk/express'
+import { getAuth, isAnonId } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { getPowerup } from '../powerups/catalog.js'
 import { getTimedLuckPowerup } from '../powerups/timedLuckPowerups.js'
@@ -81,7 +82,7 @@ function toPublicUser(row) {
 // Mirrors the Clerk user into our own `users` table, keyed by the Clerk id,
 // and bumps the daily streak (see usersRepository.upsertFromClerk).
 usersRouter.post('/sync', async (req, res) => {
-  const { userId } = getAuth(req)
+  const { userId } = getClerkAuth(req)
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
@@ -117,7 +118,7 @@ usersRouter.post('/sync', async (req, res) => {
 // (Secret Key) API, which was never subject to reverification in the first
 // place, rather than through the browser's own Clerk session.
 usersRouter.patch('/me/username', async (req, res) => {
-  const { userId } = getAuth(req)
+  const { userId } = getClerkAuth(req)
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
@@ -160,15 +161,75 @@ usersRouter.patch('/me/username', async (req, res) => {
   }
 })
 
+// Called once per guest session, mirroring what /sync does for a real
+// Clerk sign-in — creates the row a `anon_<uuid>` id needs before any other
+// route can write child data against it (every child table's `user_id` is
+// a real foreign key to `users(id)`). No Clerk profile to look up here, so
+// unlike /sync this is a bare insert: every other column just takes its
+// own schema DEFAULT, identical to what a brand-new real account starts
+// with too.
+usersRouter.post('/anon-init', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!isAnonId(userId)) {
+    return res.status(400).json({ error: 'invalid' })
+  }
+
+  try {
+    await usersRepository.ensureAnonUser(userId)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Error creating anonymous user', err)
+    res.status(500).json({ error: 'Error creating anonymous user' })
+  }
+})
+
+// Called right after a guest signs in for real — folds whatever they did
+// as `anon_<uuid>` into the account they just signed into. Requires a real
+// Clerk session (rejects an anon bearer token outright: claiming who a
+// *guest* progress belongs to obviously needs to itself be someone real),
+// and the id being claimed is read from the body rather than from auth,
+// since it's the *old* identity being described, not the one authorizing
+// this request. See usersRepository.claimAnonymousProgress for the actual
+// policy: a genuinely fresh account adopts the guest progress wholesale,
+// an account that already has any progress of its own keeps it untouched
+// and the guest row is left exactly as it was — never a destructive merge.
+// Responds `{ claimed }` so the client knows which happened: on false the
+// guest save is still intact and still that browser's, and the caller is
+// expected to keep its guest id so signing out can resume it.
+usersRouter.post('/claim-anonymous', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId || isAnonId(userId)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const anonId = req.body?.anonId
+  if (!isAnonId(anonId) || anonId === userId) {
+    return res.status(400).json({ error: 'invalid' })
+  }
+
+  try {
+    const claimed = await usersRepository.claimAnonymousProgress(anonId, userId)
+    res.json({ claimed })
+  } catch (err) {
+    console.error('Error claiming anonymous progress', err)
+    res.status(500).json({ error: 'Error claiming anonymous progress' })
+  }
+})
+
 usersRouter.get('/me', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const user = await usersRepository.getById(userId)
-  if (!user) return res.status(404).json({ error: 'User not found' })
-  res.json(toPublicUser(user))
+  try {
+    const user = await usersRepository.getById(userId)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    res.json(toPublicUser(user))
+  } catch (err) {
+    console.error('Error fetching current user', err)
+    res.status(500).json({ error: 'Error fetching current user' })
+  }
 })
 
 // Called once the onboarding tutorial finishes (or is skipped) — also
@@ -178,8 +239,13 @@ usersRouter.post('/tutorial-complete', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-  await usersRepository.markTutorialCompleted(userId)
-  res.json({ ok: true })
+  try {
+    await usersRepository.markTutorialCompleted(userId)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Error marking tutorial complete', err)
+    res.status(500).json({ error: 'Error marking tutorial complete' })
+  }
 })
 
 // Powers the stats-page calendar strip — every day the user clicked at
@@ -190,17 +256,30 @@ usersRouter.get('/me/click-days', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const clickDays = await usersRepository.getClickDays(userId)
-  res.json({ clickDays })
+  try {
+    const clickDays = await usersRepository.getClickDays(userId)
+    res.json({ clickDays })
+  } catch (err) {
+    console.error('Error fetching click days', err)
+    res.status(500).json({ error: 'Error fetching click days' })
+  }
 })
 
 // Public profile page — anyone can view anyone's (no auth), same as the
 // leaderboard itself. See usersRepository.getPublicProfile for exactly what
-// this exposes and why.
+// this exposes and why. Guest ids are rejected outright — nothing ever
+// links to one (the leaderboard itself excludes them), so this only ever
+// matters against someone deliberately guessing a `anon_...` URL.
 usersRouter.get('/:id/public', async (req, res) => {
-  const profile = await usersRepository.getPublicProfile(req.params.id)
-  if (!profile) return res.status(404).json({ error: 'User not found' })
-  res.json(profile)
+  if (isAnonId(req.params.id)) return res.status(404).json({ error: 'User not found' })
+  try {
+    const profile = await usersRepository.getPublicProfile(req.params.id)
+    if (!profile) return res.status(404).json({ error: 'User not found' })
+    res.json(profile)
+  } catch (err) {
+    console.error('Error fetching public profile', err)
+    res.status(500).json({ error: 'Error fetching public profile' })
+  }
 })
 
 // Powers the Inventory modal — owned-but-not-yet-activated powerups/luck/
@@ -212,6 +291,11 @@ usersRouter.get('/me/inventory', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const inventory = await usersRepository.getInventory(userId)
-  res.json({ inventory })
+  try {
+    const inventory = await usersRepository.getInventory(userId)
+    res.json({ inventory })
+  } catch (err) {
+    console.error('Error fetching inventory', err)
+    res.status(500).json({ error: 'Error fetching inventory' })
+  }
 })

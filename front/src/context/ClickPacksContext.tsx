@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useGemsContext } from './GemsContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -34,7 +34,7 @@ const ClickPacksContext = createContext<ClickPacksContextValue | null>(null)
 // Currency exchange, not a real purchase — gems in, clicks out. No
 // RevenueCat involved.
 export function ClickPacksProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncTotalClicks } = useClickCounterContext()
   const { syncGems } = useGemsContext()
   const { promptSignIn } = useSignInPrompt()

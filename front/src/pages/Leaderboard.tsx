@@ -8,6 +8,7 @@ import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { useBattlesContext } from '../context/BattlesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
+import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 const RANK_STYLES: Record<number, string> = {
@@ -164,6 +165,7 @@ function BattlesModal({
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const { wager, durationSeconds, battles, isLoadingBattles, fetchBattles, accept } = useBattlesContext()
   const { totalClicks } = useClickCounterContext()
+  const { promptSignIn } = useSignInPrompt()
   const [showPicker, setShowPicker] = useState(false)
   const [acceptingId, setAcceptingId] = useState<number | null>(null)
   useLockBodyScroll(true)
@@ -218,8 +220,12 @@ function BattlesModal({
               {strings.battle.description(wager.toLocaleString(locale), durationSeconds)}
             </p>
 
+            {/* Battles are the one feature a guest genuinely can't have:
+                both sides need an account that still exists tomorrow to
+                accept, play and be paid out. `userId` here is Clerk's real
+                one (never a guest id), so this is the whole gate. */}
             <button
-              onClick={() => setShowPicker(true)}
+              onClick={() => (userId ? setShowPicker(true) : promptSignIn())}
               className="flex items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2.5 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
             >
               <Swords size={15} />

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -22,7 +22,7 @@ const InventoryContext = createContext<InventoryContextValue | null>(null)
 // owned counts; each category's own context (Powerup/TimedLuckPowerup/
 // Magnet) reads and adjusts this instead of tracking its own copy.
 export function InventoryProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const [inventory, setInventory] = useState<Record<string, number>>({})
   const [hasNewItem, setHasNewItem] = useState(false)
   const markInventorySeen = useCallback(() => setHasNewItem(false), [])

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
 import { playChestPurchase } from '../lib/caseSound'
@@ -22,7 +22,7 @@ interface TasksContextValue {
 const TasksContext = createContext<TasksContextValue | null>(null)
 
 export function TasksProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [claimed, setClaimed] = useState<Set<string>>(new Set())

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useInventoryContext } from './InventoryContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -60,7 +60,7 @@ interface PowerupContextValue {
 const PowerupContext = createContext<PowerupContextValue | null>(null)
 
 export function PowerupProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { adjust: adjustInventory } = useInventoryContext()
   const { promptSignIn } = useSignInPrompt()

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
@@ -52,7 +52,7 @@ const GemChestContext = createContext<GemChestContextValue | null>(null)
 // keys (requires owning a chest, bought separately with clicks) or gems
 // (skips the owned-chest requirement entirely) — no RevenueCat, no cooldown.
 export function GemChestProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { promptSignIn } = useSignInPrompt()
   const { flushNow } = useClickCounterContext()
   const [catalog, setCatalog] = useState<GemChestPrize[]>([])

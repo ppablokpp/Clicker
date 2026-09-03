@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuth } from '@clerk/express'
+import { getAuth } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { GEM_CASE_COST, pickWeightedPrize } from '../store/dailyCase.js'
 

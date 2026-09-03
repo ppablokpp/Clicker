@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { Rocket, Dices, Magnet, Clock, Archive, Loader2, List, X, Gem, Key } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
@@ -580,7 +580,7 @@ interface PowerupGridCardProps {
 // freely buyable in any order (only one can run at a time), each tile is its
 // own price button.
 function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: PowerupGridCardProps) {
-  const { userId } = useAuth()
+  const { userId } = useAppAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = usePowerupContext()
   const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
@@ -667,7 +667,7 @@ interface TimedLuckGridCardProps {
 // high-variance version of the permanent Suerte upgrade — same 1% chance,
 // much bigger multiplier, only lasts a short while.
 function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }: TimedLuckGridCardProps) {
-  const { userId } = useAuth()
+  const { userId } = useAppAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
   const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
@@ -753,7 +753,7 @@ interface MagnetGridCardProps {
 // grants visually distinct (amber for keys, indigo for gems, same language
 // as the Cofres card) since the icon alone is otherwise identical.
 function MagnetGridCard({ locale, totalClicks, strings, materialButtonClass }: MagnetGridCardProps) {
-  const { userId } = useAuth()
+  const { userId } = useAppAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useMagnetContext()
   const [error, setError] = useState<string | null>(null)
 

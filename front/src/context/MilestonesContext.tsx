@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { usePowerupContext } from './PowerupContext'
 import { useSignInPrompt } from './SignInPromptContext'
@@ -20,7 +20,7 @@ function milestoneKey(categoryKey: string, milestone: number) {
 }
 
 export function MilestonesProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { syncTotalClicks, flushNow } = useClickCounterContext()
   const { applyActivePowerup } = usePowerupContext()
   const { promptSignIn } = useSignInPrompt()

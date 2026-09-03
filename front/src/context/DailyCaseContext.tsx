@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useClickCounterContext } from './ClickCounterContext'
 import { useSignInPrompt } from './SignInPromptContext'
 
@@ -53,7 +53,7 @@ const DailyCaseContext = createContext<DailyCaseContextValue | null>(null)
 // — repeatable infinitely, no daily cooldown, keys and owned chests are
 // what limit how often this can happen.
 export function DailyCaseProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { promptSignIn } = useSignInPrompt()
   const { flushNow } = useClickCounterContext()
   const [catalog, setCatalog] = useState<DailyCasePrize[]>([])

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuth } from '@clerk/express'
+import { getAuth } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { CLICK_PACKS, getClickPack } from '../store/clickPacks.js'
 import { prestigeTierMultiplier } from '../game/trajectory.js'

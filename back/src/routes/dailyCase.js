@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuth } from '@clerk/express'
+import { getAuth } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { CASE_PRIZES, DAILY_CASE_CHEST_COST, DAILY_CASE_KEY_COST, pickWeightedPrize } from '../store/dailyCase.js'
 import { prestigeTierMultiplier } from '../game/trajectory.js'

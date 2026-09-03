@@ -8,6 +8,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+// Real money (RevenueCat): Clerk's own useAuth, NOT the guest-capable
+// useAppAuth. A purchase must be attached to an account the buyer can
+// recover — tying one to a browser-local guest id would mean clearing site
+// data destroys something they paid for. With no session `userId` is null,
+// so `buy` below takes its existing not-signed-in branch and prompts a
+// sign-in instead of charging anyone. The matching backend routes reject an
+// anon token outright for the same reason.
 import { useAuth } from '@clerk/clerk-react'
 import { Purchases, PurchasesError, ErrorCode, type Package } from '@revenuecat/purchases-js'
 import { useGemsContext } from './GemsContext'

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAuth } from '@clerk/express'
+import { getAuth } from '../auth/getAuth.js'
 import { prestigeRepository } from '../db/prestigeRepository.js'
 
 export const prestigeRouter = Router()

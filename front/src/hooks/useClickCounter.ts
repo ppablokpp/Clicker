@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from './useAppAuth'
 import { toLocalDateString } from '../lib/date'
 import { applyObjectProgress } from '../lib/spaceObjects'
 import { clearPendingClicks, loadPendingClicks, savePendingClicks } from '../lib/pendingClicksStorage'
@@ -36,7 +36,7 @@ const MAX_CLICKS_PER_REQUEST = 150_000
  * mid-flight stay visible instead of being clobbered by a stale total.
  */
 export function useClickCounter() {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const [totalClicks, setTotalClicks] = useState(0)
   // Trayectoria's own progress stat — cumulative platino ever earned, never
   // reduced by spending (see migration 028). Unlike totalClicks this has no

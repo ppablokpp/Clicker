@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useAuth } from '@clerk/clerk-react'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -26,7 +26,7 @@ const GemCaseContext = createContext<GemCaseContextValue | null>(null)
 // Gem-paid case: no RevenueCat involved (spends gems the player already
 // owns), no cooldown — repeatable exactly like the old money-case was.
 export function GemCaseProvider({ children }: { children: ReactNode }) {
-  const { userId, getToken } = useAuth()
+  const { userId, getToken } = useAppAuth()
   const { promptSignIn } = useSignInPrompt()
   const [cost, setCost] = useState(0)
   const [isOpening, setIsOpening] = useState(false)

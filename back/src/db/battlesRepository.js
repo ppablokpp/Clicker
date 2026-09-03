@@ -6,10 +6,14 @@ export const battlesRepository = {
   // The "pick an opponent" list — same shape as the leaderboard query,
   // just excluding yourself. No friends/search system yet, so this is
   // literally "everyone", ranked by platino same as the real leaderboard.
+  // Guests (`anon_<uuid>`) are excluded for the same reason the leaderboard
+  // excludes them, plus a concrete one here: battles are gated behind a
+  // real account on both ends, so a guest can neither be challenged nor
+  // respond to a challenge — listing one would only ever be a dead end.
   async listOpponents(userId, limit = 50) {
     const result = await database.query(
       `SELECT id, username, avatar_url, total_clicks FROM users
-       WHERE id != $1
+       WHERE id != $1 AND id !~ '^anon_'
        ORDER BY total_clicks DESC
        LIMIT $2`,
       [userId, limit],
