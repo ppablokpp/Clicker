@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { DEFAULT_STYLE_IDS, resolveStyle, type AstronautStyleIds } from '../lib/astronautStyles'
+import { BADGE_GRADIENT, DEFAULT_STYLE_IDS, resolveStyle, type AstronautStyleIds } from '../lib/astronautStyles'
 
 // A whole starfield from one 1x1px element — every star is just another
 // point in a single giant box-shadow list, so there's no per-star DOM cost.
@@ -77,6 +77,8 @@ export function AstronautAvatar({
   const limb = s.suit.limb
   const boot = s.boots.ramp
   const accent = s.accent
+  const bracelet = s.bracelet
+  const belt = s.belt
 
   return (
     <div className="relative" style={{ width: size, height: svgHeight }}>
@@ -147,12 +149,12 @@ export function AstronautAvatar({
             <stop offset="100%" stopColor="#1b0b33" stopOpacity="0.5" />
           </radialGradient>
           <linearGradient id={`${uid}-pack`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={s.suit.pack.from} />
-            <stop offset="100%" stopColor={s.suit.pack.to} />
+            <stop offset="0%" stopColor={accent.pack.from} />
+            <stop offset="100%" stopColor={accent.pack.to} />
           </linearGradient>
           <linearGradient id={`${uid}-badge`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={accent.badge.from} />
-            <stop offset="100%" stopColor={accent.badge.to} />
+            <stop offset="0%" stopColor={BADGE_GRADIENT.from} />
+            <stop offset="100%" stopColor={BADGE_GRADIENT.to} />
           </linearGradient>
           <linearGradient id={`${uid}-flameOuter`} x1="50%" y1="0%" x2="50%" y2="100%">
             <stop offset="0%" stopColor={accent.flame.outer} />
@@ -175,9 +177,9 @@ export function AstronautAvatar({
           {/* A shallow cylindrical roll across the belt's height, so it has
               thickness instead of being a flat strip. */}
           <linearGradient id={`${uid}-belt`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={s.suit.belt.from} />
-            <stop offset="38%" stopColor={s.suit.belt.mid} />
-            <stop offset="100%" stopColor={s.suit.belt.to} />
+            <stop offset="0%" stopColor={belt.band.from} />
+            <stop offset="38%" stopColor={belt.band.mid} />
+            <stop offset="100%" stopColor={belt.band.to} />
           </linearGradient>
           {/* Keeps the helmet's inner shading inside the dome instead of
               spilling past its edge. */}
@@ -222,9 +224,10 @@ export function AstronautAvatar({
           <path d="M58 122 C46 136 40 152 41 166" stroke={`url(#${uid}-limb)`} strokeWidth="23" />
           <path d="M122 122 C134 136 140 152 139 166" stroke={`url(#${uid}-limb)`} strokeWidth="23" />
         </g>
-        {/* Accent cuff bands, then the mitten gloves they end in. */}
-        <ellipse cx="41" cy="163" rx="11.5" ry="4.2" fill={accent.color} transform="rotate(-6 41 163)" />
-        <ellipse cx="139" cy="163" rx="11.5" ry="4.2" fill={accent.color} transform="rotate(6 139 163)" />
+        {/* Cuff bands — their own slot (see BraceletStyle), not the suit
+            trim, then the mitten gloves they end in. */}
+        <ellipse cx="41" cy="163" rx="11.5" ry="4.2" fill={bracelet.color} transform="rotate(-6 41 163)" />
+        <ellipse cx="139" cy="163" rx="11.5" ry="4.2" fill={bracelet.color} transform="rotate(6 139 163)" />
         <circle cx="39" cy="177" r="12.5" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
         <circle cx="141" cy="177" r="12.5" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
         <path d="M33 180 q6 4 12 0" stroke={limb.stroke} strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.7" />
@@ -265,8 +268,8 @@ export function AstronautAvatar({
             the shoulders read as wrong. They're free to be this small
             because the arm/torso join is covered by the torso itself, not
             by them — these are decoration, not a seam cover. */}
-        <rect x="38" y="98" width="30" height="24" rx="12" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
-        <rect x="112" y="98" width="30" height="24" rx="12" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
+        <rect x="43" y="98" width="30" height="24" rx="12" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
+        <rect x="107" y="98" width="30" height="24" rx="12" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
 
         {/* Suit detailing — a centre zip with an accent pull and a belt.
             Enough to read as a puffy pressure suit; any more and it turns
@@ -292,8 +295,8 @@ export function AstronautAvatar({
         </g>
         {/* Buckle, on top of the belt and centred, so it never reaches the
             clip edge. */}
-        <rect x="81" y="167.5" width="18" height="12" rx="3.5" fill={body.mid} stroke={body.stroke} strokeWidth="1.2" />
-        <rect x="86" y="170.5" width="8" height="6" rx="1.5" fill={body.to} opacity="0.8" />
+        <rect x="81" y="167.5" width="18" height="12" rx="3.5" fill={belt.band.mid} stroke={belt.band.to} strokeWidth="1.2" />
+        <rect x="86" y="170.5" width="8" height="6" rx="1.5" fill={belt.band.from} opacity="0.85" />
 
         {/* Chest badge — a placeholder rank/level slot, not just decoration,
             worn on the chest the way a mission patch is rather than
@@ -354,7 +357,7 @@ export function AstronautAvatar({
           <circle cx="97" cy="72" r="1.1" fill="#ffffff" opacity="0.5" />
           {/* Antenna. */}
           <path d="M124 30 L138 12" stroke={shell.stroke} strokeWidth="3" strokeLinecap="round" />
-          <circle cx="138" cy="12" r="5" fill={accent.color} className="animate-pulse-glow" />
+          <circle cx="138" cy="12" r="5" fill={s.helmet.visor.via} className="animate-pulse-glow" />
         </g>
       </motion.svg>
     </div>

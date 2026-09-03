@@ -162,6 +162,8 @@ export interface TranslationStrings {
     slotHelmet: string
     slotSuit: string
     slotBoots: string
+    slotBracelet: string
+    slotBelt: string
     slotAccent: string
     styleNames: Record<string, string>
   }
@@ -554,6 +556,8 @@ export const translations: Record<Language, TranslationStrings> = {
       slotHelmet: 'Casco',
       slotSuit: 'Traje',
       slotBoots: 'Botas',
+      slotBracelet: 'Pulseras',
+      slotBelt: 'Cinturón',
       slotAccent: 'Detalles',
       styleNames: {
         estandar: 'Estándar',
@@ -566,7 +570,6 @@ export const translations: Record<Language, TranslationStrings> = {
         menta: 'Menta',
         arena: 'Arena',
         coral: 'Coral',
-        ambar: 'Ámbar',
         cian: 'Cian',
         violeta: 'Violeta',
         rosa: 'Rosa',
@@ -1051,6 +1054,8 @@ export const translations: Record<Language, TranslationStrings> = {
       slotHelmet: 'Helmet',
       slotSuit: 'Suit',
       slotBoots: 'Boots',
+      slotBracelet: 'Bracelets',
+      slotBelt: 'Belt',
       slotAccent: 'Details',
       styleNames: {
         estandar: 'Standard',
@@ -1063,7 +1068,6 @@ export const translations: Record<Language, TranslationStrings> = {
         menta: 'Mint',
         arena: 'Sand',
         coral: 'Coral',
-        ambar: 'Amber',
         cian: 'Cyan',
         violeta: 'Violet',
         rosa: 'Pink',

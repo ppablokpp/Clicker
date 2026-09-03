@@ -38,10 +38,18 @@ export interface SuitStyle {
   body: Ramp
   /** Arms, gloves, pauldrons — a shade off the torso so limbs read separately. */
   limb: Ramp
-  /** Belt roll: light edge, bright centre, shadow edge. */
-  belt: { from: string; mid: string; to: string }
-  /** Life-support pack behind the shoulders. */
-  pack: { from: string; to: string }
+}
+
+/**
+ * The belt, its own slot alongside the bracelets — both are worn *over* the
+ * suit rather than being part of it, so they're things you pick up, not
+ * finishes on the garment.
+ */
+export interface BeltStyle {
+  id: string
+  swatch: string
+  /** Cylindrical roll across the band's height: light edge, bright centre, shadow edge. */
+  band: { from: string; mid: string; to: string }
 }
 
 export interface BootStyle {
@@ -50,50 +58,75 @@ export interface BootStyle {
   ramp: Ramp
 }
 
-/** Cuffs, zip pull, name tag, antenna light, chest badge and the thruster. */
+/** The suit's own trim: zip pull, name tag, jetpack and the thruster. */
 export interface AccentStyle {
   id: string
   swatch: string
-  /** Flat accent (cuffs, tag, zip pull, antenna bulb). */
+  /** Flat trim (zip pull button, chest name tag). */
   color: string
-  /** Chest badge gradient. */
-  badge: { from: string; to: string }
+  /** Life-support pack behind the shoulders — the gear the thruster feeds. */
+  pack: { from: string; to: string }
   /** Thruster flame — outer plume and inner core. */
   flame: { outer: string; innerMid: string; innerTo: string }
 }
 
+/**
+ * Wrist cuffs, and only those — their own slot rather than part of the
+ * trim, because they're a wearable you pick up, not a finish on the suit.
+ * Keeping them separate is what lets the trim be "the suit's colour scheme"
+ * and the bracelets be "a thing you bought".
+ */
+export interface BraceletStyle {
+  id: string
+  swatch: string
+  color: string
+}
+
+// The chest badge is deliberately NOT customizable: it's a rank/level slot,
+// not decoration, so it has to mean the same thing on every player's
+// avatar. Letting it take the accent colour would make a status marker
+// look like a style choice.
+export const BADGE_GRADIENT = { from: '#c4b5fd', to: '#e879f9' } as const
+
 // --- Helmets -------------------------------------------------------------
-// `estandar` is the exact original palette; everything after it is a
-// recolour of the same dome.
+// The shell stays the standard white/lilac for almost every helmet and only
+// the visor glass changes — a tinted dome fights the suit for attention and
+// makes the whole figure read as one flat colour, where a tinted *visor*
+// keeps the character recognisable and still reads instantly. Graphite is
+// the deliberate exception: it's a genuinely different shell material, not
+// a tint, which is exactly what makes it feel like a separate item rather
+// than a seventh colour of the same helmet.
+const STANDARD_SHELL: Ramp = { from: '#ffffff', mid: '#efedf9', to: '#b9b3d3', stroke: '#b6b0ce', seam: '#cbc6e2' }
+
 export const HELMET_STYLES: HelmetStyle[] = [
   {
     id: 'estandar',
     swatch: '#a855f7',
-    shell: { from: '#ffffff', mid: '#efedf9', to: '#b9b3d3', stroke: '#b6b0ce', seam: '#cbc6e2' },
+    shell: STANDARD_SHELL,
     visor: { from: '#c4b5fd', via: '#a855f7', to: '#e879f9' },
   },
   {
-    id: 'platino',
-    swatch: '#94a3b8',
-    shell: { from: '#ffffff', mid: '#eef2f6', to: '#a9b4c2', stroke: '#a3aebc', seam: '#c3ccd6' },
-    visor: { from: '#bae6fd', via: '#38bdf8', to: '#e0f2fe' },
+    id: 'cian',
+    swatch: '#22d3ee',
+    shell: STANDARD_SHELL,
+    visor: { from: '#a5f3fc', via: '#22d3ee', to: '#cffafe' },
   },
   {
     id: 'esmeralda',
     swatch: '#10b981',
-    shell: { from: '#ffffff', mid: '#e9f7f0', to: '#a8ccbb', stroke: '#9fc4b3', seam: '#c2ded1' },
+    shell: STANDARD_SHELL,
     visor: { from: '#a7f3d0', via: '#10b981', to: '#6ee7b7' },
   },
   {
     id: 'oro',
     swatch: '#f59e0b',
-    shell: { from: '#fffdf7', mid: '#fbf1dc', to: '#d3b98a', stroke: '#c9ae7d', seam: '#e3d2b0' },
+    shell: STANDARD_SHELL,
     visor: { from: '#fde68a', via: '#f59e0b', to: '#fcd34d' },
   },
   {
     id: 'carmesi',
     swatch: '#e11d48',
-    shell: { from: '#fffafb', mid: '#fbe9ee', to: '#cfa3b1', stroke: '#c599a8', seam: '#e2c6cf' },
+    shell: STANDARD_SHELL,
     visor: { from: '#fda4af', via: '#e11d48', to: '#fb7185' },
   },
   {
@@ -111,48 +144,36 @@ export const SUIT_STYLES: SuitStyle[] = [
     swatch: '#e8e5f5',
     body: { from: '#ffffff', mid: '#f1eff9', to: '#c6c0dc', stroke: '#c9c4e0', seam: '#cbc6e2' },
     limb: { from: '#fdfdff', mid: '#eeecf7', to: '#bfb9d6', stroke: '#c1bbd8', seam: '#cbc6e2' },
-    belt: { from: '#e4e0f1', mid: '#fbfaff', to: '#cbc6de' },
-    pack: { from: '#9b8cc7', to: '#7a6aa8' },
   },
   {
     id: 'acero',
     swatch: '#cbd5e1',
     body: { from: '#ffffff', mid: '#eef2f7', to: '#b3bfcd', stroke: '#b6c2cf', seam: '#c6d0da' },
     limb: { from: '#fdfeff', mid: '#e9eef4', to: '#aab6c4', stroke: '#adb9c7', seam: '#c6d0da' },
-    belt: { from: '#dfe6ee', mid: '#fbfdff', to: '#c0cad6' },
-    pack: { from: '#8e9bad', to: '#6d798a' },
   },
   {
     id: 'menta',
     swatch: '#6ee7b7',
     body: { from: '#ffffff', mid: '#e9f8f1', to: '#a9cfbd', stroke: '#a6ccba', seam: '#c0dcd0' },
     limb: { from: '#fdfffe', mid: '#e2f4ec', to: '#9ec6b4', stroke: '#9dc4b2', seam: '#c0dcd0' },
-    belt: { from: '#dcf0e7', mid: '#fbfffd', to: '#b6d5c6' },
-    pack: { from: '#7fb69f', to: '#5f9382' },
   },
   {
     id: 'arena',
     swatch: '#fcd34d',
     body: { from: '#fffefa', mid: '#faf2e2', to: '#d2bd97', stroke: '#cfba95', seam: '#e0d1b6' },
     limb: { from: '#fffefb', mid: '#f6ecd9', to: '#c9b38c', stroke: '#c6b089', seam: '#e0d1b6' },
-    belt: { from: '#f3e8d3', mid: '#fffdf8', to: '#d9c6a3' },
-    pack: { from: '#b9a37e', to: '#948063' },
   },
   {
     id: 'coral',
     swatch: '#fb7185',
     body: { from: '#fffbfb', mid: '#fceaed', to: '#d6a8b1', stroke: '#d3a4ae', seam: '#e6c8cf' },
     limb: { from: '#fffcfc', mid: '#f9e2e6', to: '#cd9ca6', stroke: '#ca98a3', seam: '#e6c8cf' },
-    belt: { from: '#f7e2e6', mid: '#fffcfd', to: '#dfb6bf' },
-    pack: { from: '#c08d97', to: '#9a6f78' },
   },
   {
     id: 'grafito',
     swatch: '#475569',
     body: { from: '#8b95a3', mid: '#59636f', to: '#2c323c', stroke: '#242932', seam: '#6b7583' },
     limb: { from: '#828d9b', mid: '#515b67', to: '#262c35', stroke: '#1f242c', seam: '#616b79' },
-    belt: { from: '#5d6773', mid: '#8d97a4', to: '#3b434e' },
-    pack: { from: '#3f4753', to: '#2b323b' },
   },
 ]
 
@@ -169,7 +190,7 @@ export const BOOT_STYLES: BootStyle[] = [
     ramp: { from: '#7e8896', mid: '#4c5561', to: '#262c35', stroke: '#1e232b', seam: '#6a7482' },
   },
   {
-    id: 'ambar',
+    id: 'oro',
     swatch: '#f59e0b',
     ramp: { from: '#fff3d6', mid: '#fbd88b', to: '#c08d2c', stroke: '#b3822a', seam: '#e0b45e' },
   },
@@ -193,47 +214,76 @@ export const BOOT_STYLES: BootStyle[] = [
 // --- Accents -------------------------------------------------------------
 export const ACCENT_STYLES: AccentStyle[] = [
   {
-    id: 'ambar',
+    id: 'oro',
     swatch: '#fbbf24',
     color: '#fbbf24',
-    badge: { from: '#c4b5fd', to: '#e879f9' },
+    pack: { from: '#d9a02a', to: '#a97b1c' },
     flame: { outer: '#a855f7', innerMid: '#e9d5ff', innerTo: '#c4b5fd' },
   },
   {
     id: 'cian',
     swatch: '#22d3ee',
     color: '#22d3ee',
-    badge: { from: '#a5f3fc', to: '#22d3ee' },
+    pack: { from: '#1fb2cb', to: '#15829a' },
     flame: { outer: '#06b6d4', innerMid: '#cffafe', innerTo: '#67e8f9' },
   },
   {
     id: 'esmeralda',
     swatch: '#34d399',
     color: '#34d399',
-    badge: { from: '#a7f3d0', to: '#10b981' },
+    pack: { from: '#2bb489', to: '#1d8767' },
     flame: { outer: '#10b981', innerMid: '#d1fae5', innerTo: '#6ee7b7' },
   },
   {
-    id: 'rosa',
-    swatch: '#f472b6',
-    color: '#f472b6',
-    badge: { from: '#fbcfe8', to: '#ec4899' },
-    flame: { outer: '#ec4899', innerMid: '#fce7f3', innerTo: '#f9a8d4' },
+    id: 'grafito',
+    swatch: '#64748b',
+    color: '#64748b',
+    pack: { from: '#5a6675', to: '#3b4552' },
+    flame: { outer: '#64748b', innerMid: '#e2e8f0', innerTo: '#94a3b8' },
+  },
+  {
+    id: 'violeta',
+    swatch: '#a855f7',
+    color: '#a855f7',
+    pack: { from: '#8b46cc', to: '#63339a' },
+    flame: { outer: '#a855f7', innerMid: '#e9d5ff', innerTo: '#c4b5fd' },
   },
   {
     id: 'carmesi',
     swatch: '#fb7185',
     color: '#fb7185',
-    badge: { from: '#fecdd3', to: '#e11d48' },
+    pack: { from: '#e05f70', to: '#ad4453' },
     flame: { outer: '#e11d48', innerMid: '#ffe4e6', innerTo: '#fda4af' },
   },
-  {
-    id: 'nieve',
-    swatch: '#e2e8f0',
-    color: '#e2e8f0',
-    badge: { from: '#f8fafc', to: '#cbd5e1' },
-    flame: { outer: '#94a3b8', innerMid: '#f1f5f9', innerTo: '#cbd5e1' },
-  },
+]
+
+// Bracelets, belts and accents deliberately share one six-colour set, so a
+// player can match them across slots without hunting for a shade that only
+// exists on one of them. Graphite is in place of a pink here: against the
+// dark card panel a mid-slate reads as gunmetal, where a true #334155
+// would disappear.
+const SHARED_ACCESSORY_COLORS = [
+  { id: 'oro', color: '#fbbf24' },
+  { id: 'cian', color: '#22d3ee' },
+  { id: 'esmeralda', color: '#34d399' },
+  { id: 'grafito', color: '#64748b' },
+  { id: 'violeta', color: '#a855f7' },
+  { id: 'carmesi', color: '#fb7185' },
+] as const
+
+export const BRACELET_STYLES: BraceletStyle[] = SHARED_ACCESSORY_COLORS.map(({ id, color }) => ({
+  id,
+  swatch: color,
+  color,
+}))
+
+export const BELT_STYLES: BeltStyle[] = [
+  { id: 'oro', swatch: '#fbbf24', band: { from: '#d9a72e', mid: '#fcd77a', to: '#a9781c' } },
+  { id: 'cian', swatch: '#22d3ee', band: { from: '#1a9fb8', mid: '#7fe3f4', to: '#127287' } },
+  { id: 'esmeralda', swatch: '#34d399', band: { from: '#26a67e', mid: '#7cebc0', to: '#197a5c' } },
+  { id: 'grafito', swatch: '#64748b', band: { from: '#4a5464', mid: '#8a95a5', to: '#2c333d' } },
+  { id: 'violeta', swatch: '#a855f7', band: { from: '#8b46cc', mid: '#c99cf5', to: '#63339a' } },
+  { id: 'carmesi', swatch: '#fb7185', band: { from: '#d8586b', mid: '#fca6b2', to: '#a63f4f' } },
 ]
 
 /** What a player has picked, stored as ids so the palettes can be retuned. */
@@ -241,6 +291,8 @@ export interface AstronautStyleIds {
   helmet: string
   suit: string
   boots: string
+  belt: string
+  bracelet: string
   accent: string
 }
 
@@ -249,6 +301,8 @@ export interface ResolvedAstronautStyle {
   helmet: HelmetStyle
   suit: SuitStyle
   boots: BootStyle
+  belt: BeltStyle
+  bracelet: BraceletStyle
   accent: AccentStyle
 }
 
@@ -256,7 +310,9 @@ export const DEFAULT_STYLE_IDS: AstronautStyleIds = {
   helmet: 'estandar',
   suit: 'estandar',
   boots: 'estandar',
-  accent: 'ambar',
+  belt: 'oro',
+  bracelet: 'oro',
+  accent: 'oro',
 }
 
 // Unknown ids fall back to the first entry rather than throwing — a saved
@@ -272,6 +328,8 @@ export function resolveStyle(ids: AstronautStyleIds): ResolvedAstronautStyle {
     helmet: pick(HELMET_STYLES, ids.helmet),
     suit: pick(SUIT_STYLES, ids.suit),
     boots: pick(BOOT_STYLES, ids.boots),
+    belt: pick(BELT_STYLES, ids.belt),
+    bracelet: pick(BRACELET_STYLES, ids.bracelet),
     accent: pick(ACCENT_STYLES, ids.accent),
   }
 }
@@ -292,6 +350,8 @@ export function loadStyleIds(): AstronautStyleIds {
       helmet: typeof parsed.helmet === 'string' ? parsed.helmet : DEFAULT_STYLE_IDS.helmet,
       suit: typeof parsed.suit === 'string' ? parsed.suit : DEFAULT_STYLE_IDS.suit,
       boots: typeof parsed.boots === 'string' ? parsed.boots : DEFAULT_STYLE_IDS.boots,
+      belt: typeof parsed.belt === 'string' ? parsed.belt : DEFAULT_STYLE_IDS.belt,
+      bracelet: typeof parsed.bracelet === 'string' ? parsed.bracelet : DEFAULT_STYLE_IDS.bracelet,
       accent: typeof parsed.accent === 'string' ? parsed.accent : DEFAULT_STYLE_IDS.accent,
     }
   } catch {
