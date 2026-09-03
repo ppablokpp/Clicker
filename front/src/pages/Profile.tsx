@@ -165,7 +165,7 @@ export function Profile() {
         className="group relative mt-6 rounded-full transition-transform active:scale-[0.98]"
       >
         <AstronautAvatar styleIds={styleIds} />
-        <span className="pointer-events-none absolute bottom-[14%] right-[2%] flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-violet-200 shadow-lg shadow-black/40 transition-colors group-hover:bg-[#1d1d28] group-hover:text-violet-100">
+        <span className="pointer-events-none absolute bottom-[4%] -right-[7%] flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-violet-200 shadow-lg shadow-black/40 transition-colors group-hover:bg-[#1d1d28] group-hover:text-violet-100">
           <Pencil size={15} />
         </span>
       </button>
