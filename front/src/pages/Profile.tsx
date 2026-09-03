@@ -305,6 +305,21 @@ function RankCard() {
 // Opened by tapping the name itself — a small, focused modal instead of an
 // inline pencil-triggered edit, so the main view stays down to just the
 // character and the name it's actually showing.
+//
+// This and SettingsSheet below used to be the only two modals in the whole
+// app laid out as a mobile bottom-sheet (`items-end` on small screens,
+// `items-center` from `sm:` up) — every other modal (Store, Leaderboard,
+// Tree, Battle, FleetAwayModal, SignInModal) just centers unconditionally,
+// with `overflow-y-auto` on the backdrop itself. That combination turned
+// out to matter: on a real mobile browser, `inset-0` sizes against the
+// browser's *layout* viewport (which includes the space the address bar
+// chrome can occupy), not the shorter *visible* one — `items-end` then
+// anchors the sheet to the bottom of that taller-than-visible box, which
+// can land it below the actual screen with no way to scroll it into view
+// (locking body scroll, the previous fix, made this specific failure mode
+// *worse* — even the accidental scroll route out was gone). Matching
+// every other modal's own centered/scrollable layout sidesteps the whole
+// mechanism rather than trying to out-compute it.
 function EditUsernameModal({
   username,
   setUsername,
@@ -321,18 +336,15 @@ function EditUsernameModal({
   onClose: () => void
 }) {
   const { strings } = useLanguage()
-  // Only modal in Profile.tsx that was missing this — every other modal in
-  // the app (Store, Leaderboard, Tree, Battle, FleetAwayModal, SignInModal)
-  // locks body scroll while open. Without it, on mobile Safari/Chrome a
-  // `position: fixed` modal can end up rendered against the page's own
-  // (still-scrollable) layout viewport instead of the visible one — it
-  // opens pinned to the bottom of the whole page instead of the screen.
   useLockBodyScroll(true)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] p-5 shadow-2xl shadow-black/50 sm:rounded-2xl"
+        className="w-full max-w-sm rounded-2xl border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] p-5 shadow-2xl shadow-black/50"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -391,11 +403,11 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] p-5 shadow-2xl shadow-black/50 sm:rounded-2xl"
+        className="w-full max-w-sm rounded-2xl border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] p-5 shadow-2xl shadow-black/50"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

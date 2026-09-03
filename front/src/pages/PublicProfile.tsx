@@ -62,7 +62,7 @@ export function PublicProfile() {
     : null
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center px-4 pb-28 pt-24 sm:pt-28">
+    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center px-4 pb-12 pt-14 sm:pb-16 sm:pt-16">
       <button
         onClick={() => navigate(-1)}
         aria-label={strings.profile.backButton}

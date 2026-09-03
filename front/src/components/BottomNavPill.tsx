@@ -35,8 +35,11 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
   const { strings } = useLanguage()
   const location = useLocation()
   // No nav during a battle — the bottom of the screen is the countdown
-  // bar's spot instead.
-  if (location.pathname.startsWith('/batalla')) return null
+  // bar's spot instead. Same for someone else's public profile: it's a
+  // read-only drill-down reached by tapping a leaderboard row, not one of
+  // the app's own tabs, so the only way back is its own back button —
+  // showing the tab bar there would make it look like a sixth destination.
+  if (location.pathname.startsWith('/batalla') || location.pathname.startsWith('/perfil/')) return null
 
   return (
     <div

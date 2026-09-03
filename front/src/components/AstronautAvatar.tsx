@@ -56,8 +56,8 @@ export function AstronautAvatar({ size = 168 }: { size?: number }) {
   // Same footprint the old glow halo used (1.5x the character's width) — a
   // porthole of Home's own night sky instead of a soft violet aura.
   const skySize = size * 1.5
-  const starsDim = useMemo(() => generateStars(70, skySize, 0.5), [skySize])
-  const starsBright = useMemo(() => generateStars(20, skySize, 0.9), [skySize])
+  const starsDim = useMemo(() => generateStars(130, skySize, 0.5), [skySize])
+  const starsBright = useMemo(() => generateStars(36, skySize, 0.9), [skySize])
 
   return (
     <div className="relative" style={{ width: size, height: svgHeight }}>
