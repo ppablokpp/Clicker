@@ -6,6 +6,7 @@ import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLeaderboard } from '../hooks/useLeaderboard'
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { formatPlatino } from '../lib/formatPlatino'
 import type { Language } from '../i18n/translations'
 
@@ -323,6 +324,13 @@ function EditUsernameModal({
   onClose: () => void
 }) {
   const { strings } = useLanguage()
+  // Only modal in Profile.tsx that was missing this — every other modal in
+  // the app (Store, Leaderboard, Tree, Battle, FleetAwayModal, SignInModal)
+  // locks body scroll while open. Without it, on mobile Safari/Chrome a
+  // `position: fixed` modal can end up rendered against the page's own
+  // (still-scrollable) layout viewport instead of the visible one — it
+  // opens pinned to the bottom of the whole page instead of the screen.
+  useLockBodyScroll(true)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center" onClick={onClose}>
@@ -376,6 +384,8 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
   const { user } = useUser()
   const { signOut } = useClerk()
   const email = user?.primaryEmailAddress?.emailAddress ?? null
+  // Same fix as EditUsernameModal's — see its own comment.
+  useLockBodyScroll(true)
 
   const LANGUAGES: { value: Language; label: string }[] = [
     { value: 'es', label: 'ES' },
