@@ -130,44 +130,78 @@ export const HELMET_STYLES: HelmetStyle[] = [
     visor: { from: '#fda4af', via: '#e11d48', to: '#fb7185' },
   },
   {
+    // Smoked glass, not a tint: this is the one helmet whose *shell* is the
+    // choice, so a coloured visor would both fight that and repeat whatever
+    // hue it borrowed (it used to be cyan, which simply duplicated the Cian
+    // helmet's glass). A mirrored dark visor is what a graphite shell would
+    // actually come with, and it keeps the option reading as one material
+    // rather than as two unrelated decisions.
     id: 'grafito',
     swatch: '#334155',
     shell: { from: '#8f9aa8', mid: '#5c6675', to: '#2b3240', stroke: '#232936', seam: '#6b7585' },
-    visor: { from: '#67e8f9', via: '#06b6d4', to: '#a5f3fc' },
+    visor: { from: '#9aa5b4', via: '#454f5e', to: '#c2ccd8' },
   },
 ]
 
 // --- Suits ---------------------------------------------------------------
+// Materials, not tints. The first pass at this slot was six pastel washes
+// (mint, coral, sand…) and they failed for a specific reason: the suit is
+// the largest surface on the character, so anything applied to it has to be
+// low saturation to avoid swamping the figure — which left every option
+// sitting at nearly the same value and reading as "slightly dirty white"
+// rather than as a choice. They also competed with the visor, which is
+// where the character's actual colour accent lives.
+//
+// These are real spacesuit materials instead: the white EVA suit, brushed
+// steel, flight-suit navy, Mars-surface tan, the orange launch-and-entry
+// "pumpkin" suit, and charcoal. Each is instantly distinguishable from the
+// others because they differ in value and temperature, not just hue, and
+// each reads as a suit someone would actually wear rather than as the base
+// suit dipped in paint.
 export const SUIT_STYLES: SuitStyle[] = [
   {
+    // `stroke` is what draws the pauldron and glove outlines — the line
+    // that separates arm from torso. Its weight has to be judged against
+    // the material's own mid tone, not in isolation: the dark suits read
+    // well because their stroke sits far below their mid, while the pale
+    // ones had a stroke almost level with theirs, so the arms melted into
+    // the body. Deepened here to match that separation.
     id: 'estandar',
     swatch: '#e8e5f5',
-    body: { from: '#ffffff', mid: '#f1eff9', to: '#c6c0dc', stroke: '#c9c4e0', seam: '#cbc6e2' },
-    limb: { from: '#fdfdff', mid: '#eeecf7', to: '#bfb9d6', stroke: '#c1bbd8', seam: '#cbc6e2' },
+    body: { from: '#ffffff', mid: '#f1eff9', to: '#c6c0dc', stroke: '#b0a8cb', seam: '#bdb6d6' },
+    limb: { from: '#fdfdff', mid: '#eeecf7', to: '#bfb9d6', stroke: '#a79fc4', seam: '#bdb6d6' },
   },
   {
+    // Metal reads as metal through *contrast*, not hue: a near-white
+    // specular falling fast to a dark shadow. The first pass sat in a
+    // narrow pale band, which just looked like a slightly grey suit.
     id: 'acero',
-    swatch: '#cbd5e1',
-    body: { from: '#ffffff', mid: '#eef2f7', to: '#b3bfcd', stroke: '#b6c2cf', seam: '#c6d0da' },
-    limb: { from: '#fdfeff', mid: '#e9eef4', to: '#aab6c4', stroke: '#adb9c7', seam: '#c6d0da' },
+    swatch: '#8494a6',
+    body: { from: '#ffffff', mid: '#aab6c4', to: '#5d6a7a', stroke: '#47525f', seam: '#7d8a9a' },
+    limb: { from: '#f8fbfd', mid: '#9fabb9', to: '#54606f', stroke: '#3e4855', seam: '#7d8a9a' },
   },
   {
-    id: 'menta',
-    swatch: '#6ee7b7',
-    body: { from: '#ffffff', mid: '#e9f8f1', to: '#a9cfbd', stroke: '#a6ccba', seam: '#c0dcd0' },
-    limb: { from: '#fdfffe', mid: '#e2f4ec', to: '#9ec6b4', stroke: '#9dc4b2', seam: '#c0dcd0' },
+    id: 'marino',
+    swatch: '#2c4a75',
+    body: { from: '#4a6fa5', mid: '#2c4a75', to: '#14243c', stroke: '#101d33', seam: '#3d5f8f' },
+    limb: { from: '#446699', mid: '#27436b', to: '#111f33', stroke: '#0d1829', seam: '#35547f' },
   },
   {
     id: 'arena',
-    swatch: '#fcd34d',
-    body: { from: '#fffefa', mid: '#faf2e2', to: '#d2bd97', stroke: '#cfba95', seam: '#e0d1b6' },
-    limb: { from: '#fffefb', mid: '#f6ecd9', to: '#c9b38c', stroke: '#c6b089', seam: '#e0d1b6' },
+    swatch: '#d8c096',
+    body: { from: '#f2e6cd', mid: '#d8c096', to: '#a3855a', stroke: '#7e6238', seam: '#b3966a' },
+    limb: { from: '#eee0c4', mid: '#d1b78b', to: '#987b51', stroke: '#725832', seam: '#b3966a' },
   },
   {
-    id: 'coral',
-    swatch: '#fb7185',
-    body: { from: '#fffbfb', mid: '#fceaed', to: '#d6a8b1', stroke: '#d3a4ae', seam: '#e6c8cf' },
-    limb: { from: '#fffcfc', mid: '#f9e2e6', to: '#cd9ca6', stroke: '#ca98a3', seam: '#e6c8cf' },
+    // Deep crimson rather than the launch-suit orange that was here: at
+    // full-torso scale that orange was the loudest thing on the character
+    // by a wide margin. This sits at the same depth as Marino, and shares
+    // its id with the crimson bracelets/belt/trim so a player can match a
+    // set across slots.
+    id: 'carmesi',
+    swatch: '#a63a4d',
+    body: { from: '#d97b88', mid: '#a63a4d', to: '#5e1a29', stroke: '#4d1522', seam: '#bd5568' },
+    limb: { from: '#d1707e', mid: '#9c3546', to: '#571725', stroke: '#47121f', seam: '#b04d60' },
   },
   {
     id: 'grafito',
@@ -178,47 +212,66 @@ export const SUIT_STYLES: SuitStyle[] = [
 ]
 
 // --- Boots ---------------------------------------------------------------
+// Deliberately the same six materials as the suits, id for id, rather than
+// the accessory colour set. Boots are garment, not jewellery: pairing them
+// with the suit is what lets a player build one outfit head to toe, and it
+// keeps the bright accent palette where it belongs — on the small pieces
+// (bracelets, belt, trim) that can carry saturation without swamping the
+// figure. The pastel washes that were here failed the same way the old
+// pastel suits did: a bright top stop on a small shape reads as candy, not
+// as footwear.
 export const BOOT_STYLES: BootStyle[] = [
   {
     id: 'estandar',
     swatch: '#e8e5f5',
-    ramp: { from: '#fdfdff', mid: '#eeecf7', to: '#bfb9d6', stroke: '#c1bbd8', seam: '#c1bbd8' },
+    ramp: { from: '#fdfdff', mid: '#eeecf7', to: '#bfb9d6', stroke: '#a79fc4', seam: '#bdb6d6' },
   },
   {
-    id: 'grafito',
-    swatch: '#334155',
-    ramp: { from: '#7e8896', mid: '#4c5561', to: '#262c35', stroke: '#1e232b', seam: '#6a7482' },
+    id: 'acero',
+    swatch: '#8494a6',
+    ramp: { from: '#f8fbfd', mid: '#9fabb9', to: '#54606f', stroke: '#3e4855', seam: '#7d8a9a' },
   },
   {
-    id: 'oro',
-    swatch: '#f59e0b',
-    ramp: { from: '#fff3d6', mid: '#fbd88b', to: '#c08d2c', stroke: '#b3822a', seam: '#e0b45e' },
+    id: 'marino',
+    swatch: '#27436b',
+    ramp: { from: '#446699', mid: '#27436b', to: '#111f33', stroke: '#0d1829', seam: '#35547f' },
   },
   {
-    id: 'cian',
-    swatch: '#06b6d4',
-    ramp: { from: '#d9f6fb', mid: '#8fdcea', to: '#2b93a8', stroke: '#27879a', seam: '#63c0d2' },
-  },
-  {
-    id: 'violeta',
-    swatch: '#a855f7',
-    ramp: { from: '#eadcff', mid: '#c4a3f5', to: '#7a4bbd', stroke: '#6f43ad', seam: '#a583d8' },
+    id: 'arena',
+    swatch: '#d1b78b',
+    ramp: { from: '#eee0c4', mid: '#d1b78b', to: '#987b51', stroke: '#725832', seam: '#b3966a' },
   },
   {
     id: 'carmesi',
-    swatch: '#e11d48',
-    ramp: { from: '#ffd9e1', mid: '#f899ac', to: '#b23a53', stroke: '#a4344b', seam: '#dd7488' },
+    swatch: '#9c3546',
+    ramp: { from: '#d1707e', mid: '#9c3546', to: '#571725', stroke: '#47121f', seam: '#b04d60' },
+  },
+  {
+    id: 'grafito',
+    swatch: '#4c5561',
+    ramp: { from: '#7e8896', mid: '#4c5561', to: '#262c35', stroke: '#1e232b', seam: '#6a7482' },
   },
 ]
 
 // --- Accents -------------------------------------------------------------
+// Violet leads every accessory list: it's the app's own accent colour, so
+// it's what the stock astronaut wears, and `pick()` below falls back to the
+// first entry — keeping the default first is what stops a stale saved id
+// from resolving to something other than the default.
 export const ACCENT_STYLES: AccentStyle[] = [
+  {
+    id: 'violeta',
+    swatch: '#a855f7',
+    color: '#a855f7',
+    pack: { from: '#8b46cc', to: '#63339a' },
+    flame: { outer: '#a855f7', innerMid: '#e9d5ff', innerTo: '#c4b5fd' },
+  },
   {
     id: 'oro',
     swatch: '#fbbf24',
     color: '#fbbf24',
     pack: { from: '#d9a02a', to: '#a97b1c' },
-    flame: { outer: '#a855f7', innerMid: '#e9d5ff', innerTo: '#c4b5fd' },
+    flame: { outer: '#f59e0b', innerMid: '#fef3c7', innerTo: '#fcd34d' },
   },
   {
     id: 'cian',
@@ -242,13 +295,6 @@ export const ACCENT_STYLES: AccentStyle[] = [
     flame: { outer: '#64748b', innerMid: '#e2e8f0', innerTo: '#94a3b8' },
   },
   {
-    id: 'violeta',
-    swatch: '#a855f7',
-    color: '#a855f7',
-    pack: { from: '#8b46cc', to: '#63339a' },
-    flame: { outer: '#a855f7', innerMid: '#e9d5ff', innerTo: '#c4b5fd' },
-  },
-  {
     id: 'carmesi',
     swatch: '#fb7185',
     color: '#fb7185',
@@ -263,11 +309,11 @@ export const ACCENT_STYLES: AccentStyle[] = [
 // dark card panel a mid-slate reads as gunmetal, where a true #334155
 // would disappear.
 const SHARED_ACCESSORY_COLORS = [
+  { id: 'violeta', color: '#a855f7' },
   { id: 'oro', color: '#fbbf24' },
   { id: 'cian', color: '#22d3ee' },
   { id: 'esmeralda', color: '#34d399' },
   { id: 'grafito', color: '#64748b' },
-  { id: 'violeta', color: '#a855f7' },
   { id: 'carmesi', color: '#fb7185' },
 ] as const
 
@@ -278,11 +324,11 @@ export const BRACELET_STYLES: BraceletStyle[] = SHARED_ACCESSORY_COLORS.map(({ i
 }))
 
 export const BELT_STYLES: BeltStyle[] = [
+  { id: 'violeta', swatch: '#a855f7', band: { from: '#8b46cc', mid: '#c99cf5', to: '#63339a' } },
   { id: 'oro', swatch: '#fbbf24', band: { from: '#d9a72e', mid: '#fcd77a', to: '#a9781c' } },
   { id: 'cian', swatch: '#22d3ee', band: { from: '#1a9fb8', mid: '#7fe3f4', to: '#127287' } },
   { id: 'esmeralda', swatch: '#34d399', band: { from: '#26a67e', mid: '#7cebc0', to: '#197a5c' } },
   { id: 'grafito', swatch: '#64748b', band: { from: '#4a5464', mid: '#8a95a5', to: '#2c333d' } },
-  { id: 'violeta', swatch: '#a855f7', band: { from: '#8b46cc', mid: '#c99cf5', to: '#63339a' } },
   { id: 'carmesi', swatch: '#fb7185', band: { from: '#d8586b', mid: '#fca6b2', to: '#a63f4f' } },
 ]
 
@@ -310,9 +356,9 @@ export const DEFAULT_STYLE_IDS: AstronautStyleIds = {
   helmet: 'estandar',
   suit: 'estandar',
   boots: 'estandar',
-  belt: 'oro',
-  bracelet: 'oro',
-  accent: 'oro',
+  belt: 'violeta',
+  bracelet: 'violeta',
+  accent: 'violeta',
 }
 
 // Unknown ids fall back to the first entry rather than throwing — a saved

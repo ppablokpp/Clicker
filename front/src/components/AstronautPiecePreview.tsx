@@ -32,7 +32,7 @@ export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps
       {props.slot === 'helmet' && <HelmetPiece uid={uid} style={props.style} />}
       {props.slot === 'suit' && <SuitPiece uid={uid} style={props.style} />}
       {props.slot === 'boots' && <BootsPiece uid={uid} style={props.style} />}
-      {props.slot === 'bracelet' && <BraceletPiece style={props.style} />}
+      {props.slot === 'bracelet' && <BraceletPiece uid={uid} style={props.style} />}
       {props.slot === 'belt' && <BeltPiece uid={uid} style={props.style} />}
       {props.slot === 'accent' && <AccentPiece uid={uid} style={props.style} />}
     </svg>
@@ -137,12 +137,27 @@ function BeltPiece({ uid, style }: { uid: string; style: BeltStyle }) {
           <stop offset="38%" stopColor={band.mid} />
           <stop offset="100%" stopColor={band.to} />
         </linearGradient>
+        {/* The band's own outline, so the sheen below can be cut by it. */}
+        <clipPath id={`${uid}-bandClip`}>
+          <rect x="6" y="40" width="88" height="20" rx="10" />
+        </clipPath>
       </defs>
       {/* Laid out flat and tilted, the way a belt is photographed rather
           than the way it sits on a waist. */}
       <g transform="rotate(-9 50 50)">
         <rect x="6" y="40" width="88" height="20" rx="10" fill={`url(#${uid}-band)`} />
-        <rect x="6" y="40" width="88" height="2.6" rx="1.3" fill="#ffffff" opacity="0.35" />
+        {/* Top sheen, clipped to the band. Unclipped it was a straight strip
+            over a round-ended shape, so at both ends it ran past the band's
+            curve and read as a stray line floating above the belt. */}
+        <rect
+          x="6"
+          y="40"
+          width="88"
+          height="2.6"
+          fill="#ffffff"
+          opacity="0.35"
+          clipPath={`url(#${uid}-bandClip)`}
+        />
         {/* Buckle. */}
         <rect x="38" y="36" width="24" height="28" rx="6" fill={band.mid} stroke={band.to} strokeWidth="2.2" />
         <rect x="45" y="43" width="10" height="14" rx="3" fill={band.from} opacity="0.85" />
@@ -197,40 +212,34 @@ function AccentPiece({ uid, style }: { uid: string; style: AccentStyle }) {
 
 // Just the pair of bands, nothing else — this slot owns exactly one thing,
 // so the card shows exactly that thing.
-function BraceletPiece({ style }: { style: BraceletStyle }) {
+function BraceletPiece({ uid, style }: { uid: string; style: BraceletStyle }) {
+  // Lighting is a second pass over the *same* ellipse rather than a
+  // separately drawn highlight arc. The arc that used to be here had to
+  // have its endpoints solved onto the ellipse by hand, and they weren't:
+  // they sat outside it, so instead of tracing the band's top edge the
+  // highlight cut straight across the middle of the ring. Re-stroking the
+  // identical path can't drift — top edge lit, bottom edge shaded, no
+  // coordinates to keep in sync.
+  const sheen = `url(#${uid}-sheen)`
   return (
     <>
-      <ellipse
-        cx="36"
-        cy="38"
-        rx="22"
-        ry="9.5"
-        fill="none"
-        stroke={style.color}
-        strokeWidth="9"
-        transform="rotate(-14 36 38)"
-        opacity="0.55"
-      />
-      <ellipse
-        cx="52"
-        cy="62"
-        rx="25"
-        ry="11"
-        fill="none"
-        stroke={style.color}
-        strokeWidth="10.5"
-        transform="rotate(-14 52 62)"
-      />
-      {/* Specular arc so the band reads as a rounded metal ring rather than
-          a flat outlined oval. */}
-      <path
-        d="M31 55 A25 11 -14 0 1 58 52"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        opacity="0.5"
-      />
+      <defs>
+        <linearGradient id={`${uid}-sheen`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+          <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.35" />
+        </linearGradient>
+      </defs>
+      {/* Back band, dimmed so the pair reads as one in front of the other. */}
+      <g opacity="0.55" transform="rotate(-14 36 38)">
+        <ellipse cx="36" cy="38" rx="22" ry="9.5" fill="none" stroke={style.color} strokeWidth="9" />
+        <ellipse cx="36" cy="38" rx="22" ry="9.5" fill="none" stroke={sheen} strokeWidth="9" />
+      </g>
+      {/* Front band. */}
+      <g transform="rotate(-14 52 62)">
+        <ellipse cx="52" cy="62" rx="25" ry="11" fill="none" stroke={style.color} strokeWidth="10.5" />
+        <ellipse cx="52" cy="62" rx="25" ry="11" fill="none" stroke={sheen} strokeWidth="10.5" />
+      </g>
     </>
   )
 }

@@ -238,8 +238,12 @@ export function AstronautAvatar({
         {/* Rim light: a bright edge where the key light grazes the left of
             the torso, a cool violet bounce on the right. Two strokes, and
             most of what makes the body read as round rather than as a
-            rounded rectangle. */}
-        <path d="M52 128 C46 142 46 160 50 176" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.7" />
+            rounded rectangle.
+            The key edge takes the suit's own lit face, not a hardcoded
+            white — same reason as the helmet's sheen: on a dark suit
+            (navy, charcoal) pure white stops reading as light on the
+            material and becomes a white line drawn over it. */}
+        <path d="M52 128 C46 142 46 160 50 176" stroke={body.from} strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.7" />
         <path d="M130 132 C134 146 134 162 131 174" stroke="#c4b5fd" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.4" />
 
         {/* Boots — peeking straight out from under the suit's own rounded
@@ -332,13 +336,19 @@ export function AstronautAvatar({
         <g>
           <circle cx="90" cy="66" r="54" fill={`url(#${uid}-shell)`} stroke={shell.stroke} strokeWidth="2" />
           {/* Shading inside the dome, clipped to it: a soft fade along the
-              bottom rim, and a bright crescent along the top-left where the
-              key light lands. */}
+              bottom rim, and a sheen along the top-left where the key light
+              lands.
+              The sheen takes the shell's own lit face rather than a
+              hardcoded white — on the light shells those are the same
+              colour, but on a dark shell (graphite) pure white stopped
+              reading as a highlight and became a white bar stuck across the
+              top of the helmet. A specular is the material catching light,
+              so it has to come from the material. */}
           <g clipPath={`url(#${uid}-helmetClip)`}>
             <rect x="36" y="90" width="108" height="32" fill={`url(#${uid}-helmetFloor)`} />
             <path
               d="M46 42 A54 54 0 0 1 106 15"
-              stroke="#ffffff"
+              stroke={shell.from}
               strokeWidth="6"
               strokeLinecap="round"
               fill="none"
