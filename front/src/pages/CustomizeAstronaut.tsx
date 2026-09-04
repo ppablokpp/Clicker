@@ -15,6 +15,7 @@ import {
   PACK_SHAPES,
   TRAIL_SHAPES,
   BADGE_SHAPES,
+  PET_SHAPES,
   HELMET_STYLES,
   SUIT_STYLES,
   loadStyleIds,
@@ -29,14 +30,17 @@ type SlotKey = keyof AstronautStyleIds
 // otherwise need twelve tabs, which no phone strip survives.
 const TABS: {
   id: string
-  icon: 'helmet' | 'suit' | 'boots' | 'accessories' | 'accent'
-  label: 'tabHead' | 'tabBody' | 'slotBoots' | 'slotBracelet' | 'slotAccent'
+  icon: 'helmet' | 'suit' | 'pet' | 'accessories' | 'accent'
+  label: 'tabHead' | 'tabBody' | 'slotPet' | 'slotBracelet' | 'slotAccent'
   slots: SlotKey[]
 }[] = [
   { id: 'head', icon: 'helmet', label: 'tabHead', slots: ['helmet', 'antenna'] },
-  { id: 'body', icon: 'suit', label: 'tabBody', slots: ['suit', 'pack'] },
-  { id: 'boots', icon: 'boots', label: 'slotBoots', slots: ['boots'] },
+  // Boots moved in with the suit: they're the bottom of the same garment,
+  // and one tab holding a single three-option slot was the thinnest tab in
+  // the strip while the pet — a whole second character — had none at all.
+  { id: 'body', icon: 'suit', label: 'tabBody', slots: ['suit', 'pack', 'boots'] },
   { id: 'accessories', icon: 'accessories', label: 'slotBracelet', slots: ['bracelet', 'belt'] },
+  { id: 'pet', icon: 'pet', label: 'slotPet', slots: ['pet', 'pet2'] },
   { id: 'accent', icon: 'accent', label: 'slotAccent', slots: ['accent', 'badge', 'trail'] },
 ]
 
@@ -51,6 +55,8 @@ const SLOT_LABELS: Record<SlotKey, string> = {
   trail: 'slotTrail',
   badge: 'slotBadge',
   accent: 'slotAccent',
+  pet: 'slotPet1',
+  pet2: 'slotPet2',
 }
 
 function optionIds(slot: SlotKey): string[] {
@@ -75,6 +81,9 @@ function optionIds(slot: SlotKey): string[] {
       return TRAIL_SHAPES.map((o) => o.id)
     case 'badge':
       return BADGE_SHAPES.map((o) => o.id)
+    case 'pet':
+    case 'pet2':
+      return PET_SHAPES.map((o) => o.id)
   }
 }
 
@@ -161,6 +170,25 @@ function SlotIcon({ kind, size = 23 }: { kind: string; size?: number }) {
         <svg width={size} height={size} viewBox="6 26 88 58" fill="currentColor" aria-hidden="true">
           <rect x="14" y="34" width="30" height="42" rx="13" transform="rotate(-7 29 55)" />
           <rect x="56" y="34" width="30" height="42" rx="13" transform="rotate(7 71 55)" />
+        </svg>
+      )
+    case 'pet':
+      // The droid's own chassis, fins and antenna, flattened. Its eye is cut
+      // out rather than filled: at 23px a solid blob loses the one feature
+      // that makes it read as a creature instead of a backpack, and a hole
+      // survives where a second fill colour wouldn't (the tab flips between
+      // white-on-dark and dark-on-white).
+      return (
+        <svg width={size} height={size} viewBox="-24 -29 48 48" fill="currentColor" aria-hidden="true">
+          <path d="M0 -14 L0 -23" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" />
+          <circle cx="0" cy="-25" r="3.6" />
+          <rect x="-22" y="-7.5" width="8" height="15" rx="4" />
+          <rect x="14" y="-7.5" width="8" height="15" rx="4" />
+          <path
+            d="M-2 -14 H2 A13 13 0 0 1 15 -1 V1 A13 13 0 0 1 2 14 H-2 A13 13 0 0 1 -15 1 V-1 A13 13 0 0 1 -2 -14 Z
+               M6.5 -1 A6.5 6.5 0 1 1 -6.5 -1 A6.5 6.5 0 1 1 6.5 -1 Z"
+            fillRule="evenodd"
+          />
         </svg>
       )
     case 'accessories':

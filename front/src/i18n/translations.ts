@@ -170,6 +170,9 @@ export interface TranslationStrings {
     slotPack: string
     slotTrail: string
     slotBadge: string
+    slotPet: string
+    slotPet1: string
+    slotPet2: string
     tabHead: string
     tabBody: string
     styleNames: Record<string, string>
@@ -572,13 +575,15 @@ export const translations: Record<Language, TranslationStrings> = {
       slotPack: 'Mochila',
       slotTrail: 'Propulsor',
       slotBadge: 'Insignia',
+      slotPet: 'Mascotas',
+      slotPet1: 'Primera mascota',
+      slotPet2: 'Segunda mascota',
       tabHead: 'Cabeza',
       tabBody: 'Cuerpo',
       styleNames: {
         estandar: 'Estándar',
         doble: 'Doble',
         halo: 'Halo',
-        plana: 'Plana',
         cilindros: 'Cilindros',
         reactor: 'Reactor',
         alas: 'Alas',
@@ -599,6 +604,10 @@ export const translations: Record<Language, TranslationStrings> = {
         arena: 'Arena',
         cian: 'Cian',
         violeta: 'Violeta',
+        ninguna: 'Ninguna',
+        mascota1: 'Dron',
+        satelite: 'Satélite',
+        orbe: 'Orbe',
       },
     },
     store: {
@@ -1088,13 +1097,15 @@ export const translations: Record<Language, TranslationStrings> = {
       slotPack: 'Backpack',
       slotTrail: 'Thruster',
       slotBadge: 'Badge',
+      slotPet: 'Pets',
+      slotPet1: 'First pet',
+      slotPet2: 'Second pet',
       tabHead: 'Head',
       tabBody: 'Body',
       styleNames: {
         estandar: 'Standard',
         doble: 'Double',
         halo: 'Halo',
-        plana: 'Flat',
         cilindros: 'Canisters',
         reactor: 'Reactor',
         alas: 'Wings',
@@ -1115,6 +1126,10 @@ export const translations: Record<Language, TranslationStrings> = {
         arena: 'Sand',
         cian: 'Cyan',
         violeta: 'Violet',
+        ninguna: 'None',
+        mascota1: 'Droid',
+        satelite: 'Satellite',
+        orbe: 'Orb',
       },
     },
     store: {

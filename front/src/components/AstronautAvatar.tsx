@@ -1,6 +1,12 @@
 import { useId, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { DEFAULT_STYLE_IDS, resolveStyle, type AstronautStyleIds } from '../lib/astronautStyles'
+import {
+  DEFAULT_STYLE_IDS,
+  resolveStyle,
+  type AccentStyle,
+  type AstronautStyleIds,
+  type Ramp,
+} from '../lib/astronautStyles'
 
 // A whole starfield from one 1x1px element — every star is just another
 // point in a single giant box-shadow list, so there's no per-star DOM cost.
@@ -156,6 +162,18 @@ export function AstronautAvatar({
             <stop offset="42%" stopColor="#ffffff" stopOpacity="0" />
             <stop offset="100%" stopColor="#1b0b33" stopOpacity="0.5" />
           </radialGradient>
+          {/* The droid is built from the same shell as the helmet — same
+              stops, same outline, same shadow tone on its fins. It's part
+              of the astronaut's kit, so it should look like it came out of
+              the same factory; in its own fixed colour it read as a prop
+              that happened to be flying nearby. Graphite helmets therefore
+              keep the dark droid they already had, and every other helmet
+              shares the standard shell. */}
+          <radialGradient id={`${uid}-petBody`} cx="32%" cy="24%" r="84%">
+            <stop offset="0%" stopColor={shell.from} />
+            <stop offset="55%" stopColor={shell.mid} />
+            <stop offset="100%" stopColor={shell.to} />
+          </radialGradient>
           <linearGradient id={`${uid}-pack`} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor={accent.pack.from} />
             <stop offset="100%" stopColor={accent.pack.to} />
@@ -247,6 +265,20 @@ export function AstronautAvatar({
           </g>
         )}
 
+        {/* Companions — one per shoulder, each its own slot, and the only
+            slots that can be empty (see PET_SHAPES). Everyone starts with
+            neither.
+            They fly in the two upper corners, the pockets of space the
+            character never occupies — far enough out from the helmet's edge
+            that no combination of head furniture reaches them. Drawn before
+            the body so they can never cover the astronaut.
+            The right-hand one is placed at the mirror of the left's x
+            (VIEWBOX_W - 8) but is *not* flipped: mirroring would put every
+            specular highlight and eye glint on the shadow side and break the
+            single key light everything else in this file shares. */}
+        <Companion id={s.pet.id} uid={uid} shell={shell} accent={accent} x={8} />
+        <Companion id={s.pet2.id} uid={uid} shell={shell} accent={accent} x={VIEWBOX_W - 8} phase={-1.7} />
+
         {/* Life-support pack — only its shoulders peek out from behind the
             torso, the rest reading as depth behind the arms. Its silhouette
             is a slot; its colour follows the trim, since the pack is what
@@ -256,11 +288,6 @@ export function AstronautAvatar({
             <rect x="30" y="104" width="19" height="46" rx="9" fill={`url(#${uid}-pack)`} />
             <rect x="131" y="104" width="19" height="46" rx="9" fill={`url(#${uid}-pack)`} />
           </>
-        )}
-        {/* One wide slab behind the whole torso — reads as a flat backpack
-            rather than twin tanks. */}
-        {s.pack.id === 'plana' && (
-          <rect x="34" y="100" width="112" height="52" rx="18" fill={`url(#${uid}-pack)`} />
         )}
         {/* Taller, fatter tanks with visible caps: the heavy-duty kit. */}
         {s.pack.id === 'carga' && (
@@ -502,5 +529,242 @@ export function AstronautAvatar({
 
       </motion.svg>
     </div>
+  )
+}
+
+// --- Companions ----------------------------------------------------------
+// Three of them, and the family resemblance is deliberate: same chassis
+// material as the helmet, same trim colour on whatever glows, same
+// place → float → tilt rig. What separates them is the outline, because at
+// avatar scale that is the only thing left — the droid is a compact box, the
+// satellite is wide with panels, the orb is a circle inside two rings.
+//
+// Each is drawn around its own origin so the only thing that changes between
+// the two shoulders is where it's placed.
+//
+// `phase` shifts the animations with a negative delay, which starts them
+// mid-cycle instead of pausing them. Two companions on the same clock bob
+// and tilt in perfect lockstep, which reads as one mechanism rather than two
+// creatures — the whole illusion depends on them being out of step.
+
+type CompanionProps = { uid: string; shell: Ramp; accent: AccentStyle }
+
+function Companion({
+  id,
+  uid,
+  shell,
+  accent,
+  x,
+  phase = 0,
+}: CompanionProps & { id: string; x: number; phase?: number }) {
+  if (id === 'ninguna') return null
+  const delay = phase ? { animationDelay: `${phase}s` } : undefined
+  return (
+    <g transform={`translate(${x} 58) scale(0.86)`}>
+      <g className="animate-pet-float" style={delay}>
+        <g className="animate-pet-tilt" style={delay}>
+          {id === 'satelite' && <SatelliteBody uid={uid} shell={shell} accent={accent} delay={delay} />}
+          {id === 'orbe' && <OrbBody uid={uid} shell={shell} accent={accent} delay={delay} />}
+          {id === 'mascota1' && <DroidBody uid={uid} shell={shell} accent={accent} delay={delay} />}
+        </g>
+      </g>
+    </g>
+  )
+}
+
+type BodyProps = CompanionProps & { delay: { animationDelay: string } | undefined }
+
+/** The thruster the droid and the satellite share. The orb doesn't get one —
+ *  a thing that hovers inside its own rings has no business burning fuel. */
+function CompanionThruster({ accent }: { accent: AccentStyle }) {
+  return (
+    <g className="astro-flame">
+      <path d="M0 14 C7 20 8 27 0 36 C-8 27 -7 20 0 14 Z" fill={accent.flame.outer} opacity="0.55" />
+      <path className="astro-flame-core" d="M0 17 C4 22 5 27 0 32 C-5 27 -4 22 0 17 Z" fill={accent.flame.innerMid} />
+    </g>
+  )
+}
+
+// The original. It's the one thing on this character with a face, which is
+// deliberate: the astronaut's visor stays opaque (its colour is the
+// character's signature), so a single big expressive eye puts the
+// personality on the piece that can carry it without costing anything.
+function DroidBody({ uid, shell, accent, delay }: BodyProps) {
+  return (
+    <>
+      {/* Thruster, drawn first so the chassis overlaps its top. */}
+      <CompanionThruster accent={accent} />
+
+      {/* Antenna. */}
+      <path d="M0 -14 L0 -23" stroke={shell.stroke} strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="0" cy="-25" r="3.2" fill={accent.color} className="animate-pulse-glow" />
+
+      {/* Side fins — the only thing giving it a width beyond the chassis, so
+          it doesn't read as a floating ball. */}
+      <rect x="-21" y="-7" width="7" height="14" rx="3.5" fill={shell.to} />
+      <rect x="14" y="-7" width="7" height="14" rx="3.5" fill={shell.to} />
+
+      {/* Chassis. */}
+      <rect
+        x="-15"
+        y="-14"
+        width="30"
+        height="28"
+        rx="13"
+        fill={`url(#${uid}-petBody)`}
+        stroke={shell.stroke}
+        strokeWidth="1.6"
+      />
+      {/* Face plate, recessed so the eye sits *in* the droid rather than
+          being painted on its front. */}
+      <ellipse cx="0" cy="-1" rx="10.5" ry="9" fill="#1b2029" />
+      {/* Eye. The blink scales this group, not the plate. */}
+      <g className="animate-pet-blink" style={delay}>
+        <ellipse cx="0" cy="-1" rx="6" ry="6" fill={accent.color} />
+        <ellipse cx="-2" cy="-3.4" rx="2.2" ry="1.7" fill="#ffffff" opacity="0.85" />
+      </g>
+      {/* Specular streak across the top of the shell. */}
+      <ellipse cx="-4" cy="-10" rx="6.5" ry="2.2" fill="#ffffff" opacity="0.35" transform="rotate(-18 -4 -10)" />
+    </>
+  )
+}
+
+// The wide one. Solar panels on struts take it out to ±30 against the droid's
+// ±21, which is the whole point — with one on each shoulder, the pair has to
+// be tellable apart from across a leaderboard row. It stops there rather than
+// going wider: past about ±30 the outer panel clears the helmet's edge and
+// starts reaching for whatever container the avatar happens to sit in.
+//
+// It trades the droid's round eye for a scanning visor slit, and its bulb
+// antenna for a dish. Both changes say the same thing: this one is equipment,
+// where the droid is a creature.
+function SatelliteBody({ uid, shell, accent, delay }: BodyProps) {
+  // One panel, mirrored. `dir` is -1 for the left wing, 1 for the right.
+  const panel = (dir: number) => {
+    const inner = dir < 0 ? -16 : 13
+    const outer = dir < 0 ? -30 : 14
+    return (
+      <g key={dir}>
+        {/* Strut out to the panel. */}
+        <rect x={inner} y="-1.6" width="4" height="3.2" fill={shell.stroke} />
+        <rect
+          x={outer}
+          y="-8"
+          width="16"
+          height="16"
+          rx="2"
+          fill={accent.pack.to}
+          stroke={shell.stroke}
+          strokeWidth="1.4"
+        />
+        {/* Cell divisions — three narrow strips read as a panel where a flat
+            rectangle just reads as a flag. */}
+        <g stroke={shell.stroke} strokeWidth="1" opacity="0.55">
+          <path d={`M${outer + 5.33} -8 V8`} />
+          <path d={`M${outer + 10.67} -8 V8`} />
+          <path d={`M${outer} 0 H${outer + 16}`} />
+        </g>
+        {/* Panel glare — a single raking highlight, same upper-left light. */}
+        <path
+          d={`M${outer + 1} 7 L${outer + 8} -7`}
+          stroke="#ffffff"
+          strokeWidth="2.2"
+          opacity="0.16"
+          strokeLinecap="round"
+        />
+      </g>
+    )
+  }
+
+  return (
+    <>
+      <CompanionThruster accent={accent} />
+
+      {/* Dish antenna. A bowl seen from below, with its feed horn as the
+          trim-coloured point — the one bright spot up top, the same job the
+          droid's antenna bulb does. */}
+      <path d="M0 -12 L0 -19" stroke={shell.stroke} strokeWidth="2.4" strokeLinecap="round" />
+      <path
+        d="M-9 -20 A9.5 9.5 0 0 1 9 -20 Z"
+        fill={shell.to}
+        stroke={shell.stroke}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <circle cx="0" cy="-21.5" r="2.4" fill={accent.color} className="animate-pulse-glow" />
+
+      {panel(-1)}
+      {panel(1)}
+
+      {/* Chassis — boxier and squatter than the droid's, so even with the
+          panels hidden it wouldn't be mistaken for it. */}
+      <rect
+        x="-13"
+        y="-12"
+        width="26"
+        height="24"
+        rx="7"
+        fill={`url(#${uid}-petBody)`}
+        stroke={shell.stroke}
+        strokeWidth="1.6"
+      />
+      {/* Visor slit. A dim full-width bar underneath keeps the slit legible
+          at every frame; the bright segment on top is what sweeps. Its travel
+          (±4.5) plus its half-width (3) stays inside the plate's own half-
+          width (9.5), so the bar never needs clipping. */}
+      <rect x="-9.5" y="-4.5" width="19" height="9" rx="4.5" fill="#1b2029" />
+      <rect x="-7" y="-2" width="14" height="4" rx="2" fill={accent.color} opacity="0.28" />
+      <g className="animate-pet-scan" style={delay}>
+        <rect x="-3" y="-2.2" width="6" height="4.4" rx="2.2" fill={accent.color} />
+      </g>
+      {/* Specular streak across the top of the chassis. */}
+      <ellipse cx="-3.5" cy="-8.5" rx="5.5" ry="2" fill="#ffffff" opacity="0.35" transform="rotate(-18 -3.5 -8.5)" />
+    </>
+  )
+}
+
+// The round one. No fins, no thruster, no face plate — a core inside two
+// crossed rings that keep turning at different speeds, which is what makes it
+// read as a gyroscope rather than as a ball.
+//
+// It still blinks. That's what keeps it a pet: the rings are the machine, the
+// core is the animal, and without the blink it would just be a prop orbiting
+// the astronaut's shoulder.
+function OrbBody({ uid, shell, accent, delay }: BodyProps) {
+  return (
+    <>
+      {/* Rings, behind the core. Struck in the trim colour and translucent so
+          the half passing behind the sphere still reads as one continuous
+          ring rather than as two unrelated arcs. */}
+      <g className="animate-pet-orbit" style={delay}>
+        <ellipse cx="0" cy="0" rx="26" ry="8.5" fill="none" stroke={accent.color} strokeWidth="2.6" opacity="0.55" />
+      </g>
+      <g className="animate-pet-orbit-alt" style={delay}>
+        <ellipse
+          cx="0"
+          cy="0"
+          rx="22"
+          ry="7"
+          fill="none"
+          stroke={accent.color}
+          strokeWidth="2"
+          opacity="0.32"
+          transform="rotate(62)"
+        />
+      </g>
+
+      {/* Shell. */}
+      <circle cx="0" cy="0" r="15" fill={`url(#${uid}-petBody)`} stroke={shell.stroke} strokeWidth="1.6" />
+      {/* Recessed well, so the core sits *in* the sphere. */}
+      <circle cx="0" cy="0" r="10.5" fill="#1b2029" />
+      {/* Core — the eye, and the reason this thing is alive. */}
+      <g className="animate-pet-blink" style={delay}>
+        <circle cx="0" cy="0" r="9" fill={accent.color} opacity="0.22" />
+        <circle cx="0" cy="0" r="6.5" fill={accent.color} />
+        <ellipse cx="-2.2" cy="-2.6" rx="2.4" ry="1.8" fill="#ffffff" opacity="0.85" />
+      </g>
+      {/* Specular streak across the top of the sphere. */}
+      <ellipse cx="-4.5" cy="-10.5" rx="6" ry="2.1" fill="#ffffff" opacity="0.35" transform="rotate(-24 -4.5 -10.5)" />
+    </>
   )
 }

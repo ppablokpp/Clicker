@@ -33,7 +33,7 @@ type PiecePreviewProps = { size?: number } & (
   | { slot: 'accent'; style: AccentStyle }
   // Shape-only slots: the option carries no colour, so the preview picks a
   // neutral one. What's being sold here is the silhouette.
-  | { slot: 'antenna' | 'pack' | 'trail' | 'badge'; style: ShapeOption }
+  | { slot: 'antenna' | 'pack' | 'trail' | 'badge' | 'pet' | 'pet2'; style: ShapeOption }
 )
 
 const SHAPE_INK = '#cfc8e4'
@@ -49,9 +49,12 @@ export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps
       {props.slot === 'bracelet' && <BraceletPiece uid={uid} style={props.style} />}
       {props.slot === 'belt' && <BeltPiece uid={uid} style={props.style} />}
       {props.slot === 'accent' && <AccentPiece uid={uid} style={props.style} />}
-      {(props.slot === 'antenna' || props.slot === 'pack' || props.slot === 'trail' || props.slot === 'badge') && (
-        <ShapePiece slot={props.slot} id={props.style.id} />
-      )}
+      {(props.slot === 'antenna' ||
+        props.slot === 'pack' ||
+        props.slot === 'trail' ||
+        props.slot === 'badge' ||
+        props.slot === 'pet' ||
+        props.slot === 'pet2') && <ShapePiece slot={props.slot} id={props.style.id} />}
     </svg>
   )
 }
@@ -61,6 +64,110 @@ export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps
 // have — these all inherit their real palette from the slot they attach to
 // once worn.
 function ShapePiece({ slot, id }: { slot: string; id: string }) {
+  // The empty option — only the two pet slots have one. An outline where it
+  // would go, so the card still reads as a choice with a shape to it rather
+  // than as a card that failed to draw. Keyed off the id, not the slot, so
+  // any future slot that gains a "none" gets the same placeholder for free.
+  if (id === 'ninguna') {
+    return (
+      <circle
+        cx="50"
+        cy="50"
+        r="30"
+        fill="none"
+        stroke={SHAPE_INK}
+        strokeWidth="3"
+        strokeDasharray="7 8"
+        strokeLinecap="round"
+        opacity="0.4"
+      />
+    )
+  }
+
+  if (slot === 'pet' || slot === 'pet2') {
+    // The same companions AstronautAvatar flies, redrawn at the card's scale
+    // and centred. Each is scaled to its own extents rather than sharing one
+    // transform: the droid is tall and narrow, the satellite is wide and
+    // short, and one shared scale would leave whichever lost the coin toss
+    // either cramped against the frame or floating in it.
+    if (id === 'satelite') {
+      // Widest of the three (±30 with the panels), so it's the width that
+      // sets the scale here, not the height.
+      return (
+        <g transform="translate(50 42.2) scale(1.3)">
+          <path d="M0 14 C7 20 8 27 0 36 C-8 27 -7 20 0 14 Z" fill={SHAPE_GLOW} opacity="0.5" />
+          {/* Dish. */}
+          <path d="M0 -12 L0 -19" stroke={SHAPE_INK} strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M-9 -20 A9.5 9.5 0 0 1 9 -20 Z" fill={SHAPE_INK} />
+          <circle cx="0" cy="-21.5" r="2.4" fill={SHAPE_GLOW} />
+          {/* Panels on their struts. */}
+          {[-1, 1].map((dir) => {
+            const outer = dir < 0 ? -30 : 14
+            return (
+              <g key={dir}>
+                <rect x={dir < 0 ? -16 : 13} y="-1.6" width="3" height="3.2" fill={SHAPE_INK} />
+                <rect x={outer} y="-8" width="16" height="16" rx="2" fill={SHAPE_INK} opacity="0.6" />
+                <g stroke="#1b2029" strokeWidth="1.2" opacity="0.5">
+                  <path d={`M${outer + 5.33} -8 V8`} />
+                  <path d={`M${outer + 10.67} -8 V8`} />
+                  <path d={`M${outer} 0 H${outer + 16}`} />
+                </g>
+              </g>
+            )
+          })}
+          {/* Chassis and visor slit. */}
+          <rect x="-13" y="-12" width="26" height="24" rx="7" fill={SHAPE_INK} />
+          <rect x="-9.5" y="-4.5" width="19" height="9" rx="4.5" fill="#1b2029" />
+          <rect x="-7" y="-2" width="14" height="4" rx="2" fill={SHAPE_GLOW} />
+        </g>
+      )
+    }
+    if (id === 'orbe') {
+      // Rings out to ±26 and nothing above or below them, so this one sits
+      // dead centre and scales off its width too.
+      return (
+        <g transform="translate(50 50) scale(1.55)">
+          <ellipse cx="0" cy="0" rx="26" ry="8.5" fill="none" stroke={SHAPE_GLOW} strokeWidth="2.6" opacity="0.6" />
+          <ellipse
+            cx="0"
+            cy="0"
+            rx="22"
+            ry="7"
+            fill="none"
+            stroke={SHAPE_GLOW}
+            strokeWidth="2"
+            opacity="0.35"
+            transform="rotate(62)"
+          />
+          <circle cx="0" cy="0" r="15" fill={SHAPE_INK} />
+          <circle cx="0" cy="0" r="10.5" fill="#1b2029" />
+          <circle cx="0" cy="0" r="9" fill={SHAPE_GLOW} opacity="0.25" />
+          <circle cx="0" cy="0" r="6.5" fill={SHAPE_GLOW} />
+          <ellipse cx="-2.2" cy="-2.6" rx="2.4" ry="1.8" fill="#ffffff" opacity="0.85" />
+        </g>
+      )
+    }
+    // The droid. Its geometry spans y -25…36 around an origin at the chassis,
+    // so it needs recentring to sit in a square frame.
+    return (
+      <g transform="translate(50 43.1) scale(1.25)">
+        {/* Thruster plume. */}
+        <path d="M0 14 C7 20 8 27 0 36 C-8 27 -7 20 0 14 Z" fill={SHAPE_GLOW} opacity="0.5" />
+        {/* Antenna. */}
+        <path d="M0 -14 L0 -23" stroke={SHAPE_INK} strokeWidth="2.6" strokeLinecap="round" />
+        <circle cx="0" cy="-25" r="3.2" fill={SHAPE_GLOW} />
+        {/* Side fins. */}
+        <rect x="-21" y="-7" width="7" height="14" rx="3.5" fill={SHAPE_INK} opacity="0.7" />
+        <rect x="14" y="-7" width="7" height="14" rx="3.5" fill={SHAPE_INK} opacity="0.7" />
+        {/* Chassis, face plate and eye. */}
+        <rect x="-15" y="-14" width="30" height="28" rx="13" fill={SHAPE_INK} />
+        <ellipse cx="0" cy="-1" rx="10.5" ry="9" fill="#1b2029" />
+        <ellipse cx="0" cy="-1" rx="6" ry="6" fill={SHAPE_GLOW} />
+        <ellipse cx="-2" cy="-3.4" rx="2.2" ry="1.7" fill="#ffffff" opacity="0.85" />
+      </g>
+    )
+  }
+
   if (slot === 'antenna') {
     // Drawn over a hint of helmet crown so the piece has something to sit
     // on — an antenna floating alone doesn't read as headgear.
@@ -98,7 +205,6 @@ function ShapePiece({ slot, id }: { slot: string; id: string }) {
             <rect x="56" y="24" width="20" height="52" rx="10" fill={SHAPE_INK} />
           </>
         )}
-        {id === 'plana' && <rect x="14" y="26" width="72" height="48" rx="16" fill={SHAPE_INK} />}
         {id === 'carga' && (
           <>
             <rect x="18" y="16" width="28" height="68" rx="13" fill={SHAPE_INK} />

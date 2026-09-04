@@ -114,7 +114,6 @@ export const ANTENNA_SHAPES: ShapeOption[] = [{ id: 'estandar' }, { id: 'doble' 
 /** Life-support pack — peeks past the shoulders, so it changes the outline. */
 export const PACK_SHAPES: ShapeOption[] = [
   { id: 'estandar' },
-  { id: 'plana' },
   { id: 'carga' },
   { id: 'aletas' },
   { id: 'cilindros' },
@@ -136,6 +135,32 @@ export const TRAIL_SHAPES: ShapeOption[] = [{ id: 'llama' }, { id: 'ionico' }, {
  * decoration that refuses to match the outfit just looks like an oversight.
  */
 export const BADGE_SHAPES: ShapeOption[] = [{ id: 'planeta' }, { id: 'estrella' }, { id: 'rayo' }]
+
+/**
+ * The companion droid. The one slot that DOES get a "none", and by default
+ * gets it: every other slot dresses a body part that exists whether you
+ * choose for it or not, but a pet is a second character on screen. Forcing
+ * one on everybody would change what the avatar *is* rather than how it
+ * looks, so this one is opt-in.
+ *
+ * Two slots share this list — `pet` flies off the left shoulder, `pet2` off
+ * the right — rather than one slot with a "two droids" option, because they
+ * are independent choices: one, the other, both, or neither. Same catalogue
+ * for both, so a companion added here shows up on either side for free.
+ *
+ * The three share a construction — helmet-shell chassis, trim-coloured light,
+ * the same float/tilt — and differ in silhouette, which is the only thing
+ * that survives at avatar scale: the droid is a compact box, the satellite is
+ * wide with panels, the orb is a circle inside two rings. Picking two of them
+ * should read as two different companions from across the screen, not as the
+ * same one twice in different paint.
+ */
+export const PET_SHAPES: ShapeOption[] = [
+  { id: 'ninguna' },
+  { id: 'mascota1' },
+  { id: 'satelite' },
+  { id: 'orbe' },
+]
 
 // --- Helmets -------------------------------------------------------------
 // The shell stays the standard white/lilac for almost every helmet and only
@@ -398,6 +423,8 @@ export interface AstronautStyleIds {
   pack: string
   trail: string
   badge: string
+  pet: string
+  pet2: string
   accent: string
 }
 
@@ -412,6 +439,8 @@ export interface ResolvedAstronautStyle {
   pack: ShapeOption
   trail: ShapeOption
   badge: ShapeOption
+  pet: ShapeOption
+  pet2: ShapeOption
   accent: AccentStyle
 }
 
@@ -425,6 +454,8 @@ export const DEFAULT_STYLE_IDS: AstronautStyleIds = {
   pack: 'estandar',
   trail: 'llama',
   badge: 'planeta',
+  pet: 'ninguna',
+  pet2: 'ninguna',
   accent: 'violeta',
 }
 
@@ -447,6 +478,8 @@ export function resolveStyle(ids: AstronautStyleIds): ResolvedAstronautStyle {
     pack: pick(PACK_SHAPES, ids.pack),
     trail: pick(TRAIL_SHAPES, ids.trail),
     badge: pick(BADGE_SHAPES, ids.badge),
+    pet: pick(PET_SHAPES, ids.pet),
+    pet2: pick(PET_SHAPES, ids.pet2),
     accent: pick(ACCENT_STYLES, ids.accent),
   }
 }
@@ -473,6 +506,8 @@ export function loadStyleIds(): AstronautStyleIds {
       pack: typeof parsed.pack === 'string' ? parsed.pack : DEFAULT_STYLE_IDS.pack,
       trail: typeof parsed.trail === 'string' ? parsed.trail : DEFAULT_STYLE_IDS.trail,
       badge: typeof parsed.badge === 'string' ? parsed.badge : DEFAULT_STYLE_IDS.badge,
+      pet: typeof parsed.pet === 'string' ? parsed.pet : DEFAULT_STYLE_IDS.pet,
+      pet2: typeof parsed.pet2 === 'string' ? parsed.pet2 : DEFAULT_STYLE_IDS.pet2,
       accent: typeof parsed.accent === 'string' ? parsed.accent : DEFAULT_STYLE_IDS.accent,
     }
   } catch {

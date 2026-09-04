@@ -169,27 +169,118 @@ body::before {
   animation: astro-thruster 0.79s ease-in-out infinite reverse;
 }
 
-/* The companion drone drifts on its own slower cycle than the character's
-   bob, so the two never look locked together — which is what makes it read
-   as a separate thing flying alongside rather than as part of the sprite. */
-@keyframes astro-pet-bob {
+/* The companion droid. Three separate motions on three deliberately
+   mismatched periods (3.4s drift, 5.2s tilt, 5.9s blink): because none of
+   them divides evenly into another, the combined movement never visibly
+   repeats, which is the difference between something that reads as alive
+   and something that reads as a looping GIF. All of them are also out of
+   step with the astronaut's own 4.5s bob, so the pair never locks together
+   into looking like one sprite.
+   Each lives on its own nested <g> because a CSS transform would otherwise
+   overwrite the `transform` attribute that positions the droid. */
+@keyframes astro-pet-float {
   0%,
   100% {
-    transform: translateY(0) translateX(0);
+    transform: translate(0, 0);
   }
   50% {
-    transform: translateY(-7px) translateX(3px);
+    transform: translate(3px, -9px);
   }
 }
 
-.animate-pet-bob {
-  animation: astro-pet-bob 3.2s ease-in-out infinite;
+@keyframes astro-pet-tilt {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+/* Open almost the whole cycle, shut for a couple of frames — a blink is
+   defined by how brief it is, so the closed keyframes sit right on top of
+   each other near the end rather than being spread evenly. */
+@keyframes astro-pet-blink {
+  0%,
+  90%,
+  100% {
+    transform: scaleY(1);
+  }
+  93%,
+  95% {
+    transform: scaleY(0.06);
+  }
+}
+
+.animate-pet-float {
+  animation: astro-pet-float 3.4s ease-in-out infinite;
+}
+
+.animate-pet-tilt {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: astro-pet-tilt 5.2s ease-in-out infinite;
+}
+
+.animate-pet-blink {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: astro-pet-blink 5.9s ease-in-out infinite;
+}
+
+/* The satellite's visor. It has no eye to blink, so its life comes from a
+   bright segment sweeping the slit instead — the same trick that reads as
+   "this thing is looking around" on a machine with no pupil. Travel is kept
+   under the face plate's half-width so the bar never needs clipping. */
+@keyframes astro-pet-scan {
+  0%,
+  100% {
+    transform: translateX(-4.5px);
+  }
+  50% {
+    transform: translateX(4.5px);
+  }
+}
+
+/* The orb's two rings. A plain in-plane spin rather than a faked 3D orbit:
+   two ellipses crossed at an angle and turning at different speeds already
+   read as a gyroscope, and they keep their shape at every frame — a ring
+   animated by squashing its radius spends half the cycle as a flat line. */
+@keyframes astro-pet-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-pet-scan {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: astro-pet-scan 2.6s ease-in-out infinite;
+}
+
+.animate-pet-orbit {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: astro-pet-orbit 9s linear infinite;
+}
+
+/* Counter-rotating and slower, so the two rings never line up. */
+.animate-pet-orbit-alt {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: astro-pet-orbit 13s linear infinite reverse;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .astro-flame,
   .astro-flame-core,
-  .animate-pet-bob {
+  .animate-pet-float,
+  .animate-pet-tilt,
+  .animate-pet-blink,
+  .animate-pet-scan,
+  .animate-pet-orbit,
+  .animate-pet-orbit-alt {
     animation: none;
   }
 }

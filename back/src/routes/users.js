@@ -34,6 +34,8 @@ const ASTRONAUT_SLOTS = [
   'pack',
   'trail',
   'badge',
+  'pet',
+  'pet2',
 ]
 const STYLE_ID_RE = /^[a-z0-9_-]{1,32}$/
 
