@@ -76,7 +76,11 @@ export function Meteor({ colors, glow, label, onCapture, onMiss }: MeteorProps) 
           className="meteor-rock-spin relative flex items-center justify-center p-2.5"
           style={{ filter: `drop-shadow(0 0 6px ${glow})` }}
         >
-          <Asteroid idPrefix="meteor" size={34} colors={colors} />
+          {/* Compact, and not turning. At 34px the full crater field is a few
+              hundred shapes resolving into flat noise, and this one is already
+              streaking across the whole screen — a surface rotating underneath
+              that just muddies the motion that matters. */}
+          <Asteroid idPrefix="meteor" size={34} colors={colors} detail="compact" spin={false} />
         </button>
       </div>
     </div>

@@ -100,6 +100,31 @@ body::before {
   animation: ripple 0.6s ease-out forwards;
 }
 
+/* The asteroid's surface travelling across a still silhouette — what makes
+   it read as a rotating sphere rather than a spinning disc.
+   One full band width per cycle. The band is drawn twice, SURFACE_BAND apart,
+   so at -SURFACE_BAND the second copy sits exactly where the first began and
+   the loop closes with no seam and no fade. Keep the 300 here in sync with
+   SURFACE_BAND in Home.tsx — they are the same distance.
+   px inside an SVG are user units, so this is 300 viewBox units, not screen
+   pixels. 60s across a window only ~84 units wide works out slow enough to
+   read as a body tumbling rather than a texture being dragged. */
+@keyframes rock-surface {
+  to {
+    transform: translateX(-300px);
+  }
+}
+
+.rock-surface {
+  animation: rock-surface 60s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rock-surface {
+    animation: none;
+  }
+}
+
 @keyframes pulse-glow {
   0%,
   100% {

@@ -57,13 +57,18 @@ import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
-import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
+import {
+  MATERIAL_TIER_COLORS,
+  MATERIAL_BUTTON_THEMES,
+  MATERIAL_ABBREVIATIONS,
+  type MaterialTierColors,
+} from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
-import type { AsteroidColors } from '../components/Asteroid'
+import { Asteroid, type AsteroidColors } from '../components/Asteroid'
 import { TapEffectsLayer, type TapEffectsHandle } from '../components/TapEffectsLayer'
 
 interface InfoModalData {
@@ -157,9 +162,18 @@ function generateStars(count: number, opacity: number): string {
 }
 
 // Glowing ring around the counter that fills up towards the prestige target.
-// Once maxed, it stops being a progress indicator and becomes a spinning gold
-// halo instead — a visibly different state for "you've got something to do here".
-function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
+//
+// It's painted in the mineral currently being mined, so the ring, the rock and
+// every reading in the console all move to the new palette together on a
+// prestige. It used to be violet whatever you were on, which quietly said
+// "amethyst" while you stood on gold.
+//
+// The maxed state stays gold on purpose, and that's the one place the tier
+// colour isn't used: at that point the ring has stopped reporting progress and
+// become a "there's something to do here" halo. Tinting it with the tier would
+// make the finished state look like more of the same bar rather than a state
+// change — and on the gold tier it would be invisible.
+function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean; colors: MaterialTierColors }) {
   const radius = 92
   const circumference = 2 * Math.PI * radius
   const offset = circumference * (1 - Math.max(0, Math.min(1, pct)))
@@ -170,9 +184,13 @@ function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
       className={`pointer-events-none absolute inset-0 h-full w-full overflow-visible -rotate-90 ${isMaxed ? 'animate-spin-slow' : ''}`}
     >
       <defs>
+        {/* fill → light rather than two arbitrary hues: it's the same material
+            ramp the rock is lit with, so the ring reads as the same substance
+            catching the same light instead of as a UI accent that happens to
+            match. */}
         <linearGradient id="homeProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#a855f7" />
-          <stop offset="100%" stopColor="#e879f9" />
+          <stop offset="0%" stopColor={colors.fill} />
+          <stop offset="100%" stopColor={colors.light} />
         </linearGradient>
         <linearGradient id="homePrestigeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fde68a" />
@@ -193,77 +211,27 @@ function ProgressRing({ pct, isMaxed }: { pct: number; isMaxed: boolean }) {
         strokeDashoffset={isMaxed ? 0 : offset}
         style={{
           transition: 'stroke-dashoffset 0.6s ease-out',
-          filter: isMaxed
-            ? 'drop-shadow(0 0 10px rgba(245,158,11,0.8))'
-            : 'drop-shadow(0 0 6px rgba(217,70,239,0.55))',
+          // The tier's own glow, which is the same one the halo behind the
+          // rock uses — so ring and rock bloom in one colour, not two.
+          filter: isMaxed ? 'drop-shadow(0 0 10px rgba(245,158,11,0.8))' : `drop-shadow(0 0 6px ${colors.glow})`,
         }}
       />
     </svg>
   )
 }
 
-type Point = [number, number]
+// The rock's geometry, crater field and lighting all live in
+// components/Asteroid.tsx now — one copy for the whole game, instead of the
+// three hand-mirrored ones this file used to be one of.
 
-// Deterministic wobble (not random) so the shape is stable across renders —
-// two overlapping sine waves at different frequencies read as an organic,
-// rounded rock instead of a perfect circle or the earlier jagged/spiky one.
-function buildRoundRockOutline(pointCount: number, baseRadius: number, jitter: number): Point[] {
-  const points: Point[] = []
-  for (let i = 0; i < pointCount; i++) {
-    const angle = (i / pointCount) * Math.PI * 2
-    const wobble = Math.sin(angle * 3) * jitter * 0.6 + Math.sin(angle * 5 + 1) * jitter * 0.4
-    const r = baseRadius + wobble
-    points.push([50 + Math.cos(angle) * r, 50 + Math.sin(angle) * r])
-  }
-  return points
-}
-
-const ASTEROID_POINTS = buildRoundRockOutline(20, 42, 3)
-  .map((p) => p.join(','))
-  .join(' ')
-
-// Craters vary in size and get their own tiny rim highlight (offset toward
-// the same upper-left "sun" the body gradient and sunlit patch below all
-// share) so each one reads as an actual dented impact instead of a flat
-// dark dot.
-const CRATERS = [
-  { cx: 38, cy: 38, r: 6.5 },
-  { cx: 63, cy: 55, r: 8.5 },
-  { cx: 68, cy: 32, r: 4 },
-  { cx: 42, cy: 66, r: 5.5 },
-  { cx: 55, cy: 40, r: 3 },
-  { cx: 28, cy: 55, r: 3.5 },
-  { cx: 60, cy: 68, r: 2.5 },
-]
-
-// Fine surface grain — small dark speckles scattered across the body,
-// clipped to the rock's own silhouette, purely to break up the gradient
-// fill so it doesn't read as smooth/plasticky at this size.
-const SPECKLES = [
-  { cx: 30, cy: 28, r: 1.4 },
-  { cx: 48, cy: 24, r: 1 },
-  { cx: 72, cy: 45, r: 1.2 },
-  { cx: 58, cy: 58, r: 1 },
-  { cx: 35, cy: 48, r: 0.9 },
-  { cx: 45, cy: 72, r: 1.3 },
-  { cx: 25, cy: 62, r: 1 },
-  { cx: 65, cy: 25, r: 0.9 },
-]
-
-// Cosmetic color tier every 10 objects broken — same round rock throughout,
-// just recolored so a long session doesn't stare at the exact same one
-// forever. Per-object progress isn't shown visually at all right now (the
-// earlier cracking-apart version and the bar under it both got dropped) —
-// the rock just glows a little brighter as `pct` climbs. `light`/`dark` feed
-// a radial gradient (instead of the old flat `fill`) so the rock reads as a
-// lit, rounded body — brightest toward the upper-left "sun", falling off to
-// a near-black shadow at the opposite rim.
-const DEFAULT_SPECKLE_COLOR = 'rgba(0,0,0,0.22)'
-const OBJECT_TIERS = MATERIAL_TIER_COLORS.map((colors) => ({
-  ...colors,
-  speckleColor: DEFAULT_SPECKLE_COLOR,
-  speckles: SPECKLES,
-}))
+// Cosmetic color tier every 10 objects broken — same rock throughout, just
+// recolored so a long session doesn't stare at the exact same one forever.
+// Per-object progress isn't shown visually at all right now (the earlier
+// cracking-apart version and the bar under it both got dropped) — the rock
+// just glows a little brighter as `pct` climbs. These three feed <Asteroid>'s
+// own gradients; the speckle colour is the same for every tier, so it's the
+// component's default and isn't passed.
+const OBJECT_TIERS = MATERIAL_TIER_COLORS
 
 // Lifetime-platino threshold each OBJECT_TIERS entry unlocks at — first
 // jump is 10M, then ×100 per tier after that. Index-aligned with
@@ -295,73 +263,21 @@ function SpaceObject({ tierIndex, pct }: { tierIndex: number; pct: number }) {
           opacity: 0.22 + pct * 0.5,
         }}
       />
+      {/* The silhouette no longer rotates, and that's the whole change.
+          Spinning an irregular outline is what a flat disc does; a sphere
+          holds its outline still and lets the surface travel across it. So the
+          rock keeps only its bob, and the craters scroll underneath (see
+          .rock-surface below). */}
       <motion.div
-        animate={{ rotate: 360, y: [0, -6, 0] }}
-        transition={{
-          rotate: { duration: 26, repeat: Infinity, ease: 'linear' },
-          y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-        }}
+        animate={{ y: [0, -6, 0] }}
+        transition={{ y: { duration: 3, repeat: Infinity, ease: 'easeInOut' } }}
       >
         {/* No `filter: drop-shadow()` here on purpose — same mobile
             Chromium flash-to-square bug as the old blurred glow div above,
             just triggered by this SVG's own filter instead. The ambient
             radial-gradient glow behind the rock already sells the "aura"
             without needing a second, shape-hugging filtered glow on top. */}
-        <svg viewBox="0 0 100 100" width={76} height={76}>
-          <defs>
-            {/* Body shading — brightest toward the upper-left "sun", falling
-                off to a near-black shadow at the far rim, so the rock reads
-                as a lit, rounded body instead of a flat color-filled shape. */}
-            <radialGradient id="rockBody" cx="34%" cy="30%" r="80%">
-              <stop offset="0%" stopColor={tier.light} />
-              <stop offset="45%" stopColor={tier.fill} />
-              <stop offset="100%" stopColor={tier.dark} />
-            </radialGradient>
-            {/* Crater depth — dark well with a faint lighter rim, reused by
-                every crater below instead of a single flat dot each. */}
-            <radialGradient id="craterWell" cx="50%" cy="38%" r="70%">
-              <stop offset="0%" stopColor="rgba(0,0,0,0.6)" />
-              <stop offset="75%" stopColor="rgba(0,0,0,0.32)" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.05)" />
-            </radialGradient>
-            <clipPath id="rockSilhouette">
-              <polygon points={ASTEROID_POINTS} />
-            </clipPath>
-          </defs>
-
-          <polygon
-            points={ASTEROID_POINTS}
-            fill="url(#rockBody)"
-            stroke="rgba(0,0,0,0.35)"
-            strokeWidth={1.5}
-            strokeLinejoin="round"
-          />
-
-          {/* Everything below is clipped to the rock's own silhouette so
-              none of it ever pokes past the jagged outline. */}
-          <g clipPath="url(#rockSilhouette)">
-            {CRATERS.map((c, i) => (
-              <g key={i}>
-                <circle cx={c.cx} cy={c.cy} r={c.r} fill="url(#craterWell)" />
-                {/* Tiny rim highlight on each crater's own sunlit edge —
-                    sells the "dent", not just a dark smudge. */}
-                <circle
-                  cx={c.cx - c.r * 0.32}
-                  cy={c.cy - c.r * 0.32}
-                  r={c.r * 0.3}
-                  fill="rgba(255,255,255,0.16)"
-                />
-              </g>
-            ))}
-            {tier.speckles.map((s, i) => (
-              <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={tier.speckleColor} />
-            ))}
-            {/* Sunlit patch — a soft highlight blob, same corner as the body
-                gradient's own bright spot, layered on top for a bit more
-                punch without needing a second light source to fake. */}
-            <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
-          </g>
-        </svg>
+        <Asteroid idPrefix="homeRock" size={76} colors={tier} />
       </motion.div>
     </div>
   )
@@ -376,49 +292,20 @@ function SpaceObject({ tierIndex, pct }: { tierIndex: number; pct: number }) {
 // silently winning for every other rock on the page.
 function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolean }) {
   const tier = OBJECT_TIERS[tierIndex]
-  const bodyId = `trajRockBody-${tierIndex}`
-  const craterId = `trajCraterWell-${tierIndex}`
-  const clipId = `trajRockSilhouette-${tierIndex}`
   return (
-    <motion.div
+    <div
       className={`relative flex h-12 w-12 shrink-0 items-center justify-center transition-opacity ${dimmed ? 'opacity-60' : ''}`}
-      animate={{ rotate: 360 }}
-      transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
     >
-      <svg viewBox="0 0 100 100" width={48} height={48}>
-        <defs>
-          <radialGradient id={bodyId} cx="34%" cy="30%" r="80%">
-            <stop offset="0%" stopColor={tier.light} />
-            <stop offset="45%" stopColor={tier.fill} />
-            <stop offset="100%" stopColor={tier.dark} />
-          </radialGradient>
-          <radialGradient id={craterId} cx="50%" cy="38%" r="70%">
-            <stop offset="0%" stopColor="rgba(0,0,0,0.6)" />
-            <stop offset="75%" stopColor="rgba(0,0,0,0.32)" />
-            <stop offset="100%" stopColor="rgba(0,0,0,0.05)" />
-          </radialGradient>
-          <clipPath id={clipId}>
-            <polygon points={ASTEROID_POINTS} />
-          </clipPath>
-        </defs>
-        <polygon
-          points={ASTEROID_POINTS}
-          fill={`url(#${bodyId})`}
-          stroke="rgba(0,0,0,0.35)"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-        />
-        <g clipPath={`url(#${clipId})`}>
-          {CRATERS.map((c, i) => (
-            <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill={`url(#${craterId})`} />
-          ))}
-          {tier.speckles.map((s, i) => (
-            <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={tier.speckleColor} />
-          ))}
-          <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
-        </g>
-      </svg>
-    </motion.div>
+      {/* Turns on its Y axis like Home's rock does, not on Z. Spinning the
+          whole element was rolling a flat disc; the surface travelling across
+          a still outline is what a sphere rotating actually looks like. That
+          motion lives inside <Asteroid> now, so there is nothing to animate
+          out here.
+          Compact detail: these are 48px, and at that size the full crater
+          field is several hundred shapes resolving into noise — with six of
+          them in the list at once. */}
+      <Asteroid idPrefix={`traj-${tierIndex}`} size={48} colors={tier} detail="compact" />
+    </div>
   )
 }
 
@@ -1717,7 +1604,7 @@ export function Home() {
             {/* Scaled down from the object's own box — the ring used to hug
                 the object edge-to-edge, which read as oversized next to it. */}
             <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
-              <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} />
+              <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} colors={OBJECT_TIERS[currentTierIndex]} />
             </div>
 
             <div className="absolute inset-0 flex items-center justify-center">

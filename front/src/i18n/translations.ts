@@ -414,7 +414,7 @@ export const translations: Record<Language, TranslationStrings> = {
     home: {
       objectLabel: (n) => `Objeto #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
-      prestigeReady: '¡Nuevo mineral disponible!',
+      prestigeReady: '¡Mineral disponible!',
       viewModeLabel: 'Ajustar vista',
       changePrestige: 'Abandonar asteroide',
       tps: 't/s',
@@ -937,7 +937,7 @@ export const translations: Record<Language, TranslationStrings> = {
     home: {
       objectLabel: (n) => `Object #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} levels`,
-      prestigeReady: 'New mineral available!',
+      prestigeReady: 'Mineral available!',
       viewModeLabel: 'Adjust view',
       changePrestige: 'Leave asteroid',
       tps: 't/s',
