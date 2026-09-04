@@ -1399,7 +1399,7 @@ export const usersRepository = {
     // account stays off the record entirely, on purpose, until whoever's
     // behind it actually signs in.
     const result = await database.query(
-      `SELECT id, username, avatar_url, lifetime_platino, best_cps
+      `SELECT id, username, avatar_url, lifetime_platino, best_cps, astronaut_style
        FROM users
        WHERE ${column} > 0 AND id !~ '^anon_'
        ORDER BY ${column} DESC
@@ -1412,6 +1412,10 @@ export const usersRepository = {
       avatarUrl: row.avatar_url,
       lifetimePlatino: Number(row.lifetime_platino),
       bestCps: Number(row.best_cps),
+      // Drives each row's little portrait — the point of storing cosmetics
+      // server-side is that other players see the character you built, and
+      // the leaderboard is where most of them will ever see it.
+      astronautStyle: row.astronaut_style ?? null,
     }))
   },
 

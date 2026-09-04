@@ -10,6 +10,8 @@ export interface LeaderboardEntry {
   avatarUrl: string | null
   lifetimePlatino: number
   bestCps: number
+  /** Their equipped cosmetics; null for anyone who never customized. */
+  astronautStyle: unknown
 }
 
 export function useLeaderboard(sortBy: LeaderboardSort = 'clicks') {

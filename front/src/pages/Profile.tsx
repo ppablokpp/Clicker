@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, ChevronRight, Crown, LogOut, Mail, Pencil, Settings, Volume2, VolumeX, X } from 'lucide-react'
+import { Check, ChevronRight, Crown, Languages, LogOut, Mail, Pencil, Settings, Volume2, VolumeX, X } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
+import { useAppAuth } from '../hooks/useAppAuth'
 import { formatPlatino } from '../lib/formatPlatino'
 import { loadStyleIds } from '../lib/astronautStyles'
 import { isSoundEnabled, setSoundEnabled } from '../lib/soundSettings'
@@ -41,15 +42,22 @@ export function Profile() {
   // Re-read on every mount: coming back from the customization screen
   // remounts this, which is what picks up a change made there.
   const [styleIds, setStyleIds] = useState(() => loadStyleIds())
+  // Deliberately the guest-capable token, not Clerk's: a guest has their own
+  // row and their own saved cosmetics, and Clerk's getToken returns null for
+  // them — which would 401 and silently fall back to whatever this browser
+  // happened to cache. Everything else on this screen (the username edit)
+  // still uses the real Clerk token, because that one genuinely needs an
+  // account behind it.
+  const { getToken: getStyleToken } = useAppAuth()
   useEffect(() => {
     let cancelled = false
-    void fetchMyStyle(getToken).then((remote) => {
+    void fetchMyStyle(getStyleToken).then((remote) => {
       if (!cancelled && remote) setStyleIds(remote)
     })
     return () => {
       cancelled = true
     }
-  }, [getToken])
+  }, [getStyleToken])
 
   const [showUsernameModal, setShowUsernameModal] = useState(false)
   const [username, setUsername] = useState('')
@@ -130,9 +138,28 @@ export function Profile() {
     // guest (see useAppAuth.ts); signing in is what gives it a name and
     // makes that progress portable, not what creates it.
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 pt-24 text-center sm:pt-28">
-        <AstronautAvatar />
-        <div>
+      <div className="mx-auto flex max-w-md flex-col items-center gap-6 px-4 pt-24 text-center sm:pt-28">
+        {/* Editable without an account, same as the signed-in view. A guest
+            already has a real row server-side (see useAppAuth), the style
+            endpoint accepts their token, and claimAnonymousProgress carries
+            the whole row over when they sign in — so whatever they build
+            here is theirs to keep, not work they'd lose at the door.
+            Same mt-6 the signed-in view gives its character, so signing in
+            doesn't visibly shift the page. */}
+        <button
+          onClick={() => navigate('/personalizar')}
+          aria-label={strings.profile.customizeAria}
+          className="group relative mt-6 rounded-full transition-transform active:scale-[0.98]"
+        >
+          <AstronautAvatar styleIds={styleIds} />
+          <span className="pointer-events-none absolute bottom-[4%] -right-[7%] flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-violet-200 shadow-lg shadow-black/40 transition-colors group-hover:bg-[#1d1d28] group-hover:text-violet-100">
+            <Pencil size={15} />
+          </span>
+        </button>
+        {/* Extra clearance above the copy, not more gap on the container:
+            the gap also sits between the text and the button below it, and
+            those two belong together as one block. */}
+        <div className="mt-4">
           <p className="text-base font-semibold text-white">{strings.profile.signedOutTitle}</p>
           <p className="mt-1 text-sm text-neutral-500">{strings.profile.signedOutBody}</p>
         </div>
@@ -188,7 +215,7 @@ export function Profile() {
       <button
         onClick={() => setShowUsernameModal(true)}
         aria-label={strings.profile.editName}
-        className="mt-8 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+        className="mt-5 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
       >
         @{username || strings.profile.usernamePlaceholder}
       </button>
@@ -255,7 +282,7 @@ function RankCard() {
     <button
       onClick={() => navigate('/clasificacion')}
       aria-label={strings.profile.rankViewAll}
-      className="mt-6 w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition-colors hover:border-white/[0.14]"
+      className="mt-9 w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition-colors hover:border-white/[0.14]"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -477,18 +504,27 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
             </div>
             <p className="text-sm text-neutral-300">{strings.profile.soundLabel}</p>
           </div>
+          {/* iOS's switch proportions, scaled down to suit a settings row
+              rather than a full iOS list: 44x26 track, 22px knob, 2px margin
+              all round. The ratios are what make it read as that switch, not
+              the absolute size — and keeping the travel derived from them
+              (44 - 22 - 2 - 2 = 18) is what keeps both ends evenly inset.
+              The previous version had a 1px border and hardcoded offsets
+              that ignored it, so the knob sat 3px in when off but flush
+              against the edge when on. Moving by transform rather than
+              `left` animates on the compositor instead of forcing layout. */}
           <button
             role="switch"
             aria-checked={soundOn}
             aria-label={strings.profile.soundLabel}
             onClick={toggleSound}
-            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${
-              soundOn ? 'border-violet-400/40 bg-violet-500/30' : 'border-white/10 bg-black/40'
+            className={`relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200 ${
+              soundOn ? 'bg-violet-500' : 'bg-white/[0.14]'
             }`}
           >
             <span
-              className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-all ${
-                soundOn ? 'left-[26px] bg-violet-300' : 'left-[3px] bg-neutral-500'
+              className={`absolute left-[2px] top-[2px] h-[22px] w-[22px] rounded-full bg-white shadow-md shadow-black/40 transition-transform duration-200 ${
+                soundOn ? 'translate-x-[18px]' : 'translate-x-0'
               }`}
             />
           </button>
@@ -498,7 +534,12 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
             directly), not a single button that cycles through on every
             click. */}
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-neutral-300">{strings.profile.languageLabel}</p>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-400">
+              <Languages size={15} />
+            </div>
+            <p className="text-sm text-neutral-300">{strings.profile.languageLabel}</p>
+          </div>
           <div
             role="radiogroup"
             aria-label={strings.profile.languageLabel}

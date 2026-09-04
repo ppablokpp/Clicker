@@ -6,6 +6,7 @@ import { useLeaderboard, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
+import { normalizeStyle } from '../lib/astronautStyleApi'
 import { useBattlesContext } from '../context/BattlesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -97,7 +98,7 @@ export function Leaderboard() {
                     {rank <= 3 ? <Medal size={15} /> : rank}
                   </div>
 
-                  <AstronautHeadshot size={28} />
+                  <AstronautHeadshot size={32} styleIds={normalizeStyle(entry.astronautStyle)} />
 
                   <span
                     className={`min-w-0 flex-1 truncate text-sm font-medium ${
