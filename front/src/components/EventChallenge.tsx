@@ -219,6 +219,8 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
 
   const pct = Math.min(1, taps / TAPS_GOAL)
   const radius = 92
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference * (1 - pct)
   const succeeded = phase === 'result' && reward !== null
 
   return (
@@ -245,58 +247,18 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
       <div className="pointer-events-none relative z-0 flex h-full items-center justify-center">
         <svg viewBox="0 0 200 200" className="pointer-events-none absolute h-72 w-72 -rotate-90 overflow-visible sm:h-96 sm:w-96">
           <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="4" fill="none" />
-          {/* pathLength normalises the circle to 100 units, so the dash and
-              the offset are literally percentages. The hand-computed 2·π·r it
-              used before had to agree exactly with whatever length the browser
-              measured for the path, and any drift between the two shows up as
-              a sliver of the *next* dash appearing at the ring's start — which
-              is where a stray arc at the top comes from.
-              Hidden outright at zero rather than drawn with a zero-length
-              dash: a round cap on a dash of no length still paints a dot, so
-              an empty ring was showing a bead at twelve o'clock. */}
-          {pct > 0 && (
-            <>
-              {/* The glow, and it is NOT a `filter: drop-shadow` any more.
-                  A filter puts its subject in its own rendering context with a
-                  filter region, and everything outside that region is clipped
-                  — which on mobile Chromium showed up here as the ring being
-                  covered by nothing at all: progress advanced, but only the
-                  arc near the top survived. Desktop was fine, which is the
-                  giveaway. This codebase has hit the same class of bug twice
-                  before (see Home's asteroid and its prestige glow, both
-                  rebuilt the filter-free way for exactly this).
-                  A wide faint copy of the same arc under a crisp one is the
-                  filter-free glow: no second rendering context, nothing to
-                  clip, and it costs one more stroke. */}
-              <circle
-                cx="100"
-                cy="100"
-                r={radius}
-                stroke={colors.fill}
-                strokeWidth="13"
-                fill="none"
-                strokeLinecap="round"
-                opacity={0.22}
-                pathLength={100}
-                strokeDasharray={100}
-                strokeDashoffset={100 - pct * 100}
-                style={{ transition: 'stroke-dashoffset 0.15s ease-out' }}
-              />
-              <circle
-                cx="100"
-                cy="100"
-                r={radius}
-                stroke={colors.fill}
-                strokeWidth="5"
-                fill="none"
-                strokeLinecap="round"
-                pathLength={100}
-                strokeDasharray={100}
-                strokeDashoffset={100 - pct * 100}
-                style={{ transition: 'stroke-dashoffset 0.15s ease-out' }}
-              />
-            </>
-          )}
+          <circle
+            cx="100"
+            cy="100"
+            r={radius}
+            stroke={colors.fill}
+            strokeWidth="5"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 0.15s ease-out', filter: `drop-shadow(0 0 8px ${glow})` }}
+          />
         </svg>
 
         {/* Same rock + floating/spin motion as Home's own centerpiece
