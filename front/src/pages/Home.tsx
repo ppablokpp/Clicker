@@ -175,8 +175,11 @@ function generateStars(count: number, opacity: number): string {
 // change — and on the gold tier it would be invisible.
 function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean; colors: MaterialTierColors }) {
   const radius = 92
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference * (1 - Math.max(0, Math.min(1, pct)))
+  // pathLength below normalises the circle to 100 units, so dash and offset are
+  // literally percentages and cannot drift from whatever length the browser
+  // measures for the path — any mismatch shows up as a sliver of the next dash
+  // appearing at the ring's start.
+  const clamped = Math.max(0, Math.min(1, pct))
 
   return (
     <svg
@@ -199,6 +202,29 @@ function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean;
         </linearGradient>
       </defs>
       <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="3" fill="none" />
+      {/* Glow as a wide faint copy of the arc rather than a `filter:
+          drop-shadow`. A filter renders its subject in a separate context with
+          a filter region and clips whatever falls outside it, which on mobile
+          Chromium hid most of the identical ring in the Anomalía overlay while
+          desktop rendered it fine. Same class of bug this file already dodges
+          twice for the asteroid and prestige glows. One extra stroke, no
+          second rendering context, nothing to clip.
+          It also keeps the bloom the tier's own colour — the same one the halo
+          behind the rock uses — so ring and rock glow as one, not two. */}
+      <circle
+        cx="100"
+        cy="100"
+        r={radius}
+        stroke={isMaxed ? '#f59e0b' : colors.fill}
+        strokeWidth={isMaxed ? 11 : 9}
+        fill="none"
+        strokeLinecap="round"
+        opacity={0.2}
+        pathLength={100}
+        strokeDasharray={100}
+        strokeDashoffset={isMaxed ? 0 : 100 - clamped * 100}
+        style={{ transition: 'stroke-dashoffset 0.6s ease-out' }}
+      />
       <circle
         cx="100"
         cy="100"
@@ -207,14 +233,10 @@ function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean;
         strokeWidth={isMaxed ? 4 : 3}
         fill="none"
         strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={isMaxed ? 0 : offset}
-        style={{
-          transition: 'stroke-dashoffset 0.6s ease-out',
-          // The tier's own glow, which is the same one the halo behind the
-          // rock uses — so ring and rock bloom in one colour, not two.
-          filter: isMaxed ? 'drop-shadow(0 0 10px rgba(245,158,11,0.8))' : `drop-shadow(0 0 6px ${colors.glow})`,
-        }}
+        pathLength={100}
+        strokeDasharray={100}
+        strokeDashoffset={isMaxed ? 0 : 100 - clamped * 100}
+        style={{ transition: 'stroke-dashoffset 0.6s ease-out' }}
       />
     </svg>
   )

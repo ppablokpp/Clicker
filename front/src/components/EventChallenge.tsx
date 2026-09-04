@@ -255,19 +255,47 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
               dash: a round cap on a dash of no length still paints a dot, so
               an empty ring was showing a bead at twelve o'clock. */}
           {pct > 0 && (
-            <circle
-              cx="100"
-              cy="100"
-              r={radius}
-              stroke={colors.fill}
-              strokeWidth="5"
-              fill="none"
-              strokeLinecap="round"
-              pathLength={100}
-              strokeDasharray={100}
-              strokeDashoffset={100 - pct * 100}
-              style={{ transition: 'stroke-dashoffset 0.15s ease-out', filter: `drop-shadow(0 0 8px ${glow})` }}
-            />
+            <>
+              {/* The glow, and it is NOT a `filter: drop-shadow` any more.
+                  A filter puts its subject in its own rendering context with a
+                  filter region, and everything outside that region is clipped
+                  — which on mobile Chromium showed up here as the ring being
+                  covered by nothing at all: progress advanced, but only the
+                  arc near the top survived. Desktop was fine, which is the
+                  giveaway. This codebase has hit the same class of bug twice
+                  before (see Home's asteroid and its prestige glow, both
+                  rebuilt the filter-free way for exactly this).
+                  A wide faint copy of the same arc under a crisp one is the
+                  filter-free glow: no second rendering context, nothing to
+                  clip, and it costs one more stroke. */}
+              <circle
+                cx="100"
+                cy="100"
+                r={radius}
+                stroke={colors.fill}
+                strokeWidth="13"
+                fill="none"
+                strokeLinecap="round"
+                opacity={0.22}
+                pathLength={100}
+                strokeDasharray={100}
+                strokeDashoffset={100 - pct * 100}
+                style={{ transition: 'stroke-dashoffset 0.15s ease-out' }}
+              />
+              <circle
+                cx="100"
+                cy="100"
+                r={radius}
+                stroke={colors.fill}
+                strokeWidth="5"
+                fill="none"
+                strokeLinecap="round"
+                pathLength={100}
+                strokeDasharray={100}
+                strokeDashoffset={100 - pct * 100}
+                style={{ transition: 'stroke-dashoffset 0.15s ease-out' }}
+              />
+            </>
           )}
         </svg>
 
