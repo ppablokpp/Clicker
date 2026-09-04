@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Medal, Swords, User, X, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
-import { useLeaderboard, type LeaderboardSort } from '../hooks/useLeaderboard'
+import { useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
@@ -22,10 +23,11 @@ export function Leaderboard() {
   const { userId } = useAuth()
   const navigate = useNavigate()
   const [sortBy, setSortBy] = useState<LeaderboardSort>('clicks')
-  const { leaderboard, isLoading } = useLeaderboard(sortBy)
+  const { leaderboard, isLoading } = useLeaderboard(sortBy, true)
   const { language, strings } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const [showBattles, setShowBattles] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
@@ -71,63 +73,135 @@ export function Leaderboard() {
           </p>
         )}
 
-        <ol className="scroll-thin flex flex-col gap-2">
-          {leaderboard.map((entry, i) => {
-            const rank = i + 1
-            const style = RANK_STYLES[rank]
-            const isLocalPlayer = entry.id === userId
-            return (
-              <li key={entry.id}>
-                {/* The local player's own row goes to their own (editable)
-                    profile tab instead of the read-only public page every
-                    other row opens — tapping "you" should land somewhere
-                    you can actually change something. */}
-                <button
-                  onClick={() => navigate(isLocalPlayer ? '/estadisticas' : `/perfil/${entry.id}`)}
-                  className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-                    isLocalPlayer
-                      ? 'border-violet-400/20 bg-violet-500/[0.07] hover:bg-violet-500/[0.11]'
-                      : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-                      style ?? 'border-white/5 bg-white/[0.03] text-neutral-400'
-                    }`}
-                  >
-                    {rank <= 3 ? <Medal size={15} /> : rank}
-                  </div>
-
-                  <AstronautHeadshot size={32} styleIds={normalizeStyle(entry.astronautStyle)} />
-
-                  <span
-                    className={`min-w-0 flex-1 truncate text-sm font-medium ${
-                      isLocalPlayer ? 'text-violet-200' : 'text-neutral-200'
-                    }`}
-                  >
-                    {entry.username ?? strings.leaderboard.fallbackName}
-                    {isLocalPlayer && (
-                      <span className="ml-2 rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
-                        {strings.leaderboard.you}
-                      </span>
-                    )}
-                  </span>
-                  <span className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100">
-                    {sortBy === 'cps' ? (
-                      <>
-                        {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
-                      </>
-                    ) : (
-                      entry.lifetimePlatino.toLocaleString(locale)
-                    )}
-                  </span>
-                </button>
-              </li>
-            )
-          })}
+        {/* `relative` is load-bearing: AnimatePresence's popLayout takes an
+            exiting row out of flow with position:absolute so the rows below
+            close the gap immediately instead of waiting for the fade to
+            finish. Without a positioned ancestor that row would be placed
+            against the page instead of against the list. */}
+        <ol className="scroll-thin relative flex flex-col gap-2">
+          <AnimatePresence initial={false} mode="popLayout">
+            {leaderboard.map((entry, i) => (
+              <LeaderboardRow
+                key={entry.id}
+                entry={entry}
+                rank={i + 1}
+                sortBy={sortBy}
+                locale={locale}
+                isLocalPlayer={entry.id === userId}
+                reduceMotion={!!reduceMotion}
+                onOpen={() => navigate(entry.id === userId ? '/estadisticas' : `/perfil/${entry.id}`)}
+                strings={strings}
+              />
+            ))}
+          </AnimatePresence>
         </ol>
       </div>
     </div>
+  )
+}
+
+// One row, and the only animated thing on this screen. Two events move it:
+// the 15s background refresh in useLeaderboard (someone overtook someone) and
+// switching the clicks/taps-per-second tab, which is really the same event —
+// a new array in a new order under the same keys.
+//
+// `layout="position"` rather than plain `layout`: a row's size never changes,
+// only where it sits, and the full version additionally measures and corrects
+// every child's scale on each pass. On a hundred rows that each carry an SVG
+// astronaut, that's a lot of work to undo a distortion that can't happen here.
+//
+// The key is the player's id, which is what makes this a reorder at all — key
+// by index and React would reuse row 3's DOM node for whoever is now third,
+// so the list would silently mutate in place instead of anyone moving.
+function LeaderboardRow({
+  entry,
+  rank,
+  sortBy,
+  locale,
+  isLocalPlayer,
+  reduceMotion,
+  onOpen,
+  strings,
+}: {
+  entry: LeaderboardEntry
+  rank: number
+  sortBy: LeaderboardSort
+  locale: string
+  isLocalPlayer: boolean
+  reduceMotion: boolean
+  onOpen: () => void
+  strings: ReturnType<typeof useLanguage>['strings']
+}) {
+  const style = RANK_STYLES[rank]
+  return (
+    <motion.li
+      layout="position"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{
+        // A spring for the travel — a row overtaking another should settle,
+        // not arrive on a fixed schedule regardless of how far it came. Damped
+        // hard enough that a jump from 40th to 3rd doesn't bounce past the
+        // rows it just passed.
+        layout: reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 34, mass: 0.9 },
+        opacity: { duration: reduceMotion ? 0 : 0.18 },
+      }}
+    >
+      {/* The local player's own row goes to their own (editable) profile tab
+          instead of the read-only public page every other row opens — tapping
+          "you" should land somewhere you can actually change something. */}
+      <button
+        onClick={onOpen}
+        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+          isLocalPlayer
+            ? 'border-violet-400/20 bg-violet-500/[0.07] hover:bg-violet-500/[0.11]'
+            : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
+        }`}
+      >
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+            style ?? 'border-white/5 bg-white/[0.03] text-neutral-400'
+          }`}
+        >
+          {rank <= 3 ? <Medal size={15} /> : rank}
+        </div>
+
+        <AstronautHeadshot size={32} styleIds={normalizeStyle(entry.astronautStyle)} />
+
+        <span
+          className={`min-w-0 flex-1 truncate text-sm font-medium ${
+            isLocalPlayer ? 'text-violet-200' : 'text-neutral-200'
+          }`}
+        >
+          {entry.username ?? strings.leaderboard.fallbackName}
+          {isLocalPlayer && (
+            <span className="ml-2 rounded-full bg-violet-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">
+              {strings.leaderboard.you}
+            </span>
+          )}
+        </span>
+        {/* Keyed on the tab so switching metrics remounts it and the new
+            number fades in. The two tabs measure different things, so the
+            value swapping in place with no transition reads as the same
+            number changing rather than as a different column. */}
+        <motion.span
+          key={sortBy}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.22 }}
+          className="shrink-0 font-[Space_Grotesk] text-sm font-bold tabular-nums text-neutral-100"
+        >
+          {sortBy === 'cps' ? (
+            <>
+              {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
+            </>
+          ) : (
+            entry.lifetimePlatino.toLocaleString(locale)
+          )}
+        </motion.span>
+      </button>
+    </motion.li>
   )
 }
 
