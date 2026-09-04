@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { LoadingScreen } from './LoadingScreen'
+import { useReportReady } from './LoadingGate'
 import { useAssignUsername } from '../hooks/useAssignUsername'
 import { useLinkAccount } from '../hooks/useLinkAccount'
 import { useAnonInit } from '../hooks/useAnonInit'
@@ -14,14 +14,29 @@ import { useAnonInit } from '../hooks/useAnonInit'
 //
 // Each branch has to finish before the children mount, because every
 // context fetches on mount keyed by whatever identity it sees then, and
-// those fetches don't re-run on their own afterwards.
+// those fetches don't re-run on their own afterwards. That's why this one
+// still withholds children rather than merely reporting: unlike the game
+// state, an identity that isn't settled yet would send the wrong requests.
+//
+// It no longer draws its own loading screen. LoadingGateProvider owns the
+// single one for the whole startup; each branch below just reports whether
+// it's still holding things up, under the shared "identity" key so that
+// whichever branch is mounted speaks for the same prerequisite.
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { isLoaded } = useAuth()
+  if (!isLoaded) return <ResolvingSession />
+  return <ResolvedSession>{children}</ResolvedSession>
+}
 
-  if (!isLoaded) {
-    return <LoadingScreen />
-  }
+/** Clerk hasn't answered yet, so there is no branch to be in. Its own
+ *  component purely so the report is an unconditional hook. */
+function ResolvingSession() {
+  useReportReady('identity', false)
+  return null
+}
 
+function ResolvedSession({ children }: { children: ReactNode }) {
+  const { isSignedIn } = useAuth()
   return isSignedIn ? <SignedInApp>{children}</SignedInApp> : <SignedOutApp>{children}</SignedOutApp>
 }
 
@@ -32,12 +47,14 @@ function SignedInApp({ children }: { children: ReactNode }) {
   // here any more, which would only have fired a second, redundant /sync
   // racing this one.
   const linked = useLinkAccount()
-  if (!linked) return <LoadingScreen />
+  useReportReady('identity', linked)
+  if (!linked) return null
   return <>{children}</>
 }
 
 function SignedOutApp({ children }: { children: ReactNode }) {
   const ready = useAnonInit()
-  if (!ready) return <LoadingScreen />
+  useReportReady('identity', ready)
+  if (!ready) return null
   return <>{children}</>
 }

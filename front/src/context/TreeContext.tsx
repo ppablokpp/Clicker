@@ -103,6 +103,8 @@ interface TreeContextValue extends TreeState {
   // mean a spare tab will suppress this while testing.
   awayCredit: number | null
   clearAwayCredit: () => void
+  /** Whether the first /tree/me has landed. See the state that backs it. */
+  hasLoadedState: boolean
   // Lights the Home header's "Centro de mando" button — true the instant
   // any tree upgrade is bought, cleared once the player actually opens that
   // panel (see Home.tsx's onClick), same on/off-on-seen pattern as
@@ -234,6 +236,11 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const cpsRef = useRef(0)
   const [awayCredit, setAwayCredit] = useState<number | null>(null)
   const clearAwayCredit = useCallback(() => setAwayCredit(null), [])
+  // Whether the first /tree/me has come back. Held for the same reason the
+  // click counter holds one: every level here starts at 0, and 0 is a real
+  // state — no drones, no scouts — so rendering before it lands shows an empty
+  // fleet that then pops into existence.
+  const [hasLoadedState, setHasLoadedState] = useState(false)
 
   useEffect(() => {
     cpsRef.current = state.autoClickCps + state.scoutDroneCps
@@ -349,6 +356,9 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       console.error('No se pudo cargar el estado del árbol', err)
     } finally {
       fetchInFlightRef.current = false
+      // Set even when the fetch failed: gating render on a request that can
+      // fail would turn a dropped connection into a permanent loading screen.
+      setHasLoadedState(true)
     }
   }, [userId, getToken, syncTotalClicksIfNewer, syncObjectState])
 
@@ -1105,6 +1115,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       refetch: fetchState,
       awayCredit,
       clearAwayCredit,
+      hasLoadedState,
       hasNewUpgrade,
       markUpgradesSeen,
       isBuying,
@@ -1148,6 +1159,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       fetchState,
       awayCredit,
       clearAwayCredit,
+      hasLoadedState,
       hasNewUpgrade,
       markUpgradesSeen,
       isBuying,

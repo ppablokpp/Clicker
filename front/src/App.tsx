@@ -3,6 +3,8 @@ import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
 import { BottomNavPill } from './components/BottomNavPill'
 import { ScrollManager } from './components/ScrollManager'
+import { GameStateGate } from './components/GameStateGate'
+import { LoadingGateProvider } from './components/LoadingGate'
 import { SignInModal } from './components/SignInModal'
 import { FleetAwayModal } from './components/FleetAwayModal'
 import { SignInPromptProvider } from './context/SignInPromptContext'
@@ -61,6 +63,12 @@ function ClickerApp() {
                                         <DailyCaseProvider>
                                           <GemCaseProvider>
                                             <GemChestProvider>
+                                              {/* Inside every provider, so their
+                                                  on-mount fetches are already in
+                                                  flight while it waits on them.
+                                                  Reports only — the cover is an
+                                                  overlay above all of this. */}
+                                              <GameStateGate />
                                               <ScrollManager />
                                               <Routes>
                                                 <Route path="/" element={<Home />} />
@@ -121,9 +129,11 @@ function App() {
       <Route
         path="/*"
         element={
-          <AuthGate>
-            <ClickerApp />
-          </AuthGate>
+          <LoadingGateProvider>
+            <AuthGate>
+              <ClickerApp />
+            </AuthGate>
+          </LoadingGateProvider>
         }
       />
     </Routes>

@@ -49,6 +49,11 @@ export function useClickCounter() {
   // the player keeps their current tier's material until they explicitly
   // choose to move on.
   const [prestigeTier, setPrestigeTier] = useState(0)
+  // Whether the first /clicks/me has come back. Everything below starts at
+  // zero, and zero is a real, meaningful game state — tier 0 is the lilac
+  // asteroid — so rendering before this is true shows a convincing picture of
+  // a brand new save for as long as the round trip takes.
+  const [hasLoadedState, setHasLoadedState] = useState(false)
   const [isConfirmingPrestige, setIsConfirmingPrestige] = useState(false)
   const [clicksPerSecond, setClicksPerSecond] = useState(0)
   // Every /increment response includes the current keys/gems totals (a
@@ -154,6 +159,11 @@ export function useClickCounter() {
         }
       } catch (err) {
         console.error('No se pudo cargar el contador desde el servidor', err)
+      } finally {
+        // In a finally, and that matters: a failed or offline fetch has to
+        // release the app anyway. Gating render on a request that can fail
+        // means a dropped connection is a permanent loading screen.
+        if (!cancelled) setHasLoadedState(true)
       }
     })()
     return () => {
@@ -527,6 +537,7 @@ export function useClickCounter() {
       totalClicks,
       lifetimePlatino,
       prestigeTier,
+      hasLoadedState,
       isConfirmingPrestige,
       confirmPrestige,
       clicksPerSecond,
@@ -549,6 +560,7 @@ export function useClickCounter() {
       totalClicks,
       lifetimePlatino,
       prestigeTier,
+      hasLoadedState,
       isConfirmingPrestige,
       confirmPrestige,
       clicksPerSecond,
