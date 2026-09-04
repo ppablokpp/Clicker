@@ -70,13 +70,23 @@ export function useLeaderboard(sortBy: LeaderboardSort = 'clicks', live = false)
     const refresh = () => {
       if (document.visibilityState === 'visible') void load()
     }
+    // `pageshow` alongside it for the same reason useClickCounter pairs
+    // pagehide with visibilitychange: a back/forward-cache restore (swiping
+    // back into the app on iOS) can hand the page back without firing
+    // visibilitychange. Guarded on `persisted` so a normal load doesn't
+    // double up on the initial load() above.
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) refresh()
+    }
     const timer = window.setInterval(refresh, REFRESH_MS)
     document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('pageshow', onPageShow)
 
     return () => {
       cancelled = true
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('pageshow', onPageShow)
     }
   }, [sortBy, live])
 

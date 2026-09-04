@@ -20,6 +20,16 @@ const POLL_INTERVAL_MS = 30_000
 // Purely local, purely visual — predicts the display forward between real
 // polls using the known rate, never touches the network.
 const TICK_INTERVAL_MS = 100
+// Mirrors the server's own AWAY_THRESHOLD_SECONDS (back's treeRepository.js).
+// A gap wider than this gets credited at the reduced Autonomía rate, so
+// predicting it forward at the full online rate would put a number on screen
+// that the next poll then has to yank back down. Gaps that big are left
+// entirely to the poll, which reports what was actually credited.
+//
+// This matters for any pause the page doesn't get told about — a laptop
+// sleeping with the tab still in front is the usual one. Backgrounding is
+// handled separately, by pausing outright (see the two effects below).
+const MAX_PREDICTED_GAP_SECONDS = 90
 
 interface TreeState {
   autoClickLevel: number
@@ -306,7 +316,16 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         })
         if (isFirstFetchRef.current) {
           isFirstFetchRef.current = false
-          if (typeof data.creditedThisCall === 'number' && data.creditedThisCall > 0) {
+          // `wasAway` is the gate, not creditedThisCall on its own. The
+          // server's clock for production is only moved by a poll or a
+          // purchase — closing the app doesn't touch it — so the first fetch
+          // of a session almost always credits *something*: the seconds since
+          // the last 30s poll, which the fleet produced with the app open and
+          // which the local prediction (see the tick effect below) had already
+          // shown the player. Reporting that as "your fleet mined X while you
+          // were away" meant a one-second relaunch announcing ~15s of ordinary
+          // production as if it were an absence bonus.
+          if (data.wasAway === true && typeof data.creditedThisCall === 'number' && data.creditedThisCall > 0) {
             setAwayCredit(data.creditedThisCall)
           }
         }
@@ -345,27 +364,99 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     fetchStateRef.current = fetchState
   }, [fetchState])
 
+  // The poll is also what decides whether time counts as online or away, so
+  // it stops while the page is hidden. That isn't an optimisation, it's the
+  // rule: the server classifies a gap as an absence purely by how wide it is
+  // (AWAY_THRESHOLD_SECONDS), so a poll that keeps firing in a background tab
+  // keeps every gap under the threshold and the fleet keeps earning the full
+  // online rate with the app put away. Browsers throttle background timers
+  // rather than stopping them — Chrome settles at about one per minute, still
+  // inside the 90s window — so leaving a desktop tab minimised used to pay
+  // exactly the same as playing, while a backgrounded phone (whose timers do
+  // freeze) correctly dropped to the Autonomía rate. Same game, two
+  // economies, decided by the browser.
+  //
+  // Letting the gap grow instead of reporting it keeps the server the only
+  // judge of it: skipping a poll can only ever *reduce* what a player earns,
+  // so there's nothing here to game, which a client-supplied "I was away"
+  // flag could not have said.
   useEffect(() => {
     if (!userId) return
     fetchStateRef.current()
-    const interval = setInterval(() => fetchStateRef.current(), POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      fetchStateRef.current()
+    }, POLL_INTERVAL_MS)
+    // Coming back is exactly when the catch-up is owed: every poll due while
+    // hidden was skipped, so fetch straight away rather than showing a stale
+    // total until the next interval happens to come round.
+    //
+    // Paired with `pageshow` the same way useClickCounter's own hide-flush
+    // pairs visibilitychange with pagehide: restoring from the back/forward
+    // cache — swiping back into the app on iOS, mostly — can hand the page
+    // back without a visibilitychange, and only pageshow reliably marks it.
+    // Guarded on `persisted` so an ordinary page load doesn't fire a second
+    // fetch on top of this effect's own one above.
+    const refetch = () => {
+      if (document.visibilityState === 'visible') fetchStateRef.current()
+    }
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) refetch()
+    }
+    document.addEventListener('visibilitychange', refetch)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', refetch)
+      window.removeEventListener('pageshow', onPageShow)
+    }
   }, [userId])
 
   // Smooth local prediction between the infrequent real polls above — pure
   // display, reconciled every time a real poll or purchase lands (whichever
   // calls syncTotalClicks, which zeroes this prediction back out so it's
   // never double-counted once the server value catches up).
+  //
+  // Pauses with the poll, and has to: it predicts at the full online rate, so
+  // left running while hidden it would climb all through an absence that the
+  // server is about to credit at a tenth of that. syncTotalClicksIfNewer
+  // zeroes the prediction when the real total lands, so the counter would
+  // visibly drop by the difference the moment you came back.
   useEffect(() => {
     if (!userId) return
     let lastTime = Date.now()
     const interval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       const now = Date.now()
       const deltaSeconds = (now - lastTime) / 1000
       lastTime = now
+      // Too wide to predict — see MAX_PREDICTED_GAP_SECONDS. The clock is
+      // still reset above, so the next tick resumes normally.
+      if (deltaSeconds > MAX_PREDICTED_GAP_SECONDS) return
       if (cpsRef.current > 0) tickAutoClicks(cpsRef.current * deltaSeconds)
     }, TICK_INTERVAL_MS)
-    return () => clearInterval(interval)
+    // Restart the clock on every visibility change, and on a bfcache restore
+    // (see the poll above for why both). Without this the first tick after
+    // coming back spans the whole time away — `deltaSeconds` is wall-clock,
+    // not a count of ticks that ran — and would re-add the entire absence at
+    // the full online rate.
+    //
+    // Belt and braces with MAX_PREDICTED_GAP_SECONDS above: on the platform
+    // where these events are least dependable (iOS) the timers are frozen
+    // outright while backgrounded, so if neither event arrives the first tick
+    // back simply sees a gap too wide to predict and skips it. Either
+    // mechanism alone is enough; between them there's no path where a whole
+    // absence gets predicted at the online rate.
+    const resetClock = () => {
+      lastTime = Date.now()
+    }
+    document.addEventListener('visibilitychange', resetClock)
+    window.addEventListener('pageshow', resetClock)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', resetClock)
+      window.removeEventListener('pageshow', resetClock)
+    }
   }, [userId, tickAutoClicks])
 
   const buyAutoClick = useCallback(async () => {

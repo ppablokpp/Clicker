@@ -91,12 +91,15 @@ function tieredMaxLevel(baseMaxLevel, prestigeTier) {
 // was the one spot that got missed when the interval changed).
 const AWAY_THRESHOLD_SECONDS = 90
 
-// Shared by every accrual call below.
+// Shared by every accrual call below. `away` is the same classification the
+// rate is picked from, handed back rather than recomputed by the caller — it
+// decides both how much this credits AND (client side) whether the credit is
+// worth reporting to the player at all, and those two must never disagree.
 function accrueWhole(remainder, seconds, currentCps, offlineRate) {
-  const rate = seconds > AWAY_THRESHOLD_SECONDS ? offlineRate : 1
-  const raw = remainder + seconds * currentCps * rate
+  const away = seconds > AWAY_THRESHOLD_SECONDS
+  const raw = remainder + seconds * currentCps * (away ? offlineRate : 1)
   const whole = Math.floor(raw)
-  return { whole, remainder: raw - whole }
+  return { whole, remainder: raw - whole, away }
 }
 
 // Credits whatever the auto-click/scout-drone production has produced since
@@ -180,6 +183,13 @@ export async function accrueProduction(client, userId) {
   const offlineRate = offlineProductionValue(Number(offlineProductionRow.rows[0]?.level ?? 0))
 
   let creditedThisCall = 0
+  // Whether the gap this call just closed counted as a real absence. Most
+  // calls close a gap of a few seconds — the span since the last 30s poll,
+  // production that happened with the app open and merely hadn't been
+  // persisted yet — and the client must be able to tell those apart, or the
+  // "your fleet mined X while you were away" report fires on every launch
+  // with a number the player already watched tick up on screen.
+  let wasAway = false
 
   if (autoClickLevel > 0 && node.last_tick_at) {
     const currentCps = (autoClickLevel * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
@@ -187,8 +197,9 @@ export async function accrueProduction(client, userId) {
       node.last_tick_at,
     ])
     const seconds = Math.max(0, Number(elapsed.rows[0].seconds))
-    const { whole, remainder } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
+    const { whole, remainder, away } = accrueWhole(Number(node.remainder), seconds, currentCps, offlineRate)
     creditedThisCall = whole
+    wasAway = away
 
     if (whole > 0) {
       const updated = await client.query(
@@ -233,6 +244,7 @@ export async function accrueProduction(client, userId) {
     objectsBroken,
     objectProgress,
     creditedThisCall,
+    wasAway,
     autoClickLevel,
     scoutDroneLevel,
     scoutFrequencyLevel: Number(scoutFrequencyRow.rows[0]?.level ?? 0),
@@ -266,6 +278,7 @@ export const treeRepository = {
         objectsBroken,
         objectProgress,
         creditedThisCall,
+        wasAway,
         autoClickLevel: level,
         scoutDroneLevel,
         scoutFrequencyLevel,
@@ -440,6 +453,10 @@ export const treeRepository = {
         objectsBroken,
         objectProgress,
         creditedThisCall,
+        // True only when creditedThisCall covers a real absence rather than
+        // the seconds since the last poll. The client shows its "while you
+        // were away" report off this, never off creditedThisCall alone.
+        wasAway,
       }
     } catch (err) {
       await client.query('ROLLBACK')
