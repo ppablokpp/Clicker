@@ -7,8 +7,10 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent,
+  type WheelEvent,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { HomeFighter } from '../components/HomeFighter'
 import { motion } from 'framer-motion'
 import { useAppAuth } from '../hooks/useAppAuth'
 import {
@@ -31,6 +33,7 @@ import {
   Sparkles,
   Check,
   Medal,
+  Move,
   type LucideIcon,
 } from 'lucide-react'
 import { MILESTONE_TIER_KEYS, MILESTONE_TIER_COLORS } from '../stats/config'
@@ -123,6 +126,11 @@ function getHeatLevel(cps: number, legendaryUnlocked: boolean, legendaryMinTps: 
 // times* it can go up, not on the resulting value, so Impulso raising
 // bonusStep actually raises the ceiling instead of just getting there
 // faster.
+// How far the view mode below can be pushed either way. Roomier than it
+// would need to be without panning, since wandering off the asteroid is now
+// recoverable — leaving the mode always snaps back.
+const MIN_ZOOM = 0.6
+const MAX_ZOOM = 2.2
 const LEGENDARY_STREAK_RATIO = 1.4
 const LEGENDARY_BONUS_BASE = 1.1
 const LEGENDARY_TIER_MAX = 5
@@ -453,7 +461,6 @@ const OrbitingBots = memo(function OrbitingBots({
   count,
   colorClass = 'text-violet-300',
   bigColorClass = 'text-violet-400',
-  glowColor = 'rgba(168,85,247,0.65)',
   beamClass = 'from-violet-300/0 via-violet-200 to-white',
   beamShadow = 'rgba(216,180,254,0.8)',
   phaseOffset = 0,
@@ -464,7 +471,6 @@ const OrbitingBots = memo(function OrbitingBots({
   /** Tint for a fused unit — one shade deeper than `colorClass`, so it reads
    *  as "the same unit, leveled up" rather than a different kind of drone. */
   bigColorClass?: string
-  glowColor?: string
   beamClass?: string
   beamShadow?: string
   phaseOffset?: number
@@ -543,24 +549,21 @@ const OrbitingBots = memo(function OrbitingBots({
                 old Framer version (which composes the whole transform
                 itself) could on one node. */}
             <div className="drone-radius-offset">
-              {/* The pulse WRAPS the glow, never the other way round, and
-                  that order is load-bearing. `filter: drop-shadow` applies
-                  to an element's fully rendered content — descendants
-                  included — so with the pulse nested *inside* the filter
-                  (as it was), its scale changed the filter's own input
-                  every frame, forcing the browser to re-rasterize the SVG
-                  and re-trace/re-blur its alpha silhouette 60x a second,
-                  per drone, forever. Exactly the same failure the rotor
-                  flicker had (see DroneIcon.tsx), just driven by the scale
-                  instead.
-                  Nested this way the filtered element's content is fully
-                  static, so it's rasterized and filtered ONCE and cached;
-                  the pulse then just transforms that finished layer, which
-                  is pure compositor work. */}
-              <div className="drone-pulse" style={pulseDelayVar}>
-                <div className={droneColorClass} style={{ filter: `drop-shadow(0 0 ${big ? 10 : 6}px ${glowColor})` }}>
-                  <DroneIcon size={big ? 30 : 20} />
-                </div>
+              {/* Two things used to wrap this: a `drone-pulse` scaling the
+                  drone in and out, and a tinted `filter: drop-shadow` aura.
+                  Both are gone, and the drone being a shaded object rather
+                  than a flat glyph is why — a solid thing that breathes reads
+                  as a pulsing light, and a solid thing with a coloured halo
+                  reads as neon. Each undid exactly what the shading buys.
+                  The saving is the real prize. drop-shadow has to trace and
+                  blur an element's entire alpha silhouette, descendants
+                  included, and it was doing that once per drone on an uncapped
+                  swarm; the pulse was an always-running animation on every one
+                  of them. What's left is a plain tinted wrapper — no filter,
+                  no animation — with the lens and the rotor wash still reading
+                  `currentColor` to carry the swarm's identity. */}
+              <div className={droneColorClass}>
+                <DroneIcon size={big ? 30 : 20} />
               </div>
 
               {/* The shot — a short bolt fired straight at the counter every
@@ -909,6 +912,119 @@ export function Home() {
   // Last known mouse position — the Space bar has no coordinates of its
   // own, so a space-triggered shot fires from wherever the cursor last was.
   const cursorPosRef = useRef({ x: 0, y: 0 })
+
+  // --- View mode ---------------------------------------------------------
+  // Framing is a mode, not an always-live gesture. A pinch during normal play
+  // is indistinguishable from two fingers tapping quickly, which is exactly
+  // what Multidisparo asks players to do — behind a toggle the two can never
+  // be confused, and shooting keeps the whole screen to itself.
+  //
+  // Pan AND pinch, the same pair of gestures Tree's canvas offers, so the two
+  // screens' "look around" behave identically.
+  //
+  // Nothing survives leaving the mode: stepping back out to shoot always
+  // snaps the view home. That's what lets the mode carry a free-roaming pan
+  // at all — without a guaranteed reset you could wander the asteroid off
+  // screen, tap out, and be left staring at empty space with no obvious way
+  // back. It's also why there's no reset button: exiting is the reset.
+  //
+  // Always starts in shooting mode: the toggle is per-mount state, so a fresh
+  // load (or coming back to this screen) can never strand you unable to tap.
+  const [zoomMode, setZoomMode] = useState(false)
+  const zoomModeRef = useRef(false)
+  const zoomPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(
+    null,
+  )
+  const pinchRef = useRef<{
+    idA: number
+    idB: number
+    startDistance: number
+    startScale: number
+    startMidX: number
+    startMidY: number
+    originX: number
+    originY: number
+  } | null>(null)
+
+  // The view is written to CSS custom properties on the root rather than held
+  // in state. Both gestures fire pointermove continuously, and Home is heavy
+  // enough that re-rendering it per event would make them stutter — same
+  // reasoning TapEffectsLayer applies to taps. A ref rather than a module
+  // variable now that nothing is meant to outlive the mode.
+  const viewRef = useRef({ scale: 1, x: 0, y: 0 })
+  const applyView = useCallback((scale: number, x: number, y: number) => {
+    const view = viewRef.current
+    view.scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
+    view.x = x
+    view.y = y
+    const el = containerRef.current
+    if (!el) return
+    el.style.setProperty('--home-zoom', String(view.scale))
+    el.style.setProperty('--home-pan-x', `${view.x}px`)
+    el.style.setProperty('--home-pan-y', `${view.y}px`)
+  }, [])
+
+  const resetView = useCallback(() => applyView(1, 0, 0), [applyView])
+
+  /**
+   * Rescales around a screen point, keeping whatever sits under it pinned
+   * there. The stage is flex-centred rather than anchored at an origin, so
+   * this can't reuse Tree's formula verbatim: a content point maps to
+   * `centre + pan + scale * point`, which rearranges to the line below.
+   * Without it a pinch would zoom towards the middle of the screen no matter
+   * where the fingers actually were.
+   */
+  const zoomAround = useCallback(
+    (scale: number, screenX: number, screenY: number, from: { scale: number; x: number; y: number }, atX: number, atY: number) => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
+      const ratio = next / from.scale
+      const cx = window.innerWidth / 2
+      const cy = window.innerHeight / 2
+      applyView(next, screenX - cx - ratio * (atX - cx - from.x), screenY - cy - ratio * (atY - cy - from.y))
+    },
+    [applyView],
+  )
+
+  // Mouse wheel, the same feel as Tree's own canvas: the step is proportional
+  // to the current zoom (`deltaY * 0.001 * scale`), so one notch moves the
+  // view by the same *fraction* whether you're pushed all the way in or all
+  // the way out — a fixed step feels glacial at 2x and violent at 0.6x.
+  //
+  // Gated on the mode like the gestures are, and for the same reason. Tree has
+  // no mode to gate on because nothing there is being interrupted; here a
+  // trackpad's two-finger scroll is trivially easy to trigger by accident,
+  // and having the whole game silently rescale mid-tap is exactly what this
+  // mode exists to prevent.
+  const handleWheel = useCallback(
+    (e: WheelEvent<HTMLDivElement>) => {
+      if (!zoomModeRef.current) return
+      e.preventDefault()
+      const from = { ...viewRef.current }
+      zoomAround(from.scale - e.deltaY * 0.001 * from.scale, e.clientX, e.clientY, from, e.clientX, e.clientY)
+    },
+    [zoomAround],
+  )
+
+  const toggleZoomMode = useCallback(() => {
+    setZoomMode((on) => {
+      const next = !on
+      // Mirrored into a ref because the pointer handlers below are memoized
+      // on `fireShot` alone — reading state in them would either go stale or
+      // force them (and every tap) to re-create on every mode change.
+      zoomModeRef.current = next
+      // Whichever mode is being left, drop its half-finished gesture: a drag
+      // or pinch that never got its pointerup, or a shot slot never released.
+      zoomPointersRef.current.clear()
+      dragRef.current = null
+      pinchRef.current = null
+      activePointersRef.current.clear()
+      // Leaving puts the view back where it started, so tapping always
+      // resumes on a framed, centred asteroid.
+      if (!next) resetView()
+      return next
+    })
+  }, [resetView])
   const heat = useMemo(
     () => getHeatLevel(clicksPerSecond, legendaryUnlockLevel > 0, legendaryThresholdTps),
     [clicksPerSecond, legendaryUnlockLevel, legendaryThresholdTps],
@@ -1166,6 +1282,44 @@ export function Home() {
       // otherwise just re-occupy the same Multidisparo slot instead of
       // taking a second one — giving it its own fixed key is what actually
       // lets the two combine into 2 simultaneous shots.
+      // View mode swallows the gesture whole — it never fires a shot. One
+      // finger pans, a second turns the whole thing into a pinch, exactly as
+      // Tree's canvas behaves.
+      if (zoomModeRef.current) {
+        zoomPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        const view = viewRef.current
+        if (zoomPointersRef.current.size === 2) {
+          // The second finger landing cancels the drag and takes over,
+          // anchored on both fingers' current midpoint so nothing jumps.
+          dragRef.current = null
+          const [idA, idB] = zoomPointersRef.current.keys()
+          const a = zoomPointersRef.current.get(idA)!
+          const b = zoomPointersRef.current.get(idB)!
+          pinchRef.current = {
+            idA,
+            idB,
+            startDistance: Math.hypot(a.x - b.x, a.y - b.y),
+            // Anchored on the view the gesture *starts* from, so each pinch
+            // works relative to what's on screen instead of snapping.
+            startScale: view.scale,
+            startMidX: (a.x + b.x) / 2,
+            startMidY: (a.y + b.y) / 2,
+            originX: view.x,
+            originY: view.y,
+          }
+        } else if (zoomPointersRef.current.size === 1) {
+          pinchRef.current = null
+          dragRef.current = {
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            startY: e.clientY,
+            originX: view.x,
+            originY: view.y,
+          }
+        }
+        return
+      }
+
       const pointerKey = e.button === 2 ? RIGHT_CLICK_KEY : e.pointerId
       fireShot(pointerKey, e.clientX, e.clientY)
     },
@@ -1177,14 +1331,56 @@ export function Home() {
   // movement (not touch drags, which report pointer moves too) since a
   // finger's last position isn't a meaningful "aim point" the way a cursor
   // is.
-  const handlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse') cursorPosRef.current = { x: e.clientX, y: e.clientY }
-  }, [])
+  const handlePointerMove = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (zoomModeRef.current) {
+        if (!zoomPointersRef.current.has(e.pointerId)) return
+        zoomPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+        const pinch = pinchRef.current
+        if (pinch) {
+          const a = zoomPointersRef.current.get(pinch.idA)
+          const b = zoomPointersRef.current.get(pinch.idB)
+          if (!a || !b) return
+          const from = { scale: pinch.startScale, x: pinch.originX, y: pinch.originY }
+          zoomAround(
+            pinch.startScale * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.startDistance),
+            (a.x + b.x) / 2,
+            (a.y + b.y) / 2,
+            from,
+            pinch.startMidX,
+            pinch.startMidY,
+          )
+          return
+        }
+
+        const drag = dragRef.current
+        if (drag && drag.pointerId === e.pointerId) {
+          const view = viewRef.current
+          applyView(view.scale, drag.originX + (e.clientX - drag.startX), drag.originY + (e.clientY - drag.startY))
+        }
+        return
+      }
+      if (e.pointerType === 'mouse') cursorPosRef.current = { x: e.clientX, y: e.clientY }
+    },
+    [applyView, zoomAround],
+  )
 
   // Frees the pointer's slot the moment it lifts (or the gesture is
   // cancelled, e.g. an OS gesture taking over) so the next finger down can
   // use it — a plain ref mutation, no re-render needed for either handler.
   const handlePointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    if (zoomModeRef.current) {
+      zoomPointersRef.current.delete(e.pointerId)
+      // One finger leaving ends the pinch rather than degrading it back into a
+      // drag: the view would lurch as the surviving finger's position became
+      // a drag origin it never agreed to, and a finger landing again later
+      // would resume from a stale distance.
+      const pinch = pinchRef.current
+      if (pinch && (e.pointerId === pinch.idA || e.pointerId === pinch.idB)) pinchRef.current = null
+      if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null
+      return
+    }
     const pointerKey = e.button === 2 ? RIGHT_CLICK_KEY : e.pointerId
     activePointersRef.current.delete(pointerKey)
   }, [])
@@ -1205,7 +1401,7 @@ export function Home() {
     showPrestigeConfirm || showInventory || showShip || showTasks || showLog || infoModal !== null || showEventChallenge
 
   useEffect(() => {
-    if (isAnyModalOpen) return
+    if (isAnyModalOpen || zoomMode) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code !== 'Space') return
       // Held-down Space is ONE shot, not a burst. The OS auto-repeats
@@ -1237,7 +1433,7 @@ export function Home() {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [fireShot, isAnyModalOpen])
+  }, [fireShot, isAnyModalOpen, zoomMode])
 
   return (
     <div
@@ -1246,6 +1442,7 @@ export function Home() {
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onPointerMove={handlePointerMove}
+      onWheel={handleWheel}
       onContextMenu={handleContextMenu}
       className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
@@ -1479,7 +1676,13 @@ export function Home() {
           (see `prestige` above). Truly viewport-centered via the root's own
           `justify-center` — the cockpit console above is an absolute
           overlay, not flow content, so it never pushes this down. */}
-      <div className="pointer-events-none relative z-10 flex flex-col items-center">
+      <div
+        // z-0, below the cockpit header (z-10) and the tab bar (z-40): zoomed
+        // in far enough the asteroid reaches them, and the chrome has to read
+        // as the layer nearest the player, not something the game paints over.
+        className="pointer-events-none relative z-0 flex flex-col items-center"
+        style={{ transform: 'translate(var(--home-pan-x, 0px), var(--home-pan-y, 0px)) scale(var(--home-zoom, 1))' }}
+      >
         <div
           ref={objectRef}
           data-tutorial="home-click-area"
@@ -1490,12 +1693,22 @@ export function Home() {
             count={scoutDroneLevel}
             colorClass="text-amber-300"
             bigColorClass="text-amber-400"
-            glowColor="rgba(251,191,36,0.65)"
             beamClass="from-amber-300/0 via-amber-200 to-white"
             beamShadow="rgba(252,211,77,0.8)"
             phaseOffset={0.4}
             fuseEvery={10}
           />
+
+          {/* Escort fighters. Hard-wired to 0 for now, so nothing mounts:
+              HomeFighter returns null on a zero count, and the whole feature
+              costs one comparison until it is switched on. It lives in here so
+              that when it is, it shares this box's centre with both drone
+              swarms and rides the view zoom with them.
+              Waiting on a tree node — swap the 0 for that node's owned level
+              and the escort grows with it. The fan, the firing stagger and the
+              aiming all derive from the count already. */}
+          <HomeFighter count={0} />
+
           {/* Ring + asteroid shrunk together by the same 0.85 the orbit
               radius below was scaled by (index.css) — one shared wrapper so
               the two always shrink in lockstep instead of two separately
@@ -1540,6 +1753,29 @@ export function Home() {
       {/* Every per-tap visual — bolt, ripple/+N, debris — with its own state
           held inside, so a tap never re-renders Home. Driven imperatively
           via tapEffectsRef; takes no props on purpose (see its own comment). */}
+      {/* Tree's berth for its own view controls (fixed bottom-24 right-4), so
+          "adjust the framing" sits in one place across the app. One button,
+          not a stack: leaving the mode already snaps the view home, so a
+          separate reset would be a second control for something this one does
+          on its way out.
+          `stopPropagation` on pointerdown is load-bearing: without it a tap
+          here also reaches the root's handler and fires a shot. */}
+      <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-1.5 sm:bottom-28 sm:right-6">
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={toggleZoomMode}
+          aria-label={strings.home.viewModeLabel}
+          aria-pressed={zoomMode}
+          className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-xl transition-colors ${
+            zoomMode
+              ? 'border-violet-400/40 bg-violet-500/20 text-violet-200'
+              : 'border-white/10 bg-black/40 text-neutral-300 hover:bg-white/10'
+          }`}
+        >
+          <Move size={15} />
+        </button>
+      </div>
+
       <TapEffectsLayer ref={tapEffectsRef} />
 
       {/* Anomalía spawn — a small asteroid flying across the whole screen

@@ -11,6 +11,7 @@ export interface TranslationStrings {
     objectLabel: (n: string) => string
     objectsProgress: (broken: string, target: string) => string
     prestigeReady: string
+    viewModeLabel: string
     changePrestige: string
     tps: string
     totalLabel: string
@@ -414,6 +415,7 @@ export const translations: Record<Language, TranslationStrings> = {
       objectLabel: (n) => `Objeto #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
       prestigeReady: '¡Nuevo mineral disponible!',
+      viewModeLabel: 'Ajustar vista',
       changePrestige: 'Abandonar asteroide',
       tps: 't/s',
       hudPlatinoLabel: (materialName) => `Tu ${materialName.toLowerCase()}`,
@@ -605,7 +607,7 @@ export const translations: Record<Language, TranslationStrings> = {
         cian: 'Cian',
         violeta: 'Violeta',
         ninguna: 'Ninguna',
-        mascota1: 'Dron',
+        mascota1: 'Vigía',
         satelite: 'Satélite',
         orbe: 'Orbe',
       },
@@ -936,6 +938,7 @@ export const translations: Record<Language, TranslationStrings> = {
       objectLabel: (n) => `Object #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} levels`,
       prestigeReady: 'New mineral available!',
+      viewModeLabel: 'Adjust view',
       changePrestige: 'Leave asteroid',
       tps: 't/s',
       hudPlatinoLabel: (materialName) => `Your ${materialName.toLowerCase()}`,
@@ -1127,7 +1130,7 @@ export const translations: Record<Language, TranslationStrings> = {
         cian: 'Cyan',
         violeta: 'Violet',
         ninguna: 'None',
-        mascota1: 'Droid',
+        mascota1: 'Lookout',
         satelite: 'Satellite',
         orbe: 'Orb',
       },

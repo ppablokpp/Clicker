@@ -393,23 +393,6 @@ body::before {
   transform: translate(-50%, -50%) translateY(calc(var(--drone-orbit-radius) * -1));
 }
 
-@keyframes drone-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.75;
-  }
-  50% {
-    transform: scale(1.12);
-    opacity: 1;
-  }
-}
-
-.drone-pulse {
-  animation: drone-pulse 1.8s ease-in-out infinite;
-  animation-delay: var(--drone-pulse-delay, 0s);
-}
-
 /* The drone's own laser tick fired at the counter — travels the same
    radius the drone orbits at, fires for ~22% of the cycle and then rests.
    That resting 78% used to be anything but idle: the old keyframes ran the
