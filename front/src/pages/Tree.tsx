@@ -135,6 +135,37 @@ function TreeBuyButton({
   )
 }
 
+// "Nivel máximo" badge, one per node modal. This used to be an 18x
+// copy-pasted div, and 13 of those copies still carried the red of the
+// branch they were first copied from (Legendaria) regardless of the node
+// they ended up on — so a maxed green Suerte node or an amber Drones
+// buscadores one announced itself in red.
+//
+// Tailwind's scanner only emits classes it can read literally in the
+// source, so these are whole strings in a map rather than a
+// `border-${tone}-400/20` template that would silently compile to nothing.
+// Keys match the *_NODE_STYLE constants below — a node's badge tone is
+// always its branch's own color.
+const MAX_BADGE_TONES = {
+  violet: 'border-violet-400/20 bg-violet-500/[0.07] text-violet-200',
+  indigo: 'border-indigo-400/20 bg-indigo-500/[0.07] text-indigo-200',
+  green: 'border-green-400/20 bg-green-500/[0.07] text-green-200',
+  red: 'border-red-400/20 bg-red-500/[0.07] text-red-200',
+  amber: 'border-amber-400/20 bg-amber-500/[0.07] text-amber-200',
+  cyan: 'border-cyan-400/20 bg-cyan-500/[0.07] text-cyan-200',
+  orange: 'border-orange-400/20 bg-orange-500/[0.07] text-orange-200',
+} as const
+
+function TreeMaxBadge({ tone, label }: { tone: keyof typeof MAX_BADGE_TONES; label: string }) {
+  return (
+    <div
+      className={`relative w-full rounded-xl border px-4 py-2.5 text-center text-sm font-semibold ${MAX_BADGE_TONES[tone]}`}
+    >
+      {label}
+    </div>
+  )
+}
+
 const MIN_SCALE = 0.5
 const MAX_SCALE = 2.5
 
@@ -1887,9 +1918,7 @@ export function Tree() {
             </div>
 
             {isAutoClickMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="violet" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={
@@ -1960,9 +1989,7 @@ export function Tree() {
             </div>
 
             {isPremiumMaxed ? (
-              <div className="relative w-full rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-fuchsia-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="indigo" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={handleBuyPremium}
@@ -2018,9 +2045,7 @@ export function Tree() {
             </div>
 
             {isLuckMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="green" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyLuck}
@@ -2074,9 +2099,7 @@ export function Tree() {
             </div>
 
             {isLuckChanceMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="green" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyLuckChance}
@@ -2130,9 +2153,7 @@ export function Tree() {
             </div>
 
             {isMultiplierMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="red" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyMultiplier}
@@ -2186,9 +2207,7 @@ export function Tree() {
             </div>
 
             {isLegendaryGrowthMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="red" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyLegendaryGrowth}
@@ -2242,9 +2261,7 @@ export function Tree() {
             </div>
 
             {isLegendaryThresholdMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="red" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyLegendaryThreshold}
@@ -2285,9 +2302,7 @@ export function Tree() {
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.legendaryUnlockDesc(legendaryThresholdTps.toString())}</p>
 
             {isLegendaryUnlockMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="red" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyLegendaryUnlock}
@@ -2341,9 +2356,7 @@ export function Tree() {
             </div>
 
             {isLegendaryEaseMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="red" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyLegendaryEase}
@@ -2401,9 +2414,7 @@ export function Tree() {
             </div>
 
             {isScoutDroneMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="amber" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyScoutDrone}
@@ -2461,9 +2472,7 @@ export function Tree() {
             </div>
 
             {isScoutFrequencyMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="amber" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyScoutFrequency}
@@ -2527,9 +2536,7 @@ export function Tree() {
             </div>
 
             {isAutoMultiplierMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="amber" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyAutoMultiplier}
@@ -2583,9 +2590,7 @@ export function Tree() {
             </div>
 
             {isTapMultiplierMaxed ? (
-              <div className="relative w-full rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-red-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="red" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyTapMultiplier}
@@ -2639,9 +2644,7 @@ export function Tree() {
             </div>
 
             {isMultiShotMaxed ? (
-              <div className="relative w-full rounded-xl border border-cyan-400/20 bg-cyan-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-cyan-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="cyan" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyMultiShot}
@@ -2682,9 +2685,7 @@ export function Tree() {
             <p className="mb-4 text-sm text-neutral-400">{strings.tree.anomalyUnlockDesc(currentMaterialName)}</p>
 
             {isAnomalyUnlockMaxed ? (
-              <div className="relative w-full rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-orange-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="orange" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyAnomalyUnlock}
@@ -2738,9 +2739,7 @@ export function Tree() {
             </div>
 
             {isAnomalyRewardMaxed ? (
-              <div className="relative w-full rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-orange-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="orange" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyAnomalyReward}
@@ -2796,9 +2795,7 @@ export function Tree() {
             </div>
 
             {isAnomalyFrequencyMaxed ? (
-              <div className="relative w-full rounded-xl border border-orange-400/20 bg-orange-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-orange-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="orange" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyAnomalyFrequency}
@@ -2854,9 +2851,7 @@ export function Tree() {
             </div>
 
             {isOfflineProductionMaxed ? (
-              <div className="relative w-full rounded-xl border border-amber-400/20 bg-amber-500/[0.07] px-4 py-2.5 text-center text-sm font-semibold text-amber-200">
-                {strings.store.maxLevel}
-              </div>
+              <TreeMaxBadge tone="amber" label={strings.store.maxLevel} />
             ) : (
               <TreeBuyButton
                 onClick={buyOfflineProduction}
