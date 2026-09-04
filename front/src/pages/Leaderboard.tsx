@@ -8,6 +8,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
+import { formatPlatino } from '../lib/formatPlatino'
 import { useBattlesContext } from '../context/BattlesContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -25,7 +26,6 @@ export function Leaderboard() {
   const [sortBy, setSortBy] = useState<LeaderboardSort>('clicks')
   const { leaderboard, isLoading } = useLeaderboard(sortBy, true)
   const { language, strings } = useLanguage()
-  const locale = language === 'en' ? 'en-US' : 'es-ES'
   const [showBattles, setShowBattles] = useState(false)
   const reduceMotion = useReducedMotion()
 
@@ -86,7 +86,7 @@ export function Leaderboard() {
                 entry={entry}
                 rank={i + 1}
                 sortBy={sortBy}
-                locale={locale}
+                language={language}
                 isLocalPlayer={entry.id === userId}
                 reduceMotion={!!reduceMotion}
                 onOpen={() => navigate(entry.id === userId ? '/estadisticas' : `/perfil/${entry.id}`)}
@@ -117,7 +117,7 @@ function LeaderboardRow({
   entry,
   rank,
   sortBy,
-  locale,
+  language,
   isLocalPlayer,
   reduceMotion,
   onOpen,
@@ -126,7 +126,7 @@ function LeaderboardRow({
   entry: LeaderboardEntry
   rank: number
   sortBy: LeaderboardSort
-  locale: string
+  language: 'es' | 'en'
   isLocalPlayer: boolean
   reduceMotion: boolean
   onOpen: () => void
@@ -197,7 +197,9 @@ function LeaderboardRow({
               {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
             </>
           ) : (
-            entry.lifetimePlatino.toLocaleString(locale)
+            // Same compact form as Home/Tienda/Perfil — the raw digit string
+            // was pushing the widest rows into the name beside it.
+            formatPlatino(entry.lifetimePlatino, language)
           )}
         </motion.span>
       </button>

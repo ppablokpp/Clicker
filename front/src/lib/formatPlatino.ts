@@ -11,7 +11,12 @@ export function formatPlatino(value: number, language: 'es' | 'en'): string {
   const floored = Math.floor(value)
   const abs = Math.abs(floored)
   if (abs < 1_000_000) return floored.toLocaleString(locale)
+  // Q (cuatrillón) is the last one worth having: 1e15 is already past
+  // Number.MAX_SAFE_INTEGER's own order of magnitude (~9.007e15), so anything
+  // that would need a further tier is a number this can't count on being
+  // exact anyway.
   const tiers: [number, string][] = [
+    [1e15, 'Q'],
     [1e12, 'T'],
     [1e9, 'B'],
     [1e6, 'M'],
