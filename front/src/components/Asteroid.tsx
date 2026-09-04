@@ -205,6 +205,7 @@ export const Asteroid = memo(function Asteroid({
   className,
   detail = 'full',
   spin = true,
+  paused = false,
 }: {
   idPrefix: string
   size: number
@@ -216,6 +217,12 @@ export const Asteroid = memo(function Asteroid({
   /** Surface rotation. Off for a rock that's already moving across the screen
    *  under its own steam, where a second motion just muddies it. */
   spin?: boolean
+  /** Freezes the surface without unmounting it. For a rock that's still in the
+   *  tree but covered — an opaque modal over Home leaves its asteroid turning
+   *  behind it, which is a few hundred shapes being stepped every frame for
+   *  something nobody can see. Cheaper than `spin={false}`, which would tear
+   *  down the second band copy and rebuild it on close. */
+  paused?: boolean
 }) {
   const bodyId = `${idPrefix}RockBody`
   const limbId = `${idPrefix}RockLimb`
@@ -299,7 +306,7 @@ export const Asteroid = memo(function Asteroid({
             is what rotation looks like on a sphere, where a turning silhouette
             is what it looks like on a disc. Anything entering or leaving does
             so under the darkest part of the limb gradient, so nothing pops. */}
-        <g className={spin ? 'rock-surface' : undefined}>
+        <g className={spin ? `rock-surface${paused ? ' rock-surface-paused' : ''}` : undefined}>
           {copies.map((dx) => (
             <g key={dx} transform={`translate(${dx} 0)`}>
               {field.craters.map((c, i) => (

@@ -119,6 +119,14 @@ body::before {
   animation: rock-surface 60s linear infinite;
 }
 
+/* Frozen rather than unmounted, for a rock still in the tree but covered by an
+   opaque overlay. A paused animation is not stepped, so the several hundred
+   shapes behind a modal stop costing anything per frame while staying exactly
+   where they were for when it closes. */
+.rock-surface-paused {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rock-surface {
     animation: none;

@@ -219,8 +219,6 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
 
   const pct = Math.min(1, taps / TAPS_GOAL)
   const radius = 92
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference * (1 - pct)
   const succeeded = phase === 'result' && reward !== null
 
   return (
@@ -247,18 +245,30 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
       <div className="pointer-events-none relative z-0 flex h-full items-center justify-center">
         <svg viewBox="0 0 200 200" className="pointer-events-none absolute h-72 w-72 -rotate-90 overflow-visible sm:h-96 sm:w-96">
           <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="4" fill="none" />
-          <circle
-            cx="100"
-            cy="100"
-            r={radius}
-            stroke={colors.fill}
-            strokeWidth="5"
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            style={{ transition: 'stroke-dashoffset 0.15s ease-out', filter: `drop-shadow(0 0 8px ${glow})` }}
-          />
+          {/* pathLength normalises the circle to 100 units, so the dash and
+              the offset are literally percentages. The hand-computed 2·π·r it
+              used before had to agree exactly with whatever length the browser
+              measured for the path, and any drift between the two shows up as
+              a sliver of the *next* dash appearing at the ring's start — which
+              is where a stray arc at the top comes from.
+              Hidden outright at zero rather than drawn with a zero-length
+              dash: a round cap on a dash of no length still paints a dot, so
+              an empty ring was showing a bead at twelve o'clock. */}
+          {pct > 0 && (
+            <circle
+              cx="100"
+              cy="100"
+              r={radius}
+              stroke={colors.fill}
+              strokeWidth="5"
+              fill="none"
+              strokeLinecap="round"
+              pathLength={100}
+              strokeDasharray={100}
+              strokeDashoffset={100 - pct * 100}
+              style={{ transition: 'stroke-dashoffset 0.15s ease-out', filter: `drop-shadow(0 0 8px ${glow})` }}
+            />
+          )}
         </svg>
 
         {/* Same rock + floating/spin motion as Home's own centerpiece
@@ -276,7 +286,11 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
               y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
             }}
           >
-            <Asteroid idPrefix="eventTarget" size={76} colors={colors} />
+            {/* Compact: this is the second full-detail rock on screen, since Home's
+                is still mounted behind this overlay. At 76px the difference is
+                a handful of sub-pixel craters; the difference in what gets
+                stepped every frame is not. */}
+            <Asteroid idPrefix="eventTarget" size={76} colors={colors} detail="compact" />
           </motion.div>
         </div>
       </div>

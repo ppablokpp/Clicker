@@ -246,7 +246,7 @@ const TRAJECTORY_TIER_THRESHOLDS = [
 // gone; Trayectoria's platino tiers are prestige now). Its color follows
 // the real current tier, so the rock you click matches whichever
 // Trayectoria stop you're actually on instead of always being violet.
-function SpaceObject({ tierIndex, pct }: { tierIndex: number; pct: number }) {
+function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: number; paused: boolean }) {
   const tier = OBJECT_TIERS[tierIndex]
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
@@ -277,7 +277,7 @@ function SpaceObject({ tierIndex, pct }: { tierIndex: number; pct: number }) {
             just triggered by this SVG's own filter instead. The ambient
             radial-gradient glow behind the rock already sells the "aura"
             without needing a second, shape-hugging filtered glow on top. */}
-        <Asteroid idPrefix="homeRock" size={76} colors={tier} />
+        <Asteroid idPrefix="homeRock" size={76} colors={tier} paused={paused} />
       </motion.div>
     </div>
   )
@@ -1608,7 +1608,7 @@ export function Home() {
             </div>
 
             <div className="absolute inset-0 flex items-center justify-center">
-              <SpaceObject tierIndex={currentTierIndex} pct={prestige.pct} />
+              <SpaceObject tierIndex={currentTierIndex} pct={prestige.pct} paused={isAnyModalOpen} />
             </div>
           </div>
         </div>
