@@ -91,11 +91,16 @@ interface TreeContextValue extends TreeState {
   // Pulls fresh tree levels immediately — used after a prestige confirm
   // (Home.tsx) instead of waiting for the next background poll.
   refetch: () => Promise<void>
-  // What the fleet produced while the app was closed — set once, from the
-  // very first /api/tree/me response after mount (see fetchState's
-  // isFirstFetchRef), never from the routine 8s polls that follow. null
-  // means either nothing to report yet, or the player already dismissed it
-  // this session (see FleetAwayModal).
+  // What the fleet produced while the player was genuinely away — set from
+  // any /api/tree/me response the server flags `wasAway` on, never from the
+  // routine polls in between. null means either nothing to report, or the
+  // player already dismissed it (see FleetAwayModal).
+  //
+  // "Away" is per account, not per device: the production clock is one row
+  // keyed (user_id, upgrade_id), so a second session left open anywhere keeps
+  // resetting it and nothing ever counts as an absence. That's intended — a
+  // fleet you're watching from your desktop isn't unsupervised — but it does
+  // mean a spare tab will suppress this while testing.
   awayCredit: number | null
   clearAwayCredit: () => void
   // Lights the Home header's "Centro de mando" button — true the instant
@@ -228,11 +233,6 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   // every time the rate changes (e.g. right after a purchase).
   const cpsRef = useRef(0)
   const [awayCredit, setAwayCredit] = useState<number | null>(null)
-  // Flips to false after the very first fetchState() call completes (mount
-  // or sign-in), whether or not it actually credited anything — every
-  // fetchState call after that is a routine background poll and must never
-  // set awayCredit, or the modal would pop up again every 8 seconds.
-  const isFirstFetchRef = useRef(true)
   const clearAwayCredit = useCallback(() => setAwayCredit(null), [])
 
   useEffect(() => {
@@ -314,20 +314,27 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           offlineProductionValue: data.offlineProductionValue,
           offlineProductionNextCost: data.offlineProductionNextCost,
         })
-        if (isFirstFetchRef.current) {
-          isFirstFetchRef.current = false
-          // `wasAway` is the gate, not creditedThisCall on its own. The
-          // server's clock for production is only moved by a poll or a
-          // purchase — closing the app doesn't touch it — so the first fetch
-          // of a session almost always credits *something*: the seconds since
-          // the last 30s poll, which the fleet produced with the app open and
-          // which the local prediction (see the tick effect below) had already
-          // shown the player. Reporting that as "your fleet mined X while you
-          // were away" meant a one-second relaunch announcing ~15s of ordinary
-          // production as if it were an absence bonus.
-          if (data.wasAway === true && typeof data.creditedThisCall === 'number' && data.creditedThisCall > 0) {
-            setAwayCredit(data.creditedThisCall)
-          }
+        // `wasAway` is the whole gate, and it's the only one needed. The
+        // server's clock for production is only moved by a poll or a purchase
+        // — closing the app doesn't touch it — so almost every fetch credits
+        // *something*: the seconds since the last 30s poll, production the
+        // fleet made with the app open and which the local prediction (see
+        // the tick effect below) had already shown the player. Reporting that
+        // as "your fleet mined X while you were away" meant a one-second
+        // relaunch announcing ~15s of ordinary production as an absence bonus.
+        //
+        // This used to *also* be locked to the first fetch after mount, back
+        // when creditedThisCall was the only signal available and a routine
+        // poll would otherwise have popped the modal every 30 seconds. That
+        // lock has to go now, because it can't tell "no absence to report"
+        // from "the app was never torn down": returning from the background
+        // is not a fresh mount, so a real two-minute absence produced credit
+        // that nothing was allowed to show. `wasAway` draws the line properly
+        // — a routine poll's gap is ~30s and can never clear the server's 90s
+        // threshold, so there is nothing left for a mount check to protect
+        // against.
+        if (data.wasAway === true && typeof data.creditedThisCall === 'number' && data.creditedThisCall > 0) {
+          setAwayCredit(data.creditedThisCall)
         }
         // A read-only poll, not a spend/earn action — never allowed to move
         // the total backwards (see syncTotalClicksIfNewer's own comment for
