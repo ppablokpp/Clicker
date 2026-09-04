@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
 import { BottomNavPill } from './components/BottomNavPill'
+import { ScrollToTop } from './components/ScrollToTop'
 import { SignInModal } from './components/SignInModal'
 import { FleetAwayModal } from './components/FleetAwayModal'
 import { SignInPromptProvider } from './context/SignInPromptContext'
@@ -60,6 +61,7 @@ function ClickerApp() {
                                         <DailyCaseProvider>
                                           <GemCaseProvider>
                                             <GemChestProvider>
+                                              <ScrollToTop />
                                               <Routes>
                                                 <Route path="/" element={<Home />} />
                                                 <Route path="/clasificacion" element={<Leaderboard />} />
