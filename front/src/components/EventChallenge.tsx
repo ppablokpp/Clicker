@@ -245,43 +245,60 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
       </div>
 
       <div className="pointer-events-none relative z-0 flex h-full items-center justify-center">
-        <svg viewBox="0 0 200 200" className="pointer-events-none absolute h-72 w-72 -rotate-90 overflow-visible sm:h-96 sm:w-96">
-          <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="4" fill="none" />
-          <circle
-            cx="100"
-            cy="100"
-            r={radius}
-            stroke={colors.fill}
-            strokeWidth="5"
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            style={{ transition: 'stroke-dashoffset 0.15s ease-out', filter: `drop-shadow(0 0 8px ${glow})` }}
-          />
-        </svg>
-
-        {/* Same rock + floating/spin motion as Home's own centerpiece
-            asteroid and Battle's duel target — just this meteor's own
-            captured (randomized) color. */}
-        <div ref={targetRef} className="relative flex h-64 w-64 items-center justify-center sm:h-80 sm:w-80">
-          <div
-            className="absolute -inset-6 rounded-full"
-            style={{ background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`, opacity: 0.35 }}
-          />
-          <motion.div
-            animate={{ rotate: 360, y: [0, -6, 0] }}
-            transition={{
-              rotate: { duration: 26, repeat: Infinity, ease: 'linear' },
-              y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-            }}
+        {/* One sized, positioned, IN-FLOW box holding both the ring and the
+            rock — the exact arrangement Home's ProgressRing sits in.
+            The ring used to be `absolute h-72 w-72 sm:h-96 sm:w-96` directly
+            inside this flex container, with no top/left of its own. An
+            absolutely positioned element without insets falls back to its
+            "static position", and for a child of a flex container that is one
+            of the least consistently implemented corners of the layout spec —
+            and it's precisely where the sm: breakpoint changed the element's
+            size, which is why this went wrong on a phone and not on a desktop.
+            Home's identical ring has never had the problem, and the only thing
+            it does differently is this: it's `absolute inset-0 h-full w-full`
+            of a parent that owns the size, so nothing has to be inferred. */}
+        <div className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
+          <svg
+            viewBox="0 0 200 200"
+            className="pointer-events-none absolute inset-0 h-full w-full overflow-visible -rotate-90"
           >
-            {/* Compact: this is the second full-detail rock on screen, since Home's
-                is still mounted behind this overlay. At 76px the difference is
-                a handful of sub-pixel craters; the difference in what gets
-                stepped every frame is not. */}
-            <Asteroid idPrefix="eventTarget" size={76} colors={colors} detail="compact" />
-          </motion.div>
+            <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="4" fill="none" />
+            <circle
+              cx="100"
+              cy="100"
+              r={radius}
+              stroke={colors.fill}
+              strokeWidth="5"
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              style={{ transition: 'stroke-dashoffset 0.15s ease-out', filter: `drop-shadow(0 0 8px ${glow})` }}
+            />
+          </svg>
+
+          {/* Same rock + floating/spin motion as Home's own centerpiece
+              asteroid and Battle's duel target — just this meteor's own
+              captured (randomized) color. */}
+          <div ref={targetRef} className="relative flex h-64 w-64 items-center justify-center sm:h-80 sm:w-80">
+            <div
+              className="absolute -inset-6 rounded-full"
+              style={{ background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`, opacity: 0.35 }}
+            />
+            <motion.div
+              animate={{ rotate: 360, y: [0, -6, 0] }}
+              transition={{
+                rotate: { duration: 26, repeat: Infinity, ease: 'linear' },
+                y: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+              }}
+            >
+              {/* Compact: this is the second full-detail rock on screen, since
+                  Home's is still mounted behind this overlay. At 76px the
+                  difference is a handful of sub-pixel craters; the difference
+                  in what gets stepped every frame is not. */}
+              <Asteroid idPrefix="eventTarget" size={76} colors={colors} detail="compact" />
+            </motion.div>
+          </div>
         </div>
       </div>
 
