@@ -216,6 +216,23 @@ export interface TranslationStrings {
     caseMythicLabel: string
     caseTitleClicks: (materialName: string) => string
     caseTitleGems: string
+    // Cosmetics chest — front-only preview for now, see CosmeticCaseCard.
+    cosmeticCaseSection: string
+    cosmeticCaseSubtitle: string
+    cosmeticCaseDemoBadge: string
+    cosmeticCaseSoon: string
+    cosmeticCaseTitleKeys: string
+    cosmeticCaseTitleGems: string
+    cosmeticCaseOpen: string
+    cosmeticCaseCatalogTitle: string
+    cosmeticRarityNames: Record<string, string>
+    // Chest bench — the chest card's rack/batch flow, see ChestBench.tsx.
+    chestBenchAdd: string
+    chestBenchSelected: (count: number, max: number) => string
+    chestBenchClear: string
+    chestBenchEmpty: string
+    chestCollectionComplete: string
+    chestBenchMissingKeys: (count: number) => string
     powerupsSection: string
     powerupsCardTitle: string
     powerupsSubtitle: string
@@ -624,7 +641,7 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughClicks: 'Te falta platino',
       lootSection: 'Premios',
       casesSection: 'Cofres',
-      casesSubtitle: 'Compra cofres para poder abrirlos con las llaves y probar tu suerte.',
+      casesSubtitle: 'Elige hasta 5 cofres y ábrelos con tus llaves.',
       openCase: 'Abrir cofre',
       openCaseMoney: 'Comprar cofre',
       openCaseGems: 'Abrir con gemas',
@@ -661,6 +678,28 @@ export const translations: Record<Language, TranslationStrings> = {
       caseMythicLabel: 'Mítico',
       caseTitleClicks: (materialName) => `Cofre de ${materialName.toLowerCase()}`,
       caseTitleGems: 'Cofre de gemas',
+      cosmeticCaseSection: 'Cofre de estilo',
+      cosmeticCaseSubtitle: 'Piezas para tu astronauta: mascotas, mochilas, propulsores, brazaletes y más.',
+      cosmeticCaseDemoBadge: 'Demo',
+      cosmeticCaseSoon: 'Próximamente',
+      cosmeticCaseTitleKeys: 'Cofre de estilo',
+      cosmeticCaseTitleGems: 'Cofre de estilo raro',
+      cosmeticCaseOpen: 'Girar (demo)',
+      cosmeticCaseCatalogTitle: 'Contenido del cofre',
+      cosmeticRarityNames: {
+        consumer: 'Común',
+        milspec: 'Poco común',
+        restricted: 'Raro',
+        classified: 'Épico',
+        covert: 'Legendario',
+        gold: 'Excepcional',
+      },
+      chestBenchAdd: 'Añadir',
+      chestBenchSelected: (count, max) => `${count}/${max} en la mesa`,
+      chestBenchClear: 'Vaciar',
+      chestBenchEmpty: 'Añade un cofre para empezar',
+      chestCollectionComplete: 'Colección completa',
+      chestBenchMissingKeys: (count) => (count === 1 ? 'Te falta 1 llave' : `Te faltan ${count} llaves`),
       powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
       powerupsSubtitle: 'Multiplica la potencia de tus disparos durante un tiempo.',
@@ -1147,7 +1186,7 @@ export const translations: Record<Language, TranslationStrings> = {
       notEnoughClicks: "You're short on platinum",
       lootSection: 'Prizes',
       casesSection: 'Chests',
-      casesSubtitle: 'Buy chests to open them with keys and try your luck.',
+      casesSubtitle: 'Pick up to 5 chests and open them with your keys.',
       openCase: 'Open chest',
       openCaseMoney: 'Buy chest',
       openCaseGems: 'Open with gems',
@@ -1184,6 +1223,28 @@ export const translations: Record<Language, TranslationStrings> = {
       caseMythicLabel: 'Mythic',
       caseTitleClicks: (materialName) => `${materialName} chest`,
       caseTitleGems: 'Gem chest',
+      cosmeticCaseSection: 'Style chest',
+      cosmeticCaseSubtitle: 'Gear for your astronaut: companions, packs, thrusters, bracelets and more.',
+      cosmeticCaseDemoBadge: 'Demo',
+      cosmeticCaseSoon: 'Coming soon',
+      cosmeticCaseTitleKeys: 'Style chest',
+      cosmeticCaseTitleGems: 'Rare style chest',
+      cosmeticCaseOpen: 'Spin (demo)',
+      cosmeticCaseCatalogTitle: 'Chest contents',
+      cosmeticRarityNames: {
+        consumer: 'Common',
+        milspec: 'Uncommon',
+        restricted: 'Rare',
+        classified: 'Epic',
+        covert: 'Legendary',
+        gold: 'Exceptional',
+      },
+      chestBenchAdd: 'Add',
+      chestBenchSelected: (count, max) => `${count}/${max} on the bench`,
+      chestBenchClear: 'Clear',
+      chestBenchEmpty: 'Add a chest to get started',
+      chestCollectionComplete: 'Collection complete',
+      chestBenchMissingKeys: (count) => (count === 1 ? 'You need 1 more key' : `You need ${count} more keys`),
       powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
       powerupsSubtitle: "Multiplies your shots' power for a while.",

@@ -1,6 +1,15 @@
 import { useId } from 'react'
+import {
+  ACCENT_STYLES,
+  BELT_STYLES,
+  BOOT_STYLES,
+  BRACELET_STYLES,
+  HELMET_STYLES,
+  SUIT_STYLES,
+} from '../lib/astronautStyles'
 import type {
   AccentStyle,
+  AstronautStyleIds,
   BeltStyle,
   BootStyle,
   BraceletStyle,
@@ -57,6 +66,58 @@ export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps
         props.slot === 'pet2') && <ShapePiece slot={props.slot} id={props.style.id} />}
     </svg>
   )
+}
+
+export type AstronautSlot = keyof AstronautStyleIds
+
+// The same piece, addressed by slot + id instead of by an already-looked-up
+// style object. Every slot's options carry their own style type, so the
+// lookup has to be per-slot to stay strictly typed — collapsing the
+// catalogues into one list would lose that.
+//
+// This lives here, next to the drawings, because more than one screen now
+// shows an item off the character: the customization grid and the cosmetic
+// chest. Both going through this one function is what makes "it looks the
+// same in the chest as in its card" a fact rather than a thing to remember.
+export function AstronautPieceById({
+  slot,
+  id,
+  size,
+}: {
+  slot: AstronautSlot
+  id: string
+  size?: number
+}) {
+  switch (slot) {
+    case 'helmet': {
+      const style = HELMET_STYLES.find((o) => o.id === id)
+      return style ? <AstronautPiecePreview slot="helmet" style={style} size={size} /> : null
+    }
+    case 'suit': {
+      const style = SUIT_STYLES.find((o) => o.id === id)
+      return style ? <AstronautPiecePreview slot="suit" style={style} size={size} /> : null
+    }
+    case 'boots': {
+      const style = BOOT_STYLES.find((o) => o.id === id)
+      return style ? <AstronautPiecePreview slot="boots" style={style} size={size} /> : null
+    }
+    case 'bracelet': {
+      const style = BRACELET_STYLES.find((o) => o.id === id)
+      return style ? <AstronautPiecePreview slot="bracelet" style={style} size={size} /> : null
+    }
+    case 'belt': {
+      const style = BELT_STYLES.find((o) => o.id === id)
+      return style ? <AstronautPiecePreview slot="belt" style={style} size={size} /> : null
+    }
+    case 'accent': {
+      const style = ACCENT_STYLES.find((o) => o.id === id)
+      return style ? <AstronautPiecePreview slot="accent" style={style} size={size} /> : null
+    }
+    // Shape-only slots all take the same `{ id }` shape, so they share one
+    // branch instead of six identical lookups.
+    default:
+      return <AstronautPiecePreview slot={slot} style={{ id }} size={size} />
+  }
 }
 
 // Every shape-only option in one place. They share a neutral ink so the

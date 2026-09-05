@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, Palette } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
-import { AstronautPiecePreview } from '../components/AstronautPiecePreview'
+// The per-option piece renderer lives beside the drawings themselves so the
+// store's cosmetics chest shows the identical art these cards do.
+import { AstronautPieceById } from '../components/AstronautPiecePreview'
 import { useLanguage } from '../context/LanguageContext'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { fetchMyStyle, saveMyStyle } from '../lib/astronautStyleApi'
@@ -84,41 +86,6 @@ function optionIds(slot: SlotKey): string[] {
     case 'pet':
     case 'pet2':
       return PET_SHAPES.map((o) => o.id)
-  }
-}
-
-// Each slot's options carry their own style type, so the preview stays
-// strictly typed per piece — collapsing them into one list would lose that.
-function PieceForOption({ slot, id }: { slot: SlotKey; id: string }) {
-  switch (slot) {
-    case 'helmet': {
-      const style = HELMET_STYLES.find((o) => o.id === id)
-      return style ? <AstronautPiecePreview slot="helmet" style={style} /> : null
-    }
-    case 'suit': {
-      const style = SUIT_STYLES.find((o) => o.id === id)
-      return style ? <AstronautPiecePreview slot="suit" style={style} /> : null
-    }
-    case 'boots': {
-      const style = BOOT_STYLES.find((o) => o.id === id)
-      return style ? <AstronautPiecePreview slot="boots" style={style} /> : null
-    }
-    case 'bracelet': {
-      const style = BRACELET_STYLES.find((o) => o.id === id)
-      return style ? <AstronautPiecePreview slot="bracelet" style={style} /> : null
-    }
-    case 'belt': {
-      const style = BELT_STYLES.find((o) => o.id === id)
-      return style ? <AstronautPiecePreview slot="belt" style={style} /> : null
-    }
-    case 'accent': {
-      const style = ACCENT_STYLES.find((o) => o.id === id)
-      return style ? <AstronautPiecePreview slot="accent" style={style} /> : null
-    }
-    // Shape-only slots all take the same `{ id }` shape, so they share one
-    // branch instead of six identical lookups.
-    default:
-      return <AstronautPiecePreview slot={slot} style={{ id }} />
   }
 }
 
@@ -353,7 +320,7 @@ export function CustomizeAstronaut() {
                     }`}
                   >
                     <span className="flex h-[72px] w-full items-center justify-center rounded-xl bg-black/25 shadow-inner shadow-black/40">
-                      <PieceForOption slot={slot} id={id} />
+                      <AstronautPieceById slot={slot} id={id} />
                     </span>
                     <span className={`text-[11px] font-medium ${selected ? 'text-violet-100' : 'text-neutral-500'}`}>
                       {strings.profile.styleNames[id] ?? id}

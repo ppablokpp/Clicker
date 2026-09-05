@@ -1017,6 +1017,132 @@ export const usersRepository = {
     }
   },
 
+  // Every cosmetic this user has won, as "slot:itemId" keys.
+  async getOwnedCosmetics(id) {
+    const result = await database.query(
+      'SELECT slot, item_id FROM user_cosmetics WHERE user_id = $1',
+      [id],
+    )
+    return result.rows.map((r) => `${r.slot}:${r.item_id}`)
+  },
+
+  // Opens a whole bench of chests at once, paying for the lot in keys and
+  // nothing else — no owned-chest inventory to draw down, which is the point
+  // of the bench (see store/chestBench.js).
+  //
+  // One transaction for the whole batch on purpose: five separate calls could
+  // half-succeed, and a client that has already started five reels has no
+  // sensible way to unwind the three that landed. Either the keys leave and
+  // every prize is granted, or nothing happened.
+  //
+  // `plan` is [{ chest, kind, prize? }] in bench order. Currency prizes are
+  // already rolled by the route; cosmetics are rolled here, because their
+  // pool depends on what this user owns and that can only be read safely
+  // under the same lock that's about to spend their keys.
+  async openChestBatch(id, keyCost, plan, rollCosmetic) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query('SELECT keys, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [id])
+      const user = row.rows[0]
+      if (!user) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      if (Number(user.keys) < keyCost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-keys' }
+      }
+
+      // No FOR UPDATE needed here: two concurrent pulls by the same user
+      // already serialize on the users row locked above, and that's the only
+      // race that could hand out the same piece twice.
+      const ownedRows = await client.query(
+        'SELECT slot, item_id FROM user_cosmetics WHERE user_id = $1',
+        [id],
+      )
+      const owned = new Set(ownedRows.rows.map((r) => `${r.slot}:${r.item_id}`))
+
+      const results = []
+      for (const step of plan) {
+        if (step.kind === 'cosmetic') {
+          const item = rollCosmetic(step.chest, owned)
+          if (!item) {
+            // Nothing left in that chest for them. Fails the whole batch
+            // rather than silently opening four of the five — the client
+            // greys the chest out before this can normally happen, so
+            // reaching here means the collection filled up mid-pull.
+            await client.query('ROLLBACK')
+            return { ok: false, reason: 'collection-complete' }
+          }
+          // Added to the set immediately so a second style chest in the same
+          // batch can't roll what the first one just won.
+          owned.add(`${item.slot}:${item.itemId}`)
+          results.push({ chest: step.chest, kind: 'cosmetic', slot: item.slot, itemId: item.itemId })
+        } else {
+          // Material prizes scale to the opener's tier; gem prizes never do.
+          // Scaled here rather than in the route because the tier is read
+          // inside this same locked row — a prestige committed between the
+          // two would otherwise pay out at the wrong multiplier.
+          const { prize } = step
+          const isGems = prize.currency === 'gems'
+          results.push({
+            chest: step.chest,
+            kind: 'currency',
+            prizeId: prize.id,
+            currency: isGems ? 'gems' : 'clicks',
+            prizeAmount: isGems ? prize.amount : scaleMaterialAmount(prize.amount, user.prestige_tier),
+          })
+        }
+      }
+
+      const won = results.filter((r) => r.kind === 'cosmetic')
+      if (won.length > 0) {
+        await client.query(
+          `INSERT INTO user_cosmetics (user_id, slot, item_id)
+           SELECT $1::text, * FROM UNNEST($2::text[], $3::text[])
+           ON CONFLICT DO NOTHING`,
+          [id, won.map((r) => r.slot), won.map((r) => r.itemId)],
+        )
+      }
+
+      const clicksDelta = results.reduce(
+        (sum, r) => (r.kind === 'currency' && r.currency === 'clicks' ? sum + r.prizeAmount : sum),
+        0,
+      )
+      const gemsDelta = results.reduce(
+        (sum, r) => (r.kind === 'currency' && r.currency === 'gems' ? sum + r.prizeAmount : sum),
+        0,
+      )
+
+      const updated = await client.query(
+        `UPDATE users
+         SET total_clicks = total_clicks + $2,
+             lifetime_platino = lifetime_platino + $2,
+             gems = gems + $3,
+             keys = keys - $4,
+             cases_opened = cases_opened + $5,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING total_clicks, gems, keys`,
+        [id, clicksDelta, gemsDelta, keyCost, results.length],
+      )
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        totalClicks: Number(updated.rows[0].total_clicks),
+        gems: Number(updated.rows[0].gems),
+        keys: Number(updated.rows[0].keys),
+        results,
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   // Buys one click-chest for clicks — a prerequisite for spinDailyCase's
   // key-paid open path (the gem-paid path bypasses this entirely). `cost`
   // comes in as the flat, tier-0 constant; scaled to the buyer's own tier
