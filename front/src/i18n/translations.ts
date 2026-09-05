@@ -373,6 +373,13 @@ export interface TranslationStrings {
     noIncoming: string
     noHistory: string
     pickOpponent: string
+    searchOpponent: string
+    noOpponentResults: string
+    chooseWager: string
+    lowerWager: string
+    raiseWager: string
+    payoutLine: (amount: string) => string
+    challengeFailed: string
     challengeButton: (wager: string) => string
     acceptButton: (wager: string) => string
     notEnoughPlatinum: string
@@ -904,6 +911,13 @@ export const translations: Record<Language, TranslationStrings> = {
       noIncoming: 'No tienes duelos pendientes.',
       noHistory: 'Todavía no has jugado ningún duelo.',
       pickOpponent: 'Elige a tu rival',
+      searchOpponent: 'Buscar jugador',
+      noOpponentResults: 'Ningún jugador con ese nombre',
+      chooseWager: 'Apuesta',
+      lowerWager: 'Bajar la apuesta',
+      raiseWager: 'Subir la apuesta',
+      payoutLine: (amount) => `Te llevas ${amount} si ganas`,
+      challengeFailed: 'No se ha podido lanzar el duelo',
       challengeButton: (wager) => `Retar por ${wager}`,
       acceptButton: (wager) => `Aceptar por ${wager}`,
       notEnoughPlatinum: 'Te falta mineral para esto',
@@ -1436,6 +1450,13 @@ export const translations: Record<Language, TranslationStrings> = {
       noIncoming: "You don't have any pending duels.",
       noHistory: "You haven't played any duels yet.",
       pickOpponent: 'Pick your rival',
+      searchOpponent: 'Search players',
+      noOpponentResults: 'No player by that name',
+      chooseWager: 'Wager',
+      lowerWager: 'Lower the wager',
+      raiseWager: 'Raise the wager',
+      payoutLine: (amount) => `You take ${amount} if you win`,
+      challengeFailed: "Couldn't start the duel",
       challengeButton: (wager) => `Challenge for ${wager}`,
       acceptButton: (wager) => `Accept for ${wager}`,
       notEnoughPlatinum: "You're short on ore for this",

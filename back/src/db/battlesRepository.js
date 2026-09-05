@@ -1,5 +1,5 @@
 import { database } from './pool.js'
-import { BATTLE_WAGER } from '../game/battles.js'
+import { BATTLE_WAGER, maxWagerForTier } from '../game/battles.js'
 import { accrueProduction } from './treeRepository.js'
 
 export const battlesRepository = {
@@ -12,7 +12,7 @@ export const battlesRepository = {
   // respond to a challenge — listing one would only ever be a dead end.
   async listOpponents(userId, limit = 50) {
     const result = await database.query(
-      `SELECT id, username, avatar_url, total_clicks FROM users
+      `SELECT id, username, avatar_url, total_clicks, astronaut_style FROM users
        WHERE id != $1 AND id !~ '^anon_'
        ORDER BY total_clicks DESC
        LIMIT $2`,
@@ -23,6 +23,9 @@ export const battlesRepository = {
       username: row.username,
       avatarUrl: row.avatar_url,
       totalClicks: Number(row.total_clicks),
+      // Same as the leaderboard: a rival is shown as their astronaut, not
+      // their account photo, so the two lists read as the same people.
+      astronautStyle: row.astronaut_style ?? null,
     }))
   },
 
@@ -95,7 +98,8 @@ export const battlesRepository = {
   // challenge — before they've even played their own round. If they never
   // finish that round the wager just sits spent with no result, same as
   // any other purchase; there's no separate "cancel and refund" path yet.
-  async createChallenge(challengerId, opponentId) {
+  // `wager` is one rung of BATTLE_WAGERS, already validated by the route.
+  async createChallenge(challengerId, opponentId, wager = BATTLE_WAGER) {
     if (challengerId === opponentId) {
       return { ok: false, reason: 'cannot-challenge-self' }
     }
@@ -118,21 +122,29 @@ export const battlesRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
-      if (accrued.totalClicks < BATTLE_WAGER) {
+      // The per-tier cap, checked here rather than in the route because the
+      // tier is read under the same lock that's about to spend the material
+      // — a prestige committed between the two would otherwise let a wager
+      // through against the wrong ceiling.
+      if (wager > maxWagerForTier(accrued.prestigeTier)) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'wager-too-high' }
+      }
+      if (accrued.totalClicks < wager) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-clicks' }
       }
 
       const spent = await client.query(
         'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
-        [challengerId, BATTLE_WAGER],
+        [challengerId, wager],
       )
 
       const battle = await client.query(
         `INSERT INTO battles (challenger_id, opponent_id, wager, status)
          VALUES ($1, $2, $3, 'awaiting_challenger')
          RETURNING id`,
-        [challengerId, opponentId, BATTLE_WAGER],
+        [challengerId, opponentId, wager],
       )
 
       await client.query('COMMIT')

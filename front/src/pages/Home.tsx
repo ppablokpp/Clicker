@@ -59,6 +59,9 @@ import {
   type MaterialTierColors,
 } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
+// Lifetime-platino threshold each tier unlocks at — index-aligned with
+// OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])).
+import { TRAJECTORY_TIER_THRESHOLDS } from '../lib/trajectory'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
@@ -227,14 +230,6 @@ function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean;
 // own gradients; the speckle colour is the same for every tier, so it's the
 // component's default and isn't passed.
 const OBJECT_TIERS = MATERIAL_TIER_COLORS
-
-// Lifetime-platino threshold each OBJECT_TIERS entry unlocks at â€” first
-// jump is 10M, then Ã—100 per tier after that. Index-aligned with
-// OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])). Must match
-// back/src/game/trajectory.js's own copy exactly (kept in sync by hand).
-const TRAJECTORY_TIER_THRESHOLDS = [
-  0, 10_000_000, 1_000_000_000, 100_000_000_000, 10_000_000_000_000, 1_000_000_000_000_000,
-]
 
 // The thing you're actually clicking â€” a slowly bobbing/rotating rock,
 // no "breaking" moment anymore (that whole object/prestige-target loop is

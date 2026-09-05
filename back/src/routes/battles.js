@@ -1,12 +1,18 @@
 import { Router } from 'express'
 import { getAuth } from '@clerk/express'
 import { battlesRepository } from '../db/battlesRepository.js'
-import { BATTLE_WAGER, BATTLE_DURATION_SECONDS } from '../game/battles.js'
+import { BATTLE_WAGER, BATTLE_WAGERS, BATTLE_DURATION_SECONDS, isWagerRung } from '../game/battles.js'
 
 export const battlesRouter = Router()
 
+// `wager` is still here as the default/opening rung — it predates the ladder
+// and a client that hasn't shipped the picker yet reads only this one.
 battlesRouter.get('/config', (_req, res) => {
-  res.json({ wager: BATTLE_WAGER, durationSeconds: BATTLE_DURATION_SECONDS })
+  res.json({
+    wager: BATTLE_WAGER,
+    wagers: BATTLE_WAGERS,
+    durationSeconds: BATTLE_DURATION_SECONDS,
+  })
 })
 
 battlesRouter.get('/opponents', async (req, res) => {
@@ -46,7 +52,15 @@ battlesRouter.post('/challenge', async (req, res) => {
     return res.status(400).json({ error: 'opponentId required' })
   }
 
-  const result = await battlesRepository.createChallenge(userId, opponentId)
+  // Validated against the ladder, not a range — a wager that isn't one of the
+  // rungs is rejected outright rather than clamped, since there's no honest
+  // client that could produce one. The per-tier cap is checked further in,
+  // inside the transaction, where the challenger's prestige tier is read
+  // under the same lock that spends their material.
+  const wager = req.body?.wager === undefined ? BATTLE_WAGER : Number(req.body.wager)
+  if (!isWagerRung(wager)) return res.status(400).json({ error: 'invalid-wager' })
+
+  const result = await battlesRepository.createChallenge(userId, opponentId, wager)
   if (!result.ok) return res.status(400).json({ error: result.reason })
   res.json(result)
 })

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Medal, Swords, User, X, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Medal, Minus, Plus, Search, Swords, User, X, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import { useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
@@ -9,7 +9,8 @@ import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
 import { formatPlatino } from '../lib/formatPlatino'
-import { useBattlesContext } from '../context/BattlesContext'
+import { useBattlesContext, type BattleOpponent } from '../context/BattlesContext'
+import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
@@ -414,6 +415,24 @@ function BattlesModal({
   )
 }
 
+// Rungs of the wager ladder. Every one is 1 or 5 times a power of ten, so
+// the scaled value is always a whole number and the suffix form needs no
+// decimals at all: 1M, 5M, 10M, not formatPlatino's 1.00M.
+//
+// Deliberately not formatPlatino with the ".00" stripped, which is what this
+// was: in Spanish the thousands separator is also a dot, so "10.000" had its
+// separator eaten and came out as "100".
+function formatWager(value: number, locale: string): string {
+  if (value < 1_000_000) return value.toLocaleString(locale)
+  const tiers: [number, string][] = [
+    [1e12, 'T'],
+    [1e9, 'B'],
+    [1e6, 'M'],
+  ]
+  const [threshold, suffix] = tiers.find(([t]) => value >= t) ?? tiers[tiers.length - 1]
+  return `${value / threshold}${suffix}`
+}
+
 function OpponentPickerModal({
   onClose,
   onNavigate,
@@ -421,88 +440,267 @@ function OpponentPickerModal({
   onClose: () => void
   onNavigate: ReturnType<typeof useNavigate>
 }) {
-  const { strings, language } = useLanguage()
-  const locale = language === 'en' ? 'en-US' : 'es-ES'
-  const { wager, opponents, isLoadingOpponents, fetchOpponents, challenge } = useBattlesContext()
-  const { totalClicks } = useClickCounterContext()
-  const [challengingId, setChallengingId] = useState<string | null>(null)
-  const [errorId, setErrorId] = useState<string | null>(null)
-  const canAfford = totalClicks >= wager
+  const { strings } = useLanguage()
+  const { opponents, isLoadingOpponents, fetchOpponents } = useBattlesContext()
+  const [query, setQuery] = useState('')
+  const [picked, setPicked] = useState<BattleOpponent | null>(null)
 
   useEffect(() => {
     fetchOpponents()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handleChallenge(opponentId: string) {
-    setChallengingId(opponentId)
-    setErrorId(null)
-    const res = await challenge(opponentId)
-    if (res.ok && res.battleId) {
-      onNavigate(`/batalla/${res.battleId}`, { state: { role: 'challenger' } })
-    } else {
-      setErrorId(opponentId)
-      setChallengingId(null)
-    }
-  }
+  // Accent-insensitive so "jose" finds "José" — the roster is people's
+  // usernames, and typing the accent is exactly the friction a search box
+  // exists to remove.
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+  const needle = normalize(query.trim())
+  const filtered = needle
+    ? opponents.filter((o) => normalize(o.username ?? '').includes(needle))
+    : opponents
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center overscroll-contain bg-black/70 px-6 py-10 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] py-6 pl-6 pr-2 shadow-2xl shadow-black/50"
+        className="relative flex max-h-[calc(100dvh-5rem)] w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] py-6 pl-6 pr-2 shadow-2xl shadow-black/50"
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300">
           <X size={16} />
         </button>
 
-        <p className="mb-4 shrink-0 pr-4 text-sm font-semibold text-white">{strings.battle.pickOpponent}</p>
+        <p className="mb-3 shrink-0 pr-8 text-sm font-semibold text-white">{strings.battle.pickOpponent}</p>
+
+        <div className="relative mb-3 shrink-0 pr-4">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={strings.battle.searchOpponent}
+            aria-label={strings.battle.searchOpponent}
+            className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-2 pl-9 pr-3 text-sm text-neutral-200 outline-none transition-colors placeholder:text-neutral-600 focus:border-violet-400/40 focus:bg-white/[0.05]"
+          />
+        </div>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto pr-4">
           <div className="flex flex-col gap-2">
             {!isLoadingOpponents && opponents.length === 0 && (
               <p className="text-sm text-neutral-500">{strings.leaderboard.empty}</p>
             )}
-            {opponents.map((o) => (
-              <div
+            {opponents.length > 0 && filtered.length === 0 && (
+              <p className="py-4 text-center text-sm text-neutral-500">{strings.battle.noOpponentResults}</p>
+            )}
+            {/* The whole row is the control now — the wager moved to its own
+                step, so there's nothing here to pick besides who. */}
+            {filtered.map((o) => (
+              <button
                 key={o.id}
-                className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
+                onClick={() => setPicked(o)}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 text-left transition-colors hover:border-violet-400/30 hover:bg-violet-500/[0.06]"
               >
-                {o.avatarUrl ? (
-                  <img src={o.avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-                ) : (
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-                    <User size={14} />
-                  </div>
-                )}
+                <AstronautHeadshot size={28} styleIds={normalizeStyle(o.astronautStyle)} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-200">
                   {o.username ?? strings.leaderboard.fallbackName}
                 </span>
-                <button
-                  onClick={() => handleChallenge(o.id)}
-                  disabled={challengingId === o.id || !canAfford}
-                  aria-label={strings.battle.challengeButton(wager.toLocaleString(locale))}
-                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-                    canAfford
-                      ? 'border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15 disabled:opacity-50'
-                      : 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                  }`}
-                >
-                  <span className="flex items-center justify-center gap-1">
-                    <PlatinumIcon size={13} className="opacity-70" />
-                    <span className="tabular-nums">{wager.toLocaleString(locale)}</span>
-                  </span>
-                </button>
-                {errorId === o.id && (
-                  <span className="w-full text-[11px] text-red-300">{strings.battle.notEnoughPlatinum}</span>
-                )}
-              </div>
+                <ChevronRight size={15} className="shrink-0 text-neutral-600" />
+              </button>
             ))}
           </div>
         </div>
+      </div>
+
+      {picked && (
+        <WagerPickerModal
+          opponent={picked}
+          onBack={() => setPicked(null)}
+          onClose={onClose}
+          onNavigate={onNavigate}
+        />
+      )}
+    </div>
+  )
+}
+
+// Step two: how much. A stepper for precision plus a ladder rail for reach —
+// nineteen rungs spanning 1K to 1T is far too wide for +/- alone to give any
+// sense of where you are, and the rail also answers the question the stepper
+// can't: how much of the range your balance actually opens.
+function WagerPickerModal({
+  opponent,
+  onBack,
+  onClose,
+  onNavigate,
+}: {
+  opponent: BattleOpponent
+  onBack: () => void
+  onClose: () => void
+  onNavigate: ReturnType<typeof useNavigate>
+}) {
+  const { strings, language } = useLanguage()
+  const { wager: defaultWager, wagers, challenge } = useBattlesContext()
+  const { totalClicks, prestigeTier } = useClickCounterContext()
+  const theme = MATERIAL_BUTTON_THEMES[prestigeTier]
+  const tier = MATERIAL_TIER_COLORS[prestigeTier]
+
+  // The highest rung this balance covers; -1 when even the cheapest is out
+  // of reach. Everything past it is drawn as out of range rather than hidden,
+  // so the rail still shows what the duel could become.
+  const maxAffordableIndex = wagers.reduce((best, w, i) => (totalClicks >= w ? i : best), -1)
+
+  const [index, setIndex] = useState(() => {
+    const opening = wagers.indexOf(defaultWager)
+    const start = opening >= 0 ? opening : 0
+    // Open on the default rung, but never above what they can actually pay.
+    return maxAffordableIndex >= 0 ? Math.min(start, maxAffordableIndex) : 0
+  })
+
+  const [isChallenging, setIsChallenging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const value = wagers[index] ?? defaultWager
+  const canAfford = totalClicks >= value
+  const canStepDown = index > 0
+  const canStepUp = index < wagers.length - 1 && index < maxAffordableIndex
+
+  async function handleChallenge() {
+    if (isChallenging || !canAfford) return
+    setIsChallenging(true)
+    setError(null)
+    const res = await challenge(opponent.id, value)
+    if (res.ok && res.battleId) {
+      onClose()
+      onNavigate(`/batalla/${res.battleId}`, { state: { role: 'challenger' } })
+    } else {
+      setError(res.error === 'not-enough-clicks' ? strings.battle.notEnoughPlatinum : strings.battle.challengeFailed)
+      setIsChallenging(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center overscroll-contain bg-black/80 px-6 py-10 backdrop-blur-sm"
+      // Stopped, not just handled: this modal renders inside the opponent
+      // picker's own backdrop, so without this a click out here would run
+      // onBack and then bubble straight into the picker's onClose, closing
+      // both instead of stepping back one.
+      onClick={(e) => {
+        e.stopPropagation()
+        onBack()
+      }}
+    >
+      <div
+        className="relative flex w-full max-w-sm flex-col rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onBack} aria-label={strings.battle.backButton} className="absolute left-4 top-4 text-neutral-500 hover:text-neutral-300">
+          <ChevronLeft size={16} />
+        </button>
+        <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300">
+          <X size={16} />
+        </button>
+
+        {/* Who you're betting against, so the amount is never chosen in the
+            abstract. */}
+        <div className="mb-5 flex flex-col items-center gap-2 pt-2">
+          <AstronautHeadshot size={44} styleIds={normalizeStyle(opponent.astronautStyle)} />
+          <p className="max-w-full truncate text-sm font-semibold text-white">
+            {opponent.username ?? strings.leaderboard.fallbackName}
+          </p>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-neutral-500">{strings.battle.chooseWager}</p>
+        </div>
+
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <button
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            disabled={!canStepDown}
+            aria-label={strings.battle.lowerWager}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-neutral-300 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Minus size={18} />
+          </button>
+
+          <div className="flex min-w-0 flex-1 flex-col items-center">
+            <span
+              className="flex items-center gap-1.5 font-[Space_Grotesk] text-3xl font-bold tabular-nums"
+              style={{ color: tier.fill }}
+            >
+              <PlatinumIcon size={24} className="opacity-80" />
+              {formatWager(value, language)}
+            </span>
+            <span className="mt-1 text-[11px] text-neutral-500">
+              {strings.battle.payoutLine(formatWager(value * 2, language))}
+            </span>
+          </div>
+
+          <button
+            onClick={() => setIndex((i) => Math.min(wagers.length - 1, i + 1))}
+            disabled={!canStepUp}
+            aria-label={strings.battle.raiseWager}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-neutral-300 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+
+        {/* The rail. Ticks ramp up in height with the stakes, fill up to the
+            chosen rung, and go flat-dim past what this balance can cover —
+            so "where am I" and "how far can I go" are one glance. */}
+        <div className="mb-1 flex h-10 items-end gap-[3px]">
+          {wagers.map((w, i) => {
+            const affordable = i <= maxAffordableIndex
+            // Filled means "you've dialled this far AND you could pay it" —
+            // with nothing affordable at all, nothing should read as chosen.
+            const reached = affordable && i <= index
+            const height = 30 + (i / Math.max(1, wagers.length - 1)) * 70
+            return (
+              <button
+                key={w}
+                onClick={() => affordable && setIndex(i)}
+                disabled={!affordable}
+                aria-label={formatWager(w, language)}
+                className="flex-1 rounded-full transition-colors disabled:cursor-not-allowed"
+                style={{
+                  height: `${height}%`,
+                  backgroundColor: reached ? tier.fill : affordable ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)',
+                  boxShadow: i === index ? `0 0 10px ${tier.glow}` : undefined,
+                }}
+              />
+            )
+          })}
+        </div>
+        <div className="mb-5 flex justify-between text-[10px] tabular-nums text-neutral-600">
+          <span>{formatWager(wagers[0], language)}</span>
+          <span>{formatWager(wagers[wagers.length - 1], language)}</span>
+        </div>
+
+        <button
+          onClick={handleChallenge}
+          disabled={isChallenging || !canAfford}
+          aria-label={strings.battle.challengeButton(formatWager(value, language))}
+          className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+            canAfford && !isChallenging
+              ? theme.button
+              : 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+          }`}
+        >
+          {isChallenging ? (
+            <Loader2 size={16} className="mx-auto animate-spin" />
+          ) : (
+            strings.battle.challengeButton(formatWager(value, language))
+          )}
+        </button>
+
+        {!canAfford && (
+          <p className="mt-2 text-center text-xs text-amber-300/70">{strings.battle.notEnoughPlatinum}</p>
+        )}
+        {error && <p className="mt-2 text-center text-xs text-red-400">{error}</p>}
       </div>
     </div>
   )
