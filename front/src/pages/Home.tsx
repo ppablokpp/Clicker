@@ -1,4 +1,4 @@
-import {
+﻿import {
   memo,
   useCallback,
   useEffect,
@@ -19,7 +19,6 @@ import {
   Joystick,
   Archive,
   Dices,
-  Magnet,
   Package,
   ClipboardList,
   Crosshair,
@@ -41,9 +40,6 @@ import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useLanguage } from '../context/LanguageContext'
 import { usePowerupContext } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext } from '../context/TimedLuckPowerupContext'
-import { useMagnetContext } from '../context/MagnetContext'
-import { useKeysContext } from '../context/KeysContext'
-import { useGemsContext } from '../context/GemsContext'
 import { useGemUpgradesContext } from '../context/GemUpgradesContext'
 import { useTreeContext } from '../context/TreeContext'
 import { usePrestigeContext } from '../context/PrestigeContext'
@@ -55,7 +51,6 @@ import { useClickPacksContext } from '../context/ClickPacksContext'
 import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
-import { playMagnetProc } from '../lib/caseSound'
 import { playLaserShot } from '../lib/battleSound'
 import {
   MATERIAL_TIER_COLORS,
@@ -79,7 +74,7 @@ interface InfoModalData {
   durationSeconds: number
 }
 
-// Escalates the whole screen's feel with click speed — a free "combo meter"
+// Escalates the whole screen's feel with click speed â€” a free "combo meter"
 // with no server round trip, purely derived from clicksPerSecond. Legendario
 // also doubles the value of each click (registerClick(multiplier)). `key` is
 // resolved against strings.home.heat inside the component for translation.
@@ -87,7 +82,7 @@ const HEAT_LEVELS = [
   { min: 0, key: null, badge: 'text-neutral-300', icon: 'text-neutral-600', ripple: 'bg-violet-400/40', glow: 'rgba(168,85,247,0.25)', multiplier: 1 },
   { min: 6, key: 'onFire', badge: 'text-amber-300', icon: 'text-amber-400', ripple: 'bg-amber-400/50', glow: 'rgba(251,191,36,0.35)', multiplier: 1 },
   { min: 10, key: 'unstoppable', badge: 'text-orange-300', icon: 'text-orange-400', ripple: 'bg-orange-500/55', glow: 'rgba(249,115,22,0.4)', multiplier: 1 },
-  // `min` here is just the tier-0 default — the tree's Umbral node (see
+  // `min` here is just the tier-0 default â€” the tree's Umbral node (see
   // legendaryThresholdTps) lowers the real threshold as it levels up, so
   // getHeatLevel takes that as its own parameter instead of reading this.
   { min: 30, key: 'legendary', badge: 'text-red-300', icon: 'text-red-400', ripple: 'bg-red-500/60', glow: 'rgba(239,68,68,0.45)', multiplier: 2 },
@@ -101,10 +96,10 @@ const HEAT_LEVELS = [
   multiplier: number
 }[]
 
-// Legendary itself is gated behind the "Modo Legendario" tree node —
+// Legendary itself is gated behind the "Modo Legendario" tree node â€”
 // without it, hitting the threshold caps out at Imparable instead (no
-// combo meter, no per-tier multiplier past ×1 from heat). The threshold
-// itself (legendaryMinTps) comes from Umbral, Modo Legendario's own child —
+// combo meter, no per-tier multiplier past Ã—1 from heat). The threshold
+// itself (legendaryMinTps) comes from Umbral, Modo Legendario's own child â€”
 // 30 t/s by default, shrinking down to a 20 t/s floor as it's leveled up.
 function getHeatLevel(cps: number, legendaryUnlocked: boolean, legendaryMinTps: number): (typeof HEAT_LEVELS)[number] {
   let level: (typeof HEAT_LEVELS)[number] = HEAT_LEVELS[0]
@@ -121,19 +116,19 @@ function getHeatLevel(cps: number, legendaryUnlocked: boolean, legendaryMinTps: 
 // Legendary's own combo meter: real taps landed *while* legendary (not
 // auto-click ticks) fill a bar; filling it once bumps the bonus from the
 // base x1.5 up and resets the bar for the next one, which takes more taps
-// than the last — same shape as the tree's cost curves (linear reward,
+// than the last â€” same shape as the tree's cost curves (linear reward,
 // exponential requirement). Dropping out of legendary resets both back to
 // zero, since this rewards *sustaining* the combo, not a lifetime total.
 // The first threshold (streakBase) and the per-fill bonus increase
-// (bonusStep) both come from the tree now — Reflejos/Impulso, Multiplicador's
-// two children — so they're parameters here, not fixed constants. The bar
-// can only fill LEGENDARY_TIER_MAX times, period — a fixed cap on *how many
+// (bonusStep) both come from the tree now â€” Reflejos/Impulso, Multiplicador's
+// two children â€” so they're parameters here, not fixed constants. The bar
+// can only fill LEGENDARY_TIER_MAX times, period â€” a fixed cap on *how many
 // times* it can go up, not on the resulting value, so Impulso raising
 // bonusStep actually raises the ceiling instead of just getting there
 // faster.
 // How far the view mode below can be pushed either way. Roomier than it
 // would need to be without panning, since wandering off the asteroid is now
-// recoverable — leaving the mode always snaps back.
+// recoverable â€” leaving the mode always snaps back.
 const MIN_ZOOM = 0.6
 const MAX_ZOOM = 2.2
 const LEGENDARY_STREAK_RATIO = 1.4
@@ -148,7 +143,7 @@ function legendaryBonusForTier(tier: number, bonusStep: number): number {
   return LEGENDARY_BONUS_BASE + bonusStep * Math.min(tier, LEGENDARY_TIER_MAX)
 }
 
-// A whole starfield from one 1x1px element — every star is just another
+// A whole starfield from one 1x1px element â€” every star is just another
 // point in a single giant box-shadow list, so there's no per-star DOM cost.
 // Two layers (dim/static, bright/twinkling) give it a bit of depth.
 function generateStars(count: number, opacity: number): string {
@@ -172,7 +167,7 @@ function generateStars(count: number, opacity: number): string {
 // colour isn't used: at that point the ring has stopped reporting progress and
 // become a "there's something to do here" halo. Tinting it with the tier would
 // make the finished state look like more of the same bar rather than a state
-// change — and on the gold tier it would be invisible.
+// change â€” and on the gold tier it would be invisible.
 function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean; colors: MaterialTierColors }) {
   const radius = 92
   const circumference = 2 * Math.PI * radius
@@ -184,7 +179,7 @@ function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean;
       className={`pointer-events-none absolute inset-0 h-full w-full overflow-visible -rotate-90 ${isMaxed ? 'animate-spin-slow' : ''}`}
     >
       <defs>
-        {/* fill → light rather than two arbitrary hues: it's the same material
+        {/* fill â†’ light rather than two arbitrary hues: it's the same material
             ramp the rock is lit with, so the ring reads as the same substance
             catching the same light instead of as a UI accent that happens to
             match. */}
@@ -221,27 +216,27 @@ function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean;
 }
 
 // The rock's geometry, crater field and lighting all live in
-// components/Asteroid.tsx now — one copy for the whole game, instead of the
+// components/Asteroid.tsx now â€” one copy for the whole game, instead of the
 // three hand-mirrored ones this file used to be one of.
 
-// Cosmetic color tier every 10 objects broken — same rock throughout, just
+// Cosmetic color tier every 10 objects broken â€” same rock throughout, just
 // recolored so a long session doesn't stare at the exact same one forever.
 // Per-object progress isn't shown visually at all right now (the earlier
-// cracking-apart version and the bar under it both got dropped) — the rock
+// cracking-apart version and the bar under it both got dropped) â€” the rock
 // just glows a little brighter as `pct` climbs. These three feed <Asteroid>'s
 // own gradients; the speckle colour is the same for every tier, so it's the
 // component's default and isn't passed.
 const OBJECT_TIERS = MATERIAL_TIER_COLORS
 
-// Lifetime-platino threshold each OBJECT_TIERS entry unlocks at — first
-// jump is 10M, then ×100 per tier after that. Index-aligned with
+// Lifetime-platino threshold each OBJECT_TIERS entry unlocks at â€” first
+// jump is 10M, then Ã—100 per tier after that. Index-aligned with
 // OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])). Must match
 // back/src/game/trajectory.js's own copy exactly (kept in sync by hand).
 const TRAJECTORY_TIER_THRESHOLDS = [
   0, 10_000_000, 1_000_000_000, 100_000_000_000, 10_000_000_000_000, 1_000_000_000_000_000,
 ]
 
-// The thing you're actually clicking — a slowly bobbing/rotating rock,
+// The thing you're actually clicking â€” a slowly bobbing/rotating rock,
 // no "breaking" moment anymore (that whole object/prestige-target loop is
 // gone; Trayectoria's platino tiers are prestige now). Its color follows
 // the real current tier, so the rock you click matches whichever
@@ -250,7 +245,7 @@ function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: numbe
   const tier = OBJECT_TIERS[tierIndex]
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
-      {/* A radial-gradient glow instead of a blurred solid circle — some
+      {/* A radial-gradient glow instead of a blurred solid circle â€” some
           mobile Chromium builds flash the pre-filter unblurred shape (a
           hard-edged square, since `blur-lg` blurs the element's own box)
           before the `filter: blur()` layer finishes compositing. A gradient
@@ -272,7 +267,7 @@ function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: numbe
         animate={{ y: [0, -6, 0] }}
         transition={{ y: { duration: 3, repeat: Infinity, ease: 'easeInOut' } }}
       >
-        {/* No `filter: drop-shadow()` here on purpose — same mobile
+        {/* No `filter: drop-shadow()` here on purpose â€” same mobile
             Chromium flash-to-square bug as the old blurred glow div above,
             just triggered by this SVG's own filter instead. The ambient
             radial-gradient glow behind the rock already sells the "aura"
@@ -283,12 +278,12 @@ function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: numbe
   )
 }
 
-// A small rotating preview of one of the five OBJECT_TIERS rocks — same
+// A small rotating preview of one of the five OBJECT_TIERS rocks â€” same
 // shading recipe as SpaceObject (gradient body, crater depth, grain,
 // sunlit patch), just smaller and without the bob/glow/flash, for the
 // Trayectoria roadmap list. `tierIndex` feeds unique gradient/clip ids
-// (`traj...-${tierIndex}`) so five of these — plus SpaceObject's own fixed
-// ids — can all sit in the DOM at once without one instance's gradient
+// (`traj...-${tierIndex}`) so five of these â€” plus SpaceObject's own fixed
+// ids â€” can all sit in the DOM at once without one instance's gradient
 // silently winning for every other rock on the page.
 function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolean }) {
   const tier = OBJECT_TIERS[tierIndex]
@@ -302,14 +297,14 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
           motion lives inside <Asteroid> now, so there is nothing to animate
           out here.
           Compact detail: these are 48px, and at that size the full crater
-          field is several hundred shapes resolving into noise — with six of
+          field is several hundred shapes resolving into noise â€” with six of
           them in the list at once. */}
       <Asteroid idPrefix={`traj-${tierIndex}`} size={48} colors={tier} detail="compact" />
     </div>
   )
 }
 
-// Autoclick's swarm — one little drone per level, uncapped, orbiting just
+// Autoclick's swarm â€” one little drone per level, uncapped, orbiting just
 // outside the prestige ring like Cookie Clicker's cursors circling the
 // cookie. Purely decorative: each drone's orbit phase and pulse timing
 // come from its own index, not real production data, since this only
@@ -323,19 +318,19 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
 // in index.css) instead of Framer Motion. With this swarm uncapped and
 // potentially in the hundreds, Framer was recreating each drone's
 // transition objects and reconciling its per-drone animations on every
-// Home re-render — which happens ~10x/sec purely from the autoclick tick,
-// unrelated to the swarm itself — and that reconciliation cost is what
+// Home re-render â€” which happens ~10x/sec purely from the autoclick tick,
+// unrelated to the swarm itself â€” and that reconciliation cost is what
 // actually scaled with drone count into visible lag, not the raw element
 // count. CSS keyframes run on the compositor, fully decoupled from React's
 // render cycle, so re-renders no longer touch a mounted drone at all.
 // Wrapped in `memo` on top of that so React doesn't even re-run this
 // component's own render (rebuilding `count` elements' worth of JSX)
-// unless a prop here actually changed — which in practice means only when
+// unless a prop here actually changed â€” which in practice means only when
 // the player buys another level, not on every click/tick.
 //
 // Compositor-driven or not, every always-running animation here is a live
 // layer that exists for as long as its drone does, and the swarm is
-// uncapped — so what each drone costs per frame is what actually decides
+// uncapped â€” so what each drone costs per frame is what actually decides
 // whether 20 of them idling on screen keep a phone cool or cook it. Two
 // things were cut on those grounds:
 //   - A counter-rotation that cancelled the orbit's own spin to keep the
@@ -343,7 +338,7 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
 //     it ride the orbit just reads as slowly spinning on its own axis.
 //   - The beam's dead phase: it stays (it's the swarm reading as *working*,
 //     not decoration) but no longer animates a transform nobody can see for
-//     78% of every cycle — see @keyframes drone-beam in index.css.
+//     78% of every cycle â€” see @keyframes drone-beam in index.css.
 const OrbitingBots = memo(function OrbitingBots({
   count,
   colorClass = 'text-violet-300',
@@ -355,7 +350,7 @@ const OrbitingBots = memo(function OrbitingBots({
 }: {
   count: number
   colorClass?: string
-  /** Tint for a fused unit — one shade deeper than `colorClass`, so it reads
+  /** Tint for a fused unit â€” one shade deeper than `colorClass`, so it reads
    *  as "the same unit, leveled up" rather than a different kind of drone. */
   bigColorClass?: string
   beamClass?: string
@@ -364,7 +359,7 @@ const OrbitingBots = memo(function OrbitingBots({
   // When set, every `fuseEvery` owned units render as a single bigger drone
   // on a wider ring instead of that many small ones: 15 owned = 1 big + 5
   // small, always floor(count/N) big plus the count%N remainder as small.
-  // Purely a rendering choice — `count` itself (and everything cps-related
+  // Purely a rendering choice â€” `count` itself (and everything cps-related
   // upstream) is untouched, this only changes how many <DroneIcon>s get
   // drawn and at what size. Both swarms use it; each keeps its own palette.
   fuseEvery?: number
@@ -378,12 +373,12 @@ const OrbitingBots = memo(function OrbitingBots({
     <div className="pointer-events-none absolute inset-0">
       {Array.from({ length: totalUnits }, (_, i) => {
         const big = isBigUnit(i)
-        // Tangential (visual, px/s) speed = 2π·radius / duration — radius
-        // changed (index.css: base ring ×0.85, the big ring another ×1.375
+        // Tangential (visual, px/s) speed = 2Ï€Â·radius / duration â€” radius
+        // changed (index.css: base ring Ã—0.85, the big ring another Ã—1.375
         // on top of that) but duration didn't automatically follow, which
         // would've left the small ring visibly slower and the big ring
         // visibly faster than the swarm's original speed. Scaling duration
-        // by the exact same per-ring ratio keeps px/s constant — the small
+        // by the exact same per-ring ratio keeps px/s constant â€” the small
         // ring laps a little quicker (smaller circle, same speed), the big
         // one a little slower (bigger circle, same speed), matching how it
         // looked before either ring's radius changed. Keep the 1.375 in
@@ -395,7 +390,7 @@ const OrbitingBots = memo(function OrbitingBots({
         // Negative, exactly like orbitDelay above, and for a reason that's
         // visible on any reload: a *positive* animation-delay leaves the
         // element showing its own base styles until its turn comes, and the
-        // beam's base styles are "fully opaque, no transform" — so every
+        // beam's base styles are "fully opaque, no transform" â€” so every
         // beam sat parked and visible on top of its drone for up to a whole
         // delay's worth of seconds before its first shot, then behaved
         // correctly forever after (the delay only ever applies once, ahead
@@ -406,20 +401,20 @@ const OrbitingBots = memo(function OrbitingBots({
         // inside one period while still staggering each drone differently.
         const pulseDelay = -((i * 0.53) % 1.8)
         const clockwise = i % 2 === 0
-        // `Record<string, string>` instead of CSSProperties — custom
+        // `Record<string, string>` instead of CSSProperties â€” custom
         // properties (--foo) aren't part of that type, and both wrappers
         // below need the exact same pair, just to drive opposite keyframes.
         const orbitVars: Record<string, string> = {
           '--drone-orbit-duration': `${orbitDuration}s`,
           '--drone-orbit-delay': `${orbitDelay}s`,
         }
-        // Fused drones ride a second, wider ring — overriding the custom
+        // Fused drones ride a second, wider ring â€” overriding the custom
         // property here (read by .drone-radius-offset in index.css) cascades
         // straight to this unit's own descendants without touching anyone
         // else's, same trick already used for duration/delay above.
         if (big) orbitVars['--drone-orbit-radius'] = 'var(--drone-orbit-radius-big)'
         const pulseDelayVar: Record<string, string> = { '--drone-pulse-delay': `${pulseDelay}s` }
-        // A fused drone reads as "the same unit, leveled up" — just one
+        // A fused drone reads as "the same unit, leveled up" â€” just one
         // shade darker than the small ones, barely noticeable on its own,
         // with the size/glow-radius difference doing the actual work.
         const droneColorClass = big ? bigColorClass : colorClass
@@ -430,7 +425,7 @@ const OrbitingBots = memo(function OrbitingBots({
             style={orbitVars}
           >
             {/* Static orbit-radius offset lives on a separate element from
-                the spin above — a single CSS animation touching `transform`
+                the spin above â€” a single CSS animation touching `transform`
                 always wins that property outright on its element, so it
                 can't be layered with an unanimated transform the way the
                 old Framer version (which composes the whole transform
@@ -439,26 +434,26 @@ const OrbitingBots = memo(function OrbitingBots({
               {/* Two things used to wrap this: a `drone-pulse` scaling the
                   drone in and out, and a tinted `filter: drop-shadow` aura.
                   Both are gone, and the drone being a shaded object rather
-                  than a flat glyph is why — a solid thing that breathes reads
+                  than a flat glyph is why â€” a solid thing that breathes reads
                   as a pulsing light, and a solid thing with a coloured halo
                   reads as neon. Each undid exactly what the shading buys.
                   The saving is the real prize. drop-shadow has to trace and
                   blur an element's entire alpha silhouette, descendants
                   included, and it was doing that once per drone on an uncapped
                   swarm; the pulse was an always-running animation on every one
-                  of them. What's left is a plain tinted wrapper — no filter,
-                  no animation — with the lens and the rotor wash still reading
+                  of them. What's left is a plain tinted wrapper â€” no filter,
+                  no animation â€” with the lens and the rotor wash still reading
                   `currentColor` to carry the swarm's identity. */}
               <div className={droneColorClass}>
                 <DroneIcon size={big ? 30 : 20} />
               </div>
 
-              {/* The shot — a short bolt fired straight at the counter every
+              {/* The shot â€” a short bolt fired straight at the counter every
                   pulse (same travelling-dot shape the main click shot uses,
                   just vertical since the drone's own orbit rotation, applied
                   one level up, already points "down" at the ring center).
                   It only does real work for the ~22% of its cycle it's
-                  actually visible — see @keyframes drone-beam in index.css
+                  actually visible â€” see @keyframes drone-beam in index.css
                   for how the resting 78% was made genuinely idle. */}
               <div
                 className={`drone-beam w-[3px] rounded-full bg-gradient-to-b ${beamClass}`}
@@ -474,10 +469,10 @@ const OrbitingBots = memo(function OrbitingBots({
 
 
 // One of the four "switches" flanking the platino screen (two stacked on
-// each side) — icon only now, small enough to fit two-high next to the
+// each side) â€” icon only now, small enough to fit two-high next to the
 // display, but the same chrome as before: bordered tinted box, LED dot in
 // the button's own accent color. The LED is a real notification light, not
-// flavor — lit only while `lit` is true (something new behind that button:
+// flavor â€” lit only while `lit` is true (something new behind that button:
 // a claimable task, a ready prestige, an unseen inventory item/upgrade).
 function CockpitIconButton({
   icon: Icon,
@@ -509,15 +504,15 @@ function CockpitIconButton({
   )
 }
 
-// Exactly the cockpit header's own shape — square top corners, bottom
-// corners cut — reused as-is by the three cockpit-styled modals below
+// Exactly the cockpit header's own shape â€” square top corners, bottom
+// corners cut â€” reused as-is by the three cockpit-styled modals below
 // (Centro de mando, Inventario, Tareas) so they all read as panels off the
 // same console.
 const MODAL_CLIP_PATH =
   'polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))'
 
 // The scanline texture + corner rivets from the cockpit header/tab bar,
-// dropped into a modal's own outer card unchanged — everything else about
+// dropped into a modal's own outer card unchanged â€” everything else about
 // these three modals (header strip, glow, icon badge, body content) stays
 // exactly as it already was.
 function CockpitModalChrome() {
@@ -549,12 +544,12 @@ export function Home() {
     registerClick,
     luckyClicksFound,
   } = useClickCounterContext()
-  // Trayectoria's roadmap — driven by lifetime platino earned (migration
-  // 028), not objectsBroken; a placeholder order-of-magnitude ramp (1M →
-  // 10M → 100M → 1B → 10B) until the real curve gets designed.
+  // Trayectoria's roadmap â€” driven by lifetime platino earned (migration
+  // 028), not objectsBroken; a placeholder order-of-magnitude ramp (1M â†’
+  // 10M â†’ 100M â†’ 1B â†’ 10B) until the real curve gets designed.
   //
   // The *displayed* tier is prestigeTier (migration 029), not whatever
-  // lifetimePlatino's raw threshold position would imply — lifetimePlatino
+  // lifetimePlatino's raw threshold position would imply â€” lifetimePlatino
   // keeps climbing past the next tier's floor for as long as the player
   // wants, still shown as the current material, until they explicitly
   // confirm the prestige (see handleConfirmPrestige below).
@@ -582,26 +577,26 @@ export function Home() {
     hasNewUpgrade,
     markUpgradesSeen,
   } = useTreeContext()
-  // Only the Reactor's permanent multiplier is still read here — the rest
+  // Only the Reactor's permanent multiplier is still read here â€” the rest
   // of the prestige UI (shop, reset flow) is disabled below.
   const { reactorValue } = usePrestigeContext()
   const { language, strings } = useLanguage()
-  // Whatever's currently being mined — every "your balance" label follows
+  // Whatever's currently being mined â€” every "your balance" label follows
   // this instead of hardcoding "platino", so it reads correctly after a
   // prestige moves the player onto Amatista, Esmeralda, etc.
   const currentMaterialName = strings.home.trajectoryTierNames[currentTierIndex]
-  // "pt/s" only ever meant Platino — now the unit tracks whichever material
+  // "pt/s" only ever meant Platino â€” now the unit tracks whichever material
   // the current prestige tier actually produces (am/pt/es/or/di).
   const cpsUnit = `${MATERIAL_ABBREVIATIONS[currentTierIndex]}/s`
-  // Onboarding tasks — completion reads straight off the tree's own live
+  // Onboarding tasks â€” completion reads straight off the tree's own live
   // levels (no separate counter to keep in sync for 'node-level' tiers);
   // the backend re-verifies the same condition before ever paying out (see
   // tasksRepository.claim), so nothing here needs to be trusted. Grouped
-  // into missions of 3 escalating tiers each, all shown at once — same
+  // into missions of 3 escalating tiers each, all shown at once â€” same
   // bronze/silver/gold medal language as Stats' own milestones, just 3
   // tiers instead of 4 and a claim action on top of the badge.
   const { claimed: claimedTasks, claimingId: claimingTaskId, anomaliesNeutralized, claim: claimTask } = useTasksContext()
-  // Which tier's reward a mission's card is showing — defaults to that
+  // Which tier's reward a mission's card is showing â€” defaults to that
   // mission's own active tier (see `activeTier` below) until the player
   // clicks a medal to browse another one, same interaction as Stats'
   // milestone badges re-targeting their ring.
@@ -654,9 +649,9 @@ export function Home() {
       icon: Split,
       badgeClass: 'bg-cyan-500/20 text-cyan-300',
       // Cannon *count* (multiShotValue = 1 + level), not the raw tree
-      // level — the tiers' own descriptions already talk in terms of "2nd
+      // level â€” the tiers' own descriptions already talk in terms of "2nd
       // cannon"/"5 cannons"/"10 cannons", so the progress readout below
-      // them has to match (starts at 1/2, 1/5, 1/10 — everyone has 1 cannon
+      // them has to match (starts at 1/2, 1/5, 1/10 â€” everyone has 1 cannon
       // by default, see multiShot.js).
       progressValue: multiShotValue,
       tiers: [
@@ -668,7 +663,7 @@ export function Home() {
     {
       missionId: 'anomaly',
       missionName: strings.home.missionAnomalyName,
-      // Same orange family as the tree's own Anomalías branch.
+      // Same orange family as the tree's own AnomalÃ­as branch.
       icon: Orbit,
       badgeClass: 'bg-orange-500/20 text-orange-300',
       progressValue: anomaliesNeutralized,
@@ -679,7 +674,7 @@ export function Home() {
       ],
     },
   ]
-  // Lights the header's "Tareas" button — true while any tier of any
+  // Lights the header's "Tareas" button â€” true while any tier of any
   // mission has actually been reached but not yet claimed. Purely
   // state-based (unlike the inventory/upgrade LEDs): it goes dark on its
   // own the moment the last claimable tier is claimed, no "seen" flag
@@ -703,16 +698,6 @@ export function Home() {
     activate: activateLuck,
     refetchCatalog: refetchLuckCatalog,
   } = useTimedLuckPowerupContext()
-  const {
-    catalog: magnetCatalog,
-    active: activeMagnet,
-    secondsLeft: magnetSecondsLeft,
-    activatingId: activatingMagnetId,
-    activate: activateMagnet,
-    refetchCatalog: refetchMagnetCatalog,
-  } = useMagnetContext()
-  const { keys } = useKeysContext()
-  const { gems } = useGemsContext()
   const { ownedChests: ownedClickChests, refetchCatalog: refetchDailyCaseCatalog } = useDailyCaseContext()
   const { ownedChests: ownedGemChests, refetchCatalog: refetchGemChestCatalog } = useGemChestContext()
   const { refetchCatalog: refetchClickPacksCatalog } = useClickPacksContext()
@@ -723,17 +708,15 @@ export function Home() {
   const ownedLuckPowerups = luckCatalog.filter(
     (p) => (inventory[p.id] ?? 0) > 0 || activeLuckPowerup?.id === p.id,
   )
-  const ownedMagnets = magnetCatalog.filter((m) => (inventory[m.id] ?? 0) > 0 || activeMagnet?.id === m.id)
   const isInventoryEmpty =
     ownedClickChests === 0 &&
     ownedGemChests === 0 &&
     ownedPowerups.length === 0 &&
-    ownedLuckPowerups.length === 0 &&
-    ownedMagnets.length === 0
+    ownedLuckPowerups.length === 0
   const { bestOwned: bestMoneyOwned } = useGemUpgradesContext()
   const { bonusMultiplier } = useMilestonesContext()
   // Every per-tap visual (bolt, ripple/+N, debris) is owned by
-  // TapEffectsLayer and driven imperatively through this ref — deliberately
+  // TapEffectsLayer and driven imperatively through this ref â€” deliberately
   // NOT React state up here, since state for something that changes on every
   // tap would re-render this whole (very large, ~20-context) component
   // several times per tap. See that component's own header comment.
@@ -745,11 +728,11 @@ export function Home() {
   const [showTasks, setShowTasks] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
-  // "Anomalía" event — a small asteroid that flies across the whole screen
+  // "AnomalÃ­a" event â€” a small asteroid that flies across the whole screen
   // like a shooting star on its own timer (see the Meteor spawn effect
   // below); tapping it opens EventChallenge (100 taps in 10s for a 5% cut
   // of the *current* material). Its color is random per spawn purely for
-  // visual variety — unrelated to the player's actual current material,
+  // visual variety â€” unrelated to the player's actual current material,
   // which is what the reward is still actually named/paid out in.
   const [eventMeteor, setEventMeteor] = useState<{ colors: AsteroidColors; glow: string } | null>(null)
   const [showEventChallenge, setShowEventChallenge] = useState(false)
@@ -757,53 +740,50 @@ export function Home() {
     null,
   )
   // Every one of these is its own `fixed inset-0` full-screen overlay (see
-  // each modal's JSX below) — none of them ever stopped the page itself
+  // each modal's JSX below) â€” none of them ever stopped the page itself
   // from scrolling underneath while open, since only the overlay's own
   // content was ever made scrollable.
   useLockBodyScroll(
     showPrestigeConfirm || showInventory || showShip || showTasks || showLog || showEventChallenge || infoModal !== null,
   )
   const containerRef = useRef<HTMLDivElement>(null)
-  // The space object's own on-screen box — click shots animate from the tap
+  // The space object's own on-screen box â€” click shots animate from the tap
   // point to this element's center, computed fresh on every click since the
   // object stays centered in the viewport but the viewport itself can resize.
   const objectRef = useRef<HTMLDivElement>(null)
-  const prevKeysRef = useRef<number | null>(null)
-  const prevGemsRef = useRef<number | null>(null)
   // Every click's *real* value can end up fractional once a non-integer
-  // multiplier exists (e.g. a future x1.5 upgrade) — the actual total sent
+  // multiplier exists (e.g. a future x1.5 upgrade) â€” the actual total sent
   // to registerClick keeps that full precision, but the floating "+N" is
   // never allowed to show a decimal. Instead it carries the leftover
   // fraction forward and only flashes a whole number once enough has
   // accumulated, so across many clicks the numbers shown still average out
-  // to the true value (e.g. x1.5 reads as an alternating +1, +2, +1, +2…).
+  // to the true value (e.g. x1.5 reads as an alternating +1, +2, +1, +2â€¦).
   const popupCarryRef = useRef(0)
-  // Where the last real tap landed — a magnet proc has no coordinates of its
-  // own (it's rolled server-side inside the batched click flush, up to ~1s
-  // later), so its "+1" effect spawns from here instead, reading as just
-  // another click landing rather than a separate notification.
+  // Where the last real tap landed — the fallback origin for any effect that
+  // has no coordinates of its own, so it reads as another click landing
+  // rather than as a separate notification.
   const lastPosRef = useRef({ x: 0, y: 0 })
-  // Every finger currently down, keyed by pointerId — Multidisparo raises
+  // Every finger currently down, keyed by pointerId â€” Multidisparo raises
   // how many of these can be active at once (level 0 = 1, the game's
   // default). A new finger landing past the cap is ignored outright: no
-  // click, no shot, nothing — it doesn't even start "counting" until an
+  // click, no shot, nothing â€” it doesn't even start "counting" until an
   // existing one lifts and frees a slot. On desktop there's only ever one
   // mouse pointerId no matter which button is down, so right-click and the
   // Space bar (see the keydown listener below) get their own string keys
-  // instead — that's what actually lets a desktop player use more than one
+  // instead â€” that's what actually lets a desktop player use more than one
   // "hand" at once and feel Multidisparo's extra cannons the same way a
   // second/third finger does on mobile.
   const activePointersRef = useRef<Set<number | string>>(new Set())
   const RIGHT_CLICK_KEY = 'right-click'
   const SPACE_KEY = 'space'
-  // Last known mouse position — the Space bar has no coordinates of its
+  // Last known mouse position â€” the Space bar has no coordinates of its
   // own, so a space-triggered shot fires from wherever the cursor last was.
   const cursorPosRef = useRef({ x: 0, y: 0 })
 
   // --- View mode ---------------------------------------------------------
   // Framing is a mode, not an always-live gesture. A pinch during normal play
   // is indistinguishable from two fingers tapping quickly, which is exactly
-  // what Multidisparo asks players to do — behind a toggle the two can never
+  // what Multidisparo asks players to do â€” behind a toggle the two can never
   // be confused, and shooting keeps the whole screen to itself.
   //
   // Pan AND pinch, the same pair of gestures Tree's canvas offers, so the two
@@ -811,7 +791,7 @@ export function Home() {
   //
   // Nothing survives leaving the mode: stepping back out to shoot always
   // snaps the view home. That's what lets the mode carry a free-roaming pan
-  // at all — without a guaranteed reset you could wander the asteroid off
+  // at all â€” without a guaranteed reset you could wander the asteroid off
   // screen, tap out, and be left staring at empty space with no obvious way
   // back. It's also why there's no reset button: exiting is the reset.
   //
@@ -836,7 +816,7 @@ export function Home() {
 
   // The view is written to CSS custom properties on the root rather than held
   // in state. Both gestures fire pointermove continuously, and Home is heavy
-  // enough that re-rendering it per event would make them stutter — same
+  // enough that re-rendering it per event would make them stutter â€” same
   // reasoning TapEffectsLayer applies to taps. A ref rather than a module
   // variable now that nothing is meant to outlive the mode.
   const viewRef = useRef({ scale: 1, x: 0, y: 0 })
@@ -876,7 +856,7 @@ export function Home() {
   // Mouse wheel, the same feel as Tree's own canvas: the step is proportional
   // to the current zoom (`deltaY * 0.001 * scale`), so one notch moves the
   // view by the same *fraction* whether you're pushed all the way in or all
-  // the way out — a fixed step feels glacial at 2x and violent at 0.6x.
+  // the way out â€” a fixed step feels glacial at 2x and violent at 0.6x.
   //
   // Gated on the mode like the gestures are, and for the same reason. Tree has
   // no mode to gate on because nothing there is being interrupted; here a
@@ -897,7 +877,7 @@ export function Home() {
     setZoomMode((on) => {
       const next = !on
       // Mirrored into a ref because the pointer handlers below are memoized
-      // on `fireShot` alone — reading state in them would either go stale or
+      // on `fireShot` alone â€” reading state in them would either go stale or
       // force them (and every tap) to re-create on every mode change.
       zoomModeRef.current = next
       // Whichever mode is being left, drop its half-finished gesture: a drag
@@ -917,48 +897,30 @@ export function Home() {
     [clicksPerSecond, legendaryUnlockLevel, legendaryThresholdTps],
   )
   const [legendaryStreak, setLegendaryStreak] = useState({ tier: 0, count: 0 })
-  // Falling out of legendary breaks the combo — back to the base x2 and an
+  // Falling out of legendary breaks the combo â€” back to the base x2 and an
   // empty bar, so the bonus only ever reflects a *sustained* streak.
   useEffect(() => {
     if (heat.key !== 'legendary') setLegendaryStreak({ tier: 0, count: 0 })
   }, [heat.key])
-  useEffect(() => {
-    if (prevKeysRef.current !== null && keys > prevKeysRef.current && activeMagnet?.currency === 'keys') {
-      const amount = keys - prevKeysRef.current
-      const { x, y } = lastPosRef.current
-      tapEffectsRef.current?.spawnEffect({ x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'key' })
-      playMagnetProc('keys')
-    }
-    prevKeysRef.current = keys
-  }, [keys, activeMagnet, heat.ripple])
-  useEffect(() => {
-    if (prevGemsRef.current !== null && gems > prevGemsRef.current && activeMagnet?.currency === 'gems') {
-      const amount = gems - prevGemsRef.current
-      const { x, y } = lastPosRef.current
-      tapEffectsRef.current?.spawnEffect({ x, y, ripple: heat.ripple, amount, isLucky: false, icon: 'gem' })
-      playMagnetProc('gems')
-    }
-    prevGemsRef.current = gems
-  }, [gems, activeMagnet, heat.ripple])
-  // Anomalía's own spawn timer — gated on the Anomalías tree node
+  // AnomalÃ­a's own spawn timer â€” gated on the AnomalÃ­as tree node
   // (anomalyUnlockLevel, see Tree.tsx's branch D): nothing spawns at all
   // until that's bought, same as Modo Legendario gating the Legendary heat
   // tier. Once unlocked, one meteor at a time flies across the whole
   // screen (see <Meteor>, which self-manages its own on-screen lifetime and
   // calls handleMeteorMiss if it isn't tapped in time); anomalyFrequencySeconds
-  // (which the Detección node shortens) is only the *average* wait now, not
-  // a fixed one — each gap is drawn from an exponential distribution around
+  // (which the DetecciÃ³n node shortens) is only the *average* wait now, not
+  // a fixed one â€” each gap is drawn from an exponential distribution around
   // that average (a Poisson process, same "random events at a steady long-run
   // rate" model real-world things like radioactive decay or bus arrivals
   // follow), floored at ANOMALY_MIN_GAP_SECONDS so two can't spawn back to
   // back. That means a level whose average is 2 minutes might occasionally
   // fire twice within 10-20 seconds of each other, or leave a much longer
-  // gap than 2 minutes — but across a long enough stretch (say 10 minutes)
+  // gap than 2 minutes â€” but across a long enough stretch (say 10 minutes)
   // the real count still lands close to what the average implies, just with
   // natural variance around it instead of a metronome. Next spawn is
   // scheduled fresh once this cycle ends, either by that miss or by the
   // player capturing it and finishing the challenge. Every spawn picks a
-  // random material tier purely for color variety — decorative only, the
+  // random material tier purely for color variety â€” decorative only, the
   // actual reward material is always the player's real current tier.
   useEffect(() => {
     if (!userId || anomalyUnlockLevel <= 0 || showEventChallenge || eventMeteor) return
@@ -992,7 +954,7 @@ export function Home() {
   const moneyMultiplier = bestMoneyOwned?.multiplier ?? 1
   // baseClickMultiplier (branch E, "Productividad") is the base value a
   // click starts from; tapMultiplierValue (branch E, "Multiplicador")
-  // stacks a genuine ×multiplier on top of it — everything else stacks on
+  // stacks a genuine Ã—multiplier on top of it â€” everything else stacks on
   // top the same way it always has, order doesn't matter since it's all
   // multiplication. Legendary's own multiplier grows with the
   // sustained-combo streak instead of staying a flat x2 like the other
@@ -1009,22 +971,22 @@ export function Home() {
     reactorValue
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
-  // two separate rolls — owning both multiplies together into a single
+  // two separate rolls â€” owning both multiplies together into a single
   // number under one shared 1% roll, so buying the timed one actually
   // amplifies the permanent level you already have.
   const hasLuck = Boolean(permanentLuckChance > 0 || activeLuckPowerup)
   const luckChance = activeLuckPowerup?.chance ?? permanentLuckChance
   const combinedLuckMultiplier = permanentLuckMultiplier * (activeLuckPowerup?.multiplier ?? 1)
 
-  // Prestige is tier-based now — each Trayectoria tier *is* a prestige
+  // Prestige is tier-based now â€” each Trayectoria tier *is* a prestige
   // level, driven by lifetime platino (see TRAJECTORY_TIER_THRESHOLDS), not
   // by breaking objects. The ring shows progress within the *current*
-  // (confirmed) tier toward the next one — once lifetimePlatino clears that
+  // (confirmed) tier toward the next one â€” once lifetimePlatino clears that
   // next tier's floor, `readyToPrestige` goes true and the ring stops
   // filling (pct clamps at 1) but the asteroid/material stays exactly as-is
   // until the player actually confirms (see handleConfirmPrestige):
   // lifetimePlatino keeps climbing in the background for as long as they
-  // keep farming past that point. `isMaxed` is a separate, final state —
+  // keep farming past that point. `isMaxed` is a separate, final state â€”
   // true only once there's no tier left above the current one at all.
   const hasNextTier = currentTierIndex < OBJECT_TIERS.length - 1
   const prestige = useMemo(() => {
@@ -1041,12 +1003,12 @@ export function Home() {
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
 
   // total_clicks and every tree node's owned level reset server-side (see
-  // confirmPrestige/DELETE FROM user_permanent_upgrades) — refetching the
+  // confirmPrestige/DELETE FROM user_permanent_upgrades) â€” refetching the
   // tree here pulls those just-reset levels in immediately instead of
   // showing stale ones for up to POLL_INTERVAL_MS. Keys/gems/inventory
   // quantities aren't touched by a prestige at all, but the chest/pack
   // catalogs' own material-denominated numbers scale with the new tier (see
-  // usersRepository.scaleMaterialAmount) — refetch those too or the Store
+  // usersRepository.scaleMaterialAmount) â€” refetch those too or the Store
   // keeps showing pre-prestige costs/payouts for the rest of the session.
   const handleConfirmPrestige = async () => {
     setPrestigeError(null)
@@ -1059,14 +1021,13 @@ export function Home() {
       refetchClickPacksCatalog()
       refetchPowerupCatalog()
       refetchLuckCatalog()
-      refetchMagnetCatalog()
     } else if (result.error !== 'not-signed-in') {
       setPrestigeError(result.error ?? 'error')
     }
   }
 
   // The actual "take a shot" logic, keyed by an arbitrary pointer key
-  // instead of always `e.pointerId` — a real touch/mouse pointerdown passes
+  // instead of always `e.pointerId` â€” a real touch/mouse pointerdown passes
   // its own `e.pointerId`, but the Space bar and right-click (added so
   // desktop players can feel Multidisparo's extra cannons at all, since a
   // mouse only ever has one pointerId no matter which button is down) pass
@@ -1079,7 +1040,7 @@ export function Home() {
         return
       }
 
-      // Multidisparo's cap — a finger/click/key landing while the allowance
+      // Multidisparo's cap â€” a finger/click/key landing while the allowance
       // is already full is ignored entirely, not queued for when a slot
       // frees up, so it reads as "this tap just didn't register" rather
       // than a delayed extra shot later.
@@ -1094,9 +1055,8 @@ export function Home() {
       const y = clientY - rect.top
 
       // The impact point — the object's own center, not the tap — is what
-      // magnet-proc effects (which have no coordinates of their own) and
-      // the ripple/+N below now spawn from, so they all read as "hitting
-      // the object" instead of hovering over your finger.
+      // the ripple/+N below spawns from, so effects read as "hitting the
+      // object" instead of hovering over your finger.
       const objectRect = objectRef.current?.getBoundingClientRect()
       const objX = objectRect ? objectRect.left + objectRect.width / 2 - rect.left : x
       const objY = objectRect ? objectRect.top + objectRect.height / 2 - rect.top : y
@@ -1106,11 +1066,11 @@ export function Home() {
       const isLucky = luckMultiplier > 1
       const amount = totalMultiplier * luckMultiplier
 
-      // Only real taps feed the combo meter — same source clicksPerSecond
+      // Only real taps feed the combo meter â€” same source clicksPerSecond
       // itself reads from, so it can't be padded by auto-click ticks.
       if (heat.key === 'legendary') {
         setLegendaryStreak((prev) => {
-          // Already filled the max number of times — stop counting instead
+          // Already filled the max number of times â€” stop counting instead
           // of endlessly refilling a bar that can't buy anything more.
           if (prev.tier >= LEGENDARY_TIER_MAX) return prev
           const nextCount = prev.count + 1
@@ -1119,7 +1079,7 @@ export function Home() {
         })
       }
 
-      // The popup only ever shows the carried-forward whole part — see
+      // The popup only ever shows the carried-forward whole part â€” see
       // popupCarryRef above. registerClick still gets the exact `amount`.
       popupCarryRef.current += amount
       const displayAmount = Math.floor(popupCarryRef.current)
@@ -1167,9 +1127,9 @@ export function Home() {
       // A mouse only ever reports one pointerId regardless of which button
       // is down, so a right-click held alongside a left-click would
       // otherwise just re-occupy the same Multidisparo slot instead of
-      // taking a second one — giving it its own fixed key is what actually
+      // taking a second one â€” giving it its own fixed key is what actually
       // lets the two combine into 2 simultaneous shots.
-      // View mode swallows the gesture whole — it never fires a shot. One
+      // View mode swallows the gesture whole â€” it never fires a shot. One
       // finger pans, a second turns the whole thing into a pinch, exactly as
       // Tree's canvas behaves.
       if (zoomModeRef.current) {
@@ -1255,7 +1215,7 @@ export function Home() {
 
   // Frees the pointer's slot the moment it lifts (or the gesture is
   // cancelled, e.g. an OS gesture taking over) so the next finger down can
-  // use it — a plain ref mutation, no re-render needed for either handler.
+  // use it â€” a plain ref mutation, no re-render needed for either handler.
   const handlePointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
     if (zoomModeRef.current) {
       zoomPointersRef.current.delete(e.pointerId)
@@ -1280,7 +1240,7 @@ export function Home() {
   }, [])
 
   // None of Home's own modals should let Space "reach through" them to
-  // fire a shot on the (hidden, backdropped) game underneath — a modal's
+  // fire a shot on the (hidden, backdropped) game underneath â€” a modal's
   // own backdrop already blocks pointer clicks via stopPropagation, but a
   // window-level keydown listener bypasses that bubbling entirely, so this
   // needs its own explicit check.
@@ -1303,7 +1263,7 @@ export function Home() {
       // stuck in activePointersRef.
       if (e.repeat) return
       // Don't hijack Space from an actually-focused control (a text field,
-      // a link) — only treat it as "fire" when nothing interactive has
+      // a link) â€” only treat it as "fire" when nothing interactive has
       // focus, i.e. the player is just looking at the game.
       const target = e.target as HTMLElement | null
       if (target && target !== document.body && target.tagName !== 'DIV') return
@@ -1333,13 +1293,13 @@ export function Home() {
       onContextMenu={handleContextMenu}
       className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
-      {/* starfield — replaces the old scattered ambient glows entirely */}
+      {/* starfield â€” replaces the old scattered ambient glows entirely */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsDim }} />
         <div className="animate-twinkle absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsBright }} />
       </div>
 
-      {/* Prestige-ready ambient glow — a radial-gradient instead of the old
+      {/* Prestige-ready ambient glow â€” a radial-gradient instead of the old
           `blur-[140px]` div (same mobile Chromium flash-to-square bug fixed
           on the asteroid's own glow, so it's built the filter-free way
           from the start here). */}
@@ -1353,16 +1313,16 @@ export function Home() {
       )}
 
       {/* ============================================================
-          Cockpit console — Home's own header, styled as the top instrument
+          Cockpit console â€” Home's own header, styled as the top instrument
           panel of a ship (pilot's-eye view of the asteroid out the
-          "windshield" below). Absolute/overlaid — now that the console is
+          "windshield" below). Absolute/overlaid â€” now that the console is
           this compact (buttons moved to flank the platino screen instead
           of their own row), there's no realistic viewport height where it'd
           ever clip the asteroid section, which goes back to being truly
           viewport-centered below instead of centering itself in the
           leftover space. Only Home gets a top console like this; the other
-          screens have nothing up there at all now (the old global header —
-          wordmark, language toggle, avatar — is gone, its pieces living in
+          screens have nothing up there at all now (the old global header â€”
+          wordmark, language toggle, avatar â€” is gone, its pieces living in
           the profile screen instead). The tab bar carries a matching
           cockpit look on every screen. */}
       <div data-tutorial="home-hud" className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-3 sm:pt-4">
@@ -1376,7 +1336,7 @@ export function Home() {
           >
             {/* top edge light strip */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/50 to-transparent" />
-            {/* fine scanline texture — pure flavor, very low opacity */}
+            {/* fine scanline texture â€” pure flavor, very low opacity */}
             <div
               className="pointer-events-none absolute inset-0 opacity-[0.04]"
               style={{
@@ -1389,7 +1349,7 @@ export function Home() {
             <span className="pointer-events-none absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
 
             <div className="relative flex flex-col gap-2 p-2.5 sm:gap-2.5 sm:p-3">
-              {/* Row 1 — twin gauges: heat/tempo on the left (tier-colored,
+              {/* Row 1 â€” twin gauges: heat/tempo on the left (tier-colored,
                   same HEAT_LEVELS data as before), production rate on the
                   right (violet, unchanged theme). */}
               <div className="flex items-stretch gap-2">
@@ -1410,8 +1370,8 @@ export function Home() {
                     <span className="shrink-0 whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-neutral-500">
                       {strings.home.hudHeatLabel}
                     </span>
-                    {/* Heat status ("en racha"/"imparable"/"legendario ×N")
-                        lives up here next to the micro-label — not down by
+                    {/* Heat status ("en racha"/"imparable"/"legendario Ã—N")
+                        lives up here next to the micro-label â€” not down by
                         the t/s value, which never has room to spare once
                         Legendario's multiplier suffix joins in, and used to
                         wrap onto a third line and grow the whole console
@@ -1422,7 +1382,7 @@ export function Home() {
                       >
                         {heatLabel}
                         {heat.key === 'legendary' &&
-                          ` ×${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep).toFixed(1)}`}
+                          ` Ã—${legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep).toFixed(1)}`}
                       </span>
                     )}
                   </div>
@@ -1446,7 +1406,7 @@ export function Home() {
                     <span className="font-mono text-sm font-bold tabular-nums text-violet-200">
                       {/* Fleet output (autoClickCps + scoutDroneCps) is the
                           real, steady per-second rate straight from the
-                          server — always showing, never fluctuating with
+                          server â€” always showing, never fluctuating with
                           click timing. Manual output (clicksPerSecond *
                           totalMultiplier) is what real taps add on top right
                           now, decaying back toward 0 the moment you stop. */}
@@ -1462,9 +1422,9 @@ export function Home() {
                 </div>
               </div>
 
-              {/* Row 2 — the main display screen: platino, front and center,
+              {/* Row 2 â€” the main display screen: platino, front and center,
                   like the ship's primary readout, now flanked by the four
-                  switches instead of racking them in their own row below —
+                  switches instead of racking them in their own row below â€”
                   two stacked on each side, icon-only so they fit at this
                   size. Corner brackets + a slow scanline sweep sell the
                   "active screen" feel. */}
@@ -1512,7 +1472,7 @@ export function Home() {
                       {strings.home.hudPlatinoLabel(currentMaterialName)}
                     </span>
                     {/* Was a motion.span keyed on totalClicks, with a
-                        scale-pop animation on every change — totalClicks
+                        scale-pop animation on every change â€” totalClicks
                         changes every tap AND every ~100ms straight while
                         any auto-click production is running (see
                         TreeContext's own local tick), so a `key` change
@@ -1520,7 +1480,7 @@ export function Home() {
                         remounting this element, retriggering Framer's
                         animation *and* forcing the browser to recompute the
                         drop-shadow filter below (which traces the actual
-                        digit shapes, themselves also changing) — all three
+                        digit shapes, themselves also changing) â€” all three
                         at once, continuously, just from owning any drones,
                         no tapping needed. A plain span still updates
                         instantly on every change; it just doesn't restart
@@ -1558,10 +1518,10 @@ export function Home() {
         </div>
       </div>
 
-      {/* main counter — the space object you click. The big ring tracks
+      {/* main counter â€” the space object you click. The big ring tracks
           progress within the *current* Trayectoria tier toward the next one
           (see `prestige` above). Truly viewport-centered via the root's own
-          `justify-center` — the cockpit console above is an absolute
+          `justify-center` â€” the cockpit console above is an absolute
           overlay, not flow content, so it never pushes this down. */}
       <div
         // z-0, below the cockpit header (z-10) and the tab bar (z-40): zoomed
@@ -1591,17 +1551,17 @@ export function Home() {
               costs one comparison until it is switched on. It lives in here so
               that when it is, it shares this box's centre with both drone
               swarms and rides the view zoom with them.
-              Waiting on a tree node — swap the 0 for that node's owned level
+              Waiting on a tree node â€” swap the 0 for that node's owned level
               and the escort grows with it. The fan, the firing stagger and the
               aiming all derive from the count already. */}
           <HomeFighter count={0} />
 
           {/* Ring + asteroid shrunk together by the same 0.85 the orbit
-              radius below was scaled by (index.css) — one shared wrapper so
+              radius below was scaled by (index.css) â€” one shared wrapper so
               the two always shrink in lockstep instead of two separately
               hand-tuned scale factors drifting apart later. */}
           <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.85)' }}>
-            {/* Scaled down from the object's own box — the ring used to hug
+            {/* Scaled down from the object's own box â€” the ring used to hug
                 the object edge-to-edge, which read as oversized next to it. */}
             <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
               <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} colors={OBJECT_TIERS[currentTierIndex]} />
@@ -1613,7 +1573,7 @@ export function Home() {
           </div>
         </div>
 
-        {/* Prestige-ready banner + button — `absolute top-full`, not
+        {/* Prestige-ready banner + button â€” `absolute top-full`, not
             static flow, so it hangs below the ring without adding to this
             flex-col's own height. That mattered: as a normal-flow sibling
             it was pushing the whole stack (ring included) upward to stay
@@ -1637,7 +1597,7 @@ export function Home() {
         )}
       </div>
 
-      {/* Every per-tap visual — bolt, ripple/+N, debris — with its own state
+      {/* Every per-tap visual â€” bolt, ripple/+N, debris â€” with its own state
           held inside, so a tap never re-renders Home. Driven imperatively
           via tapEffectsRef; takes no props on purpose (see its own comment). */}
       {/* Tree's berth for its own view controls (fixed bottom-24 right-4), so
@@ -1665,7 +1625,7 @@ export function Home() {
 
       <TapEffectsLayer ref={tapEffectsRef} />
 
-      {/* Anomalía spawn — a small asteroid flying across the whole screen
+      {/* AnomalÃ­a spawn â€” a small asteroid flying across the whole screen
           like a shooting star; stopPropagation inside Meteor's own button
           keeps a capture tap from also counting as a real production click
           on the object underneath. */}
@@ -1860,67 +1820,6 @@ export function Home() {
                 </div>
               )}
 
-              {ownedMagnets.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    {strings.store.magnetsTitle}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ownedMagnets.map((magnet) => {
-                      const isThisActive = activeMagnet?.id === magnet.id
-                      const accent =
-                        magnet.currency === 'keys'
-                          ? 'border-amber-400/20 bg-amber-500/10 text-amber-200'
-                          : 'border-indigo-400/20 bg-indigo-500/10 text-indigo-200'
-                      const accentHover =
-                        magnet.currency === 'keys' ? 'hover:bg-amber-500/15' : 'hover:bg-indigo-500/15'
-                      const iconColor = magnet.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'
-                      const name = strings.store.magnets[magnet.id]?.name ?? magnet.id
-                      return (
-                        <div
-                          key={magnet.id}
-                          className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center"
-                        >
-                          <button
-                            onClick={() =>
-                              setInfoModal({
-                                icon: Magnet,
-                                color: iconColor,
-                                name,
-                                desc: strings.store.magnets[magnet.id]?.desc ?? '',
-                                durationSeconds: magnet.durationSeconds,
-                              })
-                            }
-                            aria-label="Info"
-                            className="absolute right-1.5 top-1.5 text-neutral-600 hover:text-neutral-300"
-                          >
-                            <Info size={13} />
-                          </button>
-                          <Magnet size={18} className={iconColor} />
-                          <span className="text-xs font-semibold text-white">{name}</span>
-                          <span className="text-[10px] tabular-nums text-neutral-500">
-                            x{inventory[magnet.id] ?? 0}
-                          </span>
-                          {isThisActive ? (
-                            <div className={`w-full rounded-lg border px-2 py-1.5 text-xs font-semibold tabular-nums ${accent}`}>
-                              {Math.floor(magnetSecondsLeft / 60)}:{String(magnetSecondsLeft % 60).padStart(2, '0')}
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => activateMagnet(magnet)}
-                              disabled={Boolean(activeMagnet) || activatingMagnetId !== null}
-                              className={`w-full rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${accent} ${accentHover}`}
-                            >
-                              {strings.home.activateButton}
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
               {isInventoryEmpty && (
                 <p className="py-6 text-center text-sm text-neutral-500">{strings.home.inventoryEmpty}</p>
               )}
@@ -1942,7 +1841,7 @@ export function Home() {
             onClick={(e) => e.stopPropagation()}
           >
             <CockpitModalChrome />
-            {/* Cockpit-glow header strip — same radial-gradient trick as the
+            {/* Cockpit-glow header strip â€” same radial-gradient trick as the
                 asteroid/prestige glows elsewhere (never a CSS `blur()`, which
                 flashes-to-square on some mobile Chromium builds). */}
             <div className="relative overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
@@ -2159,7 +2058,7 @@ export function Home() {
               </div>
             </div>
 
-            {/* Graph-paper texture — a manifest/clipboard feel distinct from
+            {/* Graph-paper texture â€” a manifest/clipboard feel distinct from
                 the scanline used everywhere else, just for this board. */}
             <div
               className="scroll-thin relative min-h-0 flex-1 overflow-y-auto p-5"
@@ -2177,7 +2076,7 @@ export function Home() {
                   const selectedTier = mission.tiers[selectedTierIdx]
                   // Desc + progress bar follow whichever medal is being
                   // browsed, not necessarily the mission's next unclaimed
-                  // tier — clicking an earlier/later medal re-targets both,
+                  // tier â€” clicking an earlier/later medal re-targets both,
                   // same as Stats' own milestone rings.
                   const pct = allTiersClaimed ? 100 : Math.min(1, mission.progressValue / selectedTier.required) * 100
                   const Icon = mission.icon
@@ -2188,7 +2087,7 @@ export function Home() {
                         allTiersClaimed ? 'border-white/5 bg-[#0d0d13]/80 opacity-50' : 'border-white/5 bg-[#0d0d13]'
                       }`}
                     >
-                      {/* Mission index tab — a small torn-off corner label,
+                      {/* Mission index tab â€” a small torn-off corner label,
                           like a manifest sheet's own line numbers. */}
                       <div className={`flex w-7 shrink-0 items-center justify-center ${mission.badgeClass}`}>
                         <span className="rotate-180 font-mono text-[9px] font-bold tracking-widest [writing-mode:vertical-rl]">
@@ -2221,7 +2120,7 @@ export function Home() {
                           </div>
                         </div>
 
-                        {/* Medal row — same rank badges + click-to-browse
+                        {/* Medal row â€” same rank badges + click-to-browse
                             interaction as Stats' own milestones
                             (bronze/silver/gold): always clickable, colored
                             once the tier's own objective is met, and picks
@@ -2246,7 +2145,7 @@ export function Home() {
                           })}
                         </div>
 
-                        {/* Horizontal dashed seam — same seam language as the
+                        {/* Horizontal dashed seam â€” same seam language as the
                             reward "ticket stub" used elsewhere, rotated
                             horizontal, cut open only around its label. */}
                         <div className="flex items-center gap-2">
@@ -2304,7 +2203,7 @@ export function Home() {
         </div>
       )}
 
-      {/* Trayectoria — same empty-state shell as Tareas, invented as a
+      {/* Trayectoria â€” same empty-state shell as Tareas, invented as a
           fourth switch so the console's two side stacks come out even (two
           each). Nothing behind it yet. */}
       {showLog && (
@@ -2347,7 +2246,7 @@ export function Home() {
                   // Locked (future) tiers are a mystery. Cleared tiers cap
                   // at their own ceiling instead of ballooning to the full
                   // (much higher) lifetime total. The current tier is the
-                  // one exception — it shows the real, uncapped number even
+                  // one exception â€” it shows the real, uncapped number even
                   // once it's past its own ceiling, since the player keeps
                   // farming it for as long as they want before confirming
                   // the actual prestige (see handleConfirmPrestige).
@@ -2473,7 +2372,7 @@ export function Home() {
         </div>
       )}
 
-      {/* The old prestige_points/Reactor shop — a separate, already-
+      {/* The old prestige_points/Reactor shop â€” a separate, already-
           disabled system (see PrestigeContext) kept dormant on purpose:
           anyone with an existing Reactor level keeps its multiplier, but
           there's no way to earn more points or reach this modal anymore.
@@ -2510,11 +2409,11 @@ export function Home() {
               <div className="mb-3 flex flex-col gap-1 text-xs text-neutral-400">
                 <span>
                   {strings.prestige.currentMultiplier}{' '}
-                  <span className="font-semibold text-white">×{reactorValue.toFixed(2)}</span>
+                  <span className="font-semibold text-white">Ã—{reactorValue.toFixed(2)}</span>
                 </span>
                 <span>
                   {strings.prestige.nextMultiplier}{' '}
-                  <span className="font-semibold text-white">×{(reactorValue + 0.05).toFixed(2)}</span>
+                  <span className="font-semibold text-white">Ã—{(reactorValue + 0.05).toFixed(2)}</span>
                 </span>
               </div>
               <button

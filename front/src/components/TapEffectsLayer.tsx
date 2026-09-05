@@ -39,7 +39,7 @@ interface ClickEffect {
   ripple: string
   amount: number
   isLucky: boolean
-  /** Set only for a magnet proc "click" — shows the currency icon next to the +N instead of the lucky "!". */
+  /** Shows a currency icon next to the +N instead of the lucky "!". Nothing sets it since the magnets were removed. */
   icon?: 'key' | 'gem'
 }
 
@@ -128,7 +128,7 @@ export interface SpawnEffectParams {
 export interface TapEffectsHandle {
   /** One tap = one bolt; its impact spawns the ripple/+N and (throttled) debris on its own. */
   fireShot: (params: FireShotParams) => void
-  /** A ripple/+N with no bolt in front of it — used by magnet procs, which have no tap of their own. */
+  /** A ripple/+N with no bolt in front of it. Exposed for effects with no tap of their own; the magnets that used it are gone. */
   spawnEffect: (params: SpawnEffectParams) => void
 }
 

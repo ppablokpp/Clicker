@@ -16,11 +16,11 @@ interface InventoryContextValue {
 
 const InventoryContext = createContext<InventoryContextValue | null>(null)
 
-// Owned-but-not-yet-activated powerups/luck-powerups/magnets — one shared
-// store since all three categories' /buy routes write into the same
-// user_inventory table on the backend. Powers the Home "Inventory" modal's
-// owned counts; each category's own context (Powerup/TimedLuckPowerup/
-// Magnet) reads and adjusts this instead of tracking its own copy.
+// Owned-but-not-yet-activated powerups and luck-powerups — one shared store
+// since both categories' /buy routes write into the same user_inventory
+// table on the backend. Powers the Home "Inventory" modal's owned counts;
+// each category's own context (Powerup/TimedLuckPowerup) reads and adjusts
+// this instead of tracking its own copy.
 export function InventoryProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAppAuth()
   const [inventory, setInventory] = useState<Record<string, number>>({})

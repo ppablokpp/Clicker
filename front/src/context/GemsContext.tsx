@@ -17,8 +17,8 @@ export function GemsProvider({ children }: { children: ReactNode }) {
   const { latestGems } = useClickCounterContext()
   const [gems, setGems] = useState(0)
 
-  // A magnet powerup can grant gems mid-flush — every click flush reports
-  // the fresh total, so fold it in as soon as it changes.
+  // Every click flush reports the fresh total, so fold it in as soon as it
+  // changes — keeps this in step with anything spent or granted elsewhere.
   useEffect(() => {
     if (typeof latestGems === 'number') setGems(latestGems)
   }, [latestGems])

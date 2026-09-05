@@ -1,25 +1,25 @@
-import { database } from './pool.js'
+﻿import { database } from './pool.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT, prestigeTierMultiplier } from '../game/trajectory.js'
 import { accrueProduction } from './treeRepository.js'
 
-// Applies to both chest types — buying more than this just sits unopened,
+// Applies to both chest types â€” buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
 const MAX_OWNED_CHESTS = 10
 
 // Chest/pack prices and material payouts scale with prestige tier just like
-// the tree (see treeRepository's scaleCost) — a chest that costs 1000 clicks
+// the tree (see treeRepository's scaleCost) â€” a chest that costs 1000 clicks
 // or a case that pays out 3000 clicks at Amatista should cost/pay 5000/
 // 15000 at Platino, since 1000 clicks means something completely different
 // once every other number in the game has grown 5x. Keys and gems are left
-// untouched everywhere — this only ever applies to a `clicks`-denominated
+// untouched everywhere â€” this only ever applies to a `clicks`-denominated
 // amount (a cost paid in clicks, or a prize whose currency is 'clicks').
 function scaleMaterialAmount(amount, prestigeTier) {
   return amount * prestigeTierMultiplier(Number(prestigeTier))
 }
 
 export const usersRepository = {
-  // Runs once per session (from the sync-on-login call) — just profile
+  // Runs once per session (from the sync-on-login call) â€” just profile
   // fields. The streak is entirely driven by actual click activity now
   // (see incrementClicks), not by login days, so this doesn't touch it.
   async upsertFromClerk({ id, email, username, avatarUrl }) {
@@ -42,7 +42,7 @@ export const usersRepository = {
     return result.rows[0]
   },
 
-  // Cosmetic only — see migration 035 for why the server stores these ids
+  // Cosmetic only â€” see migration 035 for why the server stores these ids
   // without knowing what they mean. The caller has already validated the
   // shape; this just writes it.
   async updateAstronautStyle(id, style) {
@@ -54,7 +54,7 @@ export const usersRepository = {
   },
 
   // Creates the row a guest (`anon_<uuid>`) id needs to exist before any
-  // other route can write child data against it — every child table's
+  // other route can write child data against it â€” every child table's
   // `user_id` is a real foreign key to `users(id)`. No Clerk profile to
   // pull in here, unlike upsertFromClerk, so this is a bare insert: every
   // other column just takes its own schema DEFAULT, identical to what a
@@ -64,15 +64,15 @@ export const usersRepository = {
   },
 
   // Folds a guest session's progress into the account it just signed into,
-  // or discards it — whichever is safe. Product decision (confirmed
+  // or discards it â€” whichever is safe. Product decision (confirmed
   // explicitly, not assumed): if the Clerk account already has *any*
-  // progress of its own — meaning it was signed into before, quite
-  // possibly from a different device — that progress is never touched.
+  // progress of its own â€” meaning it was signed into before, quite
+  // possibly from a different device â€” that progress is never touched.
   // Only a genuinely fresh account (never clicked, ever) adopts the guest
   // data, wholesale. Returns whether it actually claimed anything.
   //
   // "Fresh" is checked against total_clicks/lifetime_platino rather than
-  // "does a row exist" — /sync's own upsert means the Clerk row already
+  // "does a row exist" â€” /sync's own upsert means the Clerk row already
   // exists by the time this runs (the frontend always calls /sync first),
   // so existence alone can't distinguish a brand-new account from a
   // returning one.
@@ -86,7 +86,7 @@ export const usersRepository = {
 
       // Nothing to claim (the guest row was never created, or already
       // claimed once) or nowhere safe to attach it (frontend always syncs
-      // before calling this — a missing Clerk row means that didn't
+      // before calling this â€” a missing Clerk row means that didn't
       // happen, so there's nothing to guess at here).
       if (!anonRow || !clerkRow) {
         await client.query('ROLLBACK')
@@ -95,7 +95,7 @@ export const usersRepository = {
 
       const isFresh = Number(clerkRow.total_clicks) === 0 && Number(clerkRow.lifetime_platino) === 0
       if (!isFresh) {
-        // Real progress already exists on this account — leave it exactly
+        // Real progress already exists on this account â€” leave it exactly
         // as it is. The guest row is simply left behind: orphaned, but
         // harmless (nothing ever queries or displays a `anon_...` row
         // again once it's not the id in local storage anymore).
@@ -105,7 +105,7 @@ export const usersRepository = {
 
       // Re-point every child table's rows from the guest id to the real
       // one. The six tables where `user_id` is part of the primary key go
-      // through an insert-or-skip-duplicate + delete — defends against a
+      // through an insert-or-skip-duplicate + delete â€” defends against a
       // same-key row already existing on the destination, even though
       // `isFresh` above already makes that practically impossible for an
       // account that's never clicked. The three purchase-log tables key on
@@ -151,7 +151,7 @@ export const usersRepository = {
       await client.query(`UPDATE redeemed_gem_purchases SET user_id = $2 WHERE user_id = $1`, [anonId, clerkId])
       await client.query(`UPDATE redeemed_key_purchases SET user_id = $2 WHERE user_id = $1`, [anonId, clerkId])
       // Every child row above is now either re-pointed or discarded as a
-      // duplicate — safe to clear whatever's left under the guest id.
+      // duplicate â€” safe to clear whatever's left under the guest id.
       await client.query(`DELETE FROM click_days WHERE user_id = $1`, [anonId])
       await client.query(`DELETE FROM user_inventory WHERE user_id = $1`, [anonId])
       await client.query(`DELETE FROM user_milestone_claims WHERE user_id = $1`, [anonId])
@@ -160,7 +160,7 @@ export const usersRepository = {
       await client.query(`DELETE FROM user_task_claims WHERE user_id = $1`, [anonId])
 
       // Fold the guest's own game-state columns onto the (still-fresh)
-      // Clerk row — everything except identity/profile fields, which are
+      // Clerk row â€” everything except identity/profile fields, which are
       // already correctly set from Clerk itself via /sync and must never
       // be overwritten by a guest row that never had any of them.
       await client.query(
@@ -183,9 +183,6 @@ export const usersRepository = {
            keys = a.keys,
            owned_click_chests = a.owned_click_chests,
            owned_gem_chests = a.owned_gem_chests,
-           active_magnet = a.active_magnet,
-           active_magnet_expires_at = a.active_magnet_expires_at,
-           magnet_cooldown_until = a.magnet_cooldown_until,
            total_real_clicks = a.total_real_clicks,
            objects_broken = a.objects_broken,
            object_progress = a.object_progress,
@@ -214,7 +211,7 @@ export const usersRepository = {
   },
 
   // The "already claimed today" flag is computed in SQL against CURRENT_DATE
-  // rather than in JS — comparing a DATE column's parsed value against
+  // rather than in JS â€” comparing a DATE column's parsed value against
   // "today" in JS risks a timezone mismatch with what the DB considers today.
   async getById(id) {
     const result = await database.query(
@@ -225,7 +222,7 @@ export const usersRepository = {
     return result.rows[0] ?? null
   },
 
-  // Powers the initial /api/clicks/me sync — includes the space-object
+  // Powers the initial /api/clicks/me sync â€” includes the space-object
   // progress alongside the currency total so a page refresh doesn't
   // visually reset the object back to 0 while the real state reloads.
   async getClickState(id) {
@@ -246,25 +243,25 @@ export const usersRepository = {
 
   // Lightest possible read for scaling a shop catalog's material-denominated
   // numbers to the caller's tier before they've even opened it (see the
-  // dailyCase/gemChest/clickPacks GET routes) — no FOR UPDATE, this never
+  // dailyCase/gemChest/clickPacks GET routes) â€” no FOR UPDATE, this never
   // participates in a write transaction.
   async getPrestigeTier(id) {
     const result = await database.query('SELECT prestige_tier FROM users WHERE id = $1', [id])
     return Number(result.rows[0]?.prestige_tier ?? 0)
   },
 
-  // Trayectoria's manual prestige step — the player's confirmed tier
+  // Trayectoria's manual prestige step â€” the player's confirmed tier
   // (prestige_tier) only ever advances here, never automatically just from
   // lifetime_platino crossing the next threshold, so they keep farming the
   // current tier's material for as long as they want past that point.
-  // lifetime_platino itself is untouched (it never resets, by design — see
+  // lifetime_platino itself is untouched (it never resets, by design â€” see
   // migration 028); total_clicks (the current, spendable platino) zeroes
   // out, same as a fresh tier's own extraction run starting at 0, and every
-  // tree node's owned level resets to 0 too (DELETE, not just zeroing —
+  // tree node's owned level resets to 0 too (DELETE, not just zeroing â€”
   // user_permanent_upgrades rows simply stop existing, same shape the old
   // Reactor reset used). Only *progress* resets: every node's own cost
   // curve and per-level output (tree/*.js) are pure functions of level, so
-  // they're completely unaffected — next run costs and produces exactly
+  // they're completely unaffected â€” next run costs and produces exactly
   // the same at level 1 as this run's level 1 did. user_prestige_upgrades
   // (the old Reactor) is a deliberately separate table (see migration 026)
   // so it's untouched by this DELETE, same as the old reset relied on.
@@ -274,7 +271,7 @@ export const usersRepository = {
       await client.query('BEGIN')
 
       // lifetime_platino only advances when this runs (see
-      // treeRepository.js's accrueProduction) — force it first so hitting
+      // treeRepository.js's accrueProduction) â€” force it first so hitting
       // the next tier's threshold via unflushed drone production isn't
       // wrongly rejected as not-eligible.
       const accrued = await accrueProduction(client, userId)
@@ -331,28 +328,28 @@ export const usersRepository = {
 
   // Upserts on the id alone (no email/username yet) so an increment that races
   // ahead of the Clerk profile sync never loses clicks. Also marks today in
-  // click_days (for the stats-page calendar), updates the streak, and rolls
-  // any active magnet's per-click proc, all in the same round trip:
+  // click_days (for the stats-page calendar) and updates the streak, all in
+  // the same round trip:
   //   - today_check/yesterday_check read click_days BEFORE any write here,
   //     so they reflect "was today already marked by an earlier flush" and
   //     "was yesterday clicked at all".
   //   - the streak only moves the first time a given day is marked: already
-  //     clicked today → unchanged; clicked yesterday → +1; otherwise → reset
+  //     clicked today â†’ unchanged; clicked yesterday â†’ +1; otherwise â†’ reset
   //     to 1. A user's very first-ever click also lands in the "reset to 1"
   //     branch, since they'd have no click_days rows yet either.
-  //   - magnet_procs reads whichever magnet (if any) is currently active and
-  //     not yet expired, and rolls `amount` independent Bernoulli(procChance)
-  //     trials for it via generate_series — cheap even at the 5000-click
-  //     request cap, and keeps the roll server-authoritative (never trust
-  //     the client to just claim a proc happened).
   //   - day_marked runs last, selecting FROM updated purely to force it
   //     after the user upsert, so a brand-new user's very first click
   //     doesn't violate the FK before the row exists.
   //   - total_real_clicks tracks genuine screen taps only (always +1 per
-  //     tap, regardless of multipliers/luck) — a separate stat from
+  //     tap, regardless of multipliers/luck) â€” a separate stat from
   //     total_clicks, which is the multiplied economy value. The caller
   //     (routes/clicks.js) is responsible for capping realClicks <= amount.
-  async incrementClicks(id, amount, peakCps = 0, magnetProcChance = 0, clientDate = null, realClicks = 0, luckyHits = 0) {
+  //
+  // This used to also roll the magnets' per-click chance at keys and gems.
+  // Magnets are gone: clicking was never meant to be a way to earn either of
+  // those, and the roll was per unit of click *value* rather than per tap, so
+  // once multipliers shipped a 10-second magnet was handing out ~100 gems.
+  async incrementClicks(id, amount, peakCps = 0, clientDate = null, realClicks = 0, luckyHits = 0) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
@@ -360,13 +357,13 @@ export const usersRepository = {
         `WITH effective_date AS (
          -- The client sends its own local calendar date (e.g. UTC+2 at
          -- 00:30 is already "tomorrow" locally while the DB server is still
-         -- on yesterday's UTC date) — trusted only within one day of the
+         -- on yesterday's UTC date) â€” trusted only within one day of the
          -- server's own date either way, since no real timezone offset can
          -- disagree by more than that, so a bogus value just falls back to
          -- CURRENT_DATE instead of letting a client fake an arbitrary day.
          SELECT CASE
-           WHEN $6::date IS NOT NULL AND $6::date BETWEEN CURRENT_DATE - 1 AND CURRENT_DATE + 1
-             THEN $6::date
+           WHEN $4::date IS NOT NULL AND $4::date BETWEEN CURRENT_DATE - 1 AND CURRENT_DATE + 1
+             THEN $4::date
            ELSE CURRENT_DATE
          END AS d
        ),
@@ -380,37 +377,17 @@ export const usersRepository = {
            SELECT 1 FROM click_days WHERE user_id = $1 AND click_date = (SELECT d FROM effective_date) - 1
          ) AS clicked_yesterday
        ),
-       magnet_state AS (
-         SELECT active_magnet, active_magnet_expires_at FROM users WHERE id = $1
-       ),
-       magnet_procs AS (
-         SELECT
-           CASE WHEN (SELECT active_magnet FROM magnet_state) = 'key_magnet'
-                     AND (SELECT active_magnet_expires_at FROM magnet_state) > now()
-             -- $4 (amount) can be fractional now (a click-value multiplier
-             -- upgrade) — round through double precision first, since a
-             -- direct ::int cast parses the parameter as integer text and
-             -- errors on something like "1.5".
-             THEN (SELECT count(*) FROM generate_series(1, ROUND($4::double precision)::int) WHERE random() < $5)
-             ELSE 0 END AS key_procs,
-           CASE WHEN (SELECT active_magnet FROM magnet_state) = 'gem_magnet'
-                     AND (SELECT active_magnet_expires_at FROM magnet_state) > now()
-             THEN (SELECT count(*) FROM generate_series(1, ROUND($4::double precision)::int) WHERE random() < $5)
-             ELSE 0 END AS gem_procs
-       ),
        updated AS (
          INSERT INTO users (id, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak, object_progress, lifetime_platino, lucky_clicks_found)
-         VALUES ($1, $2, $7, $3, 1, 1, $2, $2, $8)
+         VALUES ($1, $2, $5, $3, 1, 1, $2, $2, $6)
          ON CONFLICT (id) DO UPDATE
            SET total_clicks = users.total_clicks + EXCLUDED.total_clicks,
                lifetime_platino = users.lifetime_platino + EXCLUDED.lifetime_platino,
                total_real_clicks = users.total_real_clicks + EXCLUDED.total_real_clicks,
                lucky_clicks_found = users.lucky_clicks_found + EXCLUDED.lucky_clicks_found,
                best_cps = GREATEST(users.best_cps, EXCLUDED.best_cps),
-               keys = users.keys + (SELECT key_procs FROM magnet_procs),
-               gems = users.gems + (SELECT gem_procs FROM magnet_procs),
                -- Same raw click amount that credits total_clicks also
-               -- chips away at the current space object — see
+               -- chips away at the current space object â€” see
                -- game/spaceObjects.js for the break-threshold loop applied
                -- to this in JS just below (objects_broken itself isn't
                -- touched here, only the running progress toward it).
@@ -437,7 +414,7 @@ export const usersRepository = {
          ON CONFLICT (user_id, click_date) DO NOTHING
        )
        SELECT total_clicks, lifetime_platino, total_real_clicks, best_cps, keys, gems, objects_broken, object_progress, lucky_clicks_found FROM updated`,
-        [id, amount, peakCps, amount, magnetProcChance, clientDate, realClicks, luckyHits],
+        [id, amount, peakCps, clientDate, realClicks, luckyHits],
       )
 
       const row = result.rows[0]
@@ -474,7 +451,7 @@ export const usersRepository = {
     }
   },
 
-  // Every day the user has ever clicked at least once — powers the
+  // Every day the user has ever clicked at least once â€” powers the
   // stats-page calendar strip, which scrolls all the way back to the
   // earliest one. Dates come back as plain 'YYYY-MM-DD' text straight from
   // SQL rather than parsed JS Dates, to avoid any timezone-shifting round
@@ -490,23 +467,23 @@ export const usersRepository = {
     return result.rows.map((r) => r.click_date)
   },
 
-  // Buying ANY tier locks the whole category (all 4 tiers) for an hour —
+  // Buying ANY tier locks the whole category (all 4 tiers) for an hour â€”
   // otherwise a powerup that's net-positive while actively clicking becomes
   // an infinite money printer (buy it back the instant it expires, forever).
   // Row-locked transaction so we can tell "on cooldown" apart from "can't
   // afford it" instead of just returning null for both. Buying no longer
-  // activates anything — it just adds one to the owned count in
+  // activates anything â€” it just adds one to the owned count in
   // user_inventory (see activatePowerup below for the separate action that
   // actually starts the timer, called from the inventory).
   // `cost` comes in as the flat, tier-0 catalog value; scaled to the
   // buyer's own tier here when it's clicks-priced (the two gem-priced tiers
-  // are left untouched, same rule as everywhere else — see
+  // are left untouched, same rule as everywhere else â€” see
   // scaleMaterialAmount).
   async buyPowerup(id, powerupId, cost, currency = 'clicks') {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      // Credits pending drone production first — total_clicks only advances
+      // Credits pending drone production first â€” total_clicks only advances
       // when this runs (see treeRepository.js's accrueProduction), so a
       // click-priced tier could otherwise get wrongly rejected as
       // not-enough-clicks against a total that's up to 30s stale.
@@ -530,7 +507,7 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.powerup_cooldown_until }
       }
-      // The top two tiers are gem-priced instead of click-priced — same
+      // The top two tiers are gem-priced instead of click-priced â€” same
       // cooldown either way, just a different balance column to check/spend.
       const balanceColumn = currency === 'gems' ? 'gems' : 'total_clicks'
       const scaledCost = currency === 'gems' ? cost : scaleMaterialAmount(cost, user.prestige_tier)
@@ -565,7 +542,7 @@ export const usersRepository = {
   },
 
   // Consumes one owned unit of `powerupId` from the inventory and starts it
-  // running — refuses if another click-multiplier tier is already active
+  // running â€” refuses if another click-multiplier tier is already active
   // (only one at a time per category, same as before) or if none are owned.
   async activatePowerup(id, powerupId, durationSeconds) {
     const client = await database.getClient()
@@ -621,16 +598,16 @@ export const usersRepository = {
 
   // Same cooldown-locked pattern as buyPowerup, in the separate
   // active_luck_powerup slot (and its own cooldown column) so a
-  // click-multiplier powerup and a timed luck powerup can run — and be on
-  // cooldown — independently of each other. Buying only adds to inventory,
-  // same as buyPowerup — see activateTimedLuckPowerup for activation.
+  // click-multiplier powerup and a timed luck powerup can run â€” and be on
+  // cooldown â€” independently of each other. Buying only adds to inventory,
+  // same as buyPowerup â€” see activateTimedLuckPowerup for activation.
   // Same tier-scaling rule as buyPowerup: clicks-priced tiers scale,
   // gem-priced tiers don't.
   async buyTimedLuckPowerup(id, powerupId, cost, currency = 'clicks') {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      // Credits pending drone production first — see buyPowerup's own
+      // Credits pending drone production first â€” see buyPowerup's own
       // comment for why.
       const accrued = await accrueProduction(client, id)
       if (!accrued) {
@@ -652,7 +629,7 @@ export const usersRepository = {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'cooldown', cooldownUntil: user.luck_powerup_cooldown_until }
       }
-      // The top two tiers are gem-priced instead of click-priced — same
+      // The top two tiers are gem-priced instead of click-priced â€” same
       // cooldown either way, just a different balance column to check/spend.
       const balanceColumn = currency === 'gems' ? 'gems' : 'total_clicks'
       const scaledCost = currency === 'gems' ? cost : scaleMaterialAmount(cost, user.prestige_tier)
@@ -741,126 +718,7 @@ export const usersRepository = {
     }
   },
 
-  // Same cooldown-locked pattern again, in its own active_magnet slot — a
-  // key magnet and a gem magnet share one cooldown (buying either locks
-  // both), independent of the click-multiplier and luck-powerup slots.
-  // Buying only adds to inventory — see activateMagnet for activation. The
-  // actual per-click proc roll happens in incrementClicks above, unrelated
-  // to either of these.
-  // `cost` comes in as the flat, tier-0 catalog value — always clicks-priced
-  // (unlike powerups/luck powerups, magnets have no gem-priced tier), so it
-  // always scales.
-  async buyMagnet(id, magnetId, cost) {
-    const client = await database.getClient()
-    try {
-      await client.query('BEGIN')
-      // Credits pending drone production first — see buyPowerup's own
-      // comment for why.
-      const accrued = await accrueProduction(client, id)
-      if (!accrued) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-found' }
-      }
-      const row = await client.query(
-        'SELECT total_clicks, magnet_cooldown_until, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
-        [id],
-      )
-      const user = row.rows[0]
-      if (!user) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-found' }
-      }
-      user.total_clicks = accrued.totalClicks
-      user.prestige_tier = accrued.prestigeTier
-      if (user.magnet_cooldown_until && new Date(user.magnet_cooldown_until) > new Date()) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'cooldown', cooldownUntil: user.magnet_cooldown_until }
-      }
-      const scaledCost = scaleMaterialAmount(cost, user.prestige_tier)
-      if (Number(user.total_clicks) < scaledCost) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-enough-clicks' }
-      }
-
-      const updated = await client.query(
-        `UPDATE users
-         SET total_clicks = total_clicks - $2,
-             magnet_cooldown_until = now() + interval '1 hour',
-             updated_at = now()
-         WHERE id = $1
-         RETURNING total_clicks, magnet_cooldown_until`,
-        [id, scaledCost],
-      )
-      await client.query(
-        `INSERT INTO user_inventory (user_id, item_id, quantity)
-         VALUES ($1, $2, 1)
-         ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_inventory.quantity + 1`,
-        [id, magnetId],
-      )
-      await client.query('COMMIT')
-      return { ok: true, ...updated.rows[0] }
-    } catch (err) {
-      await client.query('ROLLBACK')
-      throw err
-    } finally {
-      client.release()
-    }
-  },
-
-  // Same idea as activatePowerup, in the active_magnet slot.
-  async activateMagnet(id, magnetId, durationSeconds) {
-    const client = await database.getClient()
-    try {
-      await client.query('BEGIN')
-      const row = await client.query(
-        'SELECT active_magnet, active_magnet_expires_at FROM users WHERE id = $1 FOR UPDATE',
-        [id],
-      )
-      const user = row.rows[0]
-      if (!user) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-found' }
-      }
-      const isActive =
-        user.active_magnet && user.active_magnet_expires_at && new Date(user.active_magnet_expires_at) > new Date()
-      if (isActive) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'already-active' }
-      }
-
-      const inv = await client.query(
-        'SELECT quantity FROM user_inventory WHERE user_id = $1 AND item_id = $2 FOR UPDATE',
-        [id, magnetId],
-      )
-      if (Number(inv.rows[0]?.quantity ?? 0) < 1) {
-        await client.query('ROLLBACK')
-        return { ok: false, reason: 'not-owned' }
-      }
-
-      await client.query(
-        'UPDATE user_inventory SET quantity = quantity - 1 WHERE user_id = $1 AND item_id = $2',
-        [id, magnetId],
-      )
-      const updated = await client.query(
-        `UPDATE users
-         SET active_magnet = $2,
-             active_magnet_expires_at = now() + make_interval(secs => $3),
-             updated_at = now()
-         WHERE id = $1
-         RETURNING active_magnet, active_magnet_expires_at`,
-        [id, magnetId, durationSeconds],
-      )
-      await client.query('COMMIT')
-      return { ok: true, ...updated.rows[0] }
-    } catch (err) {
-      await client.query('ROLLBACK')
-      throw err
-    } finally {
-      client.release()
-    }
-  },
-
-  // All owned (quantity > 0) inventory items for the "Inventory" modal —
+  // All owned (quantity > 0) inventory items for the "Inventory" modal â€”
   // returned as a plain {itemId: quantity} map, cross-referenced against
   // each powerup catalog on the frontend for names/costs/durations.
   async getInventory(id) {
@@ -871,7 +729,7 @@ export const usersRepository = {
     return Object.fromEntries(result.rows.map((r) => [r.item_id, Number(r.quantity)]))
   },
 
-  // Once per calendar day, grants exactly one key — the same cooldown
+  // Once per calendar day, grants exactly one key â€” the same cooldown
   // mechanic the free case used to have, just moved here so the case itself
   // stays freely repeatable and keys are what's actually rationed.
   async claimDailyKey(id) {
@@ -912,7 +770,7 @@ export const usersRepository = {
     }
   },
 
-  // Currency exchange, not a real purchase — gems in, clicks out, atomic.
+  // Currency exchange, not a real purchase â€” gems in, clicks out, atomic.
   // gemCost is left as-is; the clicks side scales with prestige tier (see
   // scaleMaterialAmount) so a pack is always worth the same *relative* chunk
   // of material, whatever tier the buyer is on.
@@ -958,11 +816,11 @@ export const usersRepository = {
   },
 
   // Free case: costs a key AND a previously-bought chest (see buyClickChest
-  // below), repeatable infinitely — no daily cooldown, keys and owned
+  // below), repeatable infinitely â€” no daily cooldown, keys and owned
   // chests are what limit how often this can happen. The prize gets added
-  // back in the same update — to total_clicks or to gems depending on
+  // back in the same update â€” to total_clicks or to gems depending on
   // `prize.currency`. `prize` is decided by the caller (route) via the
-  // server-side weighted roll — never by the client.
+  // server-side weighted roll â€” never by the client.
   async spinDailyCase(id, keyCost, prize) {
     const client = await database.getClient()
     try {
@@ -1027,7 +885,7 @@ export const usersRepository = {
   },
 
   // Opens a whole bench of chests at once, paying for the lot in keys and
-  // nothing else — no owned-chest inventory to draw down, which is the point
+  // nothing else â€” no owned-chest inventory to draw down, which is the point
   // of the bench (see store/chestBench.js).
   //
   // One transaction for the whole batch on purpose: five separate calls could
@@ -1069,7 +927,7 @@ export const usersRepository = {
           const item = rollCosmetic(step.chest, owned)
           if (!item) {
             // Nothing left in that chest for them. Fails the whole batch
-            // rather than silently opening four of the five — the client
+            // rather than silently opening four of the five â€” the client
             // greys the chest out before this can normally happen, so
             // reaching here means the collection filled up mid-pull.
             await client.query('ROLLBACK')
@@ -1082,7 +940,7 @@ export const usersRepository = {
         } else {
           // Material prizes scale to the opener's tier; gem prizes never do.
           // Scaled here rather than in the route because the tier is read
-          // inside this same locked row — a prestige committed between the
+          // inside this same locked row â€” a prestige committed between the
           // two would otherwise pay out at the wrong multiplier.
           const { prize } = step
           const isGems = prize.currency === 'gems'
@@ -1143,7 +1001,7 @@ export const usersRepository = {
     }
   },
 
-  // Buys one click-chest for clicks — a prerequisite for spinDailyCase's
+  // Buys one click-chest for clicks â€” a prerequisite for spinDailyCase's
   // key-paid open path (the gem-paid path bypasses this entirely). `cost`
   // comes in as the flat, tier-0 constant; scaled to the buyer's own tier
   // here, same as every tree upgrade's cost.
@@ -1151,7 +1009,7 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      // Credits pending drone production first — see buyPowerup's own
+      // Credits pending drone production first â€” see buyPowerup's own
       // comment for why.
       const accrued = await accrueProduction(client, id)
       if (!accrued) {
@@ -1202,7 +1060,7 @@ export const usersRepository = {
     }
   },
 
-  // Paid, repeatable case purchase (consumable RevenueCat product — unlike
+  // Paid, repeatable case purchase (consumable RevenueCat product â€” unlike
   // the daily one, no cooldown). `transactionId` is the RevenueCat store
   // transaction id, already verified as real by the route before calling
   // this; the PRIMARY KEY on redeemed_case_purchases is what actually stops
@@ -1325,7 +1183,7 @@ export const usersRepository = {
     }
   },
 
-  // Gem-paid case: no RevenueCat involved, no cooldown — just spends the
+  // Gem-paid case: no RevenueCat involved, no cooldown â€” just spends the
   // player's own gems (already won from other cases) for another roll.
   async spendGemsForCase(id, cost, prize) {
     const client = await database.getClient()
@@ -1421,14 +1279,14 @@ export const usersRepository = {
     }
   },
 
-  // Buys one gem-chest for clicks — a prerequisite for openGemChestWithKeys.
+  // Buys one gem-chest for clicks â€” a prerequisite for openGemChestWithKeys.
   // `cost` comes in as the flat, tier-0 constant; scaled to the buyer's own
   // tier here, same as buyClickChest.
   async buyGemChest(id, cost) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      // Credits pending drone production first — see buyPowerup's own
+      // Credits pending drone production first â€” see buyPowerup's own
       // comment for why.
       const accrued = await accrueProduction(client, id)
       if (!accrued) {
@@ -1479,7 +1337,7 @@ export const usersRepository = {
     }
   },
 
-  // Gem chest, paid with gems instead of keys — same prize table, no cooldown.
+  // Gem chest, paid with gems instead of keys â€” same prize table, no cooldown.
   async openGemChestWithGems(id, gemCost, prize) {
     const client = await database.getClient()
     try {
@@ -1514,14 +1372,14 @@ export const usersRepository = {
     }
   },
 
-  // `sortBy` only ever picks between these two fixed column names — never
-  // interpolates the raw query param — so there's no injection surface.
+  // `sortBy` only ever picks between these two fixed column names â€” never
+  // interpolates the raw query param â€” so there's no injection surface.
   // The 'clicks' tab ranks by lifetime_platino (all-time earned), not
-  // total_clicks (spendable balance) — otherwise spending platino would
+  // total_clicks (spendable balance) â€” otherwise spending platino would
   // drop you down the board.
   async getLeaderboard(limit = 100, sortBy = 'clicks') {
     const column = sortBy === 'cps' ? 'best_cps' : 'lifetime_platino'
-    // Guest (`anon_<uuid>`) rows never show here — playing without an
+    // Guest (`anon_<uuid>`) rows never show here â€” playing without an
     // account stays off the record entirely, on purpose, until whoever's
     // behind it actually signs in.
     const result = await database.query(
@@ -1538,20 +1396,20 @@ export const usersRepository = {
       avatarUrl: row.avatar_url,
       lifetimePlatino: Number(row.lifetime_platino),
       bestCps: Number(row.best_cps),
-      // Drives each row's little portrait — the point of storing cosmetics
+      // Drives each row's little portrait â€” the point of storing cosmetics
       // server-side is that other players see the character you built, and
       // the leaderboard is where most of them will ever see it.
       astronautStyle: row.astronaut_style ?? null,
     }))
   },
 
-  // Backs the public "visit this player's profile" page — anyone can open
+  // Backs the public "visit this player's profile" page â€” anyone can open
   // it from a leaderboard row or a battle history entry, so this only ever
   // returns fields already visible on the leaderboard itself plus a couple
   // of read-only stats, nothing account-sensitive (no email, no click
   // buffer/currency balances). Rank is computed here rather than reusing
   // getLeaderboard's own row order, since a player outside the top 100
-  // wouldn't have one there at all — this works for anyone with any score.
+  // wouldn't have one there at all â€” this works for anyone with any score.
   async getPublicProfile(id) {
     const result = await database.query(
       `SELECT u.id, u.username, u.prestige_tier, u.lifetime_platino, u.best_cps, u.longest_streak,
@@ -1575,16 +1433,16 @@ export const usersRepository = {
       totalRealClicks: Number(row.total_real_clicks ?? 0),
       createdAt: row.created_at,
       // What their astronaut is wearing, so a visitor sees the character
-      // they actually built. Null means never customized → default kit.
+      // they actually built. Null means never customized â†’ default kit.
       astronautStyle: row.astronaut_style ?? null,
-      // A score of 0 means never ranked — rank/total would otherwise show
+      // A score of 0 means never ranked â€” rank/total would otherwise show
       // a misleading "#1 of 1" for a player who has literally never clicked.
       rank: row.lifetime_platino > 0 ? Number(row.rank) : null,
       totalRanked: Number(row.total_ranked),
     }
   },
 
-  // Idempotent on purpose — the "?" replay button re-fires this every time
+  // Idempotent on purpose â€” the "?" replay button re-fires this every time
   // the tutorial is manually re-watched, not just on the one real first-run.
   async markTutorialCompleted(id) {
     await database.query('UPDATE users SET tutorial_completed = true, updated_at = now() WHERE id = $1', [id])

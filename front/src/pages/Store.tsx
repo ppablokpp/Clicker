@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
-import { Rocket, Dices, Magnet, Clock, Loader2, X, Gem, Key } from 'lucide-react'
+import { Rocket, Dices, Clock, Loader2, X, Gem, Key } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 
@@ -9,7 +9,6 @@ import { PlatinumIcon } from '../components/PlatinumIcon'
 type PackIcon = React.ComponentType<{ size?: number; className?: string }>
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
-import { useMagnetContext, type MagnetDef } from '../context/MagnetContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useKeysContext } from '../context/KeysContext'
@@ -93,12 +92,6 @@ export function Store() {
               strings={strings.store}
               materialButtonClass={materialTheme.button}
             />
-            <MagnetGridCard
-              locale={locale}
-              totalClicks={totalClicks}
-              strings={strings.store}
-              materialButtonClass={materialTheme.button}
-            />
           </div>
         </section>
       </div>
@@ -167,13 +160,10 @@ interface StoreStrings {
   purchaseError: string
   timedLuckTitle: string
   timedLuckSubtitle: string
-  magnetsTitle: string
-  magnetsSubtitle: string
   powerups: Record<string, { name: string; desc: string }>
   upgrades: Record<string, { name: string; desc: string }>
   moneyUpgrades: Record<string, { name: string; desc: string }>
   timedLuckPowerups: Record<string, { name: string; desc: string }>
-  magnets: Record<string, { name: string }>
 }
 
 // Same "price per unit, relative to the first tier" math for all three pack
@@ -698,108 +688,6 @@ function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }
               onClick={() => handleBuy(powerup)}
               materialButtonClass={materialButtonClass}
             />
-          )
-        })}
-      </div>
-
-      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
-    </div>
-  )
-}
-
-interface MagnetGridCardProps {
-  locale: string
-  totalClicks: number
-  strings: StoreStrings
-  materialButtonClass: string
-}
-
-// Only two items (not a 4-tier ladder), so its own compact 2-column layout
-// instead of reusing TierTile's grid â€” each tile keeps the currency it
-// grants visually distinct (amber for keys, indigo for gems, same language
-// as the Cofres card) since the icon alone is otherwise identical.
-function MagnetGridCard({ locale, totalClicks, strings, materialButtonClass }: MagnetGridCardProps) {
-  const { userId } = useAppAuth()
-  const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useMagnetContext()
-  const [error, setError] = useState<string | null>(null)
-
-  if (catalog.length === 0) return null
-
-  const handleBuy = async (magnet: MagnetDef) => {
-    setError(null)
-    const result = await buy(magnet)
-    if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
-  }
-
-  const activeCountdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
-  const cooldownCountdown = `${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
-
-      <div className="relative mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400/30 to-indigo-500/20 text-amber-200">
-          <Magnet size={17} />
-        </div>
-        <div>
-          <div className="text-base font-semibold text-white">{strings.magnetsTitle}</div>
-          {active ? (
-            <div className="text-xs text-neutral-500">
-              {strings.magnets[active.id]?.name ?? active.id} Â· {activeCountdown}
-            </div>
-          ) : (
-            cooldownSecondsLeft > 0 && (
-              <div className="text-xs text-neutral-500">{strings.availableIn(cooldownCountdown)}</div>
-            )
-          )}
-        </div>
-      </div>
-
-      <p className="relative mb-4 text-sm text-neutral-500">{strings.magnetsSubtitle}</p>
-
-      <div className="relative grid grid-cols-2 gap-3">
-        {catalog.map((magnet) => {
-          // Buying is independent of whether a magnet is currently active â€”
-          // it only adds to the owned count, so only the shared cooldown
-          // and affordability gate it.
-          const canAfford = !userId || totalClicks >= magnet.cost
-          const isBuyingThis = buyingId === magnet.id
-          const disabled = cooldownSecondsLeft > 0 || buyingId !== null || !canAfford
-          const name = strings.magnets[magnet.id]?.name ?? magnet.id
-          const accentColor = magnet.currency === 'keys' ? 'text-amber-300' : 'text-indigo-300'
-
-          return (
-            <div
-              key={magnet.id}
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-center"
-            >
-              <Magnet size={20} className={accentColor} />
-              <span className="text-xs font-semibold text-white">{name}</span>
-              <span className="mb-1 flex items-center gap-1 text-[10px] font-medium text-neutral-500">
-                <Clock size={9} />
-                {magnet.durationSeconds}s
-              </span>
-              <button
-                onClick={() => handleBuy(magnet)}
-                disabled={disabled}
-                aria-label={name}
-                className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-                  disabled
-                    ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-                    : materialButtonClass
-                }`}
-              >
-                {isBuyingThis ? (
-                  strings.buying
-                ) : (
-                  <span className="flex items-center justify-center gap-1">
-                    <PlatinumIcon size={13} className="opacity-70" />
-                    <span className="tabular-nums">{magnet.cost.toLocaleString(locale)}</span>
-                  </span>
-                )}
-              </button>
-            </div>
           )
         })}
       </div>

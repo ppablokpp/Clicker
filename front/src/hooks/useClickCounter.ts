@@ -56,10 +56,11 @@ export function useClickCounter() {
   const [hasLoadedState, setHasLoadedState] = useState(false)
   const [isConfirmingPrestige, setIsConfirmingPrestige] = useState(false)
   const [clicksPerSecond, setClicksPerSecond] = useState(0)
-  // Every /increment response includes the current keys/gems totals (a
-  // magnet powerup can silently grant either mid-flush) — exposed here so
-  // KeysContext/GemsContext (nested inside this provider) can sync off of
-  // it without this hook needing to know they exist.
+  // Every /increment response includes the current keys/gems totals —
+  // exposed here so KeysContext/GemsContext (nested inside this provider)
+  // can sync off of it without this hook needing to know they exist. Free
+  // ride on a request that already runs every flush, so both stay correct
+  // even when something else on another screen spent or granted them.
   const [latestKeys, setLatestKeys] = useState<number | null>(null)
   const [latestGems, setLatestGems] = useState<number | null>(null)
   // The space object on Home — how many have been broken (the new prestige

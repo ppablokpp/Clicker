@@ -17,8 +17,8 @@ export function KeysProvider({ children }: { children: ReactNode }) {
   const { latestKeys } = useClickCounterContext()
   const [keys, setKeys] = useState(0)
 
-  // A magnet powerup can grant keys mid-flush — every click flush reports
-  // the fresh total, so fold it in as soon as it changes.
+  // Every click flush reports the fresh total, so fold it in as soon as it
+  // changes — keeps this in step with anything spent or granted elsewhere.
   useEffect(() => {
     if (typeof latestKeys === 'number') setKeys(latestKeys)
   }, [latestKeys])

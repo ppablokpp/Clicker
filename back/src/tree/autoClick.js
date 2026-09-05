@@ -4,7 +4,7 @@
  * treeRepository.accrue) — classic idle-game shape: the per-level output
  * stays constant, only the price climbs, so the curve is cheap and fast at
  * first and increasingly punishing later. Kept as plain exported numbers
- * (not a catalog array, unlike the powerup/magnet modules) since it's the
+ * (not a catalog array, unlike the powerup modules) since it's the
  * only real production node for now — expect this file to grow into a
  * proper per-node config once more tree nodes stop being placeholders.
  */

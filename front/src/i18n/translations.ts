@@ -246,13 +246,10 @@ export interface TranslationStrings {
     purchaseError: string
     timedLuckTitle: string
     timedLuckSubtitle: string
-    magnetsTitle: string
-    magnetsSubtitle: string
     powerups: Record<string, { name: string; desc: string }>
     upgrades: Record<string, { name: string; desc: string }>
     moneyUpgrades: Record<string, { name: string; desc: string }>
     timedLuckPowerups: Record<string, { name: string; desc: string }>
-    magnets: Record<string, { name: string; desc: string }>
   }
   stats: {
     streakUnit: string
@@ -713,8 +710,6 @@ export const translations: Record<Language, TranslationStrings> = {
       purchaseError: 'No se pudo completar la compra. Inténtalo de nuevo.',
       timedLuckTitle: 'Destello',
       timedLuckSubtitle: 'Multiplica tu Destello permanente mientras esté activo.',
-      magnetsTitle: 'Imanes',
-      magnetsSubtitle: 'Mientras esté activo, cada disparo tiene una pequeña probabilidad de darte un objeto.',
       powerups: {
         click_x2: {
           name: 'Disparo x2',
@@ -774,16 +769,6 @@ export const translations: Record<Language, TranslationStrings> = {
         luck_x25: { name: 'Destello x25', desc: '1% de probabilidad de un disparo x25.' },
         luck_x50: { name: 'Destello x50', desc: '1% de probabilidad de un disparo x50.' },
         luck_x100: { name: 'Destello x100', desc: '1% de probabilidad de un disparo x100. La más alta.' },
-      },
-      magnets: {
-        key_magnet: {
-          name: 'Imán de llaves',
-          desc: 'Mientras esté activo, cada disparo tiene una pequeña probabilidad de darte una llave extra.',
-        },
-        gem_magnet: {
-          name: 'Imán de gemas',
-          desc: 'Mientras esté activo, cada disparo tiene una pequeña probabilidad de darte una gema extra.',
-        },
       },
     },
     stats: {
@@ -1258,8 +1243,6 @@ export const translations: Record<Language, TranslationStrings> = {
       purchaseError: "Couldn't complete the purchase. Please try again.",
       timedLuckTitle: 'Glimmer',
       timedLuckSubtitle: 'Multiplies your permanent Glimmer while active.',
-      magnetsTitle: 'Magnets',
-      magnetsSubtitle: 'While active, every shot has a small chance of giving you an item.',
       powerups: {
         click_x2: {
           name: 'Shot x2',
@@ -1319,16 +1302,6 @@ export const translations: Record<Language, TranslationStrings> = {
         luck_x25: { name: 'Glimmer x25', desc: '1% chance of a x25 shot.' },
         luck_x50: { name: 'Glimmer x50', desc: '1% chance of a x50 shot.' },
         luck_x100: { name: 'Glimmer x100', desc: '1% chance of a x100 shot. The highest one.' },
-      },
-      magnets: {
-        key_magnet: {
-          name: 'Key magnet',
-          desc: 'While active, every shot has a small chance of also granting an extra key.',
-        },
-        gem_magnet: {
-          name: 'Gem magnet',
-          desc: 'While active, every shot has a small chance of also granting an extra gem.',
-        },
       },
     },
     stats: {

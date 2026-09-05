@@ -4,7 +4,6 @@ import { getAuth, isAnonId } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { getPowerup } from '../powerups/catalog.js'
 import { getTimedLuckPowerup } from '../powerups/timedLuckPowerups.js'
-import { getMagnet } from '../powerups/magnets.js'
 
 export const usersRouter = Router()
 
@@ -61,11 +60,6 @@ function toPublicUser(row) {
     row.powerup_cooldown_until && new Date(row.powerup_cooldown_until) > new Date()
   const isLuckPowerupOnCooldown =
     row.luck_powerup_cooldown_until && new Date(row.luck_powerup_cooldown_until) > new Date()
-  const isMagnetActive =
-    row.active_magnet && row.active_magnet_expires_at && new Date(row.active_magnet_expires_at) > new Date()
-  const isMagnetOnCooldown =
-    row.magnet_cooldown_until && new Date(row.magnet_cooldown_until) > new Date()
-
   return {
     id: row.id,
     email: row.email,
@@ -102,14 +96,6 @@ function toPublicUser(row) {
       : null,
     powerupCooldownUntil: isPowerupOnCooldown ? row.powerup_cooldown_until : null,
     luckPowerupCooldownUntil: isLuckPowerupOnCooldown ? row.luck_powerup_cooldown_until : null,
-    activeMagnet: isMagnetActive
-      ? {
-          id: row.active_magnet,
-          currency: getMagnet(row.active_magnet)?.currency ?? 'keys',
-          expiresAt: row.active_magnet_expires_at,
-        }
-      : null,
-    magnetCooldownUntil: isMagnetOnCooldown ? row.magnet_cooldown_until : null,
   }
 }
 
@@ -338,9 +324,14 @@ usersRouter.get('/:id/public', async (req, res) => {
   }
 })
 
-// Powers the Inventory modal — owned-but-not-yet-activated powerups/luck/
-// magnets, as {itemId: quantity}. Names/costs/durations come from each
-// catalog (already fetched separately), this is just the counts.
+// Powers the Inventory modal — owned-but-not-yet-activated powerups and
+// luck powerups, as {itemId: quantity}. Names/costs/durations come from
+// each catalog (already fetched separately), this is just the counts.
+//
+// Rows for the two removed magnets can still be in here for anyone who
+// owned one; they're simply never matched against a catalog now, so they
+// don't render. Left rather than deleted — the counts are harmless and
+// throwing away a record of what someone bought isn't ours to do.
 usersRouter.get('/me/inventory', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) {

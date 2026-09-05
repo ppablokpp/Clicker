@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+﻿import { Route, Routes } from 'react-router-dom'
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
 import { BottomNavPill } from './components/BottomNavPill'
@@ -18,7 +18,6 @@ import { GemPacksProvider } from './context/GemPacksContext'
 import { InventoryProvider } from './context/InventoryContext'
 import { PowerupProvider } from './context/PowerupContext'
 import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
-import { MagnetProvider } from './context/MagnetContext'
 import { MilestonesProvider } from './context/MilestonesContext'
 import { TasksProvider } from './context/TasksContext'
 import { GemUpgradesProvider } from './context/GemUpgradesContext'
@@ -56,41 +55,39 @@ function ClickerApp() {
                           <InventoryProvider>
                             <PowerupProvider>
                               <TimedLuckPowerupProvider>
-                                <MagnetProvider>
-                                  <MilestonesProvider>
-                                    <TasksProvider>
-                                      <GemUpgradesProvider>
-                                        <DailyCaseProvider>
-                                          <GemCaseProvider>
-                                            <GemChestProvider>
-                                              {/* Inside every provider, so their
-                                                  on-mount fetches are already in
-                                                  flight while it waits on them.
-                                                  Reports only — the cover is an
-                                                  overlay above all of this. */}
-                                              <GameStateGate />
-                                              <ScrollManager />
-                                              <Routes>
-                                                <Route path="/" element={<Home />} />
-                                                <Route path="/clasificacion" element={<Leaderboard />} />
-                                                <Route path="/perfil/:userId" element={<PublicProfile />} />
-                                                <Route path="/personalizar" element={<CustomizeAstronaut />} />
-                                                <Route path="/estadisticas" element={<Stats />} />
-                                                <Route path="/tienda" element={<Store />} />
-                                                <Route path="/arbol" element={<Tree />} />
-                                                <Route path="/batalla/:battleId" element={<Battle />} />
-                                              </Routes>
-                                              <BottomNavPill />
-                                              <SignInModal />
-                                              <FleetAwayModal />
-                                              <TutorialOverlay />
-                                            </GemChestProvider>
-                                          </GemCaseProvider>
-                                        </DailyCaseProvider>
-                                      </GemUpgradesProvider>
-                                    </TasksProvider>
-                                  </MilestonesProvider>
-                                </MagnetProvider>
+                                <MilestonesProvider>
+                                  <TasksProvider>
+                                    <GemUpgradesProvider>
+                                      <DailyCaseProvider>
+                                        <GemCaseProvider>
+                                          <GemChestProvider>
+                                            {/* Inside every provider, so their
+                                                on-mount fetches are already in
+                                                flight while it waits on them.
+                                                Reports only â€” the cover is an
+                                                overlay above all of this. */}
+                                            <GameStateGate />
+                                            <ScrollManager />
+                                            <Routes>
+                                              <Route path="/" element={<Home />} />
+                                              <Route path="/clasificacion" element={<Leaderboard />} />
+                                              <Route path="/perfil/:userId" element={<PublicProfile />} />
+                                              <Route path="/personalizar" element={<CustomizeAstronaut />} />
+                                              <Route path="/estadisticas" element={<Stats />} />
+                                              <Route path="/tienda" element={<Store />} />
+                                              <Route path="/arbol" element={<Tree />} />
+                                              <Route path="/batalla/:battleId" element={<Battle />} />
+                                            </Routes>
+                                            <BottomNavPill />
+                                            <SignInModal />
+                                            <FleetAwayModal />
+                                            <TutorialOverlay />
+                                          </GemChestProvider>
+                                        </GemCaseProvider>
+                                      </DailyCaseProvider>
+                                    </GemUpgradesProvider>
+                                  </TasksProvider>
+                                </MilestonesProvider>
                               </TimedLuckPowerupProvider>
                             </PowerupProvider>
                           </InventoryProvider>
@@ -113,8 +110,8 @@ function App() {
   return (
     <Routes>
       {/* Without these, a brand-new sign-up (as opposed to signing back in)
-          falls back to Clerk's own default redirect target — the bare
-          origin root, with no /Clicker/ prefix — which doesn't exist as a
+          falls back to Clerk's own default redirect target â€” the bare
+          origin root, with no /Clicker/ prefix â€” which doesn't exist as a
           GitHub Pages site and 404s. Both paths need to land back on
           BASE_URL, same as SignInModal's own redirectUrlComplete. */}
       <Route

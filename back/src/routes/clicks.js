@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { getAuth } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
-import { MAGNET_PROC_CHANCE } from '../powerups/magnets.js'
 
 export const clicksRouter = Router()
 
@@ -66,7 +65,7 @@ clicksRouter.post('/increment', async (req, res) => {
     Number.isInteger(rawLuckyHits) && rawLuckyHits >= 0 && rawLuckyHits <= realClicks ? rawLuckyHits : 0
 
   const { totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress, luckyClicksFound } =
-    await usersRepository.incrementClicks(userId, amount, peakCps, MAGNET_PROC_CHANCE, clientDate, realClicks, luckyHits)
+    await usersRepository.incrementClicks(userId, amount, peakCps, clientDate, realClicks, luckyHits)
   res.json({ totalClicks, lifetimePlatino, keys, gems, objectsBroken, objectProgress, luckyClicksFound })
 })
 

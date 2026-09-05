@@ -8,7 +8,6 @@ import { clicksRouter } from './routes/clicks.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
 import { powerupsRouter } from './routes/powerups.js'
 import { timedLuckPowerupsRouter } from './routes/timedLuckPowerups.js'
-import { magnetsRouter } from './routes/magnets.js'
 import { milestonesRouter } from './routes/milestones.js'
 import { tasksRouter } from './routes/tasks.js'
 import { eventsRouter } from './routes/events.js'
@@ -79,7 +78,6 @@ app.use('/api/clicks', clicksRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/powerups', powerupsRouter)
 app.use('/api/timed-luck-powerups', timedLuckPowerupsRouter)
-app.use('/api/magnets', magnetsRouter)
 app.use('/api/milestones', milestonesRouter)
 app.use('/api/tasks', tasksRouter)
 app.use('/api/events', eventsRouter)
