@@ -49,6 +49,15 @@ interface TreeState {
   scoutFrequencyLevel: number
   scoutFrequencyNextCost: number | null
   scoutDroneNextRate: number
+  /** How many gunners are parked around Home, each firing and producing. */
+  gunnerLevel: number
+  gunnerNextCost: number | null
+  gunnerRate: number
+  gunnerCps: number
+  /** Calibre — raises what each gunner produces, like Sobrecarga does for drones. */
+  gunnerRateLevel: number
+  gunnerRateNextCost: number | null
+  gunnerRateNextValue: number
   multiplierLevel: number
   multiplierValue: number
   multiplierNextValue: number
@@ -91,6 +100,8 @@ interface TreeContextValue extends TreeState {
   // Pulls fresh tree levels immediately — used after a prestige confirm
   // (Home.tsx) instead of waiting for the next background poll.
   refetch: () => Promise<void>
+  /** Zeroes the local production rate the instant a prestige lands. */
+  resetForPrestige: () => void
   // What the fleet produced while the player was genuinely away — set from
   // any /api/tree/me response the server flags `wasAway` on, never from the
   // routine polls in between. null means either nothing to report, or the
@@ -132,6 +143,10 @@ interface TreeContextValue extends TreeState {
   buyScoutDrone: () => Promise<{ ok: boolean; error?: string }>
   isBuyingScoutFrequency: boolean
   buyScoutFrequency: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingGunner: boolean
+  buyGunner: () => Promise<{ ok: boolean; error?: string }>
+  buyGunnerRate: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingGunnerRate: boolean
   isBuyingAutoMultiplier: boolean
   buyAutoMultiplier: () => Promise<{ ok: boolean; error?: string }>
   isBuyingTapMultiplier: boolean
@@ -168,6 +183,13 @@ const EMPTY_STATE: TreeState = {
   scoutFrequencyLevel: 0,
   scoutFrequencyNextCost: 0,
   scoutDroneNextRate: 3,
+  gunnerLevel: 0,
+  gunnerNextCost: 2_000_000,
+  gunnerRate: 100,
+  gunnerCps: 0,
+  gunnerRateLevel: 0,
+  gunnerRateNextCost: 15_000,
+  gunnerRateNextValue: 115,
   multiplierLevel: 0,
   multiplierValue: 1,
   multiplierNextValue: 2,
@@ -224,6 +246,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingLegendaryThreshold, setIsBuyingLegendaryThreshold] = useState(false)
   const [isBuyingScoutDrone, setIsBuyingScoutDrone] = useState(false)
   const [isBuyingScoutFrequency, setIsBuyingScoutFrequency] = useState(false)
+  const [isBuyingGunner, setIsBuyingGunner] = useState(false)
+  const [isBuyingGunnerRate, setIsBuyingGunnerRate] = useState(false)
   const [isBuyingAutoMultiplier, setIsBuyingAutoMultiplier] = useState(false)
   const [isBuyingTapMultiplier, setIsBuyingTapMultiplier] = useState(false)
   const [isBuyingMultiShot, setIsBuyingMultiShot] = useState(false)
@@ -242,9 +266,24 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   // fleet that then pops into existence.
   const [hasLoadedState, setHasLoadedState] = useState(false)
 
+  // Every producing unit has to be in here, or the local prediction runs
+  // slower than the server and the next poll yanks the number upward.
   useEffect(() => {
-    cpsRef.current = state.autoClickCps + state.scoutDroneCps
-  }, [state.autoClickCps, state.scoutDroneCps])
+    cpsRef.current = state.autoClickCps + state.scoutDroneCps + state.gunnerCps
+  }, [state.autoClickCps, state.scoutDroneCps, state.gunnerCps])
+
+  // Prestige deletes every node server-side, but the local tick below keeps
+  // crediting at whatever cps it last saw until the refetch that follows the
+  // reset comes back — a second or two of a fleet that no longer exists.
+  // That is exactly enough to leave a freshly-zeroed counter reading a few
+  // hundred instead of 0, and it never corrects itself: the background poll
+  // refuses any total that isn't higher than the one it holds, so a server
+  // saying "you have 0" is ignored and the phantom sticks until the next
+  // real earning. Zeroing the rate here closes the window at the source.
+  const resetForPrestige = useCallback(() => {
+    cpsRef.current = 0
+    setState((prev) => ({ ...prev, autoClickCps: 0, scoutDroneCps: 0, gunnerCps: 0 }))
+  }, [])
 
   // Guards against overlapping calls the same way useClickCounter's own
   // flush() does — needed specifically because the effect below that
@@ -284,6 +323,13 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           scoutFrequencyLevel: data.scoutFrequencyLevel,
           scoutFrequencyNextCost: data.scoutFrequencyNextCost,
           scoutDroneNextRate: data.scoutDroneNextRate,
+          gunnerLevel: data.gunnerLevel,
+          gunnerNextCost: data.gunnerNextCost,
+          gunnerRate: data.gunnerRate,
+          gunnerCps: data.gunnerCps,
+          gunnerRateLevel: data.gunnerRateLevel,
+          gunnerRateNextCost: data.gunnerRateNextCost,
+          gunnerRateNextValue: data.gunnerRateNextValue,
           multiplierLevel: data.multiplierLevel,
           multiplierValue: data.multiplierValue,
           multiplierNextValue: data.multiplierNextValue,
@@ -861,6 +907,75 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
+  const buyGunner = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingGunner(true)
+    try {
+      await flushNow()
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/gunner/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        gunnerLevel: data.gunnerLevel,
+        gunnerNextCost: data.gunnerNextCost,
+        gunnerRate: data.gunnerRate,
+        gunnerCps: data.gunnerCps,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar el artillero', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingGunner(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
+
+  const buyGunnerRate = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingGunnerRate(true)
+    try {
+      await flushNow()
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/gunner-rate/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        gunnerRateLevel: data.gunnerRateLevel,
+        gunnerRateNextCost: data.gunnerRateNextCost,
+        gunnerRateNextValue: data.gunnerRateNextValue,
+        gunnerRate: data.gunnerRate,
+        gunnerCps: data.gunnerCps,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar el calibre', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingGunnerRate(false)
+    }
+  }, [userId, promptSignIn, flushNow, getToken, syncTotalClicks, setHasNewUpgrade])
+
   const buyAutoMultiplier = useCallback(async () => {
     if (!userId) {
       promptSignIn()
@@ -1113,6 +1228,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       // just-reset tree levels immediately instead of waiting up to
       // POLL_INTERVAL_MS for the next background poll to catch up.
       refetch: fetchState,
+      resetForPrestige,
       awayCredit,
       clearAwayCredit,
       hasLoadedState,
@@ -1139,6 +1255,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       buyScoutDrone,
       isBuyingScoutFrequency,
       buyScoutFrequency,
+      isBuyingGunner,
+      buyGunner,
+      buyGunnerRate,
+      isBuyingGunnerRate,
       isBuyingAutoMultiplier,
       buyAutoMultiplier,
       isBuyingTapMultiplier,
@@ -1157,6 +1277,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
     [
       state,
       fetchState,
+      resetForPrestige,
       awayCredit,
       clearAwayCredit,
       hasLoadedState,
@@ -1183,6 +1304,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       buyScoutDrone,
       isBuyingScoutFrequency,
       buyScoutFrequency,
+      isBuyingGunner,
+      buyGunner,
+      buyGunnerRate,
+      isBuyingGunnerRate,
       isBuyingAutoMultiplier,
       buyAutoMultiplier,
       isBuyingTapMultiplier,

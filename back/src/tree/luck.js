@@ -17,10 +17,10 @@
  * longer owns it.
  */
 export const LUCK_NODE_ID = 'luck'
-export const LUCK_MAX_LEVEL = 15
+export const LUCK_MAX_LEVEL = 18
 
-export const LUCK_BASE_COST = 1000
-export const LUCK_COST_RATIO = 1.5
+export const LUCK_BASE_COST = 900
+export const LUCK_COST_RATIO = 1.55
 
 // Cost to go from `level` owned to `level + 1`.
 export function luckCost(level) {

@@ -6,12 +6,12 @@
  * adds another flat 0.5%, capped at 10%.
  */
 export const ANOMALY_REWARD_NODE_ID = 'anomaly_reward'
-export const ANOMALY_REWARD_MAX_LEVEL = 10
+export const ANOMALY_REWARD_MAX_LEVEL = 15
 
 export const ANOMALY_REWARD_BASE_PCT = 0.05
 export const ANOMALY_REWARD_STEP = 0.005
-export const ANOMALY_REWARD_BASE_COST = 20_000
-export const ANOMALY_REWARD_COST_RATIO = 1.5
+export const ANOMALY_REWARD_BASE_COST = 3_000
+export const ANOMALY_REWARD_COST_RATIO = 1.6
 
 // Cost to go from `level` owned to `level + 1`.
 export function anomalyRewardCost(level) {

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useMotionValue, useTransform } from 'framer-motion'
 import { Archive, Gem, Key, List, Loader2, Minus, Plus, Shirt, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
 import { PlatinumIcon } from './PlatinumIcon'
@@ -9,12 +9,13 @@ import { useAppAuth } from '../hooks/useAppAuth'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useKeysContext } from '../context/KeysContext'
 import { useGemsContext } from '../context/GemsContext'
+import { useCosmetics } from '../context/CosmeticsContext'
 import { useDailyKeyContext } from '../context/DailyKeyContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
 import { playCaseReveal, playCaseTick } from '../lib/caseSound'
-import { fetchOwnedCosmetics, openChests, type ChestBatchResult } from '../lib/chestBenchApi'
+import { openChests, type ChestBatchResult } from '../lib/chestBenchApi'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import {
   CHEST_KEY_COST,
@@ -53,9 +54,10 @@ import {
  * pool eventually runs dry, which is why a chest greys out when this account
  * has emptied it.
  *
- * The customization screen still offers every piece to everyone; owning is
- * being recorded now so that gate can be switched on later against real data
- * rather than an empty table.
+ * Ownership is now a real gate, not just a record: the locker locks anything
+ * you don't own, and this card's own reel and odds table both hide what you
+ * already have — the server can't roll it, so showing it would advertise a
+ * prize that isn't on the table.
  */
 
 const TILE = 84
@@ -146,6 +148,87 @@ const LaneTile = memo(function LaneTile({ item, label }: { item: LaneItem; label
   )
 })
 
+/**
+ * The still strip in a lane that hasn't been spun yet — and you can drag it.
+ *
+ * That drag is the whole point: nine tiles are wider than the viewport, so
+ * without it a chest on the bench only ever shows the same three prizes and
+ * the rest of the strip is a rumour. Being able to shove it along is how you
+ * see what's in there before spending a key.
+ *
+ * Endless in both directions, and the trick is that the gesture never writes
+ * the position you see. `offset` is a free-running total the pan adds to and
+ * the momentum decays; the rendered `x` is derived from it modulo one strip
+ * width, so it can only ever be in [-loopWidth, 0). Two copies are drawn, so
+ * any value in that window shows an unbroken run of tiles and the wrap is
+ * invisible.
+ *
+ * The old Store.tsx reel this replaces did it the direct way — three copies,
+ * and a change handler that teleported the dragged value by one copy at each
+ * seam — and that does not survive `dragMomentum`. Framer's inertia owns the
+ * value it animates and rewrites it every frame from its own internal origin,
+ * so the teleport is undone on the next frame and the strip coasts straight
+ * past the seam. Measured on the real page: settling at +622px and still
+ * climbing after four flicks, i.e. a growing empty gap at the head of the
+ * lane. Deriving the position instead means there is nothing to fight.
+ *
+ * Momentum is therefore hand-rolled, which is twelve lines: exponential decay
+ * on the release velocity, stopped once it drops below a pixel or so a frame.
+ *
+ * `touch-action: pan-y` rather than `none`: this lives inside a page that
+ * scrolls vertically, so it may only claim the horizontal axis.
+ */
+function IdleLane({ items, labelFor }: { items: LaneItem[]; labelFor: (item: LaneItem) => string }) {
+  const loopWidth = items.length * SPAN
+  const offset = useMotionValue(0)
+  const raf = useRef<number | null>(null)
+
+  const x = useTransform(offset, (v) =>
+    loopWidth > 0 ? (((v % loopWidth) + loopWidth) % loopWidth) - loopWidth : 0,
+  )
+
+  const stop = () => {
+    if (raf.current !== null) cancelAnimationFrame(raf.current)
+    raf.current = null
+  }
+  useEffect(() => stop, [])
+
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <motion.div
+        style={{ x, y: '-50%', gap: GAP }}
+        className="pointer-events-none absolute left-0 top-1/2 flex items-center opacity-45"
+      >
+        {[...items, ...items].map((item, j) => (
+          <LaneTile key={j} item={item} label={labelFor(item)} />
+        ))}
+      </motion.div>
+
+      {/* The grab surface, deliberately stationary: it reads the gesture and
+          never moves, so it can't slide out from under the pointer. */}
+      <motion.div
+        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+        style={{ touchAction: 'pan-y' }}
+        onPanStart={stop}
+        onPan={(_, info) => offset.set(offset.get() + info.delta.x)}
+        onPanEnd={(_, info) => {
+          let v = info.velocity.x
+          let last = performance.now()
+          const step = (now: number) => {
+            const dt = (now - last) / 1000
+            last = now
+            v *= Math.pow(0.94, dt * 60)
+            if (Math.abs(v) < 20) return stop()
+            offset.set(offset.get() + v * dt)
+            raf.current = requestAnimationFrame(step)
+          }
+          raf.current = requestAnimationFrame(step)
+        }}
+      />
+    </div>
+  )
+}
+
 export function ChestBench() {
   const { language, strings } = useLanguage()
   const s = strings.store
@@ -158,6 +241,14 @@ export function ChestBench() {
   const { prestigeTier, syncTotalClicks, suspendSync, resumeSync } = useClickCounterContext()
   const { catalog: materialCatalog } = useDailyCaseContext()
   const { catalog: gemCatalog } = useGemChestContext()
+  // "slot:id" keys of every piece this account owns, from the same context
+  // the locker reads. Used here to stop a player picking a chest that has
+  // nothing left for them, and to keep what they already own out of both the
+  // reel and the odds table — the server never rolls an owned piece, so
+  // showing one would advertise a prize that cannot come out.
+  const { owned: ownedCosmetics, grantCosmetics } = useCosmetics()
+  const unownedCommon = COSMETIC_CASE_ITEMS.filter((i) => !ownedCosmetics.has(cosmeticKey(i)))
+  const unownedRare = COSMETIC_RARE_POOL.filter((i) => !ownedCosmetics.has(cosmeticKey(i)))
   const {
     claimedToday,
     cooldownSecondsLeft,
@@ -178,6 +269,9 @@ export function ChestBench() {
       ? (strings.profile.styleNames[item.item.id] ?? item.item.id)
       : item.prize.amount.toLocaleString(locale)
 
+  // Filler tiles for the reel. The pools drop anything already owned, for the
+  // same reason the catalogue does: the server can't roll it, so watching it
+  // scroll past is the reel advertising a prize that was never on the table.
   const rollFor = (chest: ChestId): LaneItem => {
     switch (chest) {
       case 'material':
@@ -185,9 +279,9 @@ export function ChestBench() {
       case 'gems':
         return { kind: 'currency', prize: pickCurrency(gemCatalog) }
       case 'styleRare':
-        return { kind: 'cosmetic', item: rollCosmetic(COSMETIC_RARE_POOL) }
+        return { kind: 'cosmetic', item: rollCosmetic(unownedRare) }
       default:
-        return { kind: 'cosmetic', item: rollCosmetic(COSMETIC_CASE_ITEMS) }
+        return { kind: 'cosmetic', item: rollCosmetic(unownedCommon) }
     }
   }
 
@@ -208,36 +302,15 @@ export function ChestBench() {
   const [results, setResults] = useState<{ uid: number; item: LaneItem }[]>([])
   const [catalogFor, setCatalogFor] = useState<ChestId | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // "slot:id" keys of every piece this account has won. Only used to stop a
-  // player picking a chest that has nothing left for them — the server keeps
-  // its own copy and is what actually decides a roll.
-  const [ownedCosmetics, setOwnedCosmetics] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     isSpinningRef.current = isSpinning
   }, [isSpinning])
 
-  // Skipped entirely while no style chest is on the rack, so hiding them
-  // costs no request. Keyed off CHEST_ORDER rather than a second flag, so
-  // putting the chests back is still the one edit it looks like.
-  const racksCosmetics = CHEST_ORDER.some(isCosmeticChest)
-
-  useEffect(() => {
-    if (!userId || !racksCosmetics) {
-      setOwnedCosmetics(new Set())
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      const token = await getToken()
-      if (!token) return
-      const owned = await fetchOwnedCosmetics(token)
-      if (!cancelled) setOwnedCosmetics(new Set(owned))
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [userId, getToken, racksCosmetics])
+  // (Ownership used to be fetched here, behind a `racksCosmetics` flag so it
+  // cost nothing while the style chests were hidden. CosmeticsProvider
+  // fetches it once for the whole app now — the customization screen needs
+  // the same set — so this card just reads it.)
 
   // Safety net: anything that unmounts this card mid-reel (browser back, a
   // tab change) would otherwise orphan the suspendSync call forever, since
@@ -261,10 +334,8 @@ export function ChestBench() {
   // Style chests never hand out a piece you already own, so a pool this
   // account has emptied can only fail — and each one already on the bench
   // will consume another piece from it, so the ones queued up count too.
-  const cosmeticsLeft = (chest: ChestId, queued: number) => {
-    const pool = chest === 'styleRare' ? COSMETIC_RARE_POOL : COSMETIC_CASE_ITEMS
-    return pool.filter((i) => !ownedCosmetics.has(cosmeticKey(i))).length - queued
-  }
+  const cosmeticsLeft = (chest: ChestId, queued: number) =>
+    (chest === 'styleRare' ? unownedRare : unownedCommon).length - queued
 
   // Dimmed: nothing this chest could ever give right now. A paid chest with
   // no catalogue yet (signed out, still fetching) can't build a strip either.
@@ -384,14 +455,11 @@ export function ChestBench() {
 
       // Recorded before the reels even start: the pieces are already in the
       // database, and this set only gates what can be picked next.
-      const wonCosmetics = (res.results ?? []).filter((r) => r.kind === 'cosmetic')
-      if (wonCosmetics.length > 0) {
-        setOwnedCosmetics((prev) => {
-          const next = new Set(prev)
-          for (const r of wonCosmetics) if (r.kind === 'cosmetic') next.add(`${r.slot}:${r.itemId}`)
-          return next
-        })
-      }
+      grantCosmetics(
+        (res.results ?? [])
+          .filter((r): r is Extract<ChestBatchResult, { kind: 'cosmetic' }> => r.kind === 'cosmetic')
+          .map((r) => ({ slot: r.slot, itemId: r.itemId })),
+      )
 
       startReels(res.results ?? [])
     } finally {
@@ -622,16 +690,7 @@ export function ChestBench() {
                     ))}
                   </motion.div>
                 ) : (
-                  // Idle lane: a still row of what this chest can drop, so a
-                  // bench you haven't spun yet still shows what you picked.
-                  <div
-                    className="pointer-events-none absolute left-0 top-1/2 flex -translate-y-1/2 items-center opacity-45"
-                    style={{ gap: GAP }}
-                  >
-                    {pick.idle.map((item, j) => (
-                      <LaneTile key={j} item={item} label={labelFor(item)} />
-                    ))}
-                  </div>
+                  <IdleLane items={pick.idle} labelFor={labelFor} />
                 )}
               </div>
             )

@@ -45,6 +45,9 @@ export interface TranslationStrings {
     shipScoutDrones: string
     shipScoutDronesCountDesc: string
     shipScoutDronesPerUnitDesc: string
+    shipGunners: string
+    shipGunnersCountDesc: string
+    shipGunnersPerUnitDesc: string
     shipPower: string
     shipPowerDesc: (materialName: string) => string
     shipMultiShot: string
@@ -99,7 +102,7 @@ export interface TranslationStrings {
     log: string
     logTitle: string
     logEmpty: string
-    trajectoryTierNames: readonly [string, string, string, string, string]
+    trajectoryTierNames: readonly [string, string, string, string, string, string, string]
     trajectoryExtraction: (current: string, target: string) => string
     trajectoryExtractionUnknown: string
     trajectoryCurrent: string
@@ -171,12 +174,28 @@ export interface TranslationStrings {
     slotPack: string
     slotTrail: string
     slotBadge: string
+    slotVisor: string
+    slotBackground: string
     slotPet: string
     slotPet1: string
     slotPet2: string
     tabHead: string
     tabBody: string
+    /** The locker grid and the per-piece detail page it opens. */
+    lockerCollection: string
+    detailBack: string
+    detailUnlock: string
+    detailEquip: string
+    detailEquipped: string
+    detailMissingGems: string
+    detailMissingGemsOne: string
+    detailBuying: string
+    detailError: string
+    detailStock: string
+    detailUnlockedNote: string
     styleNames: Record<string, string>
+    /** One line per piece, keyed "slot:id". Shown on the detail page. */
+    styleDescriptions: Record<string, string>
   }
   store: {
     title: string
@@ -324,6 +343,12 @@ export interface TranslationStrings {
     scoutDroneNextLabel: string
     scoutFrequencyName: string
     scoutFrequencyDesc: string
+    gunnerName: string
+    gunnerDesc: string
+    gunnerRateName: string
+    gunnerRateDesc: string
+    currentGunners: string
+    nextGunners: string
     turboName: string
     turboDesc: string
     tapMultiplierName: string
@@ -404,6 +429,8 @@ export interface TranslationStrings {
     successBody: (amount: string, materialName: string) => string
     failureTitle: string
     failureBody: string
+    unclaimedTitle: string
+    unclaimedBody: string
   }
   tutorial: {
     next: string
@@ -470,6 +497,9 @@ export const translations: Record<Language, TranslationStrings> = {
       shipScoutDrones: 'Drones buscadores',
       shipScoutDronesCountDesc: 'Drones buscadores activos:',
       shipScoutDronesPerUnitDesc: 'Producción de cada dron buscador:',
+      shipGunners: 'Artilleros',
+      shipGunnersCountDesc: 'Artilleros en posición:',
+      shipGunnersPerUnitDesc: 'Producción de cada artillero:',
       shipPower: 'Potencia',
       shipPowerDesc: (materialName) => `${materialName} que se extrae por cada disparo:`,
       shipMultiShot: 'Multidisparo',
@@ -524,7 +554,7 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
-      trajectoryTierNames: ['Amatista', 'Platino', 'Esmeralda', 'Oro', 'Diamante'],
+      trajectoryTierNames: ['Amatista', 'Platino', 'Zafiro', 'Esmeralda', 'Rubí', 'Oro', 'Diamante'],
       trajectoryExtraction: (current, target) => `Extracción: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extracción: ???',
       trajectoryCurrent: 'Actual',
@@ -601,10 +631,31 @@ export const translations: Record<Language, TranslationStrings> = {
       slotPet: 'Mascotas',
       slotPet1: 'Primera mascota',
       slotPet2: 'Segunda mascota',
+      slotVisor: 'Visor',
+      slotBackground: 'Fondo',
       tabHead: 'Cabeza',
       tabBody: 'Cuerpo',
+      lockerCollection: 'Colección',
+      detailBack: 'Atrás',
+      detailUnlock: 'DESBLOQUEAR',
+      detailEquip: 'EQUIPAR',
+      detailEquipped: 'EQUIPADO',
+      detailMissingGems: 'Te faltan {n} gemas',
+      detailMissingGemsOne: 'Te falta {n} gema',
+      detailBuying: 'Comprando…',
+      detailError: 'No se pudo completar la compra',
+      detailStock: 'Equipo básico',
+      detailUnlockedNote: 'Desbloqueado',
       styleNames: {
         estandar: 'Estándar',
+        limpio: 'Limpio',
+        reticula: 'Retícula',
+        grieta: 'Grieta',
+        agujero: 'Agujero negro',
+        turbinas: 'Turbinas',
+        estrellas: 'Estrellas',
+        rejilla: 'Hangar',
+        meteoros: 'Meteoros',
         doble: 'Doble',
         halo: 'Halo',
         cilindros: 'Cilindros',
@@ -625,12 +676,92 @@ export const translations: Record<Language, TranslationStrings> = {
         acero: 'Acero',
         marino: 'Marino',
         arena: 'Arena',
-        cian: 'Cian',
+        diamante: 'Diamante',
         violeta: 'Violeta',
         ninguna: 'Ninguna',
+        chispa: 'Chispa',
         mascota1: 'Vigía',
         satelite: 'Satélite',
         orbe: 'Orbe',
+      },
+      // Con clave "slot:id" porque los ids se repiten entre ranuras — unas
+      // botas carmesí y un cinturón carmesí son piezas distintas.
+      styleDescriptions: {
+        'visor:limpio': 'El cristal de siempre, sin nada impreso encima.',
+        'visor:reticula': 'Retícula de puntería con lecturas laterales. Vende «piloto» sin tocar la silueta.',
+        'visor:grieta': 'El cristal roto de quien ya ha estado ahí fuera. Cuenta una historia con cuatro líneas.',
+        'visor:agujero': 'El visor no refleja: absorbe. Disco negro, anillo de luz curvada y ni una estrella se salva.',
+        'pack:turbinas': 'Dos rotores montados en los hombros, girando de verdad y en sentidos opuestos.',
+        'background:estrellas': 'Un campo de estrellas fijo. El fondo más sobrio y el que combina con todo.',
+        'background:rejilla': 'Suelo de hangar en perspectiva, con las líneas convergiendo detrás de ti.',
+        'background:meteoros': 'Tu mismo cielo, pero cruzado sin parar por estrellas fugaces.',
+
+        'helmet:estandar': 'Casco blanco de reglamento con visera violeta. El que llevan todos el primer día.',
+        'helmet:diamante': 'Cristal diamante sobre el casco de siempre. Frío y limpio.',
+        'helmet:esmeralda': 'Visera esmeralda, la favorita de los pilotos de sonda.',
+        'helmet:oro': 'Visera dorada con tratamiento antirreflejos. Cara, y se nota.',
+        'helmet:carmesi': 'Cristal carmesí. Se ve venir desde el otro lado del hangar.',
+        'helmet:grafito': 'Casco de grafito con cristal ahumado. El único donde el material es la elección.',
+
+        'suit:estandar': 'El traje EVA blanco de reglamento. Sencillo y nunca equivocado.',
+        'suit:acero': 'Acero pulido con reflejos duros. Recién salido del taller.',
+        'suit:marino': 'Azul marino de vuelo, cortado como un mono de piloto.',
+        'suit:arena': 'Tonos de arena marciana, curtidos por el polvo.',
+        'suit:carmesi': 'Carmesí profundo con costuras marcadas. Nada discreto.',
+        'suit:grafito': 'Grafito mate del cuello a la cintura. Se bebe la luz.',
+
+        'boots:estandar': 'Botas blancas de reglamento con suela reforzada.',
+        'boots:acero': 'Puntera de acero pulido. Pesan lo que parece.',
+        'boots:marino': 'Botas azul marino a juego con el mono de vuelo.',
+        'boots:arena': 'Cuero color arena, ya con polvo de superficie encima.',
+        'boots:carmesi': 'Carmesí de caña alta. Combinan con poco y no les importa.',
+        'boots:grafito': 'Grafito mate: la bota que no refleja nada.',
+
+        'belt:violeta': 'Cinturón violeta de reglamento con hebilla cuadrada.',
+        'belt:oro': 'Banda y hebilla doradas. Puro adorno, y esa es la idea.',
+        'belt:diamante': 'Una banda diamante que parte el traje por la mitad.',
+        'belt:esmeralda': 'Verde esmeralda con brillo de resina.',
+        'belt:grafito': 'Banda gunmetal, discreta a propósito.',
+        'belt:carmesi': 'Rojo carmesí. La línea más visible del traje.',
+
+        'bracelet:violeta': 'Muñequeras violeta a juego con el equipo básico.',
+        'bracelet:oro': 'Puños dorados. Lo primero que se ve al saludar.',
+        'bracelet:diamante': 'Diamante eléctrico en las dos muñecas.',
+        'bracelet:esmeralda': 'Verde esmeralda con acabado esmaltado.',
+        'bracelet:grafito': 'Gunmetal sobrio, para quien no quiere brillo.',
+        'bracelet:carmesi': 'Carmesí intenso en los puños del traje.',
+
+        'antenna:estandar': 'Antena corta de reglamento con luz en la punta.',
+        'antenna:doble': 'Dos antenas en paralelo. El doble de cobertura, dicen.',
+        'antenna:halo': 'Un aro suspendido sobre el casco. No hace nada, y lo hace muy bien.',
+
+        'pack:estandar': 'Mochila de soporte vital estándar. Lo justo para respirar.',
+        'pack:carga': 'Mochila de carga con bolsillos exteriores.',
+        'pack:aletas': 'Aletas de estabilización a los lados. Cambia la silueta entera.',
+        'pack:cilindros': 'Dos cilindros de oxígeno montados a la espalda.',
+        'pack:reactor': 'Reactor compacto con toberas vectoriales.',
+        'pack:alas': 'Alas desplegables. Innecesarias en el vacío, espectaculares igual.',
+
+        'trail:llama': 'La llama clásica del propulsor.',
+        'trail:ionico': 'Un chorro iónico, estrecho y azulado.',
+        'trail:anillos': 'Anillos de plasma que se separan al acelerar.',
+
+        'badge:planeta': 'Un planeta con su anillo: la insignia de partida.',
+        'badge:estrella': 'Una estrella de cinco puntas sobre el pecho.',
+        'badge:rayo': 'Un rayo. Sin explicación y sin necesitarla.',
+
+        'pet:ninguna': 'Sin acompañante. El hombro libre también es un look.',
+        'pet:chispa': 'Una mota de luz que te sigue, con tres motas girando a su alrededor. No es una máquina: es la más pequeña de todas.',
+        'pet:mascota1': 'Vigía: un droide compacto que no se separa de tu hombro.',
+        'pet:satelite': 'Un satélite con los paneles desplegados orbitando a tu lado.',
+        'pet:orbe': 'Un orbe entre dos anillos que giran solos.',
+
+        'accent:violeta': 'Violeta en vivos, mochila y propulsor. El color de la casa.',
+        'accent:oro': 'Dorado en todos los detalles del traje.',
+        'accent:diamante': 'Diamante frío recorriendo el equipo.',
+        'accent:esmeralda': 'Verde esmeralda en los vivos y en la llama.',
+        'accent:grafito': 'Detalles gunmetal. Apaga el traje entero.',
+        'accent:carmesi': 'Carmesí en cada vivo del equipo.',
       },
     },
     store: {
@@ -772,10 +903,10 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
-        luck_x10: { name: 'Destello x10', desc: '1% de probabilidad de un disparo x10.' },
-        luck_x25: { name: 'Destello x25', desc: '1% de probabilidad de un disparo x25.' },
-        luck_x50: { name: 'Destello x50', desc: '1% de probabilidad de un disparo x50.' },
-        luck_x100: { name: 'Destello x100', desc: '1% de probabilidad de un disparo x100. La más alta.' },
+        luck_x10: { name: 'Destello x2', desc: 'Multiplica x2 tus disparos afortunados durante 20 s.' },
+        luck_x25: { name: 'Destello x5', desc: 'Multiplica x5 tus disparos afortunados durante 20 s.' },
+        luck_x50: { name: 'Destello x10', desc: 'Multiplica x10 tus disparos afortunados durante 20 s.' },
+        luck_x100: { name: 'Destello x20', desc: 'Multiplica x20 tus disparos afortunados durante 20 s. El más alto.' },
       },
     },
     stats: {
@@ -852,6 +983,14 @@ export const translations: Record<Language, TranslationStrings> = {
       scoutDroneNextLabel: 'Drones buscadores siguiente nivel:',
       scoutFrequencyName: 'Frecuencia',
       scoutFrequencyDesc: 'Sintoniza el radar de tus drones buscadores para aumentar su producción.',
+      gunnerRateName: 'Calibre',
+      gunnerRateDesc:
+        'Amplía el calibre de los cañones de tus artilleros. Cada disparo arranca más material del asteroide.',
+      gunnerName: 'Artillero',
+      gunnerDesc:
+        'Despliega un artillero que se queda apuntando al asteroide y disparando por sus dos cañones. Cada uno extrae por su cuenta.',
+      currentGunners: 'Artilleros actuales:',
+      nextGunners: 'Artilleros siguiente nivel:',
       turboName: 'Sobrecarga',
       turboDesc: 'Sobrecarga el reactor de tus drones, aumentando su producción.',
       tapMultiplierName: 'Amplificador',
@@ -942,6 +1081,8 @@ export const translations: Record<Language, TranslationStrings> = {
       successBody: (amount, materialName) => `Has recibido ${amount} de ${materialName.toLowerCase()}.`,
       failureTitle: 'Anomalía perdida',
       failureBody: 'Se te ha escapado. La próxima vez irá mejor.',
+      unclaimedTitle: 'Neutralizada, sin cobrar',
+      unclaimedBody: 'La has neutralizado, pero no se ha podido cobrar la recompensa. Inténtalo con la siguiente.',
     },
     tutorial: {
       next: 'Siguiente',
@@ -1010,6 +1151,9 @@ export const translations: Record<Language, TranslationStrings> = {
       shipScoutDrones: 'Scout drones',
       shipScoutDronesCountDesc: 'Active scout drones:',
       shipScoutDronesPerUnitDesc: 'Production per scout drone:',
+      shipGunners: 'Gunners',
+      shipGunnersCountDesc: 'Gunners on station:',
+      shipGunnersPerUnitDesc: 'Production per gunner:',
       shipPower: 'Power',
       shipPowerDesc: (materialName) => `${materialName} pulled out with every shot:`,
       shipMultiShot: 'Multi-shot',
@@ -1064,7 +1208,7 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',
-      trajectoryTierNames: ['Amethyst', 'Platinum', 'Emerald', 'Gold', 'Diamond'],
+      trajectoryTierNames: ['Amethyst', 'Platinum', 'Sapphire', 'Emerald', 'Ruby', 'Gold', 'Diamond'],
       trajectoryExtraction: (current, target) => `Extraction: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extraction: ???',
       trajectoryCurrent: 'Current',
@@ -1141,10 +1285,31 @@ export const translations: Record<Language, TranslationStrings> = {
       slotPet: 'Pets',
       slotPet1: 'First pet',
       slotPet2: 'Second pet',
+      slotVisor: 'Visor',
+      slotBackground: 'Backdrop',
       tabHead: 'Head',
       tabBody: 'Body',
+      lockerCollection: 'Collection',
+      detailBack: 'Back',
+      detailUnlock: 'UNLOCK',
+      detailEquip: 'EQUIP',
+      detailEquipped: 'EQUIPPED',
+      detailMissingGems: '{n} gems short',
+      detailMissingGemsOne: '{n} gem short',
+      detailBuying: 'Buying…',
+      detailError: 'The purchase could not be completed',
+      detailStock: 'Standard issue',
+      detailUnlockedNote: 'Unlocked',
       styleNames: {
         estandar: 'Standard',
+        limpio: 'Clear',
+        reticula: 'Reticle',
+        grieta: 'Crack',
+        agujero: 'Black hole',
+        turbinas: 'Turbines',
+        estrellas: 'Stars',
+        rejilla: 'Hangar',
+        meteoros: 'Meteors',
         doble: 'Double',
         halo: 'Halo',
         cilindros: 'Canisters',
@@ -1165,12 +1330,92 @@ export const translations: Record<Language, TranslationStrings> = {
         acero: 'Steel',
         marino: 'Navy',
         arena: 'Sand',
-        cian: 'Cyan',
+        diamante: 'Diamond',
         violeta: 'Violet',
         ninguna: 'None',
+        chispa: 'Spark',
         mascota1: 'Lookout',
         satelite: 'Satellite',
         orbe: 'Orb',
+      },
+      // Keyed "slot:id" because ids repeat across slots — crimson boots and a
+      // crimson belt are different items and deserve different copy.
+      styleDescriptions: {
+        'visor:limpio': 'The usual glass, with nothing printed on it.',
+        'visor:reticula': 'Targeting reticle with side readouts. Sells "pilot" without touching the silhouette.',
+        'visor:grieta': 'The cracked glass of someone who has been out there. A whole story in four lines.',
+        'visor:agujero': "The visor doesn't reflect: it swallows. Black disc, bent ring of light, no stars survive.",
+        'pack:turbinas': 'Two shoulder-mounted rotors, actually spinning, and in opposite directions.',
+        'background:estrellas': 'A fixed starfield. The plainest backdrop and the one that goes with everything.',
+        'background:rejilla': 'A hangar floor in perspective, lines converging behind you.',
+        'background:meteoros': 'Your same sky, crossed over and over by shooting stars.',
+
+        'helmet:estandar': 'Standard-issue white shell with a violet visor. What everyone wears on day one.',
+        'helmet:diamante': 'Diamond glass over the usual shell. Cold and clean.',
+        'helmet:esmeralda': 'Emerald visor, the probe pilots’ favourite.',
+        'helmet:oro': 'Gold visor with an anti-glare coat. Expensive, and it shows.',
+        'helmet:carmesi': 'Crimson glass. Visible from the far side of the hangar.',
+        'helmet:grafito': 'Graphite shell with smoked glass. The only helmet where the material is the choice.',
+
+        'suit:estandar': 'The regulation white EVA suit. Plain, and never wrong.',
+        'suit:acero': 'Polished steel with hard highlights. Fresh out of the shop.',
+        'suit:marino': 'Flight-deck navy, cut like a pilot’s coverall.',
+        'suit:arena': 'Martian sand tones, weathered by dust.',
+        'suit:carmesi': 'Deep crimson with pronounced seams. Nothing subtle about it.',
+        'suit:grafito': 'Matte graphite from collar to waist. Drinks the light.',
+
+        'boots:estandar': 'Regulation white boots with a reinforced sole.',
+        'boots:acero': 'Polished steel toecaps. As heavy as they look.',
+        'boots:marino': 'Navy boots to match the flight suit.',
+        'boots:arena': 'Sand-coloured leather, already dusted from the surface.',
+        'boots:carmesi': 'High-topped crimson. Goes with little, and doesn’t care.',
+        'boots:grafito': 'Matte graphite — the boot that reflects nothing.',
+
+        'belt:violeta': 'Regulation violet belt with a square buckle.',
+        'belt:oro': 'Gold band and buckle. Pure decoration, which is the point.',
+        'belt:diamante': 'A diamond band cutting the suit in half.',
+        'belt:esmeralda': 'Emerald green with a resin sheen.',
+        'belt:grafito': 'Gunmetal band, understated on purpose.',
+        'belt:carmesi': 'Crimson red. The most visible line on the suit.',
+
+        'bracelet:violeta': 'Violet cuffs matching the standard kit.',
+        'bracelet:oro': 'Gold cuffs. The first thing people see when you wave.',
+        'bracelet:diamante': 'Electric diamond on both wrists.',
+        'bracelet:esmeralda': 'Emerald green with an enamelled finish.',
+        'bracelet:grafito': 'Sober gunmetal, for anyone who’d rather not shine.',
+        'bracelet:carmesi': 'Deep crimson at the cuffs of the suit.',
+
+        'antenna:estandar': 'Short regulation antenna with a light at the tip.',
+        'antenna:doble': 'Two antennas side by side. Twice the reception, they say.',
+        'antenna:halo': 'A ring suspended above the helmet. Does nothing, and does it beautifully.',
+
+        'pack:estandar': 'Standard life-support pack. Just enough to breathe.',
+        'pack:carga': 'Cargo pack with external pockets.',
+        'pack:aletas': 'Stabiliser fins on both sides. Changes the whole silhouette.',
+        'pack:cilindros': 'Two oxygen cylinders mounted across the back.',
+        'pack:reactor': 'Compact reactor with vectoring nozzles.',
+        'pack:alas': 'Deployable wings. Useless in vacuum, spectacular anyway.',
+
+        'trail:llama': 'The classic thruster flame.',
+        'trail:ionico': 'An ion jet, narrow and blue.',
+        'trail:anillos': 'Plasma rings that peel away under acceleration.',
+
+        'badge:planeta': 'A ringed planet — the badge you start with.',
+        'badge:estrella': 'A five-pointed star across the chest.',
+        'badge:rayo': 'A lightning bolt. No explanation, none needed.',
+
+        'pet:ninguna': 'No companion. An empty shoulder is a look too.',
+        'pet:chispa': 'A speck of light that follows you, with three motes turning around it. Not a machine — the smallest companion there is.',
+        'pet:mascota1': 'Lookout: a compact droid that never leaves your shoulder.',
+        'pet:satelite': 'A satellite with its panels out, orbiting beside you.',
+        'pet:orbe': 'An orb between two rings that turn on their own.',
+
+        'accent:violeta': 'Violet on the trim, the pack and the thruster. The house colour.',
+        'accent:oro': 'Gold across every detail of the suit.',
+        'accent:diamante': 'Cold diamond running through the gear.',
+        'accent:esmeralda': 'Emerald green on the trim and the flame.',
+        'accent:grafito': 'Gunmetal details. Turns the whole suit down.',
+        'accent:carmesi': 'Crimson on every piece of trim.',
       },
     },
     store: {
@@ -1312,10 +1557,10 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
-        luck_x10: { name: 'Glimmer x10', desc: '1% chance of a x10 shot.' },
-        luck_x25: { name: 'Glimmer x25', desc: '1% chance of a x25 shot.' },
-        luck_x50: { name: 'Glimmer x50', desc: '1% chance of a x50 shot.' },
-        luck_x100: { name: 'Glimmer x100', desc: '1% chance of a x100 shot. The highest one.' },
+        luck_x10: { name: 'Glimmer x2', desc: 'Multiplies your lucky shots by 2 for 20s.' },
+        luck_x25: { name: 'Glimmer x5', desc: 'Multiplies your lucky shots by 5 for 20s.' },
+        luck_x50: { name: 'Glimmer x10', desc: 'Multiplies your lucky shots by 10 for 20s.' },
+        luck_x100: { name: 'Glimmer x20', desc: 'Multiplies your lucky shots by 20 for 20s. The highest one.' },
       },
     },
     stats: {
@@ -1392,6 +1637,14 @@ export const translations: Record<Language, TranslationStrings> = {
       scoutDroneNextLabel: 'Next level scout drones:',
       scoutFrequencyName: 'Frequency',
       scoutFrequencyDesc: "Tunes your scout drones' radar to boost their production.",
+      gunnerRateName: 'Caliber',
+      gunnerRateDesc:
+        "Bores out your gunners' cannons. Every shot tears more material off the asteroid.",
+      gunnerName: 'Gunner',
+      gunnerDesc:
+        'Deploys a gunner that holds position aimed at the asteroid, firing from both cannons. Each one mines on its own.',
+      currentGunners: 'Current gunners:',
+      nextGunners: 'Gunners next level:',
       turboName: 'Overload',
       turboDesc: "Overloads your drones' reactor, increasing their production.",
       tapMultiplierName: 'Amplifier',
@@ -1481,6 +1734,8 @@ export const translations: Record<Language, TranslationStrings> = {
       successBody: (amount, materialName) => `You received ${amount} ${materialName.toLowerCase()}.`,
       failureTitle: 'Anomaly lost',
       failureBody: "It got away. You'll get it next time.",
+      unclaimedTitle: 'Neutralized, not collected',
+      unclaimedBody: "You neutralized it, but the reward couldn't be collected. Try again on the next one.",
     },
     tutorial: {
       next: 'Next',

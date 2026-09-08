@@ -4,6 +4,7 @@ import { getAuth, isAnonId } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { getPowerup } from '../powerups/catalog.js'
 import { getTimedLuckPowerup } from '../powerups/timedLuckPowerups.js'
+import { DEFAULT_COSMETICS, canEquip } from '../store/cosmetics.js'
 
 export const usersRouter = Router()
 
@@ -24,6 +25,8 @@ const USERNAME_MAX = 20
 // renaming a colourway a frontend-only change.
 const ASTRONAUT_SLOTS = [
   'helmet',
+  'visor',
+  'background',
   'suit',
   'boots',
   'belt',
@@ -250,7 +253,19 @@ usersRouter.put('/me/astronaut-style', async (req, res) => {
   if (!style) return res.status(400).json({ error: 'invalid' })
 
   try {
-    const saved = await usersRepository.updateAstronautStyle(userId, style)
+    // The customization screen lets you try on pieces you don't own — that's
+    // the point of it — so what the client has on screen and what it's
+    // allowed to save are legitimately different, and this is the only place
+    // that can tell them apart. Unowned slots fall back to the stock kit
+    // rather than 400ing the whole save: a preview left on at unmount is a
+    // normal thing to happen, not an error, and the rest of the outfit still
+    // deserves to be stored.
+    const owned = new Set(await usersRepository.getOwnedCosmetics(userId))
+    const allowed = {}
+    for (const [slot, id] of Object.entries(style)) {
+      allowed[slot] = canEquip(slot, id, owned) ? id : DEFAULT_COSMETICS[slot]
+    }
+    const saved = await usersRepository.updateAstronautStyle(userId, allowed)
     res.json({ astronautStyle: saved })
   } catch (err) {
     console.error('Error saving astronaut style', err)

@@ -1,12 +1,12 @@
 import { memo } from 'react'
 
-// Escort fighters holding station outside the drone swarm, noses permanently
+// Gunners holding station outside the drone swarm, noses permanently
 // on the asteroid, firing from both cannons.
 //
-// PARKED. Home passes count={0}, so none of this mounts today. It's waiting on
-// a tree node that doesn't exist yet; when it does, that node's owned level
-// becomes the count and the escort grows with it. Nothing else needs touching
-// — the fan, the firing stagger and the aiming all derive from that number.
+// The count is the Artillero tree node's owned level (branch F, Dron
+// buscador's left child). Nothing mounts at 0 — see the early return below —
+// so an account that hasn't bought one pays a single comparison. Everything
+// else derives from that number: the fan, the firing stagger and the aiming.
 //
 // Self-contained on purpose: geometry, keyframes, radius and angles all live
 // in this one file, so it can be dropped outright by deleting the file and the
@@ -33,7 +33,7 @@ import { memo } from 'react'
 // left, a recessed dark well with glass in it, rim light on the lit edge only,
 // and a rotated specular ellipse on the shoulder. Every one of those is
 // lifted straight from AstronautAvatar, and the light sits at the same 32%/24%
-// so a fighter and the astronaut read as lit by one sun.
+// so a gunner and the astronaut read as lit by one sun.
 //
 // Gradients are affordable here in a way they are not in DroneIcon: these are
 // 62px, in one fixed paint, and however many there are they're all identical —
@@ -67,9 +67,9 @@ import { memo } from 'react'
 // which is what stops a merely-transparent element from being stepped as a
 // live layer — the same trick @keyframes drone-beam uses.
 //
-// That per-craft cost is worth knowing before the node's cap gets chosen: an
-// escort of N costs 3N always-running animations, where the drone swarm costs
-// 2 per drone. These are far bigger on screen, so a much smaller cap.
+// That per-craft cost is why the node's cap is 4: N gunners cost 3N
+// always-running animations, where the drone swarm costs 2 per drone. These
+// are far bigger on screen too, so the cap has to be much smaller.
 //
 // --- How they aim ---------------------------------------------------------
 // Same two-element trick the swarm uses: an anchor pinned at the ring's
@@ -81,7 +81,7 @@ import { memo } from 'react'
 
 /** How far out they hold. Well beyond the fused drones' own wider ring
  *  (--drone-orbit-radius-big, clamp(122px, 37.4vmin, 193px)) — roughly half
- *  again — so the escort reads as a separate formation standing off from the
+ *  again — so the formation reads as a separate formation standing off from the
  *  swarm rather than as part of it.
  *  The ceiling is where it is because of the angle: parked at ±163deg the
  *  stations are almost straight down, so the radius spends nearly all of
@@ -91,19 +91,24 @@ import { memo } from 'react'
  *  hidden is hidden. */
 const ORBIT_RADIUS = 'clamp(210px, 60vmin, 290px)'
 
-/** Angular spacing between neighbouring craft. 34 is not arbitrary: with two
- *  fighters it reproduces the ±163deg pair this was originally hand-placed
- *  at, which is as low as they go before the two read as one cluster rather
- *  than a craft per flank. */
-const FAN_STEP_DEG = 34
-/** Ceiling on the total spread, so a large escort wraps into a wide arc
+/** Angular spacing between neighbouring craft.
+ *
+ *  Was 34, chosen so two gunners reproduced the ±163deg pair this was
+ *  originally hand-placed at. That held while the node capped at four — a
+ *  136deg fan — but the cap is seven now, and at 34 apart seven craft spread
+ *  across 238deg: they stop reading as a formation escorting the asteroid
+ *  and start reading as a ring around it, with the outer two nearly at its
+ *  sides. 20 puts seven of them in 140deg, about the width four used to
+ *  occupy, so the formation stays a formation however many you own. */
+const FAN_STEP_DEG = 20
+/** Ceiling on the total spread, so a large formation wraps into a wide arc
  *  instead of overlapping itself past the top of the screen. */
 const MAX_FAN_DEG = 320
-/** One firing cycle, matching @keyframes fighter-shot below. */
+/** One firing cycle, matching @keyframes gunner-shot below. */
 const CYCLE_S = 2.4
 
 /**
- * Where `count` fighters hold station, as a fan centred on straight down.
+ * Where `count` gunners hold station, as a fan centred on straight down.
  *
  * 0deg is straight up and CSS rotation is clockwise, so 180 is directly below
  * the asteroid — clear of the cockpit console at the top and of the tab bar.
@@ -113,14 +118,14 @@ const CYCLE_S = 2.4
  * differently from any other.
  *
  * Delays are NEGATIVE, and that is not a style choice — see the note above
- * .fighter-shot. A positive one would leave each new fighter's bolts parked
+ * .gunner-shot. A positive one would leave each new gunner's bolts parked
  * and opaque on its nose until its first turn came round.
  */
 function stations(count: number): { angle: string; delay: number }[] {
   const fan = Math.min(MAX_FAN_DEG, count * FAN_STEP_DEG)
   return Array.from({ length: count }, (_, i) => ({
     angle: `${180 - fan / 2 + (fan * (i + 0.5)) / count}deg`,
-    // Spread around the cycle rather than a flat step, so a big escort never
+    // Spread around the cycle rather than a flat step, so a big formation never
     // falls into a rhythm where several fire together.
     delay: -((i * 0.9) % CYCLE_S),
   }))
@@ -149,36 +154,34 @@ const BAND = {
 }
 
 /**
- * @param count How many fighters are on station. Currently always 0 — this is
- *   parked, waiting on a tree node that hasn't been built yet, at which point
- *   this becomes the node's owned level and the escort grows with it. Nothing
- *   else has to change: the fan, the firing stagger and the aiming all derive
- *   from the count.
+ * @param count How many gunners are on station — the Artillero node's owned
+ *   level, capped at 4 by that node. The fan, the firing stagger and the
+ *   aiming all derive from it.
  *
  * At 0 it returns null, so nothing at all mounts — no <style>, no gradient
  * defs, no elements. The whole feature costs exactly one comparison until the
  * day it's switched on.
  */
-export const HomeFighter = memo(function HomeFighter({ count }: { count: number }) {
+export const HomeGunner = memo(function HomeGunner({ count }: { count: number }) {
   if (count <= 0) return null
   return (
     <div className="pointer-events-none absolute inset-0 text-[#5D6532]">
-      <style>{FIGHTER_CSS}</style>
-      {/* Defined once for the whole escort rather than per instance. Every
+      <style>{GUNNER_CSS}</style>
+      {/* Defined once for the whole formation rather than per instance. Every
           craft is the same aircraft in the same paint, so there is nothing to
           vary — and unlike DroneIcon, which is tinted per swarm, fixed ids
           here can't collide with anything or multiply with the count. */}
       <svg width="0" height="0" className="absolute" aria-hidden="true">
         <defs>
           {/* Same upper-left key light (32% / 24%) every gradient in
-              AstronautAvatar uses, so a fighter and the astronaut read as lit
+              AstronautAvatar uses, so a gunner and the astronaut read as lit
               by one sun rather than as two unrelated drawings. */}
-          <radialGradient id="fighterHull" cx="32%" cy="24%" r="88%">
+          <radialGradient id="gunnerHull" cx="32%" cy="24%" r="88%">
             <stop offset="0%" stopColor={HULL.lit} />
             <stop offset="52%" stopColor={HULL.mid} />
             <stop offset="100%" stopColor={HULL.shade} />
           </radialGradient>
-          <linearGradient id="fighterBand" x1="15%" y1="0%" x2="85%" y2="100%">
+          <linearGradient id="gunnerBand" x1="15%" y1="0%" x2="85%" y2="100%">
             <stop offset="0%" stopColor={BAND.lit} />
             <stop offset="100%" stopColor={BAND.shade} />
           </linearGradient>
@@ -186,12 +189,12 @@ export const HomeFighter = memo(function HomeFighter({ count }: { count: number 
               pane, then a depth wash that is white at the top-left and nearly
               black at the bottom-right. That second pass is what makes glass
               read as curved instead of as a flat coloured hole. */}
-          <linearGradient id="fighterGlass" x1="10%" y1="0%" x2="90%" y2="100%">
+          <linearGradient id="gunnerGlass" x1="10%" y1="0%" x2="90%" y2="100%">
             <stop offset="0%" stopColor="#F3ECCB" />
             <stop offset="55%" stopColor={BAND.lit} />
             <stop offset="100%" stopColor="#9C8F5C" />
           </linearGradient>
-          <radialGradient id="fighterGlassDepth" cx="34%" cy="24%" r="78%">
+          <radialGradient id="gunnerGlassDepth" cx="34%" cy="24%" r="78%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
             <stop offset="44%" stopColor="#ffffff" stopOpacity="0" />
             <stop offset="100%" stopColor="#12140A" stopOpacity="0.55" />
@@ -199,22 +202,22 @@ export const HomeFighter = memo(function HomeFighter({ count }: { count: number 
         </defs>
       </svg>
       {stations(count).map((station) => (
-        <Fighter key={station.angle} angle={station.angle} delay={station.delay} />
+        <Gunner key={station.angle} angle={station.angle} delay={station.delay} />
       ))}
     </div>
   )
 })
 
-function Fighter({ angle, delay }: { angle: string; delay: number }) {
+function Gunner({ angle, delay }: { angle: string; delay: number }) {
   const vars: Record<string, string> = {
-    '--fighter-radius': ORBIT_RADIUS,
-    '--fighter-angle': angle,
+    '--gunner-radius': ORBIT_RADIUS,
+    '--gunner-angle': angle,
   }
   return (
-    <div className="fighter-anchor" style={vars}>
-      <div className="fighter-offset">
+    <div className="gunner-anchor" style={vars}>
+      <div className="gunner-offset">
         {/* Flipped so the nose — drawn pointing up — faces the ring centre. */}
-        <div className="fighter-craft" style={{ animationDelay: `${delay}s` }}>
+        <div className="gunner-craft" style={{ animationDelay: `${delay}s` }}>
           <svg viewBox="-42 -40 84 80" width="62" height="62" className="overflow-visible" aria-hidden="true">
             {/* ONE delta, nose to tail. The previous version had a separate
                 fuselage and two thin wing slivers bolted to its sides: the
@@ -264,7 +267,7 @@ function Fighter({ angle, delay }: { angle: string; delay: number }) {
                 the astronaut's helmet a sphere instead of a circle. */}
             <path
               d="M0 -30 L28 19 L0 5 L-28 19 Z"
-              fill="url(#fighterHull)"
+              fill="url(#gunnerHull)"
               stroke={HULL.stroke}
               strokeWidth="1.4"
               strokeLinejoin="round"
@@ -301,7 +304,7 @@ function Fighter({ angle, delay }: { angle: string; delay: number }) {
                 sweeps out: its four corners are solved onto the two edges at
                 x=17 (chord y -0.25→13.5) and x=21 (chord y 6.75→15.5), so it
                 sits flush with both by construction and can't overhang. */}
-            <g fill="url(#fighterBand)">
+            <g fill="url(#gunnerBand)">
               <path d="M-17 -0.25 L-21 6.75 L-21 15.5 L-17 13.5 Z" />
               <path d="M17 -0.25 L21 6.75 L21 15.5 L17 13.5 Z" />
             </g>
@@ -311,8 +314,8 @@ function Fighter({ angle, delay }: { angle: string; delay: number }) {
                 small hard glint riding the shoulder. Five shapes, and they're
                 what make it read as glass rather than as a dot. */}
             <ellipse cx="0" cy="-11" rx="6.2" ry="8.4" fill="#12140A" />
-            <ellipse cx="0" cy="-11" rx="5.2" ry="7.4" fill="url(#fighterGlass)" />
-            <ellipse cx="0" cy="-11" rx="5.2" ry="7.4" fill="url(#fighterGlassDepth)" />
+            <ellipse cx="0" cy="-11" rx="5.2" ry="7.4" fill="url(#gunnerGlass)" />
+            <ellipse cx="0" cy="-11" rx="5.2" ry="7.4" fill="url(#gunnerGlassDepth)" />
             <ellipse cx="0" cy="-11" rx="5.2" ry="7.4" fill="none" stroke="#ffffff" strokeWidth="0.9" opacity={0.3} />
             <ellipse cx="-1.9" cy="-14.4" rx="2" ry="1" fill="#ffffff" opacity={0.6} transform="rotate(-28 -1.9 -14.4)" />
 
@@ -334,26 +337,26 @@ function Fighter({ angle, delay }: { angle: string; delay: number }) {
         {/* The bolts sit outside the flipped craft, in the anchor's own frame,
             so +y is already "towards the asteroid" for them too. Same
             travelling-dot shape the swarm's beams use. */}
-        <span className="fighter-shot fighter-shot-l" style={{ animationDelay: `${delay}s` }} />
-        <span className="fighter-shot fighter-shot-r" style={{ animationDelay: `${delay - 0.14}s` }} />
+        <span className="gunner-shot gunner-shot-l" style={{ animationDelay: `${delay}s` }} />
+        <span className="gunner-shot gunner-shot-r" style={{ animationDelay: `${delay - 0.14}s` }} />
       </div>
     </div>
   )
 }
 
-const FIGHTER_CSS = `
-.fighter-anchor {
+const GUNNER_CSS = `
+.gunner-anchor {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: rotate(var(--fighter-angle));
+  transform: rotate(var(--gunner-angle));
   /* Load-bearing, and the bug that made the first version miss. left/top:50%
      put this element's top-left exactly on the ring centre, but the default
      transform-origin is the centre of its *box* — and the box was 62x62,
-     because .fighter-offset was in flow and sized it. Rotating about a pivot
+     because .gunner-offset was in flow and sized it. Rotating about a pivot
      31px down-and-right of the ring centre threw the station off its radius
      and landed both bolts ~75px below the asteroid.
-     .fighter-offset is out of flow now (see below), which alone makes this
+     .gunner-offset is out of flow now (see below), which alone makes this
      element zero-sized and the two origins identical — this line stays as the
      explicit statement of intent, so putting anything in flow here later
      can't quietly move the pivot again. */
@@ -367,11 +370,11 @@ const FIGHTER_CSS = `
    been correctly centred — this file drifted from their geometry by making
    this element position:relative, and that one word was the whole aiming
    error. (No backticks in here — this block is a template literal.) */
-.fighter-offset {
+.gunner-offset {
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate(-50%, -50%) translateY(calc(var(--fighter-radius) * -1));
+  transform: translate(-50%, -50%) translateY(calc(var(--gunner-radius) * -1));
 }
 
 /* Recoil. The craft kicks back on each burst and settles, on the same 2.4s
@@ -391,7 +394,7 @@ const FIGHTER_CSS = `
    The arc version would have had to animate the anchor, which wraps the two
    bolts too, nesting their layers inside a parent that transforms every
    frame. Same visual budget, more compositor work. */
-@keyframes fighter-recoil {
+@keyframes gunner-recoil {
   0% {
     transform: rotate(180deg) translateY(0);
     animation-timing-function: ease-out;
@@ -408,9 +411,9 @@ const FIGHTER_CSS = `
   }
 }
 
-.fighter-craft {
+.gunner-craft {
   transform: rotate(180deg);
-  animation: fighter-recoil 2.4s infinite;
+  animation: gunner-recoil 2.4s infinite;
 }
 
 /* Fires, coasts, then genuinely idles. The bolt is visible for a quarter of
@@ -431,7 +434,7 @@ const FIGHTER_CSS = `
    the hull, and ends at the full radius, which is dead centre. Both numbers
    are the muzzles' real position: at (±14, -22) in the drawing, and the SVG
    packs 84 units into 62px, so ±10px across and 16px forward. */
-@keyframes fighter-shot {
+@keyframes gunner-shot {
   0% {
     transform: translate(calc(-50% + var(--gun-x)), 16px);
     opacity: 1;
@@ -439,7 +442,7 @@ const FIGHTER_CSS = `
     animation-timing-function: ease-in;
   }
   26% {
-    transform: translate(-50%, var(--fighter-radius));
+    transform: translate(-50%, var(--gunner-radius));
     opacity: 0;
   }
   26.1% {
@@ -459,7 +462,7 @@ const FIGHTER_CSS = `
    "full width, fully opaque, untransformed, parked at the craft's centre" —
    which is what any moment the animation isn't driving it will show: a stray
    bar sitting on the nose. Belt to the negative delays' braces. */
-.fighter-shot {
+.gunner-shot {
   position: absolute;
   visibility: hidden;
   /* Both sit on the axis; --gun-x in the keyframes is what walks each one out
@@ -471,7 +474,7 @@ const FIGHTER_CSS = `
   border-radius: 999px;
   background: linear-gradient(to bottom, rgba(219, 234, 254, 0), #dbeafe, #ffffff);
   box-shadow: 0 0 7px 1px rgba(191, 219, 254, 0.85);
-  animation: fighter-shot 2.4s infinite;
+  animation: gunner-shot 2.4s infinite;
 }
 
 /* Both barrels, a beat apart — perfectly simultaneous reads as one wide bolt,
@@ -486,11 +489,11 @@ const FIGHTER_CSS = `
    animation already that far in, so there is no pre-start state to leak.
    Exactly the bug, and exactly the fix, that @keyframes drone-beam and
    OrbitingBots' own orbitDelay document in Home.tsx. */
-.fighter-shot-l { --gun-x: -10px; }
-.fighter-shot-r { --gun-x: 10px; }
+.gunner-shot-l { --gun-x: -10px; }
+.gunner-shot-r { --gun-x: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .fighter-shot { animation: none; visibility: hidden; }
-  .fighter-craft { animation: none; }
+  .gunner-shot { animation: none; visibility: hidden; }
+  .gunner-craft { animation: none; }
 }
 `

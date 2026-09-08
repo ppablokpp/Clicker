@@ -118,7 +118,44 @@ export const PACK_SHAPES: ShapeOption[] = [
   { id: 'aletas' },
   { id: 'cilindros' },
   { id: 'reactor' },
+  { id: 'turbinas' },
   { id: 'alas' },
+]
+
+/**
+ * What's printed on the visor glass.
+ *
+ * The highest-value slot on the character and the last one to exist: the
+ * visor is the face — it's the middle of the avatar and the thing every
+ * other player looks at — and until now it only ever changed hue. None of
+ * these touch the silhouette, so they compose with every helmet, suit and
+ * pack already in the catalogue and can't break any of them.
+ *
+ * `limpio` is the stock glass, i.e. exactly what the helmet has always
+ * looked like, so adding this slot changes nothing for anyone who doesn't
+ * go looking for it.
+ */
+export const VISOR_SHAPES: ShapeOption[] = [
+  { id: 'limpio' },
+  { id: 'reticula' },
+  { id: 'grieta' },
+  { id: 'agujero' },
+]
+
+/**
+ * What's inside the porthole behind the figure.
+ *
+ * The one slot that isn't worn — and deliberately not a new surface: it
+ * replaces the contents of the starfield porthole the avatar has always had
+ * (see AstronautAvatar's `showSky`), rather than adding a second disc behind
+ * it. `estrellas` IS that original starfield, which is why it's the free
+ * default: turning this into a slot must leave every existing character
+ * looking exactly as it did.
+ */
+export const BACKGROUND_SHAPES: ShapeOption[] = [
+  { id: 'estrellas' },
+  { id: 'rejilla' },
+  { id: 'meteoros' },
 ]
 
 /**
@@ -157,6 +194,10 @@ export const BADGE_SHAPES: ShapeOption[] = [{ id: 'planeta' }, { id: 'estrella' 
  */
 export const PET_SHAPES: ShapeOption[] = [
   { id: 'ninguna' },
+  // The small, cheap one. Deliberately not a machine — no chassis, no
+  // thruster, no face — which is what lets it be a third of the size of the
+  // others without reading as a shrunken version of them.
+  { id: 'chispa' },
   { id: 'mascota1' },
   { id: 'satelite' },
   { id: 'orbe' },
@@ -180,7 +221,7 @@ export const HELMET_STYLES: HelmetStyle[] = [
     visor: { from: '#c4b5fd', via: '#a855f7', to: '#e879f9' },
   },
   {
-    id: 'cian',
+    id: 'diamante',
     swatch: '#22d3ee',
     shell: STANDARD_SHELL,
     visor: { from: '#a5f3fc', via: '#22d3ee', to: '#cffafe' },
@@ -350,7 +391,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
     flame: { outer: '#f59e0b', innerMid: '#fef3c7', innerTo: '#fcd34d' },
   },
   {
-    id: 'cian',
+    id: 'diamante',
     swatch: '#22d3ee',
     color: '#22d3ee',
     badge: { from: '#a5f3fc', to: '#22d3ee' },
@@ -391,7 +432,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
 const SHARED_ACCESSORY_COLORS = [
   { id: 'violeta', color: '#a855f7' },
   { id: 'oro', color: '#fbbf24' },
-  { id: 'cian', color: '#22d3ee' },
+  { id: 'diamante', color: '#22d3ee' },
   { id: 'esmeralda', color: '#34d399' },
   { id: 'grafito', color: '#64748b' },
   { id: 'carmesi', color: '#fb7185' },
@@ -406,7 +447,7 @@ export const BRACELET_STYLES: BraceletStyle[] = SHARED_ACCESSORY_COLORS.map(({ i
 export const BELT_STYLES: BeltStyle[] = [
   { id: 'violeta', swatch: '#a855f7', band: { from: '#8b46cc', mid: '#c99cf5', to: '#63339a' } },
   { id: 'oro', swatch: '#fbbf24', band: { from: '#d9a72e', mid: '#fcd77a', to: '#a9781c' } },
-  { id: 'cian', swatch: '#22d3ee', band: { from: '#1a9fb8', mid: '#7fe3f4', to: '#127287' } },
+  { id: 'diamante', swatch: '#22d3ee', band: { from: '#1a9fb8', mid: '#7fe3f4', to: '#127287' } },
   { id: 'esmeralda', swatch: '#34d399', band: { from: '#26a67e', mid: '#7cebc0', to: '#197a5c' } },
   { id: 'grafito', swatch: '#64748b', band: { from: '#4a5464', mid: '#8a95a5', to: '#2c333d' } },
   { id: 'carmesi', swatch: '#fb7185', band: { from: '#d8586b', mid: '#fca6b2', to: '#a63f4f' } },
@@ -415,6 +456,8 @@ export const BELT_STYLES: BeltStyle[] = [
 /** What a player has picked, stored as ids so the palettes can be retuned. */
 export interface AstronautStyleIds {
   helmet: string
+  visor: string
+  background: string
   suit: string
   boots: string
   belt: string
@@ -431,6 +474,8 @@ export interface AstronautStyleIds {
 /** The same choice with every palette already looked up. */
 export interface ResolvedAstronautStyle {
   helmet: HelmetStyle
+  visor: ShapeOption
+  background: ShapeOption
   suit: SuitStyle
   boots: BootStyle
   belt: BeltStyle
@@ -446,6 +491,8 @@ export interface ResolvedAstronautStyle {
 
 export const DEFAULT_STYLE_IDS: AstronautStyleIds = {
   helmet: 'estandar',
+  visor: 'limpio',
+  background: 'estrellas',
   suit: 'estandar',
   boots: 'estandar',
   belt: 'violeta',
@@ -459,6 +506,23 @@ export const DEFAULT_STYLE_IDS: AstronautStyleIds = {
   accent: 'violeta',
 }
 
+/**
+ * Is this piece part of the free stock kit?
+ *
+ * The whole locking system hangs off this one predicate. Everything in
+ * DEFAULT_STYLE_IDS is permanently unlocked, never sold, never rolled by a
+ * chest and never written to user_cosmetics — which is what makes "locked" a
+ * meaningful state: a player always has one complete outfit, so a locked
+ * piece is an upgrade over something rather than the difference between
+ * dressed and undressed.
+ *
+ * Mirrored server-side as DEFAULT_COSMETICS in back/src/store/cosmetics.js,
+ * which is the copy that actually decides what may be equipped.
+ */
+export function isDefaultCosmetic(slot: string, id: string): boolean {
+  return DEFAULT_STYLE_IDS[slot as keyof AstronautStyleIds] === id
+}
+
 // Unknown ids fall back to the first entry rather than throwing — a saved
 // id can outlive the option it named (a retuned palette, a renamed slot),
 // and a player's avatar failing to render is never the right response to
@@ -470,6 +534,8 @@ function pick<T extends { id: string }>(list: T[], id: string): T {
 export function resolveStyle(ids: AstronautStyleIds): ResolvedAstronautStyle {
   return {
     helmet: pick(HELMET_STYLES, ids.helmet),
+    visor: pick(VISOR_SHAPES, ids.visor),
+    background: pick(BACKGROUND_SHAPES, ids.background),
     suit: pick(SUIT_STYLES, ids.suit),
     boots: pick(BOOT_STYLES, ids.boots),
     belt: pick(BELT_STYLES, ids.belt),
@@ -498,6 +564,8 @@ export function loadStyleIds(): AstronautStyleIds {
     const parsed = JSON.parse(raw) as Partial<AstronautStyleIds>
     return {
       helmet: typeof parsed.helmet === 'string' ? parsed.helmet : DEFAULT_STYLE_IDS.helmet,
+      visor: typeof parsed.visor === 'string' ? parsed.visor : DEFAULT_STYLE_IDS.visor,
+      background: typeof parsed.background === 'string' ? parsed.background : DEFAULT_STYLE_IDS.background,
       suit: typeof parsed.suit === 'string' ? parsed.suit : DEFAULT_STYLE_IDS.suit,
       boots: typeof parsed.boots === 'string' ? parsed.boots : DEFAULT_STYLE_IDS.boots,
       belt: typeof parsed.belt === 'string' ? parsed.belt : DEFAULT_STYLE_IDS.belt,

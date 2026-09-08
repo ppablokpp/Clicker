@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowUp,
   Atom,
+  Aperture,
   Crosshair,
   ChevronsDown,
   ChevronsUp,
@@ -14,6 +15,7 @@ import {
   Moon,
   Orbit,
   Pickaxe,
+  Plane,
   Plus,
   Radar,
   Radiation,
@@ -27,6 +29,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import { formatPlatino, formatRate } from '../lib/formatPlatino'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
 import { useTutorialContext, DRONE_FUSION_STEPS } from '../context/TutorialContext'
@@ -59,7 +62,6 @@ interface TreeBuyButtonProps {
   buyingLabel: string
   cost: number
   balance: number
-  locale: string
   currency: 'clicks' | 'gems'
   dataTutorial?: string
   // Tutorial-only: the very first drone is free — bypasses the real
@@ -83,7 +85,6 @@ function TreeBuyButton({
   buyingLabel,
   cost,
   balance,
-  locale,
   currency,
   dataTutorial,
   isFree,
@@ -95,6 +96,7 @@ function TreeBuyButton({
   // it threaded through 13 call sites — this button is purely presentational
   // otherwise, so a self-contained hook read is simpler than prop drilling.
   const { prestigeTier } = useClickCounterContext()
+  const { language } = useLanguage()
   const materialButtonClass = MATERIAL_BUTTON_THEMES[prestigeTier].button
   return (
     <button
@@ -127,7 +129,7 @@ function TreeBuyButton({
             ) : (
               <PlatinumIcon size={17} className="opacity-70" />
             )}
-            <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
+            <span className="tabular-nums">{formatPlatino(cost, language)}</span>
           </>
         )}
       </span>
@@ -216,9 +218,20 @@ const NODES: TreeNode[] = [
   // new order. Sobrecarga's own child, Autonomía (e2b1, raises how much of
   // the fleet's real rate still applies while you're away), took over the
   // trailing placeholder leaf moved here from Frecuencia's end.
+  // Artillero (a1b2) leaves Dron buscador on the opposite side to Frecuencia,
+  // at the mirrored angle but a shorter reach — 142px out against
+  // Frecuencia's 177. Deliberately not a strict mirror: the upper-left is
+  // already busy with Detección (d3), and the shorter arm keeps the two
+  // apart without crowding the branch.
   { id: 'e2b', x: CENTER + 30, y: CENTER - 180, label: 'Mejora' },
   { id: 'a1b', x: CENTER - 20, y: CENTER - 310, label: 'Mejora' },
   { id: 'a1b1', x: CENTER + 100, y: CENTER - 440, label: 'Mejora' },
+  { id: 'a1b2', x: CENTER - 115, y: CENTER - 415, label: 'Mejora' },
+  // Calibre (a1b2a) — Artillero's own rate node, completing the pattern
+  // Sobrecarga/Frecuencia already had for the other two units. Continues the
+  // same upper-left arm rather than forking: Artillero is a leaf, and the
+  // ground straight beyond it is the only clear space left in that corner.
+  { id: 'a1b2a', x: CENTER - 235, y: CENTER - 500, label: 'Mejora' },
   { id: 'e2b1', x: CENTER + 140, y: CENTER - 290, label: 'Mejora+' },
 
   // Branch D — Anomalías (d1, a one-time gate on Home's "Anomalía" mini-
@@ -266,6 +279,8 @@ const EDGES: TreeEdge[] = [
   { from: 'root', to: 'e2b' },
   { from: 'e2b', to: 'a1b' },
   { from: 'a1b', to: 'a1b1' },
+  { from: 'a1b', to: 'a1b2' },
+  { from: 'a1b2', to: 'a1b2a' },
   { from: 'e2b', to: 'e2b1' },
 
   { from: 'root', to: 'd1' },
@@ -455,6 +470,16 @@ export function Tree() {
     scoutFrequencyLevel,
     scoutFrequencyNextCost,
     scoutDroneNextRate,
+    gunnerLevel,
+    gunnerNextCost,
+    gunnerRate,
+    gunnerRateLevel,
+    gunnerRateNextCost,
+    gunnerRateNextValue,
+    buyGunnerRate,
+    isBuyingGunnerRate,
+    isBuyingGunner,
+    buyGunner,
     isBuyingScoutFrequency,
     buyScoutFrequency,
     autoMultiplierLevel,
@@ -526,6 +551,10 @@ export function Tree() {
   const canAffordScoutDrone = scoutDroneNextCost !== null && totalClicks >= scoutDroneNextCost
   const isScoutFrequencyMaxed = scoutFrequencyNextCost === null
   const canAffordScoutFrequency = scoutFrequencyNextCost !== null && totalClicks >= scoutFrequencyNextCost
+  const isGunnerMaxed = gunnerNextCost === null
+  const isGunnerRateMaxed = gunnerRateNextCost === null
+  const canAffordGunnerRate = gunnerRateNextCost !== null && totalClicks >= gunnerRateNextCost
+  const canAffordGunner = gunnerNextCost !== null && totalClicks >= gunnerNextCost
   const isAutoMultiplierMaxed = autoMultiplierNextCost === null
   const canAffordAutoMultiplier = autoMultiplierNextCost !== null && totalClicks >= autoMultiplierNextCost
   const isTapMultiplierMaxed = tapMultiplierNextCost === null
@@ -555,6 +584,8 @@ export function Tree() {
   const [showLegendaryThresholdModal, setShowLegendaryThresholdModal] = useState(false)
   const [showScoutDroneModal, setShowScoutDroneModal] = useState(false)
   const [showScoutFrequencyModal, setShowScoutFrequencyModal] = useState(false)
+  const [showGunnerModal, setShowGunnerModal] = useState(false)
+  const [showGunnerRateModal, setShowGunnerRateModal] = useState(false)
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
   const [showTapMultiplierModal, setShowTapMultiplierModal] = useState(false)
   const [showMultiShotModal, setShowMultiShotModal] = useState(false)
@@ -578,6 +609,8 @@ export function Tree() {
       showLegendaryThresholdModal ||
       showScoutDroneModal ||
       showScoutFrequencyModal ||
+      showGunnerModal ||
+      showGunnerRateModal ||
       showAutoMultiplierModal ||
       showTapMultiplierModal ||
       showMultiShotModal ||
@@ -756,6 +789,8 @@ export function Tree() {
     a1: luckLevel,
     a1b: scoutDroneLevel,
     a1b1: scoutFrequencyLevel,
+    a1b2: gunnerLevel,
+    a1b2a: gunnerRateLevel,
     a2: luckChanceLevel,
     b1: multiShotLevel,
     c1: premiumOwnedCount,
@@ -828,6 +863,8 @@ export function Tree() {
               node.id !== 'a1' &&
               node.id !== 'a1b' &&
               node.id !== 'a1b1' &&
+              node.id !== 'a1b2' &&
+              node.id !== 'a1b2a' &&
               node.id !== 'a2' &&
               node.id !== 'e1' &&
               node.id !== 'e2a' &&
@@ -1128,6 +1165,111 @@ export function Tree() {
                 </span>
 
                 {canAffordScoutFrequency && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Artillero — Dron buscador's other child, mirrored left. Same amber
+              family as the rest of the branch; a Plane instead of Radio since
+              what it buys is aircraft, not a signal. */}
+          {revealStateById.a1b2 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a1b2.x, top: nodeById.a1b2.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Plane size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {gunnerLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.a1b2 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a1b2.x, top: nodeById.a1b2.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowGunnerModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
+              >
+                <Plane size={20} className="text-amber-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {gunnerLevel}
+                </span>
+
+                {canAffordGunner && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Calibre — Artillero's rate node. Same amber family as the unit it
+              improves. Aperture is a bore seen end-on, which is exactly what a
+              calibre measures, and it leaves Crosshair to Potencia, which had
+              it first. */}
+          {revealStateById.a1b2a === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a1b2a.x, top: nodeById.a1b2a.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b2a, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Aperture size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {gunnerRateLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.a1b2a === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.a1b2a.x, top: nodeById.a1b2a.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowGunnerRateModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.a1b2a, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-amber-400/40 ${AUTO_LUCK_NODE_STYLE}`}
+              >
+                <Aperture size={20} className="text-amber-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {gunnerRateLevel}
+                </span>
+
+                {canAffordGunnerRate && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -1891,7 +2033,7 @@ export function Tree() {
               <p className="text-sm font-semibold text-white">{strings.tree.autoClickName}</p>
             </div>
             <p className="mb-4 text-sm text-neutral-400">
-              {strings.tree.autoClickDesc(autoMultiplierValue.toLocaleString(locale, { maximumFractionDigits: 2 }), cpsUnit)}
+              {strings.tree.autoClickDesc(formatRate(autoMultiplierValue, language), cpsUnit)}
             </p>
 
             {/* Buying this node literally buys one more drone — the stat
@@ -1937,7 +2079,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={autoClickNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
                 dataTutorial="tree-buy-root"
                 isFree={tutorial.currentStep?.id === 'pointTreeBuy'}
@@ -1998,7 +2139,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={nextPremiumUpgrade.cost}
                 balance={gems}
-                locale={locale}
                 currency="gems"
               />
             )}
@@ -2054,7 +2194,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={luckNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2108,7 +2247,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={luckChanceNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2142,12 +2280,16 @@ export function Tree() {
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
                 {strings.tree.currentClickValue}{' '}
-                <span className="font-semibold text-white">{multiplierValue}</span>
+                <span className="font-semibold text-white">
+                  {formatRate(multiplierValue, language)}
+                </span>
               </span>
               {!isMultiplierMaxed && (
                 <span>
                   {strings.tree.nextClickValue}{' '}
-                  <span className="font-semibold text-white">{multiplierNextValue}</span>
+                  <span className="font-semibold text-white">
+                    {formatRate(multiplierNextValue, language)}
+                  </span>
                 </span>
               )}
             </div>
@@ -2162,7 +2304,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={multiplierNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2216,7 +2357,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={legendaryGrowthNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2270,7 +2410,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={legendaryThresholdNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2311,7 +2450,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={legendaryUnlockNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2365,7 +2503,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={legendaryEaseNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2423,7 +2560,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={scoutDroneNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2458,14 +2594,14 @@ export function Tree() {
               <span>
                 {strings.tree.currentProduction}{' '}
                 <span className="font-semibold text-white">
-                  {scoutDroneRate.toLocaleString(locale, { maximumFractionDigits: 2 })} {cpsUnit}
+                  {formatRate(scoutDroneRate, language)} {cpsUnit}
                 </span>
               </span>
               {!isScoutFrequencyMaxed && (
                 <span>
                   {strings.tree.nextProduction}{' '}
                   <span className="font-semibold text-white">
-                    {scoutDroneNextRate.toLocaleString(locale, { maximumFractionDigits: 2 })} {cpsUnit}
+                    {formatRate(scoutDroneNextRate, language)} {cpsUnit}
                   </span>
                 </span>
               )}
@@ -2481,7 +2617,120 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={scoutFrequencyNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showGunnerModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowGunnerModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowGunnerModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Plane size={18} className="text-amber-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.gunnerName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.gunnerDesc}</p>
+
+            {/* Count in, count out — this node buys ships, not a rate, so the
+                stat block says how many rather than how much per second. */}
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentGunners}{' '}
+                <span className="font-semibold text-white">{gunnerLevel.toLocaleString(locale)}</span>
+              </span>
+              {!isGunnerMaxed && (
+                <span>
+                  {strings.tree.nextGunners}{' '}
+                  <span className="font-semibold text-white">{(gunnerLevel + 1).toLocaleString(locale)}</span>
+                </span>
+              )}
+            </div>
+
+            {isGunnerMaxed ? (
+              <TreeMaxBadge tone="amber" label={strings.store.maxLevel} />
+            ) : (
+              <TreeBuyButton
+                onClick={buyGunner}
+                isBuying={isBuyingGunner}
+                canAfford={canAffordGunner}
+                buyingLabel={strings.tree.upgrading}
+                cost={gunnerNextCost ?? 0}
+                balance={totalClicks}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showGunnerRateModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowGunnerRateModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowGunnerRateModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Aperture size={18} className="text-amber-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.gunnerRateName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.gunnerRateDesc}</p>
+
+            {/* A rate, not a count — so this one reports material per second
+                per gunner, the same way Sobrecarga and Frecuencia do. */}
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentProduction}{' '}
+                <span className="font-semibold text-white">
+                  {formatRate(gunnerRate, language)}/s
+                </span>
+              </span>
+              {!isGunnerRateMaxed && (
+                <span>
+                  {strings.tree.nextProduction}{' '}
+                  <span className="font-semibold text-white">
+                    {formatRate(gunnerRateNextValue, language)}/s
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {isGunnerRateMaxed ? (
+              <TreeMaxBadge tone="amber" label={strings.store.maxLevel} />
+            ) : (
+              <TreeBuyButton
+                onClick={buyGunnerRate}
+                isBuying={isBuyingGunnerRate}
+                canAfford={canAffordGunnerRate}
+                buyingLabel={strings.tree.upgrading}
+                cost={gunnerRateNextCost ?? 0}
+                balance={totalClicks}
                 currency="clicks"
               />
             )}
@@ -2516,9 +2765,7 @@ export function Tree() {
               <span>
                 {strings.tree.currentProduction}{' '}
                 <span className="font-semibold text-white">
-                  {autoMultiplierValue.toLocaleString(locale, {
-                    maximumFractionDigits: 2,
-                  })}{' '}
+                  {formatRate(autoMultiplierValue, language)}{' '}
                   {cpsUnit}
                 </span>
               </span>
@@ -2526,9 +2773,7 @@ export function Tree() {
                 <span>
                   {strings.tree.nextProduction}{' '}
                   <span className="font-semibold text-white">
-                    {autoMultiplierNextValue.toLocaleString(locale, {
-                      maximumFractionDigits: 2,
-                    })}{' '}
+                    {formatRate(autoMultiplierNextValue, language)}{' '}
                     {cpsUnit}
                   </span>
                 </span>
@@ -2545,7 +2790,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={autoMultiplierNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2599,7 +2843,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={tapMultiplierNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2653,7 +2896,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={multiShotNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2694,7 +2936,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={anomalyUnlockNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2748,7 +2989,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={anomalyRewardNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2804,7 +3044,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={anomalyFrequencyNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}
@@ -2860,7 +3099,6 @@ export function Tree() {
                 buyingLabel={strings.tree.upgrading}
                 cost={offlineProductionNextCost ?? 0}
                 balance={totalClicks}
-                locale={locale}
                 currency="clicks"
               />
             )}

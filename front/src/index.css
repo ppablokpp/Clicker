@@ -415,6 +415,89 @@ body::before {
   animation-name: drone-spin-ccw;
 }
 
+/* Turbine pack rotors. Nothing to do with the orbiting drones above despite
+   the similar name — these spin in place, fast, and the two sides run at
+   different speeds in opposite directions so the pair never reads as one
+   sprite mirrored.
+   `transform-box: fill-box` is what makes `transform-origin: 50% 50%` resolve
+   against the rotor's own box instead of the SVG viewport, which is the
+   difference between spinning and swinging across the screen. */
+@keyframes rotor-cw {
+  to { transform: rotate(360deg); }
+}
+@keyframes rotor-ccw {
+  to { transform: rotate(-360deg); }
+}
+.animate-rotor-cw,
+.animate-rotor-ccw {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.animate-rotor-cw {
+  animation-name: rotor-cw;
+  animation-duration: 0.9s;
+}
+.animate-rotor-ccw {
+  animation-name: rotor-ccw;
+  animation-duration: 1.15s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rotor-cw,
+  .animate-rotor-ccw {
+    animation: none;
+  }
+}
+
+/* Shooting stars in the "Meteoros" backdrop. Travels down-right along the
+   shower's own diagonal, so the streak always points the way it's going.
+   Distances are SVG user units (the porthole's box is 0-100), not screen
+   pixels — a CSS transform on an SVG child resolves in the user coordinate
+   system.
+   The long dead time at the end is deliberate: a sky where something is
+   always crossing reads as rain. Each streak gets its own delay and duration
+   from SHOOTING_STARS so they never sync up into a volley. */
+@keyframes shooting-star {
+  0% {
+    transform: translate(-10px, -10px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    transform: translate(30px, 30px);
+    opacity: 0;
+  }
+}
+
+.animate-shooting-star {
+  animation-name: shooting-star;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* Without this every streak sits visible and motionless until its own
+     delay elapses: during an animation-delay the element renders its
+     UNANIMATED style, which here is opacity 1 at the start of its path. So
+     the first few seconds showed nine parked streaks instead of an empty
+     sky. `backwards` applies the 0% keyframe during the wait, which is the
+     opacity: 0 that makes them arrive one at a time. */
+  animation-fill-mode: backwards;
+}
+
+/* Left in place at full opacity rather than hidden: the streaks are part of
+   the picture, only their travel is decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shooting-star {
+    animation: none;
+  }
+}
+
 /* Static orbit-radius offset — a separate element from the spin above
    since one CSS animation touching `transform` always wins the whole
    property outright, it can't be layered with an unanimated transform on

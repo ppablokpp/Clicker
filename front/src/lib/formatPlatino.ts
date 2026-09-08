@@ -15,15 +15,39 @@ export function formatPlatino(value: number, language: 'es' | 'en'): string {
   // Number.MAX_SAFE_INTEGER's own order of magnitude (~9.007e15), so anything
   // that would need a further tier is a number this can't count on being
   // exact anyway.
-  const tiers: [number, string][] = [
-    [1e15, 'Q'],
-    [1e12, 'T'],
-    [1e9, 'B'],
-    [1e6, 'M'],
-  ]
-  const [threshold, suffix] = tiers.find(([t]) => abs >= t) ?? tiers[tiers.length - 1]
+  const [threshold, suffix] = tierFor(abs)
   // Truncated, not rounded — a rounded-up decimal would flash a number
   // slightly bigger than what's actually owned.
   const scaled = Math.floor((floored / threshold) * 100) / 100
+  return `${scaled.toFixed(2)}${suffix}`
+}
+
+// Q (cuatrillón) is the last one worth having: 1e15 is already past
+// Number.MAX_SAFE_INTEGER's own order of magnitude (~9.007e15), so anything
+// that would need a further tier is a number this can't count on being
+// exact anyway.
+const TIERS: [number, string][] = [
+  [1e15, 'Q'],
+  [1e12, 'T'],
+  [1e9, 'B'],
+  [1e6, 'M'],
+]
+const tierFor = (abs: number) => TIERS.find(([t]) => abs >= t) ?? TIERS[TIERS.length - 1]
+
+/**
+ * Same suffixes as formatPlatino, for a *rate* rather than a balance.
+ *
+ * The difference is what happens below 1M: formatPlatino floors, because a
+ * balance is a whole number of clicks. A production rate is not — a drone
+ * starts at 0.5/s and Sobrecarga moves it in fifteen-percent steps, so
+ * flooring would show "10" for three different values in a row and "0" for
+ * a fresh drone. Two decimals below the suffix threshold, suffix above it.
+ */
+export function formatRate(value: number, language: 'es' | 'en'): string {
+  const locale = language === 'en' ? 'en-US' : 'es-ES'
+  const abs = Math.abs(value)
+  if (abs < 1_000_000) return value.toLocaleString(locale, { maximumFractionDigits: 2 })
+  const [threshold, suffix] = tierFor(abs)
+  const scaled = Math.floor((value / threshold) * 100) / 100
   return `${scaled.toFixed(2)}${suffix}`
 }

@@ -3,6 +3,7 @@ import { useAppAuth } from './useAppAuth'
 import { toLocalDateString } from '../lib/date'
 import { applyObjectProgress } from '../lib/spaceObjects'
 import { clearPendingClicks, loadPendingClicks, savePendingClicks } from '../lib/pendingClicksStorage'
+import { maxClicksPerRequest } from '../lib/trajectory'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 // How often the local buffer actually reaches the server. Was 1000ms; at
@@ -21,11 +22,7 @@ const FLUSH_INTERVAL_MS = 30_000
 // local write, not a network request.
 const PERSIST_INTERVAL_MS = 5_000
 const CPS_WINDOW_MS = 2000
-// Must match back/src/routes/clicks.js's MAX_CLICKS_PER_REQUEST — the
-// backend rejects a single increment larger than this, so flush() has to
-// split anything bigger into several requests instead of sending it all at
-// once (high multipliers can pile up thousands of pending clicks between ticks).
-const MAX_CLICKS_PER_REQUEST = 150_000
+
 
 /**
  * The database is the source of truth for where the count *starts*, but the
@@ -49,6 +46,9 @@ export function useClickCounter() {
   // the player keeps their current tier's material until they explicitly
   // choose to move on.
   const [prestigeTier, setPrestigeTier] = useState(0)
+  // Read from inside flush() without making the tier a dependency of it —
+  // the chunk size follows the tier, but flush itself must stay stable.
+  const prestigeTierRef = useRef(0)
   // Whether the first /clicks/me has come back. Everything below starts at
   // zero, and zero is a real, meaningful game state — tier 0 is the lilac
   // asteroid — so rendering before this is true shows a convincing picture of
@@ -150,6 +150,7 @@ export function useClickCounter() {
           setTotalClicks(Math.floor(confirmedRef.current + pendingRef.current + autoPendingRef.current))
           if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
           if (typeof data.prestigeTier === 'number') setPrestigeTier(data.prestigeTier)
+      prestigeTierRef.current = data.prestigeTier
           if (typeof data.objectsBroken === 'number') objectsBrokenConfirmedRef.current = data.objectsBroken
           if (typeof data.objectProgress === 'number') objectProgressConfirmedRef.current = data.objectProgress
           if (typeof data.luckyClicksFound === 'number') {
@@ -199,7 +200,7 @@ export function useClickCounter() {
     if (pendingRef.current === 0 || !userId) return true
     try {
       const token = await getToken()
-      const amountSent = Math.min(pendingRef.current, MAX_CLICKS_PER_REQUEST)
+      const amountSent = Math.min(pendingRef.current, maxClicksPerRequest(prestigeTierRef.current))
       const realClicksSent = Math.min(pendingRealClicksRef.current, amountSent)
       const luckyHitsSent = Math.min(pendingLuckyHitsRef.current, realClicksSent)
       const res = await fetch(`${API_URL}/api/clicks/increment`, {
@@ -475,6 +476,7 @@ export function useClickCounter() {
       clearPendingClicks(userId)
       setTotalClicks(data.totalClicks)
       setPrestigeTier(data.prestigeTier)
+      prestigeTierRef.current = data.prestigeTier
       if (typeof data.lifetimePlatino === 'number') setLifetimePlatino(data.lifetimePlatino)
       return { ok: true }
     } catch (err) {

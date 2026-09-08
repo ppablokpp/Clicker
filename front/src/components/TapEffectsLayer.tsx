@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from 'react'
 import { Gem, Key } from 'lucide-react'
+import { useLanguage } from '../context/LanguageContext'
+import { formatPlatino } from '../lib/formatPlatino'
 
 // Every ephemeral visual a tap produces — the laser bolt, the ripple/"+N"
 // popup, the debris burst — lives here rather than in Home.tsx, and that
@@ -136,6 +138,9 @@ export interface TapEffectsHandle {
 // forwardRef is deprecated there). It's also the only prop this takes,
 // which is what lets the memo below never re-render it from Home.
 function TapEffectsLayerImpl({ ref }: { ref?: Ref<TapEffectsHandle> }) {
+  // Read once per render of the layer, not per tap — the +N popups are the
+  // only thing here that needs it.
+  const { language } = useLanguage()
   const [effects, setEffects] = useState<ClickEffect[]>([])
   const [shots, setShots] = useState<ShotEffect[]>([])
   const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
@@ -288,7 +293,7 @@ function TapEffectsLayerImpl({ ref }: { ref?: Ref<TapEffectsHandle> }) {
             }`}
             style={{ left: fx.x, top: fx.y }}
           >
-            +{fx.amount}
+            +{formatPlatino(fx.amount, language)}
             {fx.isLucky && '!'}
             {fx.icon === 'key' && <Key size={11} />}
             {fx.icon === 'gem' && <Gem size={11} />}

@@ -35,6 +35,109 @@ const VIEWBOX_H = 236
 // got taller (boots, flame) — this frames the head *and* the shoulder line.
 const PORTHOLE_CENTER_Y = 106 / VIEWBOX_H
 
+/**
+ * The meteor shower. Every streak travels — nothing in this sky is parked.
+ *
+ * [x, y, length, delay, duration]
+ *
+ * All on the same diagonal, because a shower has one radiant: streaks at
+ * scattered angles read as scratches on the lens rather than as meteors.
+ *
+ * Which means the only thing separating one streak from another is its LANE,
+ * `y - x` — two streaks with the same value ride the exact same track no
+ * matter how far apart their start points look in the table. The lanes below
+ * are -64 to +64 in even steps of 16 for that reason; picking coordinates
+ * that merely looked spread out gave three overlapping pairs.
+ *
+ * Each start point is the midpoint of its lane's chord pulled back 20 units,
+ * so the sweep (-10 to +30) crosses the middle of the porthole rather than
+ * clipping a corner of it.
+ *
+ * Lengths stay short: the porthole is ~250px across for a 100-unit box, so a
+ * unit is about 2.5px and anything past ~16 becomes a bar across the portrait.
+ *
+ * Delays are shuffled against lane order — so neighbouring lanes never fire
+ * back to back — and don't divide into each other, so the set never resolves
+ * into a repeating volley.
+ */
+const SHOOTING_STARS: [number, number, number, number, number][] = [
+  [62, -2, 12, 0, 4.4],
+  [54, 6, 15, 1.9, 3.6],
+  [46, 14, 10, 3.7, 5.0],
+  [38, 22, 14, 5.3, 4.1],
+  [30, 30, 12, 6.8, 4.7],
+  [22, 38, 16, 0.9, 5.2],
+  [14, 46, 11, 2.8, 3.9],
+  [6, 54, 13, 4.6, 4.4],
+  [-2, 62, 15, 7.6, 3.4],
+]
+
+/**
+ * What fills the porthole for every backdrop except the stock starfield.
+ *
+ * Drawn in the porthole's own square (0-100), not in the character's viewBox:
+ * this is the window *behind* the figure, so its composition has nothing to do
+ * with where the helmet or the boots are. The circle it sits in is the parent
+ * div's `rounded-full overflow-hidden`, which is what was already clipping the
+ * stars — no clipPath needed.
+ */
+export function Backdrop({ id }: { id: string }) {
+  const uid = useId()
+  return (
+    <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden="true">
+      {/* Hangar floor: lines converging on a vanishing point at eye level,
+          which is what makes a flat grid read as a room. */}
+      {id === 'rejilla' && (
+        <>
+          <rect x="0" y="0" width="100" height="100" fill="#0d1117" />
+          <g stroke="#a855f7" strokeWidth="0.5" opacity="0.4" fill="none">
+            {[-90, -40, -8, 22, 52, 90, 140, 200].map((x, i) => (
+              <path key={i} d={`M50 52 L${x} 104`} />
+            ))}
+            {[58, 65, 75, 88, 104].map((y, i) => (
+              <path key={`h${i}`} d={`M0 ${y} H100`} />
+            ))}
+          </g>
+          <path d="M0 52 H100" stroke="#a855f7" strokeWidth="0.9" opacity="0.6" />
+          <ellipse cx="50" cy="52" rx="34" ry="7" fill="#a855f7" opacity="0.14" />
+        </>
+      )}
+
+      {/* The stock starfield is already painted underneath this SVG (see the
+          porthole), so all this adds is the shower itself: thin white streaks that
+          cross the sky and vanish, nothing static. */}
+      {id === 'meteoros' && (
+        <>
+          <defs>
+            {/* A tail that fades out behind the head instead of a flat line —
+                the one thing that separates a streak from a scratch. */}
+            <linearGradient id={`${uid}-shootTail`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.95" />
+            </linearGradient>
+          </defs>
+
+          {SHOOTING_STARS.map(([x, y, len, delay, dur], i) => (
+            <g
+              key={i}
+              className="animate-shooting-star"
+              style={{ animationDelay: `${delay}s`, animationDuration: `${dur}s` }}
+            >
+              <path
+                d={`M${x} ${y} L${x + len} ${y + len}`}
+                stroke={`url(#${uid}-shootTail)`}
+                strokeWidth="0.8"
+                strokeLinecap="round"
+              />
+              <circle cx={x + len} cy={y + len} r="0.9" fill="#ffffff" />
+            </g>
+          ))}
+        </>
+      )}
+    </svg>
+  )
+}
+
 // Stands in for a profile photo — this game has no camera roll, it has a
 // character. Built as a vinyl-figurine: chunky, oversized helmet on a small
 // puffy body, volume carried by radial gradients (light from the upper
@@ -104,8 +207,28 @@ export function AstronautAvatar({
             top: svgHeight * PORTHOLE_CENTER_Y - skySize / 2,
           }}
         >
-          <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsDim }} />
-          <div className="animate-twinkle absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsBright }} />
+          {/* `estrellas` is the porthole this component has always had — two
+              box-shadow starfields, one of them twinkling — and it stays
+              exactly as it was, because it's the free default of the backdrop
+              slot and nobody's character may change just because the slot now
+              exists. Every other backdrop replaces these two layers with an
+              SVG filling the same circle. */}
+          {/* The stock starfield renders for BOTH backdrops that are a night
+              sky. `estrellas` is it on its own; `meteoros` is the same sky
+              with streaks crossing it, which is the point — a meteor shower
+              is an event in your sky, not a different sky. */}
+          {(s.background.id === 'estrellas' || s.background.id === 'meteoros') && (
+            <>
+              <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsDim }} />
+              <div
+                className="animate-twinkle absolute h-px w-px rounded-full bg-white"
+                style={{ boxShadow: starsBright }}
+              />
+            </>
+          )}
+          {s.background.id !== 'estrellas' && (
+            <Backdrop id={s.background.id} />
+          )}
         </div>
       )}
       <motion.svg
@@ -217,7 +340,12 @@ export function AstronautAvatar({
           <clipPath id={`${uid}-torsoClip`}>
             <rect x="44" y="104" width="92" height="90" rx="34" />
           </clipPath>
+          {/* Holds a visor decal inside the glass. */}
+          <clipPath id={`${uid}-visorClip`}>
+            <ellipse cx="88" cy="68" rx="38" ry="33" />
+          </clipPath>
         </defs>
+
 
         {/* Thruster flame — wide enough to show from behind both boots (not
             just glowing in the gap between them) and tucked under the suit
@@ -326,6 +454,37 @@ export function AstronautAvatar({
             <circle cx="146" cy="125" r="7" fill={accent.color} className="animate-pulse-glow" />
           </>
         )}
+        {/* Shoulder-mounted rotors. The one pack that reads as *mechanical*
+            rather than as tanks or as energy — and the only one that moves,
+            which is what earns it against the reactor's static glow.
+            Pushed out to x=8/172 so the housings clear the helmet's r=54
+            dome; anything tighter and the shell eats most of them. */}
+        {s.pack.id === 'turbinas' && (
+          <>
+            <rect x="8" y="100" width="42" height="42" rx="13" fill={`url(#${uid}-pack)`} />
+            <rect x="130" y="100" width="42" height="42" rx="13" fill={`url(#${uid}-pack)`} />
+            <circle cx="29" cy="121" r="15" fill="#1b1f26" opacity="0.85" />
+            <circle cx="151" cy="121" r="15" fill="#1b1f26" opacity="0.85" />
+            <g className="animate-rotor-cw">
+              <path
+                d="M17 121h24M29 109v24"
+                stroke={accent.color}
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </g>
+            <g className="animate-rotor-ccw">
+              <path
+                d="M139 121h24M151 109v24"
+                stroke={accent.color}
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </g>
+            <circle cx="29" cy="121" r="4.5" fill={accent.color} />
+            <circle cx="151" cy="121" r="4.5" fill={accent.color} />
+          </>
+        )}
         {/* Full wings — the widest silhouette in the slot by a distance,
             and the only one visible from across a leaderboard row. */}
         {s.pack.id === 'alas' && (
@@ -350,6 +509,7 @@ export function AstronautAvatar({
         <circle cx="141" cy="177" r="12.5" fill={`url(#${uid}-limb)`} stroke={limb.stroke} strokeWidth="1.5" />
         <path d="M33 180 q6 4 12 0" stroke={limb.stroke} strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.7" />
         <path d="M135 180 q6 4 12 0" stroke={limb.stroke} strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.7" />
+
 
         {/* Suit body. */}
         <rect x="44" y="104" width="92" height="90" rx="34" fill={`url(#${uid}-suit)`} />
@@ -489,13 +649,85 @@ export function AstronautAvatar({
           {/* Visor. */}
           <ellipse cx="88" cy="68" rx="38" ry="33" fill={`url(#${uid}-visor)`} />
           <ellipse cx="88" cy="68" rx="38" ry="33" fill={`url(#${uid}-visorDepth)`} />
+
+          {/* Whatever is printed on the glass, clipped to the glass itself so
+              nothing can spill onto the shell. Drawn under the gloss streaks
+              below on purpose: a decal is behind the reflection, not on top
+              of it, and keeping that order is most of what stops these
+              reading as stickers pasted over the helmet. */}
+          {s.visor.id !== 'limpio' && (
+            <g clipPath={`url(#${uid}-visorClip)`}>
+              {/* Targeting reticle — the one decal that reads as equipment
+                  rather than damage or spectacle. */}
+              {s.visor.id === 'reticula' && (
+                <g stroke="#7dd3fc" fill="none" opacity="0.92">
+                  <circle cx="88" cy="68" r="15" strokeWidth="1.6" />
+                  <circle cx="88" cy="68" r="3.2" strokeWidth="1.6" />
+                  <g strokeWidth="1.6" strokeLinecap="round">
+                    <path d="M88 44v9M88 83v9M60 68h9M107 68h9" />
+                  </g>
+                  <g strokeWidth="1.2" opacity="0.65">
+                    <path d="M56 50h15M56 55h8" />
+                    <path d="M105 86h15M112 91h8" />
+                  </g>
+                </g>
+              )}
+
+              {/* Cracked glass. Four branching strokes and two hairline
+                  offshoots — a crack reads by branching, not by being long. */}
+              {s.visor.id === 'grieta' && (
+                <g stroke="#ffffff" fill="none" strokeLinecap="round">
+                  <g strokeWidth="2" opacity="0.9">
+                    <path d="M58 44 L82 62 L72 78 L88 92" />
+                    <path d="M82 62 L108 54" />
+                    <path d="M82 62 L92 38" />
+                    <path d="M72 78 L52 86" />
+                  </g>
+                  <g strokeWidth="1" opacity="0.45">
+                    <path d="M108 54 L122 47M92 38 L97 28M88 92 L94 100" />
+                  </g>
+                </g>
+              )}
+
+              {/* A black hole where the reflection should be: the accretion
+                  ring is what sells it, so it gets two ellipses at different
+                  weights rather than one. */}
+              {s.visor.id === 'agujero' && (
+                <>
+                  <ellipse cx="88" cy="68" rx="38" ry="33" fill="#05050a" />
+                  {/* The accretion disc takes the trim colour, so the black
+                      hole matches the rest of the outfit instead of being the
+                      one piece that's always gold. */}
+                  <g fill="none" stroke={accent.color}>
+                    <ellipse cx="88" cy="68" rx="28" ry="8.5" strokeWidth="4" opacity="0.95" />
+                    <ellipse cx="88" cy="68" rx="32" ry="12" strokeWidth="1.5" opacity="0.45" />
+                  </g>
+                  <circle cx="88" cy="68" r="13" fill="#000000" />
+                  {/* The photon ring stays white: it's the hottest part of
+                      the picture, and it has to read that way against any
+                      trim colour the disc happens to be. */}
+                  <circle cx="88" cy="68" r="13.8" fill="none" stroke="#ffffff" strokeWidth="1.1" opacity="0.75" />
+                  <g fill="#ffffff">
+                    <circle cx="62" cy="48" r="1.2" opacity="0.75" />
+                    <circle cx="114" cy="86" r="1" opacity="0.55" />
+                  </g>
+                </>
+              )}
+            </g>
+          )}
+
           <ellipse cx="88" cy="68" rx="38" ry="33" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.25" />
           {/* Glossy reflection streak. */}
           <ellipse cx="72" cy="52" rx="13" ry="6.5" fill="#ffffff" opacity="0.6" transform="rotate(-25 72 52)" />
           <ellipse cx="100" cy="86" rx="16" ry="5" fill="#ffffff" opacity="0.12" />
-          {/* Two stars from the porthole behind, caught in the glass. */}
-          <circle cx="104" cy="60" r="1.6" fill="#ffffff" opacity="0.75" />
-          <circle cx="97" cy="72" r="1.1" fill="#ffffff" opacity="0.5" />
+          {/* Two stars from the porthole behind, caught in the glass. Not
+              drawn over a black hole, which is meant to swallow them. */}
+          {s.visor.id !== 'agujero' && (
+            <>
+              <circle cx="104" cy="60" r="1.6" fill="#ffffff" opacity="0.75" />
+              <circle cx="97" cy="72" r="1.1" fill="#ffffff" opacity="0.5" />
+            </>
+          )}
 
           {/* Head furniture. The bulb takes the visor's colour so the head
               reads as one piece. */}
@@ -566,6 +798,7 @@ function Companion({
           {id === 'satelite' && <SatelliteBody uid={uid} shell={shell} accent={accent} delay={delay} />}
           {id === 'orbe' && <OrbBody uid={uid} shell={shell} accent={accent} delay={delay} />}
           {id === 'mascota1' && <DroidBody uid={uid} shell={shell} accent={accent} delay={delay} />}
+          {id === 'chispa' && <SparkBody shell={shell} accent={accent} delay={delay} />}
         </g>
       </g>
     </g>
@@ -730,6 +963,44 @@ function SatelliteBody({ uid, shell, accent, delay }: BodyProps) {
 // It still blinks. That's what keeps it a pet: the rings are the machine, the
 // core is the animal, and without the blink it would just be a prop orbiting
 // the astronaut's shoulder.
+/**
+ * The cheap one. No chassis, no thruster, no face — it isn't a machine, it's
+ * a light that follows you, and that's the only way something a third of the
+ * size of the others reads as its own thing instead of as a shrunken droid.
+ *
+ * The three motes are what save it: at 28px in a leaderboard row a lone core
+ * is indistinguishable from the antenna bulb on the helmet right beside it,
+ * and the ring of specks is the only cue that says "this is a companion".
+ *
+ * They orbit inside the same group as the two halos on purpose. The orbit
+ * class spins about the group's own bounding box, and three motes on a
+ * triangle have a box whose centre sits ~3 units above the core — so on their
+ * own they'd wobble rather than turn. The halos are concentric circles at
+ * (0,0), so including them re-centres the box and costs nothing visually:
+ * spinning a circle about its own centre changes nothing. The core stays
+ * outside because its white glint would otherwise sweep around and break the
+ * single upper-left key light every other piece in this file shares.
+ */
+function SparkBody({ shell, accent, delay }: Omit<BodyProps, 'uid'>) {
+  return (
+    <>
+      <g className="animate-pet-orbit" style={delay}>
+        <circle cx="0" cy="0" r="13" fill={accent.color} opacity="0.12" />
+        <circle cx="0" cy="0" r="8" fill={accent.color} opacity="0.22" />
+        <circle cx="0" cy="-11" r="1.7" fill={shell.from} />
+        <circle cx="9.5" cy="5.5" r="1.4" fill={shell.mid} />
+        <circle cx="-9.5" cy="5.5" r="1.2" fill={shell.to} />
+      </g>
+      {/* The core blinks like every other companion's eye — the one thing it
+          borrows from them, and what makes it read as alive. */}
+      <g className="animate-pet-blink" style={delay}>
+        <circle cx="0" cy="0" r="4.6" fill={accent.color} />
+        <circle cx="-1.4" cy="-1.6" r="1.5" fill="#ffffff" opacity="0.9" />
+      </g>
+    </>
+  )
+}
+
 function OrbBody({ uid, shell, accent, delay }: BodyProps) {
   return (
     <>

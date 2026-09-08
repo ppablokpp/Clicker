@@ -21,15 +21,22 @@ export interface MaterialTierColors {
 // used to hardcode "pt/s" (short for Platino) even on Amatista, Esmeralda,
 // etc., which only happened to make sense at the one tier it was written
 // for. Index-aligned with MATERIAL_TIER_COLORS.
-export const MATERIAL_ABBREVIATIONS: readonly string[] = ['am', 'pt', 'es', 'or', 'di']
+export const MATERIAL_ABBREVIATIONS: readonly string[] = ['am', 'pt', 'za', 'es', 'ru', 'or', 'di']
 
 export const MATERIAL_TIER_COLORS: readonly MaterialTierColors[] = [
   // Amatista — the app's original violet accent. Tier 0 (swapped with Platino).
   { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)' },
   // Platino — cool silvery-white metal. Tier 1 (swapped with Amatista).
   { light: '#f8fafc', fill: '#cbd5e1', dark: '#334155', glow: 'rgba(203,213,225,0.55)' },
+  // Zafiro — deep blue. Sits between Platino's cool silver and Esmeralda's
+  // green, which is exactly where a saturated dark blue reads as its own
+  // stone rather than a shade of either neighbour.
+  { light: '#dbeafe', fill: '#3b82f6', dark: '#172554', glow: 'rgba(59,130,246,0.6)' },
   // Esmeralda — green.
   { light: '#d1fae5', fill: '#6ee7b7', dark: '#022c22', glow: 'rgba(52,211,153,0.6)' },
+  // Rubí — red, the warm counterpart to Zafiro and the step that warms the
+  // ladder up before Oro's gold.
+  { light: '#fee2e2', fill: '#ef4444', dark: '#450a0a', glow: 'rgba(239,68,68,0.6)' },
   // Oro — warm metallic gold.
   { light: '#fef9c3', fill: '#facc15', dark: '#713f12', glow: 'rgba(250,204,21,0.6)' },
   // Diamante — placeholder cyan (Diamante's own real look TBD later).
@@ -70,10 +77,22 @@ export const MATERIAL_BUTTON_THEMES: readonly MaterialButtonTheme[] = [
     iconWrap: 'bg-gradient-to-br from-slate-400/30 to-slate-600/20 text-slate-200',
   },
   {
+    // Zafiro
+    pill: 'border border-blue-400/20 bg-blue-500/[0.07] text-blue-200 hover:bg-blue-500/[0.14]',
+    button: 'border border-blue-400/30 bg-blue-500/10 text-blue-200 hover:bg-blue-500/15',
+    iconWrap: 'bg-gradient-to-br from-blue-400/30 to-blue-600/20 text-blue-200',
+  },
+  {
     // Esmeralda
     pill: 'border border-emerald-400/20 bg-emerald-500/[0.07] text-emerald-200 hover:bg-emerald-500/[0.14]',
     button: 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15',
     iconWrap: 'bg-gradient-to-br from-emerald-400/30 to-emerald-600/20 text-emerald-200',
+  },
+  {
+    // Rubí
+    pill: 'border border-red-400/20 bg-red-500/[0.07] text-red-200 hover:bg-red-500/[0.14]',
+    button: 'border border-red-400/30 bg-red-500/10 text-red-200 hover:bg-red-500/15',
+    iconWrap: 'bg-gradient-to-br from-red-400/30 to-red-600/20 text-red-200',
   },
   {
     // Oro

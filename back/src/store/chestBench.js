@@ -26,7 +26,7 @@ export const BENCH_CHESTS = {
   material: { kind: 'currency', keyCost: 1, prizes: CASE_PRIZES, roll: pickWeightedPrize },
   gems: { kind: 'currency', keyCost: 10, prizes: GEM_CHEST_PRIZES, roll: pickGemChestPrize },
   style: { kind: 'cosmetic', keyCost: 1 },
-  styleRare: { kind: 'cosmetic', keyCost: 5 },
+  styleRare: { kind: 'cosmetic', keyCost: 10 },
 }
 
 export function isBenchChest(id) {

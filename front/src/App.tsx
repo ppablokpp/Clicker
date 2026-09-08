@@ -10,6 +10,7 @@ import { FleetAwayModal } from './components/FleetAwayModal'
 import { SignInPromptProvider } from './context/SignInPromptContext'
 import { ClickCounterProvider } from './context/ClickCounterContext'
 import { GemsProvider } from './context/GemsContext'
+import { CosmeticsProvider } from './context/CosmeticsContext'
 import { KeysProvider } from './context/KeysContext'
 import { DailyKeyProvider } from './context/DailyKeyContext'
 import { ClickPacksProvider } from './context/ClickPacksContext'
@@ -33,6 +34,7 @@ import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { PublicProfile } from './pages/PublicProfile'
 import { CustomizeAstronaut } from './pages/CustomizeAstronaut'
+import { CosmeticDetail } from './pages/CosmeticDetail'
 import { Store } from './pages/Store'
 import { Stats } from './pages/Stats'
 import { Tree } from './pages/Tree'
@@ -47,6 +49,9 @@ function ClickerApp() {
           <PrestigeProvider>
             <BattlesProvider>
               <GemsProvider>
+                {/* Inside GemsProvider: buying a cosmetic spends gems and
+                    reports the fresh balance back through syncGems. */}
+                <CosmeticsProvider>
                 <KeysProvider>
                   <DailyKeyProvider>
                     <ClickPacksProvider>
@@ -73,6 +78,7 @@ function ClickerApp() {
                                               <Route path="/clasificacion" element={<Leaderboard />} />
                                               <Route path="/perfil/:userId" element={<PublicProfile />} />
                                               <Route path="/personalizar" element={<CustomizeAstronaut />} />
+                                              <Route path="/personalizar/:slot/:id" element={<CosmeticDetail />} />
                                               <Route path="/estadisticas" element={<Stats />} />
                                               <Route path="/tienda" element={<Store />} />
                                               <Route path="/arbol" element={<Tree />} />
@@ -96,6 +102,7 @@ function ClickerApp() {
                     </ClickPacksProvider>
                   </DailyKeyProvider>
                 </KeysProvider>
+                </CosmeticsProvider>
               </GemsProvider>
             </BattlesProvider>
           </PrestigeProvider>

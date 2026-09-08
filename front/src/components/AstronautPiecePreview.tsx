@@ -42,7 +42,10 @@ type PiecePreviewProps = { size?: number } & (
   | { slot: 'accent'; style: AccentStyle }
   // Shape-only slots: the option carries no colour, so the preview picks a
   // neutral one. What's being sold here is the silhouette.
-  | { slot: 'antenna' | 'pack' | 'trail' | 'badge' | 'pet' | 'pet2'; style: ShapeOption }
+  | {
+      slot: 'antenna' | 'pack' | 'trail' | 'badge' | 'pet' | 'pet2' | 'visor' | 'background'
+      style: ShapeOption
+    }
 )
 
 const SHAPE_INK = '#cfc8e4'
@@ -63,7 +66,9 @@ export function AstronautPiecePreview({ size = 62, ...props }: PiecePreviewProps
         props.slot === 'trail' ||
         props.slot === 'badge' ||
         props.slot === 'pet' ||
-        props.slot === 'pet2') && <ShapePiece slot={props.slot} id={props.style.id} />}
+        props.slot === 'pet2' ||
+        props.slot === 'visor' ||
+        props.slot === 'background') && <ShapePiece slot={props.slot} id={props.style.id} />}
     </svg>
   )
 }
@@ -124,7 +129,15 @@ export function AstronautPieceById({
 // card sells the outline rather than a colour the piece won't actually
 // have — these all inherit their real palette from the slot they attach to
 // once worn.
+/** Card-scale starfield (100x100 space). Fixed, same reasoning as STARS. */
+const CARD_STARS: [number, number, number, number][] = [
+  [26, 28, 1.4, 0.9], [66, 24, 1, 0.6], [78, 46, 1.2, 0.7], [22, 60, 1, 0.55],
+  [46, 76, 1.3, 0.75], [70, 72, 0.9, 0.5], [38, 40, 1, 0.5], [58, 58, 1.1, 0.6],
+  [30, 46, 0.8, 0.4], [74, 62, 1, 0.55],
+]
+
 function ShapePiece({ slot, id }: { slot: string; id: string }) {
+  const cid = useId()
   // The empty option — only the two pet slots have one. An outline where it
   // would go, so the card still reads as a choice with a shape to it rather
   // than as a card that failed to draw. Keyed off the id, not the slot, so
@@ -145,12 +158,190 @@ function ShapePiece({ slot, id }: { slot: string; id: string }) {
     )
   }
 
+  // Visor decals sell themselves on the glass they're printed on, so the
+  // card draws the dome and the glass too — the mark alone would be four
+  // loose lines nobody could place.
+  if (slot === 'visor') {
+    // The helmet under the decal is the SAME drawing the helmet cards use —
+    // HelmetPiece's own geometry (r=37 shell at 50,52; glass at 48.5,54;
+    // neck ring), in the stock colourway. A simplified stand-in helmet made
+    // the visor row look like it belonged to a different game than the row
+    // above it.
+    const { shell, visor } = HELMET_STYLES[0]
+    return (
+      <g>
+        <defs>
+          {volumeGradient(`${cid}-shell`, shell.from, shell.mid, shell.to)}
+          <linearGradient id={`${cid}-visor`} x1="10%" y1="0%" x2="90%" y2="100%">
+            <stop offset="0%" stopColor={visor.from} />
+            <stop offset="45%" stopColor={visor.via} />
+            <stop offset="100%" stopColor={visor.to} />
+          </linearGradient>
+          <radialGradient id={`${cid}-depth`} cx="34%" cy="24%" r="78%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+            <stop offset="42%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="100%" stopColor="#1b0b33" stopOpacity="0.5" />
+          </radialGradient>
+          <clipPath id={`${cid}-glass`}>
+            <ellipse cx="48.5" cy="54" rx="26" ry="22.5" />
+          </clipPath>
+        </defs>
+
+        <circle cx="50" cy="52" r="37" fill={`url(#${cid}-shell)`} stroke={shell.stroke} strokeWidth="2.2" />
+        <ellipse cx="48.5" cy="54" rx="26" ry="22.5" fill={`url(#${cid}-visor)`} />
+        <ellipse cx="48.5" cy="54" rx="26" ry="22.5" fill={`url(#${cid}-depth)`} />
+
+        {/* The decal, clipped to the glass and drawn under the gloss — same
+            stacking order as the worn version, so a card can't promise a look
+            the astronaut won't give. */}
+        <g clipPath={`url(#${cid}-glass)`}>
+          {id === 'reticula' && (
+            <g stroke="#7dd3fc" fill="none" opacity="0.95">
+              <circle cx="48.5" cy="54" r="11" strokeWidth="1.7" />
+              <circle cx="48.5" cy="54" r="2.4" strokeWidth="1.7" />
+              <path
+                d="M48.5 36v6.5M48.5 65.5v6.5M25 54h6.5M65.5 54h6.5"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+              <path d="M25 39h11M25 42.5h6" strokeWidth="1.2" opacity="0.6" />
+              <path d="M61 68h11M55 71.5h6" strokeWidth="1.2" opacity="0.45" />
+            </g>
+          )}
+          {id === 'grieta' && (
+            <g stroke="#fff" fill="none" strokeLinecap="round">
+              <g strokeWidth="2" opacity="0.9">
+                <path d="M25 36 L45 50 L37 62 L51 73" />
+                <path d="M45 50 L68 43" />
+                <path d="M45 50 L54 30" />
+                <path d="M37 62 L22 68" />
+              </g>
+              <g strokeWidth="0.9" opacity="0.45">
+                <path d="M68 43 L78 37M54 30 L58 21" />
+              </g>
+            </g>
+          )}
+          {id === 'agujero' && (
+            <>
+              <ellipse cx="48.5" cy="54" rx="26" ry="22.5" fill="#05050a" />
+              <g fill="none" stroke={SHAPE_GLOW}>
+                <ellipse cx="48.5" cy="54" rx="19" ry="5.8" strokeWidth="3" opacity="0.95" />
+                <ellipse cx="48.5" cy="54" rx="22" ry="8.2" strokeWidth="1.1" opacity="0.45" />
+              </g>
+              <circle cx="48.5" cy="54" r="9" fill="#000" />
+              <circle cx="48.5" cy="54" r="9.6" fill="none" stroke="#ffffff" strokeWidth="0.9" opacity="0.75" />
+            </>
+          )}
+        </g>
+
+        <ellipse cx="48.5" cy="54" rx="26" ry="22.5" fill="none" stroke="#ffffff" strokeWidth="1.6" opacity="0.25" />
+        <ellipse
+          cx="37"
+          cy="43"
+          rx="9"
+          ry="4.5"
+          fill="#ffffff"
+          opacity={id === 'agujero' ? 0.12 : 0.6}
+          transform="rotate(-25 37 43)"
+        />
+        <rect x="36" y="84" width="28" height="9" rx="4.5" fill={shell.stroke} />
+      </g>
+    )
+  }
+
+  // Backdrops are the only slot whose card is the whole thing rather than a
+  // piece of it, so the card is simply the disc at card scale.
+  if (slot === 'background') {
+    return (
+      <g>
+        <clipPath id={`${cid}-bg`}>
+          <circle cx="50" cy="50" r="33" />
+        </clipPath>
+        <g clipPath={`url(#${cid}-bg)`}>
+          <circle cx="50" cy="50" r="33" fill="#0b0b14" />
+          {id === 'estrellas' && (
+            <g fill="#fff">
+              {CARD_STARS.map(([x, y, r, o], i) => (
+                <circle key={i} cx={x} cy={y} r={r} opacity={o} />
+              ))}
+            </g>
+          )}
+          {id === 'rejilla' && (
+            <>
+              <rect x="17" y="17" width="66" height="66" fill="#0d1117" />
+              <g stroke="#a855f7" strokeWidth="0.8" opacity="0.45" fill="none">
+                {[-60, -26, 0, 26, 60, 110].map((x, i) => (
+                  <path key={i} d={`M50 46 L${x} 90`} />
+                ))}
+                {[52, 60, 72, 88].map((y, i) => (
+                  <path key={`h${i}`} d={`M17 ${y} H83`} />
+                ))}
+              </g>
+              <path d="M17 40 H83" stroke="#a855f7" strokeWidth="1.2" opacity="0.6" />
+            </>
+          )}
+          {/* Same sky as the Estrellas card with the shower over it — that
+              relationship is the item, so the card has to show both. */}
+          {id === 'meteoros' && (
+            <>
+              <g fill="#fff">
+                {CARD_STARS.map(([x, y, r, o], i) => (
+                  <circle key={i} cx={x} cy={y} r={r} opacity={o} />
+                ))}
+              </g>
+              <defs>
+                <linearGradient id={`${cid}-tail`} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fff" stopOpacity="0" />
+                  <stop offset="100%" stopColor="#fff" stopOpacity="0.95" />
+                </linearGradient>
+              </defs>
+              {/* Frozen mid-shower. The worn version animates; a thumbnail
+                  that did too would be motion in a scrolling grid of forty. */}
+              {[
+                [20, 16, 14],
+                [54, 38, 11],
+                [30, 56, 12],
+              ].map(([x, y, len], i) => (
+                <g key={i}>
+                  <path
+                    d={`M${x} ${y} L${x + len} ${y + len}`}
+                    stroke={`url(#${cid}-tail)`}
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                  />
+                  <circle cx={x + len} cy={y + len} r="1.3" fill="#fff" />
+                </g>
+              ))}
+            </>
+          )}
+        </g>
+        <circle cx="50" cy="50" r="33" fill="none" stroke={SHAPE_INK} strokeWidth="1.6" opacity="0.5" />
+      </g>
+    )
+  }
+
   if (slot === 'pet' || slot === 'pet2') {
     // The same companions AstronautAvatar flies, redrawn at the card's scale
     // and centred. Each is scaled to its own extents rather than sharing one
     // transform: the droid is tall and narrow, the satellite is wide and
     // short, and one shared scale would leave whichever lost the coin toss
     // either cramped against the frame or floating in it.
+    if (id === 'chispa') {
+      // The smallest companion, so it gets the largest scale of the four —
+      // a card sells the piece, and at its worn size this would be a dot in
+      // the middle of an empty frame.
+      return (
+        <g transform="translate(50 50) scale(2.6)">
+          <circle cx="0" cy="0" r="13" fill={SHAPE_GLOW} opacity="0.12" />
+          <circle cx="0" cy="0" r="8" fill={SHAPE_GLOW} opacity="0.22" />
+          <circle cx="0" cy="-11" r="1.7" fill={SHAPE_INK} />
+          <circle cx="9.5" cy="5.5" r="1.4" fill={SHAPE_INK} opacity="0.8" />
+          <circle cx="-9.5" cy="5.5" r="1.2" fill={SHAPE_INK} opacity="0.6" />
+          <circle cx="0" cy="0" r="4.6" fill={SHAPE_GLOW} />
+          <circle cx="-1.4" cy="-1.6" r="1.5" fill="#ffffff" opacity="0.9" />
+        </g>
+      )
+    }
     if (id === 'satelite') {
       // Widest of the three (±30 with the panels), so it's the width that
       // sets the scale here, not the height.
@@ -293,6 +484,22 @@ function ShapePiece({ slot, id }: { slot: string; id: string }) {
             <circle cx="82" cy="50" r="14" fill={SHAPE_INK} />
             <circle cx="18" cy="50" r="6.5" fill={SHAPE_GLOW} />
             <circle cx="82" cy="50" r="6.5" fill={SHAPE_GLOW} />
+          </>
+        )}
+        {/* The rotors are the item, so the card gives them the room the
+            worn version can't: two housings side by side, blades out. */}
+        {id === 'turbinas' && (
+          <>
+            <rect x="4" y="28" width="44" height="44" rx="14" fill={SHAPE_INK} />
+            <rect x="52" y="28" width="44" height="44" rx="14" fill={SHAPE_INK} />
+            <circle cx="26" cy="50" r="16" fill="#1b2029" opacity="0.85" />
+            <circle cx="74" cy="50" r="16" fill="#1b2029" opacity="0.85" />
+            <g stroke={SHAPE_GLOW} strokeWidth="3.4" strokeLinecap="round">
+              <path d="M13 50h26M26 37v26" />
+              <path d="M61 50h26M74 37v26" />
+            </g>
+            <circle cx="26" cy="50" r="5" fill={SHAPE_GLOW} />
+            <circle cx="74" cy="50" r="5" fill={SHAPE_GLOW} />
           </>
         )}
         {id === 'alas' && (

@@ -12,12 +12,17 @@ import { DEFAULT_STYLE_IDS, resolveStyle, type AstronautStyleIds } from '../lib/
 // stored on the account: the leaderboard is where most people will ever see
 // someone else's character.
 //
-// Only the four slots that survive this crop are drawn — helmet, suit,
-// antenna, and the trim colour the antenna bulb takes. Boots, belt,
-// bracelets, badge and thruster are all outside the frame; the backpack is
-// technically inside it, but it sits exactly behind the shoulders, so at
-// 28px it adds colour noise where the silhouette already is rather than
-// anything anyone could identify.
+// Only the slots that survive this crop are drawn — helmet, visor decal,
+// suit, antenna, and the trim colour the antenna bulb and the black hole's
+// disc take. Boots, belt, bracelets, badge and thruster are all outside the
+// frame; the backpack is technically inside it, but it sits exactly behind
+// the shoulders, so at 28px it adds colour noise where the silhouette
+// already is rather than anything anyone could identify — which is why
+// Turbinas doesn't show here either, same as every other pack.
+//
+// The backdrop is deliberately out too: this frame is a portrait crop, not
+// the avatar's porthole, and a hangar floor or a meteor shower behind a
+// 28px head is texture nobody can read. The circle stays flat dark.
 //
 // Every gradient/clip id is namespaced with a per-instance `uid` (React's
 // useId()). SVG ids are global to the whole page, and a leaderboard renders
@@ -84,6 +89,9 @@ export function AstronautHeadshot({
           <clipPath id={`${uid}-clip`}>
             <circle cx="90" cy="66" r="54" />
           </clipPath>
+          <clipPath id={`${uid}-visorClip`}>
+            <ellipse cx="88" cy="68" rx="38" ry="33" />
+          </clipPath>
         </defs>
 
         {/* Shoulders + chest — drawn first so the helmet overlaps the neck
@@ -126,8 +134,56 @@ export function AstronautHeadshot({
         </g>
         <ellipse cx="88" cy="68" rx="38" ry="33" fill={`url(#${uid}-visor)`} />
         <ellipse cx="88" cy="68" rx="38" ry="33" fill={`url(#${uid}-visorDepth)`} />
+
+        {/* Whatever is printed on the glass. The one new slot that MUST be
+            here: the visor is dead centre of the crop and takes up most of
+            it, so a decal is the single most legible cosmetic at 28px — more
+            than the helmet colour it sits on. Same coordinates and same
+            paint order as AstronautAvatar, so the row matches the character. */}
+        {s.visor.id !== 'limpio' && (
+          <g clipPath={`url(#${uid}-visorClip)`}>
+            {s.visor.id === 'reticula' && (
+              <g stroke="#7dd3fc" fill="none" opacity="0.92">
+                <circle cx="88" cy="68" r="15" strokeWidth="1.6" />
+                <circle cx="88" cy="68" r="3.2" strokeWidth="1.6" />
+                <path d="M88 44v9M88 83v9M60 68h9M107 68h9" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M56 50h15M56 55h8" strokeWidth="1.2" opacity="0.65" />
+              </g>
+            )}
+            {s.visor.id === 'grieta' && (
+              <g stroke="#ffffff" fill="none" strokeLinecap="round">
+                <g strokeWidth="2" opacity="0.9">
+                  <path d="M58 44 L82 62 L72 78 L88 92" />
+                  <path d="M82 62 L108 54" />
+                  <path d="M82 62 L92 38" />
+                  <path d="M72 78 L52 86" />
+                </g>
+              </g>
+            )}
+            {s.visor.id === 'agujero' && (
+              <>
+                <ellipse cx="88" cy="68" rx="38" ry="33" fill="#05050a" />
+                <g fill="none" stroke={s.accent.color}>
+                  <ellipse cx="88" cy="68" rx="28" ry="8.5" strokeWidth="4" opacity="0.95" />
+                  <ellipse cx="88" cy="68" rx="32" ry="12" strokeWidth="1.5" opacity="0.45" />
+                </g>
+                <circle cx="88" cy="68" r="13" fill="#000000" />
+                <circle cx="88" cy="68" r="13.8" fill="none" stroke="#ffffff" strokeWidth="1.1" opacity="0.75" />
+              </>
+            )}
+          </g>
+        )}
+
         <ellipse cx="88" cy="68" rx="38" ry="33" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.25" />
-        <ellipse cx="72" cy="52" rx="13" ry="6.5" fill="#ffffff" opacity="0.6" transform="rotate(-25 72 52)" />
+        <ellipse
+          cx="72"
+          cy="52"
+          rx="13"
+          ry="6.5"
+          fill="#ffffff"
+          opacity={s.visor.id === 'agujero' ? 0.12 : 0.6}
+          transform="rotate(-25 72 52)"
+        />
       </svg>
     </div>
   )

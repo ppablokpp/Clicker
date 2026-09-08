@@ -28,8 +28,15 @@ export const MATERIAL_TIER_COLORS: readonly MaterialTierColors[] = [
   { light: '#ede9fe', fill: '#a78bfa', dark: '#3b0764', glow: 'rgba(168,85,247,0.6)' },
   // Platino — cool silvery-white metal. Tier 1 (swapped with Amatista).
   { light: '#f8fafc', fill: '#cbd5e1', dark: '#334155', glow: 'rgba(203,213,225,0.55)' },
+  // Zafiro — deep blue. Sits between Platino's cool silver and Esmeralda's
+  // green, which is exactly where a saturated dark blue reads as its own
+  // stone rather than a shade of either neighbour.
+  { light: '#dbeafe', fill: '#3b82f6', dark: '#172554', glow: 'rgba(59,130,246,0.6)' },
   // Esmeralda — green.
   { light: '#d1fae5', fill: '#6ee7b7', dark: '#022c22', glow: 'rgba(52,211,153,0.6)' },
+  // Rubí — red, the warm counterpart to Zafiro and the step that warms the
+  // ladder up before Oro's gold.
+  { light: '#fee2e2', fill: '#ef4444', dark: '#450a0a', glow: 'rgba(239,68,68,0.6)' },
   // Oro — warm metallic gold.
   { light: '#fef9c3', fill: '#facc15', dark: '#713f12', glow: 'rgba(250,204,21,0.6)' },
   // Diamante — placeholder cyan (Diamante's own real look TBD later).

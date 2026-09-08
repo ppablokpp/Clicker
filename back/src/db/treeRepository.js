@@ -9,6 +9,13 @@ import {
   scoutFrequencyCost,
   scoutFrequencyValue,
 } from '../tree/scoutFrequency.js'
+import { GUNNER_NODE_ID, gunnerCost } from '../tree/gunner.js'
+import {
+  GUNNER_RATE_NODE_ID,
+  GUNNER_RATE_MAX_LEVEL,
+  gunnerRateCost,
+  gunnerRateValue,
+} from '../tree/gunnerRate.js'
 import { MULTIPLIER_NODE_ID, MULTIPLIER_MAX_LEVEL, multiplierCost, multiplierValue } from '../tree/multiplier.js'
 import { LEGENDARY_UNLOCK_NODE_ID, legendaryUnlockCost } from '../tree/legendaryUnlock.js'
 import {
@@ -46,7 +53,11 @@ import {
 } from '../tree/offlineProduction.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { PRESTIGE_REACTOR_NODE_ID, prestigeReactorValue } from '../game/prestige.js'
-import { prestigeTierMultiplier } from '../game/trajectory.js'
+import {
+  prestigeTierMultiplier,
+  prestigeFleetMultiplier,
+  prestigeClickMultiplier,
+} from '../game/trajectory.js'
 
 // Every cost in the tree gets multiplied by 5**prestigeTier (see
 // trajectory.js) — Amatista (tier 0) is untouched, each prestige after that
@@ -61,10 +72,10 @@ function scaleCost(cost, prestigeTier) {
 // through scaleCost above — instead each prestige tier past 0 unlocks
 // TIERED_LEVELS_PER_PRESTIGE more levels of the exact same (unscaled) cost
 // curve, so a level bought at tier 1 costs the same raw platino as at tier
-// 0, while the *value* it produces still scales with prestigeTierMultiplier
+// 0, while the *value* it produces still scales with the prestige multiplier
 // same as before — that's what makes each prestige a real speed-up instead
 // of just a rescaled copy of the same game.
-const TIERED_LEVELS_PER_PRESTIGE = 10
+const TIERED_LEVELS_PER_PRESTIGE = 15
 function tieredMaxLevel(baseMaxLevel, prestigeTier) {
   return baseMaxLevel + TIERED_LEVELS_PER_PRESTIGE * Number(prestigeTier)
 }
@@ -161,14 +172,27 @@ export async function accrueProduction(client, userId) {
   // own Sobrecarga, so its rate has to scale with prestige tier the same
   // way (it didn't used to; scout drone production silently stopped
   // benefiting from prestiging at all until this was caught).
-  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) * prestigeTierMultiplier(prestigeTier)
+  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier)
+
+  const gunnerRow = await client.query(
+    `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, GUNNER_NODE_ID],
+  )
+  const gunnerLevel = Number(gunnerRow.rows[0]?.level ?? 0)
+
+  const gunnerRateRow = await client.query(
+    `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+    [userId, GUNNER_RATE_NODE_ID],
+  )
+  const gunnerRateLevel = Number(gunnerRateRow.rows[0]?.level ?? 0)
+  const gunnerRate = gunnerRateValue(gunnerRateLevel) * prestigeFleetMultiplier(prestigeTier)
 
   const autoMultiplierRow = await client.query(
     `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
     [userId, AUTO_MULTIPLIER_NODE_ID],
   )
   const sobrecargaPerDroneRate =
-    autoMultiplierValue(Number(autoMultiplierRow.rows[0]?.level ?? 0)) * prestigeTierMultiplier(prestigeTier)
+    autoMultiplierValue(Number(autoMultiplierRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier)
 
   const reactorRow = await client.query(
     `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -192,7 +216,11 @@ export async function accrueProduction(client, userId) {
   let wasAway = false
 
   if (autoClickLevel > 0 && node.last_tick_at) {
-    const currentCps = (autoClickLevel * sobrecargaPerDroneRate + scoutDroneLevel * scoutDroneRate) * reactorMultiplier
+    const currentCps =
+      (autoClickLevel * sobrecargaPerDroneRate +
+        scoutDroneLevel * scoutDroneRate +
+        gunnerLevel * gunnerRate) *
+      reactorMultiplier
     const elapsed = await client.query('SELECT EXTRACT(EPOCH FROM (now() - $1::timestamptz)) AS seconds', [
       node.last_tick_at,
     ])
@@ -249,6 +277,9 @@ export async function accrueProduction(client, userId) {
     scoutDroneLevel,
     scoutFrequencyLevel: Number(scoutFrequencyRow.rows[0]?.level ?? 0),
     scoutDroneRate,
+    gunnerLevel,
+    gunnerRate,
+    gunnerRateLevel,
     autoMultiplierLevel: Number(autoMultiplierRow.rows[0]?.level ?? 0),
     sobrecargaPerDroneRate,
     reactorLevel: Number(reactorRow.rows[0]?.level ?? 0),
@@ -283,6 +314,9 @@ export const treeRepository = {
         scoutDroneLevel,
         scoutFrequencyLevel,
         scoutDroneRate,
+        gunnerLevel,
+        gunnerRate,
+        gunnerRateLevel,
         autoMultiplierLevel,
         sobrecargaPerDroneRate,
         reactorLevel,
@@ -408,10 +442,21 @@ export const treeRepository = {
           tieredMaxLevel(SCOUT_FREQUENCY_MAX_LEVEL, userRow.rows[0].prestige_tier),
         ),
         scoutDroneNextRate:
-          scoutFrequencyValue(scoutFrequencyLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+          scoutFrequencyValue(scoutFrequencyLevel + 1) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier)),
+        gunnerLevel,
+        gunnerNextCost: gunnerCost(gunnerLevel, userRow.rows[0].prestige_tier),
+        gunnerRate,
+        gunnerCps: gunnerLevel * gunnerRate * reactorMultiplier,
+        gunnerRateLevel,
+        gunnerRateNextCost: gunnerRateCost(
+          gunnerRateLevel,
+          tieredMaxLevel(GUNNER_RATE_MAX_LEVEL, userRow.rows[0].prestige_tier),
+        ),
+        gunnerRateNextValue:
+          gunnerRateValue(gunnerRateLevel + 1) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierLevel,
-        multiplierValue: multiplierValue(multiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
-        multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierValue: multiplierValue(multiplierLevel) * prestigeClickMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeClickMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextCost: multiplierCost(multiplierLevel, tieredMaxLevel(MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         legendaryUnlockLevel,
         legendaryUnlockNextCost: scaleCost(legendaryUnlockCost(legendaryUnlockLevel), userRow.rows[0].prestige_tier),
@@ -427,7 +472,7 @@ export const treeRepository = {
         autoMultiplierLevel,
         autoMultiplierValue: sobrecargaPerDroneRate,
         autoMultiplierNextValue:
-          autoMultiplierValue(autoMultiplierLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+          autoMultiplierValue(autoMultiplierLevel + 1) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier)),
         autoMultiplierNextCost: autoMultiplierCost(
           autoMultiplierLevel,
           tieredMaxLevel(AUTO_MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier),
@@ -644,7 +689,7 @@ export const treeRepository = {
       )
       const autoMultiplierLevel = Number(autoMultiplierRow.rows[0]?.level ?? 0)
       const sobrecargaPerDroneRate =
-        autoMultiplierValue(autoMultiplierLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
+        autoMultiplierValue(autoMultiplierLevel) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier))
 
       const reactorRow = await client.query(
         `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -735,8 +780,8 @@ export const treeRepository = {
       return {
         ok: true,
         multiplierLevel: newLevel,
-        multiplierValue: multiplierValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
-        multiplierNextValue: multiplierValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierValue: multiplierValue(newLevel) * prestigeClickMultiplier(Number(userRow.rows[0].prestige_tier)),
+        multiplierNextValue: multiplierValue(newLevel + 1) * prestigeClickMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextCost: multiplierCost(newLevel, tieredMaxLevel(MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier)),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
@@ -1191,7 +1236,7 @@ export const treeRepository = {
       )
       const scoutDroneRate =
         scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) *
-        prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
+        prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier))
 
       const reactorRow = await client.query(
         `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
@@ -1286,9 +1331,9 @@ export const treeRepository = {
 
       await client.query('COMMIT')
       const newLevel = level + 1
-      const scoutDroneRate = scoutFrequencyValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
+      const scoutDroneRate = scoutFrequencyValue(newLevel) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier))
       const scoutDroneNextRate =
-        scoutFrequencyValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
+        scoutFrequencyValue(newLevel + 1) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier))
       return {
         ok: true,
         scoutFrequencyLevel: newLevel,
@@ -1299,6 +1344,171 @@ export const treeRepository = {
         scoutDroneNextRate,
         scoutDroneRate,
         scoutDroneCps: scoutDroneLevel * scoutDroneRate * reactorMultiplier,
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Artillero — Drones buscadores' other child, same gate and same shape as
+  // buyScoutFrequencyLevel. Buys nothing but the gunners parked around Home,
+  // so there's no rate to recompute and nothing else to return.
+  async buyGunnerLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
+
+      const scoutDroneRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, SCOUT_DRONE_NODE_ID],
+      )
+      if (Number(scoutDroneRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'scout-drone-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, GUNNER_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = gunnerCost(level, userRow.rows[0].prestige_tier)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, GUNNER_NODE_ID],
+      )
+
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorMultiplier = prestigeReactorValue(Number(reactorRow.rows[0]?.level ?? 0))
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      const gunnerRateRow2 = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, GUNNER_RATE_NODE_ID],
+      )
+      const gunnerRate =
+        gunnerRateValue(Number(gunnerRateRow2.rows[0]?.level ?? 0)) *
+        prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier))
+      return {
+        ok: true,
+        gunnerLevel: newLevel,
+        gunnerNextCost: gunnerCost(newLevel, userRow.rows[0].prestige_tier),
+        gunnerRate,
+        gunnerCps: newLevel * gunnerRate * reactorMultiplier,
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Calibre — the gunners' rate node. Same shape as buyScoutFrequencyLevel:
+  // gated on owning at least one of the unit it improves, priced off the
+  // unscaled curve with a tier-widened cap.
+  async buyGunnerRateLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
+
+      const gunnerRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, GUNNER_NODE_ID],
+      )
+      const gunnerLevel = Number(gunnerRow.rows[0]?.level ?? 0)
+      if (gunnerLevel === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'gunner-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, GUNNER_RATE_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = gunnerRateCost(level, tieredMaxLevel(GUNNER_RATE_MAX_LEVEL, userRow.rows[0].prestige_tier))
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, GUNNER_RATE_NODE_ID],
+      )
+
+      const reactorRow = await client.query(
+        `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, PRESTIGE_REACTOR_NODE_ID],
+      )
+      const reactorMultiplier = prestigeReactorValue(Number(reactorRow.rows[0]?.level ?? 0))
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      const tier = Number(userRow.rows[0].prestige_tier)
+      const gunnerRate = gunnerRateValue(newLevel) * prestigeFleetMultiplier(tier)
+      return {
+        ok: true,
+        gunnerRateLevel: newLevel,
+        gunnerRateNextCost: gunnerRateCost(newLevel, tieredMaxLevel(GUNNER_RATE_MAX_LEVEL, tier)),
+        gunnerRateNextValue: gunnerRateValue(newLevel + 1) * prestigeFleetMultiplier(tier),
+        gunnerRate,
+        gunnerCps: gunnerLevel * gunnerRate * reactorMultiplier,
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {
@@ -1379,13 +1589,13 @@ export const treeRepository = {
       await client.query('COMMIT')
       const newLevel = level + 1
       const sobrecargaPerDroneRate =
-        autoMultiplierValue(newLevel) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier))
+        autoMultiplierValue(newLevel) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier))
       return {
         ok: true,
         autoMultiplierLevel: newLevel,
         autoMultiplierValue: sobrecargaPerDroneRate,
         autoMultiplierNextValue:
-          autoMultiplierValue(newLevel + 1) * prestigeTierMultiplier(Number(userRow.rows[0].prestige_tier)),
+          autoMultiplierValue(newLevel + 1) * prestigeFleetMultiplier(Number(userRow.rows[0].prestige_tier)),
         autoMultiplierNextCost: autoMultiplierCost(
           newLevel,
           tieredMaxLevel(AUTO_MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier),

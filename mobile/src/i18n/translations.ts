@@ -453,7 +453,7 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
-      trajectoryTierNames: ['Amatista', 'Platino', 'Esmeralda', 'Oro', 'Diamante'],
+      trajectoryTierNames: ['Amatista', 'Platino', 'Zafiro', 'Esmeralda', 'Rubí', 'Oro', 'Diamante'],
       trajectoryExtraction: (current, target) => `Extracción: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extracción: ???',
       trajectoryCurrent: 'Actual',
@@ -604,10 +604,10 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
-        luck_x10: { name: 'Destello x10', desc: '1% de probabilidad de un disparo x10.' },
-        luck_x25: { name: 'Destello x25', desc: '1% de probabilidad de un disparo x25.' },
-        luck_x50: { name: 'Destello x50', desc: '1% de probabilidad de un disparo x50.' },
-        luck_x100: { name: 'Destello x100', desc: '1% de probabilidad de un disparo x100. La más alta.' },
+        luck_x10: { name: 'Destello x2', desc: 'Multiplica x2 tus disparos afortunados durante 20 s.' },
+        luck_x25: { name: 'Destello x5', desc: 'Multiplica x5 tus disparos afortunados durante 20 s.' },
+        luck_x50: { name: 'Destello x10', desc: 'Multiplica x10 tus disparos afortunados durante 20 s.' },
+        luck_x100: { name: 'Destello x20', desc: 'Multiplica x20 tus disparos afortunados durante 20 s. El más alto.' },
       },
       magnets: {
         key_magnet: {
@@ -895,7 +895,7 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',
-      trajectoryTierNames: ['Amethyst', 'Platinum', 'Emerald', 'Gold', 'Diamond'],
+      trajectoryTierNames: ['Amethyst', 'Platinum', 'Sapphire', 'Emerald', 'Ruby', 'Gold', 'Diamond'],
       trajectoryExtraction: (current, target) => `Extraction: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extraction: ???',
       trajectoryCurrent: 'Current',
@@ -1046,10 +1046,10 @@ export const translations: Record<Language, TranslationStrings> = {
         },
       },
       timedLuckPowerups: {
-        luck_x10: { name: 'Glimmer x10', desc: '1% chance of a x10 shot.' },
-        luck_x25: { name: 'Glimmer x25', desc: '1% chance of a x25 shot.' },
-        luck_x50: { name: 'Glimmer x50', desc: '1% chance of a x50 shot.' },
-        luck_x100: { name: 'Glimmer x100', desc: '1% chance of a x100 shot. The highest one.' },
+        luck_x10: { name: 'Glimmer x2', desc: 'Multiplies your lucky shots by 2 for 20s.' },
+        luck_x25: { name: 'Glimmer x5', desc: 'Multiplies your lucky shots by 5 for 20s.' },
+        luck_x50: { name: 'Glimmer x10', desc: 'Multiplies your lucky shots by 10 for 20s.' },
+        luck_x100: { name: 'Glimmer x20', desc: 'Multiplies your lucky shots by 20 for 20s. The highest one.' },
       },
       magnets: {
         key_magnet: {

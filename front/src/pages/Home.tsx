@@ -10,7 +10,7 @@
   type WheelEvent,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { HomeFighter } from '../components/HomeFighter'
+import { HomeGunner } from '../components/HomeGunner'
 import { motion } from 'framer-motion'
 import { useAppAuth } from '../hooks/useAppAuth'
 import {
@@ -20,6 +20,7 @@ import {
   Archive,
   Dices,
   Package,
+  Plane,
   ClipboardList,
   Crosshair,
   Info,
@@ -58,7 +59,7 @@ import {
   MATERIAL_ABBREVIATIONS,
   type MaterialTierColors,
 } from '../lib/materialTiers'
-import { formatPlatino } from '../lib/formatPlatino'
+import { formatPlatino, formatRate } from '../lib/formatPlatino'
 // Lifetime-platino threshold each tier unlocks at — index-aligned with
 // OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])).
 import { TRAJECTORY_TIER_THRESHOLDS } from '../lib/trajectory'
@@ -337,17 +338,15 @@ function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolea
 const OrbitingBots = memo(function OrbitingBots({
   count,
   colorClass = 'text-violet-300',
-  bigColorClass = 'text-violet-400',
   beamClass = 'from-violet-300/0 via-violet-200 to-white',
   beamShadow = 'rgba(216,180,254,0.8)',
   phaseOffset = 0,
   fuseEvery,
 }: {
   count: number
+  /** One tint for every unit in the swarm, fused or not; size alone says
+   *  which is which. */
   colorClass?: string
-  /** Tint for a fused unit â€” one shade deeper than `colorClass`, so it reads
-   *  as "the same unit, leveled up" rather than a different kind of drone. */
-  bigColorClass?: string
   beamClass?: string
   beamShadow?: string
   phaseOffset?: number
@@ -412,7 +411,6 @@ const OrbitingBots = memo(function OrbitingBots({
         // A fused drone reads as "the same unit, leveled up" â€” just one
         // shade darker than the small ones, barely noticeable on its own,
         // with the size/glow-radius difference doing the actual work.
-        const droneColorClass = big ? bigColorClass : colorClass
         return (
           <div
             key={i}
@@ -439,7 +437,7 @@ const OrbitingBots = memo(function OrbitingBots({
                   of them. What's left is a plain tinted wrapper â€” no filter,
                   no animation â€” with the lens and the rotor wash still reading
                   `currentColor` to carry the swarm's identity. */}
-              <div className={droneColorClass}>
+              <div className={colorClass}>
                 <DroneIcon size={big ? 30 : 20} />
               </div>
 
@@ -564,11 +562,15 @@ export function Home() {
     scoutDroneLevel,
     scoutDroneRate,
     scoutDroneCps,
+    gunnerLevel,
+    gunnerRate,
+    gunnerCps,
     autoMultiplierValue,
     anomalyUnlockLevel,
     anomalyFrequencySeconds,
     offlineProductionValue,
     refetch: refetchTree,
+    resetForPrestige: resetTreeForPrestige,
     hasNewUpgrade,
     markUpgradesSeen,
   } = useTreeContext()
@@ -920,6 +922,11 @@ export function Home() {
   useEffect(() => {
     if (!userId || anomalyUnlockLevel <= 0 || showEventChallenge || eventMeteor) return
     let cancelled = false
+    // Keep this >= the backend's EVENT_MIN_INTERVAL_SECONDS (back/src/events/
+    // config.js). The gap is measured from the moment the previous challenge
+    // closed, so gap + meteor flight + 100 taps is the real spacing between
+    // two claims; if this floor drops below that cooldown, the server starts
+    // refusing rewards the player legitimately earned.
     const ANOMALY_MIN_GAP_SECONDS = 10
     const gapSeconds = Math.max(ANOMALY_MIN_GAP_SECONDS, -anomalyFrequencySeconds * Math.log(1 - Math.random()))
     const spawnTimeout = window.setTimeout(() => {
@@ -970,7 +977,13 @@ export function Home() {
   // number under one shared 1% roll, so buying the timed one actually
   // amplifies the permanent level you already have.
   const hasLuck = Boolean(permanentLuckChance > 0 || activeLuckPowerup)
-  const luckChance = activeLuckPowerup?.chance ?? permanentLuckChance
+  // The odds are the BETTER of the two, never just whichever is active.
+  // Every timed powerup in the shop is a flat 1% (see
+  // back/src/powerups/timedLuckPowerups.js) because that was the permanent
+  // chance too when they were written. Prob. de suerte now takes it to 19%,
+  // so preferring the powerup's own number meant activating one *lowered*
+  // your odds from 19% to 1% — you were paying gems to get unlucky.
+  const luckChance = Math.max(permanentLuckChance, activeLuckPowerup?.chance ?? 0)
   const combinedLuckMultiplier = permanentLuckMultiplier * (activeLuckPowerup?.multiplier ?? 1)
 
   // Prestige is tier-based now â€” each Trayectoria tier *is* a prestige
@@ -1010,6 +1023,10 @@ export function Home() {
     const result = await confirmPrestige()
     if (result.ok) {
       setShowPrestigeConfirm(false)
+      // Before the refetch, not after: the local production tick would
+      // otherwise keep crediting the just-deleted fleet for the whole round
+      // trip and land those clicks on a counter that is supposed to read 0.
+      resetTreeForPrestige()
       refetchTree()
       refetchDailyCaseCatalog()
       refetchGemChestCatalog()
@@ -1399,18 +1416,28 @@ export function Home() {
                   </div>
                   <div className="mt-0.5">
                     <span className="font-mono text-sm font-bold tabular-nums text-violet-200">
-                      {/* Fleet output (autoClickCps + scoutDroneCps) is the
+                      {/* Fleet output — every producing unit summed — is the
                           real, steady per-second rate straight from the
-                          server â€” always showing, never fluctuating with
+                          server: always showing, never fluctuating with
                           click timing. Manual output (clicksPerSecond *
                           totalMultiplier) is what real taps add on top right
                           now, decaying back toward 0 the moment you stop. */}
-                      {(autoClickCps + scoutDroneCps + clicksPerSecond * totalMultiplier).toFixed(1)} {cpsUnit}
+                      {formatPlatino(autoClickCps + scoutDroneCps + gunnerCps + clicksPerSecond * totalMultiplier, language)}{' '}
+                      {cpsUnit}
                     </span>
                     {activePowerup && (
                       <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] tabular-nums text-violet-300">
                         <Rocket size={9} />
                         {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                      </span>
+                    )}
+                    {activeLuckPowerup && (
+                      <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] tabular-nums text-green-300">
+                        <Dices size={9} />
+                        x{activeLuckPowerup.multiplier}
+                        <span className="ml-0.5 opacity-70">
+                          {Math.floor(luckSecondsLeft / 60)}:{String(luckSecondsLeft % 60).padStart(2, '0')}
+                        </span>
                       </span>
                     )}
                   </div>
@@ -1534,22 +1561,20 @@ export function Home() {
           <OrbitingBots
             count={scoutDroneLevel}
             colorClass="text-amber-300"
-            bigColorClass="text-amber-400"
             beamClass="from-amber-300/0 via-amber-200 to-white"
             beamShadow="rgba(252,211,77,0.8)"
             phaseOffset={0.4}
             fuseEvery={10}
           />
 
-          {/* Escort fighters. Hard-wired to 0 for now, so nothing mounts:
-              HomeFighter returns null on a zero count, and the whole feature
-              costs one comparison until it is switched on. It lives in here so
-              that when it is, it shares this box's centre with both drone
-              swarms and rides the view zoom with them.
-              Waiting on a tree node â€” swap the 0 for that node's owned level
-              and the escort grows with it. The fan, the firing stagger and the
-              aiming all derive from the count already. */}
-          <HomeFighter count={0} />
+          {/* Gunners, one per level of the Escolta tree node (branch
+              F, Dron buscador's left child). Nothing mounts at level 0 —
+              HomeGunner returns null on a zero count — so an account that
+              hasn't bought one pays a single comparison for the feature.
+              Inside this box so it shares its centre with both drone swarms
+              and rides the view zoom with them. The fan, the firing stagger
+              and the aiming all derive from the count. */}
+          <HomeGunner count={gunnerLevel} />
 
           {/* Ring + asteroid shrunk together by the same 0.85 the orbit
               radius below was scaled by (index.css) â€” one shared wrapper so
@@ -1875,10 +1900,7 @@ export function Home() {
                     <p className="text-xs text-neutral-400">
                       {strings.home.shipPowerDesc(currentMaterialName)}{' '}
                       <span className="font-semibold text-white">
-                        {(baseClickMultiplier * tapMultiplierValue * moneyMultiplier).toLocaleString(
-                          language === 'en' ? 'en-US' : 'es-ES',
-                          { maximumFractionDigits: 2 },
-                        )}
+                        {formatPlatino(baseClickMultiplier * tapMultiplierValue * moneyMultiplier, language)}
                       </span>
                     </p>
                   </div>
@@ -1936,19 +1958,14 @@ export function Home() {
                       <p>
                         {strings.home.shipDroneProductionDesc}{' '}
                         <span className="font-semibold text-white">
-                          {(autoClickCps + scoutDroneCps).toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
-                            maximumFractionDigits: 2,
-                          })}
+                          {formatPlatino(autoClickCps + scoutDroneCps + gunnerCps, language)}
                         </span>{' '}
                         {cpsUnit}
                       </p>
                       <p>
                         {strings.home.shipOfflineProductionDesc}{' '}
                         <span className="font-semibold text-white">
-                          {((autoClickCps + scoutDroneCps) * offlineProductionValue).toLocaleString(
-                            language === 'en' ? 'en-US' : 'es-ES',
-                            { maximumFractionDigits: 2 },
-                          )}
+                          {formatRate((autoClickCps + scoutDroneCps + gunnerCps) * offlineProductionValue, language)}
                         </span>{' '}
                         {cpsUnit}
                       </p>
@@ -1970,9 +1987,7 @@ export function Home() {
                       <p>
                         {strings.home.shipDronePerUnitDesc}{' '}
                         <span className="font-semibold text-white">
-                          {autoMultiplierValue.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
-                            maximumFractionDigits: 2,
-                          })}
+                          {formatRate(autoMultiplierValue, language)}
                         </span>{' '}
                         {cpsUnit}
                       </p>
@@ -1995,9 +2010,7 @@ export function Home() {
                         <p>
                           {strings.home.shipScoutDronesPerUnitDesc}{' '}
                           <span className="font-semibold text-white">
-                            {scoutDroneRate.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
-                              maximumFractionDigits: 2,
-                            })}
+                            {formatRate(scoutDroneRate, language)}
                           </span>{' '}
                           {cpsUnit}
                         </p>
@@ -2006,6 +2019,36 @@ export function Home() {
                       <p className="text-xs font-medium text-neutral-600">{strings.home.shipNotInstalled}</p>
                     )}
                   </div>
+
+                  {/* Gunners get no "not installed" placeholder, unlike the
+                      scouts above: the drone tiles describe units the fleet
+                      is expected to have, where this one is off a late node
+                      most accounts will never reach. An empty slot for it
+                      would read as something missing rather than something
+                      optional. */}
+                  {gunnerLevel > 0 && (
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5D6532]/30 text-[#c3cc85]">
+                          <Plane size={14} />
+                        </div>
+                        <p className="text-sm font-semibold text-white">{strings.home.shipGunners}</p>
+                      </div>
+                      <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
+                        <p>
+                          {strings.home.shipGunnersCountDesc}{' '}
+                          <span className="font-semibold text-white">{gunnerLevel}</span>
+                        </p>
+                        <p>
+                          {strings.home.shipGunnersPerUnitDesc}{' '}
+                          <span className="font-semibold text-white">
+                            {formatRate(gunnerRate, language)}
+                          </span>{' '}
+                          {cpsUnit}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -2,7 +2,14 @@
 // lifetime-platino threshold each material tier unlocks at. Must match
 // back/src/game/trajectory.js's own copy (kept in sync by hand).
 export const TRAJECTORY_TIER_THRESHOLDS = [
-  0, 10_000_000, 1_000_000_000, 100_000_000_000, 10_000_000_000_000, 1_000_000_000_000_000,
+  0,
+  10_000_000,
+  200_000_000,
+  5_000_000_000,
+  100_000_000_000,
+  2_000_000_000_000,
+  50_000_000_000_000,
+  1_000_000_000_000_000,
 ]
 
 export interface PrestigeProgress {

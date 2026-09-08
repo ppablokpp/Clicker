@@ -115,6 +115,24 @@ treeRouter.post('/scout-frequency/buy', async (req, res) => {
   res.json(result)
 })
 
+treeRouter.post('/gunner/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyGunnerLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/gunner-rate/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyGunnerRateLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
 treeRouter.post('/auto-multiplier/buy', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })

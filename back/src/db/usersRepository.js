@@ -884,6 +884,78 @@ export const usersRepository = {
     return result.rows.map((r) => `${r.slot}:${r.item_id}`)
   },
 
+  /**
+   * Buys one or more cosmetics with gems and equips them in the same breath.
+   *
+   * One transaction for the whole basket, same reasoning as the chest bench:
+   * the fitting room lets a player try on a complete look and buy it with one
+   * button, so a partial success would charge for half an outfit and leave
+   * the other half still locked under a preview they thought they'd bought.
+   *
+   * `items` is already validated and priced by the caller; the gem balance is
+   * re-checked here inside the lock because the client's copy of it is always
+   * one click flush behind.
+   */
+  async buyCosmetics(id, items, totalCost, styleUpdate) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      // Lock the row first so a concurrent purchase (two tabs, double tap)
+      // can't read the same balance twice and spend it twice.
+      const owned = await client.query(
+        'SELECT slot, item_id FROM user_cosmetics WHERE user_id = $1 FOR UPDATE',
+        [id],
+      )
+      const ownedKeys = new Set(owned.rows.map((r) => `${r.slot}:${r.item_id}`))
+      if (items.some((item) => ownedKeys.has(`${item.slot}:${item.itemId}`))) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'already-owned' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET gems = gems - $2, updated_at = now() WHERE id = $1 AND gems >= $2 RETURNING gems',
+        [id, totalCost],
+      )
+      if (spent.rowCount === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-gems' }
+      }
+
+      for (const item of items) {
+        await client.query(
+          'INSERT INTO user_cosmetics (user_id, slot, item_id) VALUES ($1, $2, $3)',
+          [id, item.slot, item.itemId],
+        )
+      }
+
+      // Equipping is part of the purchase, not a second request: the player
+      // is looking at the piece on their astronaut when they press buy, so
+      // anything other than "it stays on" would read as the purchase failing.
+      let astronautStyle = null
+      if (styleUpdate) {
+        const saved = await client.query(
+          'UPDATE users SET astronaut_style = $2, updated_at = now() WHERE id = $1 RETURNING astronaut_style',
+          [id, styleUpdate],
+        )
+        astronautStyle = saved.rows[0]?.astronaut_style ?? null
+      }
+
+      await client.query('COMMIT')
+      return {
+        ok: true,
+        gems: Number(spent.rows[0].gems),
+        owned: [...ownedKeys, ...items.map((item) => `${item.slot}:${item.itemId}`)],
+        astronautStyle,
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   // Opens a whole bench of chests at once, paying for the lot in keys and
   // nothing else â€” no owned-chest inventory to draw down, which is the point
   // of the bench (see store/chestBench.js).

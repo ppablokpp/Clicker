@@ -111,7 +111,7 @@ export function Store() {
   )
 }
 
-interface StoreStrings {
+export interface StoreStrings {
   costLabel: string
   buy: string
   buying: string
@@ -411,13 +411,13 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
   )
 }
 
-interface GemPacksModalProps {
+export interface GemPacksModalProps {
   locale: string
   strings: StoreStrings
   onClose: () => void
 }
 
-function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
+export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
   const { catalog, prices, buyingId, buy } = useGemPacksContext()
   const [error, setError] = useState<string | null>(null)
 

@@ -9,12 +9,12 @@
  * your real rate while away.
  */
 export const OFFLINE_PRODUCTION_NODE_ID = 'offline_production'
-export const OFFLINE_PRODUCTION_MAX_LEVEL = 9
+export const OFFLINE_PRODUCTION_MAX_LEVEL = 16
 
 export const OFFLINE_PRODUCTION_BASE_PCT = 0.01
 export const OFFLINE_PRODUCTION_STEP = 0.01
-export const OFFLINE_PRODUCTION_BASE_COST = 5_000
-export const OFFLINE_PRODUCTION_COST_RATIO = 1.5
+export const OFFLINE_PRODUCTION_BASE_COST = 2_500
+export const OFFLINE_PRODUCTION_COST_RATIO = 1.55
 
 // Cost to go from `level` owned to `level + 1`.
 export function offlineProductionCost(level) {

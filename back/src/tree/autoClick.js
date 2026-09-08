@@ -9,11 +9,11 @@
  * proper per-node config once more tree nodes stop being placeholders.
  */
 export const AUTOCLICK_NODE_ID = 'auto_click'
-export const AUTOCLICK_MAX_LEVEL = 30
+export const AUTOCLICK_MAX_LEVEL = 50
 
 export const AUTOCLICK_BASE_COST = 150
-export const AUTOCLICK_COST_RATIO = 1.35
-export const AUTOCLICK_CPS_PER_LEVEL = 0.5
+export const AUTOCLICK_COST_RATIO = 1.311
+export const AUTOCLICK_CPS_PER_LEVEL = 1
 
 // Cost to go from `level` owned to `level + 1`. `maxLevel` defaults to the
 // prestige-0 cap but callers pass a tier-adjusted one — this node's cost no

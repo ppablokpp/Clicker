@@ -17,7 +17,7 @@ export const MAX_SELECTED = 5
  * server rolls and grants them, user_cosmetics records them, the catalogue
  * draws them. Put the two ids back in this array and they return.
  */
-export const CHEST_ORDER: ChestId[] = ['material', 'gems' /* , 'style', 'styleRare' */]
+export const CHEST_ORDER: ChestId[] = ['material', 'gems', 'style', 'styleRare']
 
 /**
  * Display only — the server charges from its own copy of these
@@ -27,7 +27,7 @@ export const CHEST_KEY_COST: Record<ChestId, number> = {
   material: 1,
   gems: 10,
   style: 1,
-  styleRare: 5,
+  styleRare: 10,
 }
 
 /**

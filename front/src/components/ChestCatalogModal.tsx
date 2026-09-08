@@ -6,6 +6,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import type { DailyCasePrize } from '../context/DailyCaseContext'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import { isCosmeticChest, type ChestId } from '../store/chestBench'
+import { useCosmetics } from '../context/CosmeticsContext'
 import {
   COSMETIC_CASE_ITEMS,
   COSMETIC_RARE_POOL,
@@ -41,7 +42,15 @@ export function ChestCatalogModal({
 }) {
   const { strings } = useLanguage()
   const s = strings.store
+  const { owned } = useCosmetics()
   useLockBodyScroll(true)
+
+  // A chest never rolls a piece you already own, so listing one here would
+  // advertise a prize that cannot come out of it. The odds shown are the
+  // odds you actually face.
+  const cosmeticPool = (chest === 'styleRare' ? COSMETIC_RARE_POOL : COSMETIC_CASE_ITEMS).filter(
+    (i) => !owned.has(cosmeticKey(i)),
+  )
 
   return (
     <div
@@ -67,7 +76,7 @@ export function ChestCatalogModal({
 
         <div className="scroll-thin overflow-y-auto overscroll-contain px-6 pb-6">
           {isCosmeticChest(chest) ? (
-            <CosmeticSection pool={chest === 'styleRare' ? COSMETIC_RARE_POOL : COSMETIC_CASE_ITEMS} />
+            <CosmeticSection pool={cosmeticPool} />
           ) : (
             <CurrencySection chest={chest} prizes={prizes} locale={locale} />
           )}

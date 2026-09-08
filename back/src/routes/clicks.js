@@ -1,19 +1,10 @@
 import { Router } from 'express'
 import { getAuth } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
+import { maxClicksPerRequest } from '../game/trajectory.js'
 
 export const clicksRouter = Router()
 
-// Generous headroom: with the higher multipliers now reachable (click
-// powerups, permanent + timed luck, milestone bonuses all stacking) and a
-// flush that got delayed a few seconds, legitimate bursts add up fast. The
-// frontend chunks anything bigger than this into multiple requests, so this
-// is purely an anti-abuse ceiling per request, not a hard cap on a session.
-// Was 5000, sized for the old 1s flush cadence — scaled up 30x to match the
-// client's own flush interval going from 1s to 30s (see useClickCounter.ts),
-// so a normal active session at high multipliers still fits in a single
-// chunk instead of routinely needing several back to back.
-const MAX_CLICKS_PER_REQUEST = 150_000
 const MAX_CPS = 1000
 
 clicksRouter.get('/me', async (req, res) => {
@@ -34,7 +25,14 @@ clicksRouter.post('/increment', async (req, res) => {
   // itself stores the fraction (see migration 022); only what's ever
   // *displayed* has to be a whole number, and that's a front-end concern.
   const amount = Number(req.body?.amount)
-  if (!Number.isFinite(amount) || amount < 1 || amount > MAX_CLICKS_PER_REQUEST) {
+  if (!Number.isFinite(amount) || amount < 1) {
+    return res.status(400).json({ error: 'Invalid amount' })
+  }
+  // The ceiling follows the player's tier, because the value of one tap does
+  // too — see maxClicksPerRequest. Costs one indexed lookup on the hottest
+  // endpoint in the app, which is the price of the check being meaningful at
+  // both ends of the game instead of only at the start.
+  if (amount > maxClicksPerRequest(await usersRepository.getPrestigeTier(userId))) {
     return res.status(400).json({ error: 'Invalid amount' })
   }
 

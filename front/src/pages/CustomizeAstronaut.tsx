@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Check, ChevronLeft, Palette } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Check, ChevronLeft, Gem, Palette } from 'lucide-react'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 // The per-option piece renderer lives beside the drawings themselves so the
 // store's cosmetics chest shows the identical art these cards do.
 import { AstronautPieceById } from '../components/AstronautPiecePreview'
+import { GemsPill } from '../components/GemsPill'
+import { GemPacksModal } from './Store'
 import { useLanguage } from '../context/LanguageContext'
 import { useAppAuth } from '../hooks/useAppAuth'
+import { useCosmetics } from '../context/CosmeticsContext'
+import { useGemsContext } from '../context/GemsContext'
 import { fetchMyStyle, saveMyStyle } from '../lib/astronautStyleApi'
+import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
+import {
+  COSMETIC_CATALOG,
+  COSMETIC_GEM_PRICES as PRICES,
+  COSMETIC_RARITY_ORDER,
+  getCosmetic,
+} from '../store/cosmeticCase'
 import {
   ACCENT_STYLES,
   BELT_STYLES,
@@ -18,8 +29,11 @@ import {
   TRAIL_SHAPES,
   BADGE_SHAPES,
   PET_SHAPES,
+  VISOR_SHAPES,
+  BACKGROUND_SHAPES,
   HELMET_STYLES,
   SUIT_STYLES,
+  isDefaultCosmetic,
   loadStyleIds,
   saveStyleIds,
   type AstronautStyleIds,
@@ -36,18 +50,19 @@ const TABS: {
   label: 'tabHead' | 'tabBody' | 'slotPet' | 'slotBracelet' | 'slotAccent'
   slots: SlotKey[]
 }[] = [
-  { id: 'head', icon: 'helmet', label: 'tabHead', slots: ['helmet', 'antenna'] },
+  { id: 'head', icon: 'helmet', label: 'tabHead', slots: ['helmet', 'visor', 'antenna'] },
   // Boots moved in with the suit: they're the bottom of the same garment,
   // and one tab holding a single three-option slot was the thinnest tab in
   // the strip while the pet — a whole second character — had none at all.
   { id: 'body', icon: 'suit', label: 'tabBody', slots: ['suit', 'pack', 'boots'] },
   { id: 'accessories', icon: 'accessories', label: 'slotBracelet', slots: ['bracelet', 'belt'] },
   { id: 'pet', icon: 'pet', label: 'slotPet', slots: ['pet', 'pet2'] },
-  { id: 'accent', icon: 'accent', label: 'slotAccent', slots: ['accent', 'badge', 'trail'] },
+  { id: 'accent', icon: 'accent', label: 'slotAccent', slots: ['background', 'accent', 'badge', 'trail'] },
 ]
 
 const SLOT_LABELS: Record<SlotKey, string> = {
   helmet: 'slotHelmet',
+  visor: 'slotVisor',
   antenna: 'slotAntenna',
   suit: 'slotSuit',
   pack: 'slotPack',
@@ -59,9 +74,42 @@ const SLOT_LABELS: Record<SlotKey, string> = {
   accent: 'slotAccent',
   pet: 'slotPet1',
   pet2: 'slotPet2',
+  background: 'slotBackground',
 }
 
+const RARITY_RANK = new Map(COSMETIC_RARITY_ORDER.map((rarity, i) => [rarity, i]))
+
+/**
+ * Where a piece sits in the grid: the free stock piece first, then everything
+ * else common → exceptional.
+ *
+ * The stock piece leads rather than sorting in as "rarity zero" because it
+ * isn't a rarity at all — it's the thing you already have, and a rack you
+ * scroll should start from what you're wearing and climb.
+ */
+function rarityRank(slot: SlotKey, id: string): number {
+  if (isDefaultCosmetic(slot, id)) return -1
+  const item = getCosmetic(slot, id)
+  return item ? (RARITY_RANK.get(item.rarity) ?? 90) : 90
+}
+
+/**
+ * Every option for a slot, in rarity order. Same ordering in every slot —
+ * colourways, suits, companions alike — so a card's position on the shelf
+ * always means the same thing and the last row is always the one worth
+ * chasing.
+ *
+ * Ties keep their catalogue order, so the colours inside a band stay in the
+ * sequence they were designed in instead of being shuffled by the sort.
+ */
 function optionIds(slot: SlotKey): string[] {
+  return slotOptionIds(slot)
+    .map((id, i) => ({ id, i, rank: rarityRank(slot, id) }))
+    .sort((a, b) => a.rank - b.rank || a.i - b.i)
+    .map((o) => o.id)
+}
+
+function slotOptionIds(slot: SlotKey): string[] {
   switch (slot) {
     case 'helmet':
       return HELMET_STYLES.map((o) => o.id)
@@ -86,6 +134,10 @@ function optionIds(slot: SlotKey): string[] {
     case 'pet':
     case 'pet2':
       return PET_SHAPES.map((o) => o.id)
+    case 'visor':
+      return VISOR_SHAPES.map((o) => o.id)
+    case 'background':
+      return BACKGROUND_SHAPES.map((o) => o.id)
   }
 }
 
@@ -183,6 +235,21 @@ function SlotIcon({ kind, size = 23 }: { kind: string; size?: number }) {
   }
 }
 
+/**
+ * The rarity ladder's own colour, shared with the chest reel and its odds
+ * table, so a tier looks the same wherever it turns up.
+ *
+ * Stock-kit pieces have no rarity, and they take the Consumer colour rather
+ * than a neutral: they're the bottom of the same ladder, and giving them a
+ * grey of their own would break a shelf that otherwise reads as one
+ * continuous gradient from cheap to rare.
+ */
+function rarityColor(slot: SlotKey, id: string): string {
+  const item = getCosmetic(slot, id)
+  const rarity = item?.rarity ?? 'consumer'
+  return (CASE_PRIZE_STYLES[rarity] ?? DEFAULT_CASE_PRIZE_STYLE).color
+}
+
 // A full screen rather than a modal, reached from the pencil on the
 // profile's astronaut — same treatment as a public profile: no bottom nav
 // (see BottomNavPill), just a back arrow.
@@ -192,20 +259,42 @@ function SlotIcon({ kind, size = 23 }: { kind: string; size?: number }) {
 // the option cards only have to identify the piece, not preview the result.
 // That's also why the starfield porthole is off here — behind the pickers it
 // competes with them, and the point of this screen is the character.
+//
+// THE LOCKER. Most of the catalogue is locked, and this screen doesn't try to
+// resolve that inline: every card — owned or not — opens the piece's own page
+// (CosmeticDetail), which is where it goes on the astronaut and where it's
+// bought or equipped. So the grid stays a rack you can scroll through without
+// changing anything, and there is exactly one place in the app that can alter
+// what you're wearing. The figure at the top is always your real, saved
+// outfit; nothing here is ever a preview.
 export function CustomizeAstronaut() {
   const navigate = useNavigate()
-  const { strings } = useLanguage()
+  const { strings, language } = useLanguage()
+  const locale = language === 'en' ? 'en-US' : 'es-ES'
   const { getToken } = useAppAuth()
+  const { isUnlocked, owned, loaded } = useCosmetics()
+  const { gems } = useGemsContext()
   // Seeded from the local cache so the character paints correctly on the
   // first frame, then reconciled with the server row — which is the real
   // source of truth, since it's what other players see.
   const [styleIds, setStyleIds] = useState<AstronautStyleIds>(() => loadStyleIds())
-  const [tabId, setTabId] = useState(TABS[0].id)
+  // The open tab lives in the URL, not in state, so that coming back from a
+  // piece's page lands on the shelf you left. `navigate(-1)` restores the
+  // whole location including this, where component state would have been
+  // thrown away on unmount and dumped you back on the first tab.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabId = searchParams.get('tab') ?? TABS[0].id
+  // Replace rather than push: flicking through five tabs shouldn't put five
+  // entries in the history for the back arrow to walk out of.
+  const setTabId = (id: string) => setSearchParams({ tab: id }, { replace: true })
+  const [showGemPacks, setShowGemPacks] = useState(false)
   const saveTimer = useRef<number | null>(null)
-  // The choice that hasn't reached the server yet. Held separately from
-  // state so the unmount cleanup can still see (and flush) it.
+  // The choice that hasn't reached the server yet. Held in a ref so the
+  // unmount cleanup can still see (and flush) it.
   const pendingSave = useRef<AstronautStyleIds | null>(null)
 
+  // Refetched on every mount, not just the first: coming back from a detail
+  // page that just bought or equipped something has to repaint the figure.
   useEffect(() => {
     let cancelled = false
     void fetchMyStyle(getToken).then((remote) => {
@@ -220,10 +309,10 @@ export function CustomizeAstronaut() {
 
   // Applied and cached instantly, pushed to the server on a short debounce.
   // No save button: there's nothing to confirm and nothing to lose, so it
-  // would only be ceremony between the player and what they can already
-  // see. The debounce exists because flicking through six options fires six
+  // would only be ceremony between the player and what they can already see.
+  // The debounce exists because flicking through six options fires six
   // choices in a second, and only the last one matters.
-  const choose = (key: SlotKey, id: string) => {
+  const equip = (key: SlotKey, id: string) => {
     const next = { ...styleIds, [key]: id }
     setStyleIds(next)
     saveStyleIds(next)
@@ -238,8 +327,8 @@ export function CustomizeAstronaut() {
   // Leaving the screen mid-debounce has to *flush* the pending save, not
   // cancel it — the last thing tapped before hitting back is exactly the
   // choice the player cared about, and it's the one still sitting in the
-  // timer. `saveMyStyle` is a plain fetch with no component state behind
-  // it, so it completes fine after this unmounts.
+  // timer. `saveMyStyle` is a plain fetch with no component state behind it,
+  // so it completes fine after this unmounts.
   useEffect(
     () => () => {
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
@@ -251,10 +340,20 @@ export function CustomizeAstronaut() {
     [getToken],
   )
 
+  // How much of the catalogue is theirs. The stock kit isn't counted on
+  // either side of the fraction: it was never earned, so including it would
+  // start everyone at 15/59 and make the first real unlock look like noise.
+  const ownedCount = COSMETIC_CATALOG.reduce(
+    (n, item) => n + (owned.has(`${item.slot}:${item.id}`) ? 1 : 0),
+    0,
+  )
+
   const tab = TABS.find((t) => t.id === tabId) ?? TABS[0]
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-16 pt-14 sm:px-6 sm:pt-16">
+    <div
+      className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-16 pt-14 sm:px-6 sm:pt-16"
+    >
       <button
         onClick={() => navigate(-1)}
         aria-label={strings.profile.backButton}
@@ -263,24 +362,33 @@ export function CustomizeAstronaut() {
         <ChevronLeft size={18} />
       </button>
 
+      {/* Gems, because every price on this screen is denominated in them and
+          a price you can't weigh against your balance is just a number. Same
+          pill as the store's, and it opens the same gem packs — running out
+          mid-browse shouldn't send you off to find where gems are sold. */}
+      <GemsPill gems={gems} locale={locale} label={strings.store.buyGemsTitle} onClick={() => setShowGemPacks(true)} />
+
       <div className="mx-auto flex max-w-md flex-col items-center">
-        {/* Stage — a soft radial pool under the character instead of the
-            profile's starfield circle, so the figure reads as lit on a
-            plinth rather than pasted onto a second background. */}
+        {/* Stage — nothing behind the figure. The character is the only thing
+            worth looking at up here, and any disc or pool behind it just
+            competes with the grid below. */}
         <div className="relative flex w-full justify-center">
-          <div
-            className="pointer-events-none absolute inset-x-0 top-6 h-56 opacity-70"
-            style={{
-              background:
-                'radial-gradient(ellipse 55% 50% at 50% 55%, rgba(168,85,247,0.16), rgba(168,85,247,0) 70%)',
-            }}
-          />
-          <AstronautAvatar size={168} styleIds={styleIds} showSky={false} />
+          <AstronautAvatar size={168} styleIds={styleIds} />
+
+          {/* Clear of the porthole, which is 1.5x the character's width and
+              so hangs a few pixels below the avatar's own box — the pill sat
+              on its rim at anything tighter than this. */}
+          <span className="pointer-events-none absolute -bottom-12 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+            {strings.profile.lockerCollection}
+            <span className="tabular-nums text-neutral-300">
+              {ownedCount}/{COSMETIC_CATALOG.length}
+            </span>
+          </span>
         </div>
 
         {/* Tabs — icon only. With the section heading below naming whatever
             is open, a second copy of that word in the pill would be noise. */}
-        <div className="mt-6 flex w-full items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] p-1">
+        <div className="mt-14 flex w-full items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] p-1">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -301,33 +409,66 @@ export function CustomizeAstronaut() {
             <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
               {strings.profile[SLOT_LABELS[slot] as keyof typeof strings.profile] as string}
             </p>
-            {/* Each option renders the actual piece in its own colourway, so
-                the grid reads as a rack of items rather than a paint tray.
-                The piece sits on a recessed panel for an "on a shelf" feel
-                instead of floating on the card. */}
+            {/* One card per piece: the art, big, and one pill underneath.
+                Locked art is drawn exactly like owned art — no dimming, no
+                padlock — because the point of the grid is to show off what
+                you could be wearing, and a greyed-out shelf sells nothing.
+                The gem pill is the only thing that marks a piece as locked.
+
+                Two different taps, deliberately. Something you own equips on
+                the spot: changing your look is the common action and it
+                shouldn't cost a page. Something you don't opens its page,
+                which is where it can be seen on the astronaut and bought. */}
             <div className="grid grid-cols-3 gap-2.5">
               {optionIds(slot).map((id) => {
-                const selected = styleIds[slot] === id
+                // Nothing is locked until ownership has actually arrived.
+                // Otherwise the first paint puts a price on the player's own
+                // equipped outfit for as long as the fetch takes — and being
+                // told to buy back what you're wearing is a far worse failure
+                // than a moment of being too permissive. The server is the
+                // real gate, so a brief open client costs nothing.
+                const unlocked = !loaded || isUnlocked(slot, id)
+                const equipped = unlocked && styleIds[slot] === id
+                const item = getCosmetic(slot, id)
+                const tint = rarityColor(slot, id)
                 return (
                   <button
                     key={id}
-                    onClick={() => choose(slot, id)}
-                    aria-pressed={selected}
-                    className={`relative flex flex-col items-center gap-2 rounded-2xl border p-2.5 transition-colors ${
-                      selected
-                        ? 'border-violet-400/50 bg-violet-500/[0.10]'
-                        : 'border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.05]'
-                    }`}
+                    onClick={() =>
+                      unlocked ? equip(slot, id) : navigate(`/personalizar/${slot}/${id}`)
+                    }
+                    aria-label={strings.profile.styleNames[id] ?? id}
+                    aria-current={equipped || undefined}
+                    className="relative flex flex-col items-center gap-2 rounded-2xl border p-2.5 transition-[filter] hover:brightness-125"
+                    // Every card carries its tier's colour, owned or not, so
+                    // the shelf reads as a ladder at a glance instead of
+                    // needing the price on each card to be compared. Which
+                    // one you're *wearing* is the tick's job, below — one
+                    // signal per question.
+                    style={{ backgroundColor: `${tint}1a`, borderColor: `${tint}59` }}
                   >
-                    <span className="flex h-[72px] w-full items-center justify-center rounded-xl bg-black/25 shadow-inner shadow-black/40">
+                    <span className="flex h-[70px] w-full items-center justify-center">
                       <AstronautPieceById slot={slot} id={id} />
                     </span>
-                    <span className={`text-[11px] font-medium ${selected ? 'text-violet-100' : 'text-neutral-500'}`}>
-                      {strings.profile.styleNames[id] ?? id}
-                    </span>
-                    {selected && (
-                      <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-violet-400 text-neutral-900">
-                        <Check size={11} strokeWidth={3} />
+
+                    {!unlocked && item ? (
+                      <span className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.10] px-2.5 py-1 text-[12px] font-semibold leading-none tabular-nums text-indigo-200">
+                        <Gem size={11} className="opacity-80" />
+                        {PRICES[item.rarity]}
+                      </span>
+                    ) : (
+                      // Owned. Lit in the tier colour when it's the one on the
+                      // astronaut, dimmed to a ghost when it's just in the
+                      // locker — the difference between "yours" and "worn".
+                      <span
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-full"
+                        style={
+                          equipped
+                            ? { backgroundColor: tint, color: '#0b0b10' }
+                            : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.2)' }
+                        }
+                      >
+                        <Check size={14} strokeWidth={equipped ? 3.5 : 3} />
                       </span>
                     )}
                   </button>
@@ -337,6 +478,10 @@ export function CustomizeAstronaut() {
           </div>
         ))}
       </div>
+
+      {showGemPacks && (
+        <GemPacksModal locale={locale} strings={strings.store} onClose={() => setShowGemPacks(false)} />
+      )}
     </div>
   )
 }

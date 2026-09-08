@@ -8,11 +8,11 @@
  * for regular drones.
  */
 export const SCOUT_DRONE_NODE_ID = 'auto_luck'
-export const SCOUT_DRONE_MAX_LEVEL = 20
+export const SCOUT_DRONE_MAX_LEVEL = 43
 
-export const SCOUT_DRONE_BASE_COST = 3_200
-export const SCOUT_DRONE_COST_RATIO = 1.3
-export const SCOUT_DRONE_CPS_PER_LEVEL = 2
+export const SCOUT_DRONE_BASE_COST = 1_200
+export const SCOUT_DRONE_COST_RATIO = 1.311
+export const SCOUT_DRONE_CPS_PER_LEVEL = 5
 
 // `maxLevel` defaults to the prestige-0 cap but callers pass a
 // tier-adjusted one — this node's cost no longer scales with prestige tier

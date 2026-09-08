@@ -5,6 +5,7 @@ import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
 import { useTasksContext } from '../context/TasksContext'
 import { useLanguage } from '../context/LanguageContext'
+import { formatPlatino } from '../lib/formatPlatino'
 import { playLaserShot } from '../lib/battleSound'
 import { Asteroid, type AsteroidColors } from './Asteroid'
 
@@ -84,7 +85,6 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
   const { multiShotValue } = useTreeContext()
   const { syncAnomaliesNeutralized } = useTasksContext()
   const { strings, language } = useLanguage()
-  const locale = language === 'en' ? 'en-US' : 'es-ES'
   const materialName = strings.home.trajectoryTierNames[prestigeTier]
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
@@ -93,6 +93,10 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
   const [taps, setTaps] = useState(0)
   const [timeLeftPct, setTimeLeftPct] = useState(100)
   const [reward, setReward] = useState<number | null>(null)
+  // Beat the challenge but the payout didn't land (server cooldown, network).
+  // Tracked apart from `reward` so the result screen never tells a player who
+  // hit 100 taps that they lost it.
+  const [claimFailed, setClaimFailed] = useState(false)
   const [shots, setShots] = useState<ShotEffect[]>([])
   const [particleBursts, setParticleBursts] = useState<ParticleBurst[]>([])
 
@@ -124,9 +128,13 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
           setReward(data.reward)
           if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
           if (typeof data.anomaliesNeutralized === 'number') syncAnomaliesNeutralized(data.anomaliesNeutralized)
+        } else {
+          console.error('La anomalía se neutralizó pero el servidor rechazó el cobro', data?.error)
+          setClaimFailed(true)
         }
       } catch (err) {
         console.error('No se pudo reclamar la recompensa de la anomalía', err)
+        setClaimFailed(true)
       }
     }
     setPhase('result')
@@ -222,6 +230,7 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
   const circumference = 2 * Math.PI * radius
   const offset = circumference * (1 - pct)
   const succeeded = phase === 'result' && reward !== null
+  const unclaimed = phase === 'result' && reward === null && claimFailed
 
   return (
     <div
@@ -363,16 +372,30 @@ export function EventChallenge({ colors, glow, onClose }: EventChallengeProps) {
         <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm">
           <div
             className={`relative w-full max-w-sm rounded-2xl border p-6 text-center shadow-2xl shadow-black/50 ${
-              succeeded ? 'border-green-400/25 bg-[#0f1f16]' : 'border-red-400/25 bg-[#1f0d0d]'
+              succeeded
+                ? 'border-green-400/25 bg-[#0f1f16]'
+                : unclaimed
+                  ? 'border-amber-400/25 bg-[#1f1a0d]'
+                  : 'border-red-400/25 bg-[#1f0d0d]'
             }`}
           >
-            <p className={`mb-2 text-lg font-bold ${succeeded ? 'text-green-300' : 'text-red-300'}`}>
-              {succeeded ? strings.event.successTitle : strings.event.failureTitle}
+            <p
+              className={`mb-2 text-lg font-bold ${
+                succeeded ? 'text-green-300' : unclaimed ? 'text-amber-300' : 'text-red-300'
+              }`}
+            >
+              {succeeded
+                ? strings.event.successTitle
+                : unclaimed
+                  ? strings.event.unclaimedTitle
+                  : strings.event.failureTitle}
             </p>
             <p className="mb-6 text-sm text-neutral-400">
               {succeeded && reward !== null
-                ? strings.event.successBody(reward.toLocaleString(locale), materialName)
-                : strings.event.failureBody}
+                ? strings.event.successBody(formatPlatino(reward, language), materialName)
+                : unclaimed
+                  ? strings.event.unclaimedBody
+                  : strings.event.failureBody}
             </p>
             <button
               onClick={onClose}

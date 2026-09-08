@@ -82,11 +82,59 @@ function hash01(seed: number): number {
 }
 
 interface Crater {
+  /** The bowl's outline. A path, not a circle — see buildCraterPath. */
+  d: string
+  /** The raised rim's outline, or null on craters too small to be worth one. */
+  lip: string | null
+}
+
+interface Speckle {
   cx: number
   cy: number
   r: number
-  /** Whether this one is big enough for its raised rim to be worth drawing. */
-  lip: boolean
+}
+
+/** How many points each crater outline is sampled at. Enough that the curve
+ *  through them reads as a smooth closed shape rather than a rounded polygon —
+ *  at 9 the corners were plainly visible and a crater clipped by the
+ *  silhouette put a straight edge on the rock's own outline. */
+const CRATER_POINTS = 14
+
+/**
+ * One crater's outline: an irregular blob, elongated and turned.
+ *
+ * These were perfect circles, and a field of perfect circles is the tell that
+ * they were drawn rather than excavated — real craters are ragged, most are
+ * oval rather than round, and the ovals point every which way because the
+ * things that dug them came in at every angle. Three separate irregularities
+ * do that here, and it takes all three: the radius wobbles point to point, the
+ * whole shape is squashed along one axis, and that axis is rotated freely.
+ *
+ * The radius wobbles the same way the silhouette's does — two low-frequency
+ * sinusoids with their own phase, not an independent draw per point. That
+ * distinction is the whole difference between a crater and a blob: a random
+ * radius at every point is high-frequency noise, and a smooth curve fitted
+ * through noise comes out as a rounded polygon with visible corners. Two slow
+ * lobes give the gentle bean and egg shapes real craters actually have.
+ *
+ * Built around (cx, cy) rather than the origin and translated, so the position
+ * is baked into the path and each crater stays a single node with no transform
+ * of its own.
+ */
+function buildCraterPath(cx: number, cy: number, r: number, seed: number, squash: number, rot: number): string {
+  const cos = Math.cos(rot)
+  const sin = Math.sin(rot)
+  const phaseA = hash01(seed + 0.7) * Math.PI * 2
+  const phaseB = hash01(seed + 3.4) * Math.PI * 2
+  const points: Point[] = []
+  for (let i = 0; i < CRATER_POINTS; i++) {
+    const angle = (i / CRATER_POINTS) * Math.PI * 2
+    const wobble = 1 + Math.sin(angle * 2 + phaseA) * 0.11 + Math.sin(angle * 3 + phaseB) * 0.075
+    const x = Math.cos(angle) * r * wobble * squash
+    const y = (Math.sin(angle) * r * wobble) / squash
+    points.push([cx + x * cos - y * sin, cy + x * sin + y * cos])
+  }
+  return smoothClosedPath(points)
 }
 
 /**
@@ -119,15 +167,25 @@ function halfWidthAt(y: number): number {
  * more of them and every latitude ends up equally worked over.
  */
 const CRATER_CLASSES = [
-  // The big ones stop at 1.35 for a measured reason: at 1.5 the closest pair
+  // The big ones stop at 1.3 for a measured reason: at 1.5 the closest pair
   // comes within 9 units edge to edge, and big craters crowding each other is
-  // the thing that reads as a mistake. 1.35 leaves 13.2.
-  { rows: 2, perRow: 1.35, minR: 6.4, maxR: 9.2, seed: 1.7, tiny: false },
-  { rows: 3, perRow: 1.5, minR: 3.4, maxR: 5.4, seed: 3.9, tiny: false },
+  // the thing that reads as a mistake. 1.3 leaves 14, and it has to cover the
+  // elongation too now — a squashed crater reaches maxR * maxSquash along its
+  // long axis, not maxR.
+  { rows: 2, perRow: 1.3, minR: 6.2, maxR: 9.4, seed: 1.7, tiny: false },
+  { rows: 3, perRow: 1.6, minR: 3.2, maxR: 5.8, seed: 3.9, tiny: false },
   // Fine pitting is texture, and past a point more of it stops adding detail
   // and starts averaging into a grey fizz that flattens everything above it.
-  { rows: 5, perRow: 1.85, minR: 1.5, maxR: 2.6, seed: 6.1, tiny: true },
+  // Kept dense: thinning this out to let the big craters read individually
+  // just left bare ground between them, and a worked-over surface is most of
+  // what makes the rock look old.
+  { rows: 5, perRow: 1.8, minR: 1.4, maxR: 2.8, seed: 6.1, tiny: true },
 ]
+
+/** How far a crater can be stretched along its long axis. Capped at 1.3
+ *  because past that they stop reading as craters and start reading as
+ *  scratches. */
+const CRATER_MAX_SQUASH = 1.3
 
 /** Keeps the outermost rows inside the part of the rock wide enough to hold a
  *  crater — right at the silhouette's edge they'd only ever be slivers. */
@@ -144,11 +202,22 @@ function buildCraterField(densityScale: number): Crater[] {
         const seed = classIndex * 1000 + row * 100 + col
         // Jittered grid, not free scatter: one per cell keeps coverage even,
         // and the offset inside the cell keeps it from reading as a lattice.
+        // The jitter is wider than it was (nearly the whole cell across, and
+        // most of a row's height vertically) so neighbouring rows interleave
+        // instead of banding — with round craters the grid was doing enough
+        // work unaided, but a field of varied blobs needs looser placement to
+        // match, or the regular spacing is the only thing left to notice.
+        const cx = ((col + 0.06 + hash01(seed * cls.seed + 0.3) * 0.88) / cols) * SURFACE_BAND
+        const cy = y + (hash01(seed * 3.1 + 1.9) - 0.5) * (ROW_SPAN / cls.rows) * 0.95
+        const r = cls.minR + hash01(seed * 5.3 + 4.1) * (cls.maxR - cls.minR)
+        const squash = 1 + hash01(seed * 7.9 + 2.7) * (CRATER_MAX_SQUASH - 1)
+        const rot = hash01(seed * 9.7 + 5.5) * Math.PI
         field.push({
-          cx: ((col + 0.14 + hash01(seed * cls.seed + 0.3) * 0.72) / cols) * SURFACE_BAND,
-          cy: y + (hash01(seed * 3.1 + 1.9) - 0.5) * (ROW_SPAN / cls.rows) * 0.82,
-          r: cls.minR + hash01(seed * 5.3 + 4.1) * (cls.maxR - cls.minR),
-          lip: !cls.tiny,
+          d: buildCraterPath(cx, cy, r, seed * 11.3, squash, rot),
+          // The rim reuses the bowl's own seed, squash and angle, so it's a
+          // band that follows the crater's shape rather than a circle sitting
+          // around an oval.
+          lip: cls.tiny ? null : buildCraterPath(cx, cy, r * 1.16, seed * 11.3, squash, rot),
         })
       }
     }
@@ -161,12 +230,14 @@ function buildCraterField(densityScale: number): Crater[] {
 
 /** Fine surface grain, keeping the fill from looking swept clean between the
  *  craters. */
-function buildSpeckleField(count: number): Crater[] {
+function buildSpeckleField(count: number): Speckle[] {
   return Array.from({ length: count }, (_, i) => ({
     cx: ((i + 0.14 + hash01(i * 2.3 + 7.7) * 0.72) / count) * SURFACE_BAND,
     cy: 10 + hash01(i * 4.7 + 2.2) * 80,
+    // Left as circles on purpose. These are grain, under a unit and a half
+    // across; a wobbled outline on something that small is invisible and the
+    // path costs twenty times the markup of a <circle>.
     r: 0.7 + hash01(i * 6.1 + 9.4) * 0.8,
-    lip: false,
   }))
 }
 
@@ -242,7 +313,7 @@ export const Asteroid = memo(function Asteroid({
       <defs>
         {/* Body shading — brightest toward the upper-left "sun", falling off
             to a near-black shadow at the far rim. Same key light (33% / 28%)
-            as the astronaut's helmet and the fighter's hull, so everything in
+            as the astronaut's helmet and the gunner's hull, so everything in
             the game reads as lit by one sun. */}
         <radialGradient id={bodyId} cx="33%" cy="28%" r="78%">
           <stop offset="0%" stopColor={colors.light} />
@@ -320,8 +391,8 @@ export const Asteroid = memo(function Asteroid({
                       works out between 0.09 and 0.18 device pixels wide at
                       every size this renders at, so it was 41 shapes per copy
                       buying something literally too small to see. */}
-                  {c.lip && <circle cx={c.cx} cy={c.cy} r={c.r * 1.16} fill="rgba(255,255,255,0.085)" />}
-                  <circle cx={c.cx} cy={c.cy} r={c.r} fill={`url(#${craterId})`} />
+                  {c.lip && <path d={c.lip} fill="rgba(255,255,255,0.085)" />}
+                  <path d={c.d} fill={`url(#${craterId})`} />
                 </g>
               ))}
               {field.speckles.map((s, i) => (

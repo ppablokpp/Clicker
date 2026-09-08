@@ -10,17 +10,42 @@
  * it too; one copy per client is enough.
  */
 export const TRAJECTORY_TIER_THRESHOLDS = [
-  0, 10_000_000, 1_000_000_000, 100_000_000_000, 10_000_000_000_000, 1_000_000_000_000_000,
+  0,
+  10_000_000,
+  200_000_000,
+  5_000_000_000,
+  100_000_000_000,
+  2_000_000_000_000,
+  50_000_000_000_000,
+  1_000_000_000_000_000,
 ]
 
-export const TRAJECTORY_TIER_COUNT = 5
+export const TRAJECTORY_TIER_COUNT = 7
+
+/**
+ * Mirrors back/src/game/trajectory.js's maxClicksPerRequest exactly — the
+ * backend rejects a single increment above this, so the flush has to split
+ * anything bigger into several requests.
+ *
+ * It scales with the tier because the value of one tap does: a flat ceiling
+ * ends up smaller than a single Platino tap, and every click-gated action
+ * (buying a node, claiming a task, paying a wager) flushes the whole buffer
+ * before it fires — so the chunking turns straight into wait time before the
+ * purchase even reaches the server.
+ */
+const MAX_CLICKS_BASE = 150_000
+const MAX_CLICKS_GROWTH_PER_PRESTIGE = 50
+
+export function maxClicksPerRequest(tier: number): number {
+  return MAX_CLICKS_BASE * MAX_CLICKS_GROWTH_PER_PRESTIGE ** tier
+}
 
 /**
  * How much of a tier's own goal you may stake on one duel: 1%. Mirrors
  * maxWagerForTier in back/src/game/battles.js, which is the authority — this
  * copy only decides which rungs the picker draws.
  *
- * At tier 0 the goal is 10M, so the cap is 100K, and it climbs ×100 with each
+ * At tier 0 the goal is 250M, so the cap is 2.5M, and it climbs ×58 with each
  * prestige exactly as the goals do — which lands every cap precisely on a
  * rung of the wager ladder.
  */
