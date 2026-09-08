@@ -4,8 +4,8 @@ import { Rocket, Dices, Clock, Loader2, X, Gem, Key } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 
-// Loose enough to accept both a Lucide icon (Gem, Keyâ€¦) and our own
-// PlatinumIcon â€” every consumer here only ever passes size/className.
+// Loose enough to accept both a Lucide icon (Gem, Key…) and our own
+// PlatinumIcon — every consumer here only ever passes size/className.
 type PackIcon = React.ComponentType<{ size?: number; className?: string }>
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
@@ -24,7 +24,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 export function Store() {
   const { language, strings } = useLanguage()
   const { totalClicks, prestigeTier } = useClickCounterContext()
-  // Whatever's currently being mined â€” every "your balance" label here
+  // Whatever's currently being mined — every "your balance" label here
   // follows this instead of hardcoding "platino" (see Home.tsx's own copy).
   const currentMaterialName = strings.home.trajectoryTierNames[prestigeTier]
   const materialTheme = MATERIAL_BUTTON_THEMES[prestigeTier]
@@ -167,7 +167,7 @@ export interface StoreStrings {
 }
 
 // Same "price per unit, relative to the first tier" math for all three pack
-// modals â€” clicks (priced in gems) and keys/gems (priced in real money via
+// modals — clicks (priced in gems) and keys/gems (priced in real money via
 // RevenueCat) all reduce to "how much does one unit cost here vs. tier 1".
 function computeSavingsPct(baseUnitPrice: number, unitPrice: number): number {
   if (baseUnitPrice <= 0 || unitPrice <= 0) return 0
@@ -185,7 +185,7 @@ const PACK_THEME: Record<PackTheme, { iconWrap: string }> = {
   violet: { iconWrap: 'bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200' },
 }
 
-// Same soft glass look by default â€” bordered, translucent, blurred, not the
+// Same soft glass look by default — bordered, translucent, blurred, not the
 // solid opaque white used elsewhere (e.g. the free-case button). Clicks
 // override this to indigo since they're paid for with gems, same as the
 // gem-case button in the Cofres card.
@@ -214,7 +214,7 @@ function PackTile({
   tile: PackTileData
   icon: PackIcon
   locale: string
-  /** Icon + amount side by side instead of stacked â€” reads better for small numbers like key/gem counts. */
+  /** Icon + amount side by side instead of stacked — reads better for small numbers like key/gem counts. */
   inline?: boolean
   accentColorClass?: string
   buttonClassName?: string
@@ -256,7 +256,7 @@ interface PackModalShellProps {
   title: string
   icon: PackIcon
   theme: PackTheme
-  // Overrides PACK_THEME[theme]'s iconWrap â€” used by the click-pack modal
+  // Overrides PACK_THEME[theme]'s iconWrap — used by the click-pack modal
   // so its badge follows the current material's color instead of always
   // being violet's own fixed gradient.
   iconWrapClassName?: string
@@ -268,7 +268,7 @@ interface PackModalShellProps {
 function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, error, children }: PackModalShellProps) {
   const classes = PACK_THEME[theme]
   // Only ever mounted while its modal is open (see the `showX &&` gates
-  // above) â€” same page-scrolls-behind-the-modal bug as Home's own overlays.
+  // above) — same page-scrolls-behind-the-modal bug as Home's own overlays.
   useLockBodyScroll(true)
   return (
     <div
@@ -398,7 +398,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
             tile={{
               id: pack.id,
               amount: pack.amount,
-              priceContent: priceLabel ?? 'Â·Â·Â·',
+              priceContent: priceLabel ?? '···',
               isBuying: buyingId === pack.id,
               disabled: buyingId !== null || !priceLabel,
               savingsBadge: pack.id === 'x50_keys' ? strings.savingsBadge(10) : null,
@@ -443,7 +443,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
             tile={{
               id: pack.id,
               amount: pack.amount,
-              priceContent: priceLabel ?? 'Â·Â·Â·',
+              priceContent: priceLabel ?? '···',
               isBuying: buyingId === pack.id,
               disabled: buyingId !== null || !priceLabel,
               savingsBadge: pack.id === 'x50_gems' ? strings.savingsBadge(20) : null,
@@ -470,12 +470,12 @@ interface TierTileProps {
   materialButtonClass: string
 }
 
-// One tile = one freely-buyable tier: name, duration, and a price button â€”
+// One tile = one freely-buyable tier: name, duration, and a price button —
 // compact enough for all 4 to sit in a row like the original cards did. A
 // gem-priced tier gets the same indigo "diamond" button used everywhere
 // else gems are spent, instead of the white click-currency one. The
 // active/cooldown countdown itself lives once in the card's header, not
-// repeated per tile â€” the button just goes disabled (same muted style as
+// repeated per tile — the button just goes disabled (same muted style as
 // "can't afford it") and keeps showing its cost.
 function TierTile({
   name,
@@ -532,7 +532,7 @@ interface PowerupGridCardProps {
   materialButtonClass: string
 }
 
-// All 4 click-multiplier powerups in one card instead of 4 separate ones â€”
+// All 4 click-multiplier powerups in one card instead of 4 separate ones —
 // freely buyable in any order (only one can run at a time), each tile is its
 // own price button.
 function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: PowerupGridCardProps) {
@@ -564,7 +564,7 @@ function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: 
           <div className="text-base font-semibold text-white">{strings.powerupsCardTitle}</div>
           {active ? (
             <div className="text-xs text-neutral-500">
-              {strings.powerups[active.id]?.name ?? active.id} Â· {activeCountdown}
+              {strings.powerups[active.id]?.name ?? active.id} · {activeCountdown}
             </div>
           ) : (
             cooldownSecondsLeft > 0 && (
@@ -578,9 +578,9 @@ function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: 
 
       <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
         {catalog.map((powerup) => {
-          // Guests always show "affordable" here â€” the click isn't blocked
+          // Guests always show "affordable" here — the click isn't blocked
           // by balance for them, it opens the sign-in prompt instead.
-          // Buying is independent of whether a tier is currently active â€” it
+          // Buying is independent of whether a tier is currently active — it
           // only adds to the owned count, so only the shared cooldown and
           // affordability gate it.
           const balance = powerup.currency === 'gems' ? gems : totalClicks
@@ -620,7 +620,7 @@ interface TimedLuckGridCardProps {
 }
 
 // Same freely-buyable grid as PowerupGridCard, but for the temporary,
-// high-variance version of the permanent Suerte upgrade â€” same 1% chance,
+// high-variance version of the permanent Suerte upgrade — same 1% chance,
 // much bigger multiplier, only lasts a short while.
 function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }: TimedLuckGridCardProps) {
   const { userId } = useAppAuth()
@@ -651,7 +651,7 @@ function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }
           <div className="text-base font-semibold text-white">{strings.timedLuckTitle}</div>
           {active ? (
             <div className="text-xs text-neutral-500">
-              {strings.timedLuckPowerups[active.id]?.name ?? active.id} Â· {activeCountdown}
+              {strings.timedLuckPowerups[active.id]?.name ?? active.id} · {activeCountdown}
             </div>
           ) : (
             cooldownSecondsLeft > 0 && (
@@ -665,7 +665,7 @@ function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }
 
       <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
         {catalog.map((powerup) => {
-          // Buying is independent of whether a tier is currently active â€” it
+          // Buying is independent of whether a tier is currently active — it
           // only adds to the owned count, so only the shared cooldown and
           // affordability gate it.
           const balance = powerup.currency === 'gems' ? gems : totalClicks

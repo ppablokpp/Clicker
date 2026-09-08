@@ -1,5 +1,5 @@
 ﻿/**
- * Case-opening sound effects â€” synthesized with the Web Audio API instead of
+ * Case-opening sound effects — synthesized with the Web Audio API instead of
  * shipping audio files (nothing to license or host): a metallic tick per
  * item the reel passes, and a whoosh + chime reward sting on reveal, in the
  * same spirit as CS:GO case openings without using any of their assets.
@@ -12,7 +12,7 @@ let ctx: AudioContext | null = null
 let noiseBuffer: AudioBuffer | null = null
 let masterOutput: DynamicsCompressorNode | null = null
 let lastTickAt = 0
-// A fast manual drag can cross many items per animation frame â€” without a
+// A fast manual drag can cross many items per animation frame — without a
 // floor, each one queues its own tick and they pile up into distorted noise.
 // This caps how often a tick can actually fire, no matter the source.
 const MIN_TICK_INTERVAL = 0.04
@@ -32,7 +32,7 @@ function getContext(): AudioContext | null {
   return ctx
 }
 
-// Every sound routes through this instead of straight to destination â€” a
+// Every sound routes through this instead of straight to destination — a
 // fast drag can still overlap several ticks even with the rate limit above,
 // and without a limiter their summed peaks clip into a distorted crunch.
 function getMasterOutput(audioCtx: AudioContext): AudioNode {
@@ -59,7 +59,7 @@ function getNoiseBuffer(audioCtx: AudioContext): AudioBuffer {
   return noiseBuffer
 }
 
-/** Short metallic clack â€” called once per item the reel scrolls past. */
+/** Short metallic clack — called once per item the reel scrolls past. */
 export function playCaseTick() {
   const audioCtx = getContext()
   if (!audioCtx) return
@@ -94,11 +94,11 @@ export function playCaseTick() {
     osc.start(now)
     osc.stop(now + 0.03)
   } catch {
-    // Audio is a nice-to-have â€” never let it break the reveal flow.
+    // Audio is a nice-to-have — never let it break the reveal flow.
   }
 }
 
-/** Clean two-note reveal ding â€” brighter the higher the prize tier (0 = common â€¦ 5 = legendary). Deliberately minimal: no whoosh, no thud, just the notes. */
+/** Clean two-note reveal ding — brighter the higher the prize tier (0 = common … 5 = legendary). Deliberately minimal: no whoosh, no thud, just the notes. */
 export function playCaseReveal(tier: number) {
   const audioCtx = getContext()
   if (!audioCtx) return
@@ -131,7 +131,7 @@ export function playCaseReveal(tier: number) {
       osc.stop(start + 0.52)
     })
 
-    // A single extra high note on rare tiers â€” the only "extra", kept minimal.
+    // A single extra high note on rare tiers — the only "extra", kept minimal.
     if (tier >= 4) {
       const start = now + 0.24
       const osc = audioCtx.createOscillator()
@@ -148,15 +148,15 @@ export function playCaseReveal(tier: number) {
       osc.stop(start + 0.57)
     }
   } catch {
-    // Same â€” silently skip on any Web Audio failure.
+    // Same — silently skip on any Web Audio failure.
   }
 }
 
 /**
- * Punchy cash-register "cha-ching" â€” plays when a chest is bought. A quick
+ * Punchy cash-register "cha-ching" — plays when a chest is bought. A quick
  * upward swoosh kicks it off, then a bright ascending three-note arpeggio
  * (each note with an inharmonic overtone for a metallic register-bell
- * ring), capped with a scatter of coin clinks â€” closer to the jingly
+ * ring), capped with a scatter of coin clinks — closer to the jingly
  * "purchase confirmed" stings mobile games use than a plain two-note ding.
  */
 export function playChestPurchase() {
@@ -181,7 +181,7 @@ export function playChestPurchase() {
     swoosh.start(now)
     swoosh.stop(now + 0.11)
 
-    const notes = [784, 988, 1568] // G5, B5, G6 â€” bright ascending coin-jingle triad
+    const notes = [784, 988, 1568] // G5, B5, G6 — bright ascending coin-jingle triad
     notes.forEach((freq, i) => {
       const start = now + 0.08 + i * 0.06
 
@@ -197,7 +197,7 @@ export function playChestPurchase() {
       osc.stop(start + 0.31)
 
       // Inharmonic overtone is what makes it read as a bell instead of a
-      // plain synth tone â€” a real bell's partials aren't clean octaves.
+      // plain synth tone — a real bell's partials aren't clean octaves.
       const overtone = audioCtx.createOscillator()
       const overtoneGain = audioCtx.createGain()
       overtone.type = 'sine'
@@ -228,17 +228,17 @@ export function playChestPurchase() {
       clink.stop(start + 0.06)
     }
   } catch {
-    // Audio is a nice-to-have â€” never let it break the purchase flow.
+    // Audio is a nice-to-have — never let it break the purchase flow.
   }
 }
 
 /**
- * "Bill flick" â€” two quick overlapping paper-rustle bursts (the
+ * "Bill flick" — two quick overlapping paper-rustle bursts (the
  * characteristic "which-which" of riffling a bill between fingers) plus a
  * soft landing snap, played when a tree upgrade is bought. Louder and more
  * textured than the first pass at this (which turned out too quiet to
  * actually hear), but still nowhere near playChestPurchase's full
- * cha-ching â€” this fires constantly while grinding upgrades.
+ * cha-ching — this fires constantly while grinding upgrades.
  */
 export function playTreeUpgrade() {
   const audioCtx = getContext()
@@ -278,27 +278,27 @@ export function playTreeUpgrade() {
     tick.start(now + 0.05)
     tick.stop(now + 0.1)
   } catch {
-    // Audio is a nice-to-have â€” never let it break a purchase.
+    // Audio is a nice-to-have — never let it break a purchase.
   }
 }
 
 let lastRobotBeepAt = 0
-// Same overlap guard as playCaseTick's own MIN_TICK_INTERVAL â€” the tutorial
+// Same overlap guard as playCaseTick's own MIN_TICK_INTERVAL — the tutorial
 // typewriter can reveal several characters within one animation frame on a
 // slow device, and without a floor those would all fire at once into noise.
 const MIN_ROBOT_BEEP_INTERVAL = 0.05
 
 /**
- * Single "beep" or "boop" â€” called once per revealed character of the
+ * Single "beep" or "boop" — called once per revealed character of the
  * tutorial robot's typewriter text. `index` just alternates the pitch
  * (even/odd) so a run of characters reads as "beep-boop-beep-boop" instead
- * of one flat repeated tone, the classic sci-fi-robot-talking clichÃ©.
+ * of one flat repeated tone, the classic sci-fi-robot-talking cliché.
  */
 export function playRobotBeep(index: number) {
   const audioCtx = getContext()
   if (!audioCtx) return
   // The tutorial's very first beep is often the very first sound of the
-  // whole session, firing within a beat of the page's first real gesture â€”
+  // whole session, firing within a beat of the page's first real gesture —
   // getContext()'s own resume() call is fire-and-forget, so the context can
   // still be technically 'suspended' the instant this runs. Scheduling
   // against a suspended context's frozen clock is what silently ate that
@@ -331,6 +331,6 @@ export function playRobotBeep(index: number) {
     osc.start(now)
     osc.stop(now + 0.05)
   } catch {
-    // Audio is a nice-to-have â€” never let it break the tutorial.
+    // Audio is a nice-to-have — never let it break the tutorial.
   }
 }

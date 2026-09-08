@@ -71,7 +71,7 @@ function ClickerApp() {
                                             {/* Inside every provider, so their
                                                 on-mount fetches are already in
                                                 flight while it waits on them.
-                                                Reports only â€” the cover is an
+                                                Reports only — the cover is an
                                                 overlay above all of this. */}
                                             <GameStateGate />
                                             <ScrollManager />
@@ -120,8 +120,8 @@ function App() {
   return (
     <Routes>
       {/* Without these, a brand-new sign-up (as opposed to signing back in)
-          falls back to Clerk's own default redirect target â€” the bare
-          origin root, with no /Clicker/ prefix â€” which doesn't exist as a
+          falls back to Clerk's own default redirect target — the bare
+          origin root, with no /Clicker/ prefix — which doesn't exist as a
           GitHub Pages site and 404s. Both paths need to land back on
           BASE_URL, same as SignInModal's own redirectUrlComplete. */}
       <Route
