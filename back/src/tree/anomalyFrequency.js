@@ -8,14 +8,14 @@
  * down to a 30-second floor.
  */
 export const ANOMALY_FREQUENCY_NODE_ID = 'anomaly_frequency'
-export const ANOMALY_FREQUENCY_MAX_LEVEL = 13
+export const ANOMALY_FREQUENCY_MAX_LEVEL = 9
 
 export const ANOMALY_FREQUENCY_BASE_SECONDS = 120
 export const ANOMALY_FREQUENCY_STEP_SECONDS = 10
 export const ANOMALY_FREQUENCY_FLOOR_SECONDS = 30
 
-export const ANOMALY_FREQUENCY_BASE_COST = 3_000
-export const ANOMALY_FREQUENCY_COST_RATIO = 1.6
+export const ANOMALY_FREQUENCY_BASE_COST = 20_000
+export const ANOMALY_FREQUENCY_COST_RATIO = 1.5
 
 // Cost to go from `level` owned to `level + 1`.
 export function anomalyFrequencyCost(level) {

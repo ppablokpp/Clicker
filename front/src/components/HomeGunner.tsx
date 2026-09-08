@@ -492,8 +492,20 @@ const GUNNER_CSS = `
 .gunner-shot-l { --gun-x: -10px; }
 .gunner-shot-r { --gun-x: 10px; }
 
-@media (prefers-reduced-motion: reduce) {
-  .gunner-shot { animation: none; visibility: hidden; }
-  .gunner-craft { animation: none; }
-}
+/* No prefers-reduced-motion block, and that is deliberate rather than an
+   oversight — there WAS one here, and it was a bug report: it killed the
+   recoil and hid both bolts outright, so on any device with Reduce Motion on,
+   a unit the player spent twenty million on sat on the ring as a static decal
+   for the whole session while everything around it moved.
+
+   Everything around it moved because index.css never disables the swarm: the
+   drones keep orbiting and .drone-beam keeps firing under reduce. So this
+   block wasn't protecting anyone, it was making one unit alone look broken
+   next to units doing strictly more motion. Whatever this game does about
+   reduced motion has to be decided for the swarm as a whole — the orbits and
+   the beams are the actual motion budget on this screen — and until it is,
+   the gunner follows the same rule as the units it flies alongside.
+
+   The two things it animates are a 3px recoil kick and a bolt travelling the
+   ring radius, which is the drone beams' own trip, at their own scale. */
 `

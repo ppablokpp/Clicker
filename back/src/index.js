@@ -20,6 +20,7 @@ import { chestsRouter } from './routes/chests.js'
 import { cosmeticsRouter } from './routes/cosmetics.js'
 import { moneyUpgradesRouter } from './routes/moneyUpgrades.js'
 import { gemUpgradesRouter } from './routes/gemUpgrades.js'
+import { fleetUpgradesRouter } from './routes/fleetUpgrades.js'
 import { clickPacksRouter } from './routes/clickPacks.js'
 import { keyPacksRouter } from './routes/keyPacks.js'
 import { gemPacksRouter } from './routes/gemPacks.js'
@@ -91,6 +92,7 @@ app.use('/api/chests', chestsRouter)
 app.use('/api/cosmetics', cosmeticsRouter)
 app.use('/api/money-upgrades', moneyUpgradesRouter)
 app.use('/api/gem-upgrades', gemUpgradesRouter)
+app.use('/api/fleet-upgrades', fleetUpgradesRouter)
 app.use('/api/click-packs', clickPacksRouter)
 app.use('/api/key-packs', keyPacksRouter)
 app.use('/api/gem-packs', gemPacksRouter)

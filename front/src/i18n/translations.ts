@@ -314,6 +314,8 @@ export interface TranslationStrings {
     nextLevelRate: string
     upgrading: string
     premiumDesc: string
+    fleetCoreName: string
+    fleetCoreDesc: string
     currentMultiplier: string
     nextMultiplier: string
     luckName: string
@@ -966,6 +968,9 @@ export const translations: Record<Language, TranslationStrings> = {
       currentRate: 'Drones actuales:',
       nextLevelRate: 'Drones siguiente nivel:',
       upgrading: 'Mejorando…',
+      fleetCoreName: 'Núcleo de flota',
+      fleetCoreDesc:
+        'Multiplicador permanente aplicado a la producción de toda tu flota — drones, buscadores y artilleros. No se acumula con otros niveles: solo cuenta el más alto que tengas.',
       premiumDesc: 'Multiplicador permanente aplicado a la potencia de cada disparo, para siempre. No se acumula con otros niveles — solo cuenta el más alto que tengas.',
       currentMultiplier: 'Multiplicador actual:',
       nextMultiplier: 'Multiplicador siguiente nivel:',
@@ -1634,6 +1639,9 @@ export const translations: Record<Language, TranslationStrings> = {
       currentRate: 'Current drones:',
       nextLevelRate: 'Next level drones:',
       upgrading: 'Upgrading…',
+      fleetCoreName: 'Fleet core',
+      fleetCoreDesc:
+        "A permanent multiplier applied to your whole fleet's output — drones, scouts and gunners alike. Doesn't stack with other levels: only the highest one you own counts.",
       premiumDesc: 'A permanent multiplier applied to the power of every shot, forever. Doesn\'t stack with other levels — only the highest one you own counts.',
       currentMultiplier: 'Current multiplier:',
       nextMultiplier: 'Next level multiplier:',

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { useGemsContext } from './GemsContext'
+import { playChestPurchase } from '../lib/caseSound'
 import { isDefaultCosmetic, type AstronautStyleIds } from '../lib/astronautStyles'
 import type { AstronautSlot } from '../components/AstronautPiecePreview'
 
@@ -106,6 +107,10 @@ export function CosmeticsProvider({ children }: { children: ReactNode }) {
         const data = await res.json().catch(() => ({}))
         if (!res.ok) return { ok: false, reason: data.error ?? 'buy-failed' }
         if (Array.isArray(data.owned)) setOwned(new Set(data.owned as string[]))
+        // The same cue every other gem/key spend in the store plays, so
+        // buying a piece here lands like buying anything else. Deliberately
+        // not on grantCosmetics: a chest opening has its own reveal sound.
+        playChestPurchase()
         if (typeof data.gems === 'number') syncGems(data.gems)
         return { ok: true }
       } catch (err) {

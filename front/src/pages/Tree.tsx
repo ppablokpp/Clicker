@@ -18,6 +18,7 @@ import {
   Plane,
   Plus,
   Radar,
+  Rocket,
   Radiation,
   Radio,
   RotateCcw,
@@ -34,6 +35,7 @@ import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
 import { useTutorialContext, DRONE_FUSION_STEPS } from '../context/TutorialContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
+import { useFleetUpgradesContext } from '../context/FleetUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { DroneIcon } from '../components/DroneIcon'
@@ -209,6 +211,10 @@ const NODES: TreeNode[] = [
 
   // Branch C — one lone node straight down, nothing beyond it yet.
   { id: 'c1', x: CENTER + 20, y: CENTER + 175, label: 'Mejora' },
+  // Núcleo de flota — the gem core's twin, hanging off it rather than off
+  // root: same ladder and same prices, so it reads as the second half of one
+  // idea instead of an unrelated purchase.
+  { id: 'c2', x: CENTER - 75, y: CENTER + 280, label: 'Mejora' },
 
   // Branch F — Sobrecarga/Drones buscadores/Frecuencia (e2b/a1b/a1b1), a
   // second production unit moved off Suerte to be its own root branch.
@@ -275,6 +281,7 @@ const EDGES: TreeEdge[] = [
   { from: 'b1', to: 'b2b' },
 
   { from: 'root', to: 'c1' },
+  { from: 'c1', to: 'c2' },
 
   { from: 'root', to: 'e2b' },
   { from: 'e2b', to: 'a1b' },
@@ -517,6 +524,7 @@ export function Tree() {
     offlineProductionNextCost,
     isBuyingOfflineProduction,
     buyOfflineProduction,
+    refetch: refetchTree,
   } = useTreeContext()
   const isAutoClickMaxed = autoClickNextCost === null
   const canAffordAutoClick = autoClickNextCost !== null && totalClicks >= autoClickNextCost
@@ -571,10 +579,18 @@ export function Tree() {
   const canAffordOfflineProduction = offlineProductionNextCost !== null && totalClicks >= offlineProductionNextCost
   const { catalog: premiumCatalog, owned: premiumOwned, bestOwned: premiumBestOwned, buyingId: premiumBuyingId, buy: buyPremium } =
     useGemUpgradesContext()
+  const {
+    catalog: fleetCatalog,
+    owned: fleetOwned,
+    bestOwned: fleetBestOwned,
+    buyingId: fleetBuyingId,
+    buy: buyFleet,
+  } = useFleetUpgradesContext()
   const { gems } = useGemsContext()
   const [transform, setTransform] = useState(centeredView)
   const [showAutoClickModal, setShowAutoClickModal] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showFleetModal, setShowFleetModal] = useState(false)
   const [showLuckModal, setShowLuckModal] = useState(false)
   const [showLuckChanceModal, setShowLuckChanceModal] = useState(false)
   const [showMultiplierModal, setShowMultiplierModal] = useState(false)
@@ -600,6 +616,7 @@ export function Tree() {
     showTutorialConfirm ||
       showAutoClickModal ||
       showPremiumModal ||
+      showFleetModal ||
       showLuckModal ||
       showLuckChanceModal ||
       showMultiplierModal ||
@@ -766,6 +783,10 @@ export function Tree() {
   // Same sequential-tier math the Store used to do — moved here as-is,
   // just now rendered inside the tree's modal instead of a Store card.
   const premiumOwnedCount = premiumCatalog.filter((u) => premiumOwned.has(u.id)).length
+  const fleetOwnedCount = fleetCatalog.filter((u) => fleetOwned.has(u.id)).length
+  const nextFleetUpgrade = fleetCatalog[fleetOwnedCount]
+  const isFleetMaxed = fleetOwnedCount >= fleetCatalog.length
+  const canAffordFleet = Boolean(nextFleetUpgrade && gems >= nextFleetUpgrade.cost)
   const nextPremiumUpgrade: GemUpgradeDef | undefined = premiumCatalog[premiumOwnedCount]
   const isPremiumMaxed = !nextPremiumUpgrade
   const canAffordPremium = nextPremiumUpgrade ? gems >= nextPremiumUpgrade.cost : false
@@ -778,6 +799,26 @@ export function Tree() {
     if (!result.ok && result.error !== 'not-signed-in') {
       setPremiumError(result.error === 'not-enough-gems' ? strings.store.notEnoughGems : strings.store.purchaseError)
     }
+  }
+
+  const isBuyingThisFleet = nextFleetUpgrade ? fleetBuyingId === nextFleetUpgrade.id : false
+
+  const handleBuyFleet = async () => {
+    if (!nextFleetUpgrade) return
+    setPremiumError(null)
+    const result = await buyFleet(nextFleetUpgrade)
+    if (!result.ok) {
+      if (result.error !== 'not-signed-in') {
+        setPremiumError(result.error === 'not-enough-gems' ? strings.store.notEnoughGems : strings.store.purchaseError)
+      }
+      return
+    }
+    // Unlike the gem core — whose multiplier the client applies to clicks
+    // itself, so it shows instantly — this one lives inside the fleet rates
+    // the server computes. Without pulling them now, the HUD and Centro de
+    // mando keep the old production until the next poll, thirty seconds away,
+    // and the purchase looks like it did nothing.
+    void refetchTree()
   }
 
   const nodeById = Object.fromEntries(NODES.map((n) => [n.id, n]))
@@ -794,6 +835,7 @@ export function Tree() {
     a2: luckChanceLevel,
     b1: multiShotLevel,
     c1: premiumOwnedCount,
+    c2: fleetOwnedCount,
     e1: multiplierLevel,
     e2a0: legendaryUnlockLevel,
     e2a: legendaryEaseLevel,
@@ -859,6 +901,7 @@ export function Tree() {
             (node) =>
               node.id !== 'root' &&
               node.id !== 'c1' &&
+              node.id !== 'c2' &&
               node.id !== 'b1' &&
               node.id !== 'a1' &&
               node.id !== 'a1b' &&
@@ -956,6 +999,60 @@ export function Tree() {
                 </span>
 
                 {!isPremiumMaxed && canAffordPremium && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Branch B — Multidisparo, raises how many fingers can be firing
+              at once (the actual cap is enforced on Home's own pointer
+              handling). Same locked/available split as the other real
+              nodes. */}
+
+          {revealStateById.c2 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.c2.x, top: nodeById.c2.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.c2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Rocket size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {fleetOwnedCount}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.c2 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.c2.x, top: nodeById.c2.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowFleetModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.c2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-indigo-400/40 ${PREMIUM_NODE_STYLE}`}
+              >
+                <Rocket size={20} className="text-indigo-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {fleetOwnedCount}
+                </span>
+
+                {!isFleetMaxed && canAffordFleet && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -2148,6 +2245,65 @@ export function Tree() {
         </div>
       )}
 
+      {showFleetModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowFleetModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-2xl" />
+
+            <button
+              onClick={() => setShowFleetModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="relative mb-3 flex items-center gap-2">
+              <Rocket size={18} className="text-fuchsia-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.fleetCoreName}</p>
+            </div>
+            <p className="relative mb-4 text-sm text-neutral-400">{strings.tree.fleetCoreDesc}</p>
+
+            <div className="relative mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentMultiplier}{' '}
+                <span className="font-semibold text-white">
+                  {fleetBestOwned ? `×${fleetBestOwned.multiplier}` : strings.store.noUpgradeYet}
+                </span>
+              </span>
+              {!isFleetMaxed && (
+                <span>
+                  {strings.tree.nextMultiplier}{' '}
+                  <span className="font-semibold text-white">×{nextFleetUpgrade.multiplier}</span>
+                </span>
+              )}
+            </div>
+
+            {isFleetMaxed ? (
+              <TreeMaxBadge tone="indigo" label={strings.store.maxLevel} />
+            ) : (
+              <TreeBuyButton
+                onClick={handleBuyFleet}
+                isBuying={isBuyingThisFleet}
+                canAfford={canAffordFleet}
+                buyingLabel={strings.tree.upgrading}
+                cost={nextFleetUpgrade.cost}
+                balance={gems}
+                currency="gems"
+              />
+            )}
+
+            {premiumError && <p className="relative mt-2 text-xs text-red-400">{premiumError}</p>}
+          </div>
+        </div>
+      )}
+
       {showLuckModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
@@ -3028,7 +3184,12 @@ export function Tree() {
                 <span>
                   {strings.tree.nextAnomalyFrequency}{' '}
                   <span className="font-semibold text-white">
-                    {strings.tree.formatAnomalyWait(Math.max(30, anomalyFrequencySeconds - 30))}
+                    {/* ANOMALY_FREQUENCY_STEP_SECONDS / _FLOOR_SECONDS in
+                        back/src/tree/anomalyFrequency.js. This said 30 rather
+                        than 10, so every "next" it promised was three levels
+                        ahead of the one being bought and no upgrade ever
+                        landed on the number shown. */}
+                    {strings.tree.formatAnomalyWait(Math.max(30, anomalyFrequencySeconds - 10))}
                   </span>
                 </span>
               )}

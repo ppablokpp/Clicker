@@ -22,6 +22,7 @@ import { TimedLuckPowerupProvider } from './context/TimedLuckPowerupContext'
 import { MilestonesProvider } from './context/MilestonesContext'
 import { TasksProvider } from './context/TasksContext'
 import { GemUpgradesProvider } from './context/GemUpgradesContext'
+import { FleetUpgradesProvider } from './context/FleetUpgradesContext'
 import { DailyCaseProvider } from './context/DailyCaseContext'
 import { GemCaseProvider } from './context/GemCaseContext'
 import { GemChestProvider } from './context/GemChestContext'
@@ -63,6 +64,7 @@ function ClickerApp() {
                                 <MilestonesProvider>
                                   <TasksProvider>
                                     <GemUpgradesProvider>
+                                    <FleetUpgradesProvider>
                                       <DailyCaseProvider>
                                         <GemCaseProvider>
                                           <GemChestProvider>
@@ -91,6 +93,7 @@ function ClickerApp() {
                                           </GemChestProvider>
                                         </GemCaseProvider>
                                       </DailyCaseProvider>
+                                    </FleetUpgradesProvider>
                                     </GemUpgradesProvider>
                                   </TasksProvider>
                                 </MilestonesProvider>

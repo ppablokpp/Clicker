@@ -1,4 +1,5 @@
 import { database } from './pool.js'
+import { fleetUpgradeMultiplier } from '../powerups/fleetUpgrades.js'
 import { AUTOCLICK_NODE_ID, AUTOCLICK_MAX_LEVEL, autoClickCost } from '../tree/autoClick.js'
 import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
 import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
@@ -172,7 +173,17 @@ export async function accrueProduction(client, userId) {
   // own Sobrecarga, so its rate has to scale with prestige tier the same
   // way (it didn't used to; scout drone production silently stopped
   // benefiting from prestiging at all until this was caught).
-  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier)
+  // Núcleo de flota — the gem-bought counterpart to Núcleo de gemas, which
+  // multiplies clicks. Folded into each unit's rate rather than into the
+  // totals, exactly where prestigeFleetMultiplier already sits, so the
+  // per-unit figures the UI prints already carry it.
+  const fleetUpgradeRows = await client.query(
+    `SELECT upgrade_id FROM user_permanent_upgrades WHERE user_id = $1`,
+    [userId],
+  )
+  const fleetMult = fleetUpgradeMultiplier(fleetUpgradeRows.rows.map((r) => r.upgrade_id))
+
+  const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier) * fleetMult
 
   const gunnerRow = await client.query(
     `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
@@ -185,14 +196,14 @@ export async function accrueProduction(client, userId) {
     [userId, GUNNER_RATE_NODE_ID],
   )
   const gunnerRateLevel = Number(gunnerRateRow.rows[0]?.level ?? 0)
-  const gunnerRate = gunnerRateValue(gunnerRateLevel) * prestigeFleetMultiplier(prestigeTier)
+  const gunnerRate = gunnerRateValue(gunnerRateLevel) * prestigeFleetMultiplier(prestigeTier) * fleetMult
 
   const autoMultiplierRow = await client.query(
     `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
     [userId, AUTO_MULTIPLIER_NODE_ID],
   )
   const sobrecargaPerDroneRate =
-    autoMultiplierValue(Number(autoMultiplierRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier)
+    autoMultiplierValue(Number(autoMultiplierRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier) * fleetMult
 
   const reactorRow = await client.query(
     `SELECT level FROM user_prestige_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
