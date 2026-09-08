@@ -27,8 +27,11 @@ export interface BattleSummary {
   winnerId: string | null
   challengerUsername: string | null
   challengerAvatarUrl: string | null
+  /** The suit each side wears, so duels draw astronauts like everywhere else. */
+  challengerAstronautStyle: unknown
   opponentUsername: string | null
   opponentAvatarUrl: string | null
+  opponentAstronautStyle: unknown
   createdAt: string
   resolvedAt: string | null
 }

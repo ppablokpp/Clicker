@@ -2,6 +2,7 @@
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT, prestigeTierMultiplier } from '../game/trajectory.js'
 import { accrueProduction } from './treeRepository.js'
+import { SIGNIN_CHEST_REWARD } from '../store/chestBench.js'
 
 // Applies to both chest types â€” buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
@@ -39,6 +40,28 @@ export const usersRepository = {
                  (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today`,
       [id, email, username, avatarUrl],
     )
+    // Welcome chests, once ever. The flag is checked in the WHERE rather
+    // than in JS on purpose: two sign-ins racing each other both run this,
+    // and only the one that still finds the flag false updates a row.
+    //
+    // Note this runs BEFORE claimAnonymousProgress, which overwrites a fresh
+    // account with the guest row wholesale — the style chest columns are not
+    // in that list, so the grant survives. If they are ever added there, this
+    // has to move after it.
+    const welcome = await database.query(
+      `UPDATE users
+          SET owned_style_chests = owned_style_chests + $2,
+              owned_style_rare_chests = owned_style_rare_chests + $3,
+              signin_chests_granted = true,
+              updated_at = now()
+        WHERE id = $1 AND signin_chests_granted = false
+        RETURNING owned_style_chests, owned_style_rare_chests`,
+      [id, SIGNIN_CHEST_REWARD.style, SIGNIN_CHEST_REWARD.styleRare],
+    )
+    if (welcome.rows[0]) {
+      result.rows[0].owned_style_chests = welcome.rows[0].owned_style_chests
+      result.rows[0].owned_style_rare_chests = welcome.rows[0].owned_style_rare_chests
+    }
     return result.rows[0]
   },
 
@@ -245,6 +268,23 @@ export const usersRepository = {
   // numbers to the caller's tier before they've even opened it (see the
   // dailyCase/gemChest/clickPacks GET routes) â€” no FOR UPDATE, this never
   // participates in a write transaction.
+  /** How many chests of each kind the player is holding, keyed by the same
+   *  ids the bench uses. Only the two style ones pay their own way on the
+   *  bench today; the other two are held stock the daily case spends. */
+  async getOwnedChests(id) {
+    const r = await database.query(
+      'SELECT owned_click_chests, owned_gem_chests, owned_style_chests, owned_style_rare_chests FROM users WHERE id = $1',
+      [id],
+    )
+    const u = r.rows[0]
+    return {
+      material: Number(u?.owned_click_chests ?? 0),
+      gems: Number(u?.owned_gem_chests ?? 0),
+      style: Number(u?.owned_style_chests ?? 0),
+      styleRare: Number(u?.owned_style_rare_chests ?? 0),
+    }
+  },
+
   async getPrestigeTier(id) {
     const result = await database.query('SELECT prestige_tier FROM users WHERE id = $1', [id])
     return Number(result.rows[0]?.prestige_tier ?? 0)
@@ -973,12 +1013,29 @@ export const usersRepository = {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const row = await client.query('SELECT keys, prestige_tier FROM users WHERE id = $1 FOR UPDATE', [id])
+      const row = await client.query(
+        'SELECT keys, prestige_tier, owned_style_chests, owned_style_rare_chests FROM users WHERE id = $1 FOR UPDATE',
+        [id],
+      )
       const user = row.rows[0]
       if (!user) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-found' }
       }
+      // Granted chests are spent before keys, under the same lock the key
+      // check already runs under, so two pulls in flight cannot both claim
+      // the last one. Each covered chest simply stops contributing its own
+      // price, which is why the plan carries that price with it.
+      const held = { style: Number(user.owned_style_chests), styleRare: Number(user.owned_style_rare_chests) }
+      const spent = { style: 0, styleRare: 0 }
+      for (const step of plan) {
+        if (held[step.chest] > spent[step.chest]) {
+          spent[step.chest] += 1
+          keyCost -= step.keyCost ?? 0
+        }
+      }
+      if (keyCost < 0) keyCost = 0
+
       if (Number(user.keys) < keyCost) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-enough-keys' }
@@ -1052,10 +1109,12 @@ export const usersRepository = {
              gems = gems + $3,
              keys = keys - $4,
              cases_opened = cases_opened + $5,
+             owned_style_chests = owned_style_chests - $6,
+             owned_style_rare_chests = owned_style_rare_chests - $7,
              updated_at = now()
          WHERE id = $1
-         RETURNING total_clicks, gems, keys`,
-        [id, clicksDelta, gemsDelta, keyCost, results.length],
+         RETURNING total_clicks, gems, keys, owned_style_chests, owned_style_rare_chests`,
+        [id, clicksDelta, gemsDelta, keyCost, results.length, spent.style, spent.styleRare],
       )
       await client.query('COMMIT')
       return {
@@ -1063,6 +1122,8 @@ export const usersRepository = {
         totalClicks: Number(updated.rows[0].total_clicks),
         gems: Number(updated.rows[0].gems),
         keys: Number(updated.rows[0].keys),
+        ownedStyleChests: Number(updated.rows[0].owned_style_chests),
+        ownedStyleRareChests: Number(updated.rows[0].owned_style_rare_chests),
         results,
       }
     } catch (err) {

@@ -13,8 +13,12 @@ export const chestsRouter = Router()
 chestsRouter.get('/', async (req, res) => {
   const { userId } = getAuth(req)
   const multiplier = userId ? prestigeTierMultiplier(await usersRepository.getPrestigeTier(userId)) : 1
+  const owned = userId
+    ? await usersRepository.getOwnedChests(userId)
+    : { material: 0, gems: 0, style: 0, styleRare: 0 }
   res.json({
     maxPerPull: MAX_CHESTS_PER_PULL,
+    owned,
     chests: Object.fromEntries(
       Object.entries(BENCH_CHESTS).map(([id, chest]) => [
         id,
@@ -64,8 +68,8 @@ chestsRouter.post('/open', async (req, res) => {
   const plan = chests.map((id) => {
     const chest = BENCH_CHESTS[id]
     return chest.kind === 'currency'
-      ? { chest: id, kind: 'currency', prize: chest.roll() }
-      : { chest: id, kind: 'cosmetic' }
+      ? { chest: id, kind: 'currency', keyCost: chest.keyCost, prize: chest.roll() }
+      : { chest: id, kind: 'cosmetic', keyCost: chest.keyCost }
   })
   const keyCost = chests.reduce((sum, id) => sum + BENCH_CHESTS[id].keyCost, 0)
 
@@ -78,6 +82,9 @@ chestsRouter.post('/open', async (req, res) => {
 
   res.json({
     keys: result.keys,
+    ownedStyleChests: result.ownedStyleChests,
+    ownedStyleRareChests: result.ownedStyleRareChests,
+    ownedChests: await usersRepository.getOwnedChests(userId),
     totalClicks: result.totalClicks,
     gems: result.gems,
     keyCost,

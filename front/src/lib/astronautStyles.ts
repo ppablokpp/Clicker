@@ -227,22 +227,34 @@ export const HELMET_STYLES: HelmetStyle[] = [
     visor: { from: '#a5f3fc', via: '#22d3ee', to: '#cffafe' },
   },
   {
-    id: 'esmeralda',
-    swatch: '#10b981',
+    id: 'zafiro',
+    swatch: '#3b82f6',
     shell: STANDARD_SHELL,
-    visor: { from: '#a7f3d0', via: '#10b981', to: '#6ee7b7' },
-  },
-  {
-    id: 'oro',
-    swatch: '#f59e0b',
-    shell: STANDARD_SHELL,
-    visor: { from: '#fde68a', via: '#f59e0b', to: '#fcd34d' },
+    visor: { from: '#bfdbfe', via: '#3b82f6', to: '#93c5fd' },
   },
   {
     id: 'carmesi',
     swatch: '#e11d48',
     shell: STANDARD_SHELL,
     visor: { from: '#fda4af', via: '#e11d48', to: '#fb7185' },
+  },
+  {
+    id: 'esmeralda',
+    swatch: '#10b981',
+    shell: STANDARD_SHELL,
+    visor: { from: '#a7f3d0', via: '#10b981', to: '#6ee7b7' },
+  },
+  {
+    id: 'rubi',
+    swatch: '#ef4444',
+    shell: STANDARD_SHELL,
+    visor: { from: '#fecaca', via: '#ef4444', to: '#fca5a5' },
+  },
+  {
+    id: 'oro',
+    swatch: '#f59e0b',
+    shell: STANDARD_SHELL,
+    visor: { from: '#fde68a', via: '#f59e0b', to: '#fcd34d' },
   },
   {
     // Smoked glass, not a tint: this is the one helmet whose *shell* is the
@@ -399,20 +411,12 @@ export const ACCENT_STYLES: AccentStyle[] = [
     flame: { outer: '#06b6d4', innerMid: '#cffafe', innerTo: '#67e8f9' },
   },
   {
-    id: 'esmeralda',
-    swatch: '#34d399',
-    color: '#34d399',
-    badge: { from: '#a7f3d0', to: '#10b981' },
-    pack: { from: '#2bb489', to: '#1d8767' },
-    flame: { outer: '#10b981', innerMid: '#d1fae5', innerTo: '#6ee7b7' },
-  },
-  {
-    id: 'grafito',
-    swatch: '#64748b',
-    color: '#64748b',
-    badge: { from: '#cbd5e1', to: '#64748b' },
-    pack: { from: '#5a6675', to: '#3b4552' },
-    flame: { outer: '#64748b', innerMid: '#e2e8f0', innerTo: '#94a3b8' },
+    id: 'zafiro',
+    swatch: '#3b82f6',
+    color: '#3b82f6',
+    badge: { from: '#bfdbfe', to: '#3b82f6' },
+    pack: { from: '#2f68c4', to: '#1e4a8f' },
+    flame: { outer: '#2563eb', innerMid: '#dbeafe', innerTo: '#93c5fd' },
   },
   {
     id: 'carmesi',
@@ -421,6 +425,30 @@ export const ACCENT_STYLES: AccentStyle[] = [
     badge: { from: '#fecdd3', to: '#fb7185' },
     pack: { from: '#e05f70', to: '#ad4453' },
     flame: { outer: '#e11d48', innerMid: '#ffe4e6', innerTo: '#fda4af' },
+  },
+  {
+    id: 'esmeralda',
+    swatch: '#34d399',
+    color: '#34d399',
+    badge: { from: '#a7f3d0', to: '#10b981' },
+    pack: { from: '#2bb489', to: '#1d8767' },
+    flame: { outer: '#10b981', innerMid: '#d1fae5', innerTo: '#6ee7b7' },
+  },
+  {
+    id: 'rubi',
+    swatch: '#ef4444',
+    color: '#ef4444',
+    badge: { from: '#fecaca', to: '#ef4444' },
+    pack: { from: '#c93a3a', to: '#932a2a' },
+    flame: { outer: '#dc2626', innerMid: '#fee2e2', innerTo: '#fca5a5' },
+  },
+  {
+    id: 'grafito',
+    swatch: '#64748b',
+    color: '#64748b',
+    badge: { from: '#cbd5e1', to: '#64748b' },
+    pack: { from: '#5a6675', to: '#3b4552' },
+    flame: { outer: '#64748b', innerMid: '#e2e8f0', innerTo: '#94a3b8' },
   },
 ]
 
@@ -433,9 +461,11 @@ const SHARED_ACCESSORY_COLORS = [
   { id: 'violeta', color: '#a855f7' },
   { id: 'oro', color: '#fbbf24' },
   { id: 'diamante', color: '#22d3ee' },
-  { id: 'esmeralda', color: '#34d399' },
+  { id: 'zafiro', color: '#3b82f6' },
   { id: 'grafito', color: '#64748b' },
   { id: 'carmesi', color: '#fb7185' },
+  { id: 'esmeralda', color: '#34d399' },
+  { id: 'rubi', color: '#ef4444' },
 ] as const
 
 export const BRACELET_STYLES: BraceletStyle[] = SHARED_ACCESSORY_COLORS.map(({ id, color }) => ({
@@ -448,9 +478,11 @@ export const BELT_STYLES: BeltStyle[] = [
   { id: 'violeta', swatch: '#a855f7', band: { from: '#8b46cc', mid: '#c99cf5', to: '#63339a' } },
   { id: 'oro', swatch: '#fbbf24', band: { from: '#d9a72e', mid: '#fcd77a', to: '#a9781c' } },
   { id: 'diamante', swatch: '#22d3ee', band: { from: '#1a9fb8', mid: '#7fe3f4', to: '#127287' } },
-  { id: 'esmeralda', swatch: '#34d399', band: { from: '#26a67e', mid: '#7cebc0', to: '#197a5c' } },
+  { id: 'zafiro', swatch: '#3b82f6', band: { from: '#2f68c4', mid: '#8ab4f8', to: '#1e4a8f' } },
   { id: 'grafito', swatch: '#64748b', band: { from: '#4a5464', mid: '#8a95a5', to: '#2c333d' } },
   { id: 'carmesi', swatch: '#fb7185', band: { from: '#d8586b', mid: '#fca6b2', to: '#a63f4f' } },
+  { id: 'esmeralda', swatch: '#34d399', band: { from: '#26a67e', mid: '#7cebc0', to: '#197a5c' } },
+  { id: 'rubi', swatch: '#ef4444', band: { from: '#c93a3a', mid: '#f89090', to: '#932a2a' } },
 ]
 
 /** What a player has picked, stored as ids so the palettes can be retuned. */

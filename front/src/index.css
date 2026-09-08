@@ -14,13 +14,20 @@ body,
   height: 100%;
 }
 
-/* `overscroll-behavior: none` on body stops scroll *chaining* past it, but
-   Safari's rubber-band bounce still visually happens regardless — it just
-   reveals whatever's behind body instead, which is `html`. Without its own
-   matching background, that showed as a wrong (grey/white) flash at the top
-   and bottom edges on every overscroll. */
+/* The viewport takes its overscroll behaviour from the ROOT element, and
+   only from there: unlike `overflow`, `overscroll-behavior` is explicitly
+   not propagated from body. It lived on body alone for a long time, which
+   is why the scrolling pages (Tienda, Clasificación, Estadísticas,
+   Personalizar — Home never scrolls, so it was never affected) still
+   rubber-banded on mobile, dragging the fixed nav pill up with the whole
+   page. Declared here it actually applies.
+
+   The background stays too: even with the bounce suppressed, any residual
+   overscroll reveals whatever is behind body, which is html, and without a
+   matching colour that flashed grey at the top and bottom edges. */
 html {
   background: #08080c;
+  overscroll-behavior: none;
 }
 
 body {

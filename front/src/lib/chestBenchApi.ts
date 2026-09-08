@@ -9,6 +9,16 @@ export type ChestBatchResult =
   | { chest: string; kind: 'currency'; prizeId: string; prizeAmount: number; currency: 'clicks' | 'gems' }
   | { chest: string; kind: 'cosmetic'; slot: string; itemId: string }
 
+/** How many chests the player is holding, keyed by chest id. */
+export async function fetchOwnedChests(token: string | null): Promise<Record<string, number>> {
+  const res = await fetch(`${API_URL}/api/chests`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error('owned-chests-failed')
+  const data = await res.json()
+  return data.owned ?? { material: 0, gems: 0, style: 0, styleRare: 0 }
+}
+
 export interface OpenChestsResponse {
   ok: boolean
   error?: string
@@ -16,6 +26,10 @@ export interface OpenChestsResponse {
   totalClicks?: number
   gems?: number
   keyCost?: number
+  /** Fresh counts after the pull, so the bench can stop showing a spent one. */
+  ownedStyleChests?: number
+  ownedStyleRareChests?: number
+  ownedChests?: Record<string, number>
   results?: ChestBatchResult[]
 }
 

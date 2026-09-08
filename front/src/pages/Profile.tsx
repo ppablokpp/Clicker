@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, ChevronRight, Crown, Languages, LogOut, Mail, Pencil, Settings, Volume2, VolumeX, X } from 'lucide-react'
+import { Check, ChevronRight, Crown, Languages, LogOut, Mail, Pencil, Settings, Shirt, Volume2, VolumeX, X } from 'lucide-react'
+import { SIGNIN_CHEST_REWARD } from '../store/chestBench'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -162,6 +163,23 @@ export function Profile() {
         <div className="mt-4">
           <p className="text-base font-semibold text-white">{strings.profile.signedOutTitle}</p>
           <p className="mt-1 text-sm text-neutral-500">{strings.profile.signedOutBody}</p>
+        </div>
+        {/* The numbers come from the same constant the server grants from,
+            so what is promised here and what lands cannot drift apart. */}
+        <div className="mt-4 flex w-full max-w-xs items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/[0.06] px-4 py-3 text-left">
+          <div className="flex shrink-0 items-center">
+            <Shirt size={18} className="text-amber-300" />
+            <Shirt size={18} className="-ml-2 text-amber-300/45" />
+            <Shirt size={18} className="-ml-2 text-amber-300/20" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+              {strings.profile.signInRewardTitle}
+            </p>
+            <p className="mt-0.5 text-xs leading-snug text-neutral-400">
+              {strings.profile.signInRewardBody(SIGNIN_CHEST_REWARD.style, SIGNIN_CHEST_REWARD.styleRare)}
+            </p>
+          </div>
         </div>
         <button
           onClick={promptSignIn}

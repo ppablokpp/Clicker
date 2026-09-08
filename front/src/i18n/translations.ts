@@ -148,6 +148,8 @@ export interface TranslationStrings {
     signOut: string
     signedOutTitle: string
     signedOutBody: string
+    signInRewardTitle: string
+    signInRewardBody: (style: number, rare: number) => string
     signIn: string
     errorUsernameTaken: string
     errorUsernameInvalid: string
@@ -247,6 +249,7 @@ export interface TranslationStrings {
     cosmeticRarityNames: Record<string, string>
     // Chest bench — the chest card's rack/batch flow, see ChestBench.tsx.
     chestBenchAdd: string
+    chestGranted: string
     chestBenchSelected: (count: number, max: number) => string
     chestBenchClear: string
     chestBenchEmpty: string
@@ -391,7 +394,7 @@ export interface TranslationStrings {
   battle: {
     buttonLabel: string
     modalTitle: string
-    description: (wager: string, seconds: number) => string
+    description: (seconds: number) => string
     newBattle: string
     incomingSection: string
     historySection: string
@@ -602,6 +605,9 @@ export const translations: Record<Language, TranslationStrings> = {
       signedOutTitle: 'Inicia sesión para tener un perfil',
       signedOutBody:
         'Tu progreso ya se está guardando de forma local. Inicia sesión para guardarlo en la nube y poder competir contra otros jugadores en la clasificación.',
+      signInRewardTitle: 'Regalo de bienvenida',
+      signInRewardBody: (style, rare) =>
+        `Al iniciar sesión recibes ${style} cofres de estilo y ${rare} cofre de estilo raro.`,
       signIn: 'Iniciar sesión',
       errorUsernameTaken: 'Ese nombre ya está en uso. Prueba con otro.',
       errorUsernameInvalid: 'Ese nombre no es válido. Usa entre 4 y 20 caracteres, sin símbolos ni acentos, y no solo números.',
@@ -669,7 +675,9 @@ export const translations: Record<Language, TranslationStrings> = {
         anillos: 'Anillos',
         estrella: 'Estrella',
         rayo: 'Rayo',
+        zafiro: 'Zafiro',
         esmeralda: 'Esmeralda',
+        rubi: 'Rubí',
         oro: 'Oro',
         carmesi: 'Carmesí',
         grafito: 'Grafito',
@@ -698,6 +706,8 @@ export const translations: Record<Language, TranslationStrings> = {
 
         'helmet:estandar': 'Casco blanco de reglamento con visera violeta. El que llevan todos el primer día.',
         'helmet:diamante': 'Cristal diamante sobre el casco de siempre. Frío y limpio.',
+        'helmet:zafiro': 'Visera de zafiro, azul profundo de vuelo nocturno.',
+        'helmet:rubi': 'Visera de rubí, roja como la alarma que nunca suena.',
         'helmet:esmeralda': 'Visera esmeralda, la favorita de los pilotos de sonda.',
         'helmet:oro': 'Visera dorada con tratamiento antirreflejos. Cara, y se nota.',
         'helmet:carmesi': 'Cristal carmesí. Se ve venir desde el otro lado del hangar.',
@@ -720,6 +730,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'belt:violeta': 'Cinturón violeta de reglamento con hebilla cuadrada.',
         'belt:oro': 'Banda y hebilla doradas. Puro adorno, y esa es la idea.',
         'belt:diamante': 'Una banda diamante que parte el traje por la mitad.',
+        'belt:zafiro': 'Azul zafiro con veta clara en el centro.',
+        'belt:rubi': 'Rojo rubí, mate por fuera y encendido por dentro.',
         'belt:esmeralda': 'Verde esmeralda con brillo de resina.',
         'belt:grafito': 'Banda gunmetal, discreta a propósito.',
         'belt:carmesi': 'Rojo carmesí. La línea más visible del traje.',
@@ -727,6 +739,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'bracelet:violeta': 'Muñequeras violeta a juego con el equipo básico.',
         'bracelet:oro': 'Puños dorados. Lo primero que se ve al saludar.',
         'bracelet:diamante': 'Diamante eléctrico en las dos muñecas.',
+        'bracelet:zafiro': 'Azul zafiro con acabado esmaltado.',
+        'bracelet:rubi': 'Rojo rubí pulido a mano.',
         'bracelet:esmeralda': 'Verde esmeralda con acabado esmaltado.',
         'bracelet:grafito': 'Gunmetal sobrio, para quien no quiere brillo.',
         'bracelet:carmesi': 'Carmesí intenso en los puños del traje.',
@@ -759,6 +773,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'accent:violeta': 'Violeta en vivos, mochila y propulsor. El color de la casa.',
         'accent:oro': 'Dorado en todos los detalles del traje.',
         'accent:diamante': 'Diamante frío recorriendo el equipo.',
+        'accent:zafiro': 'Azul zafiro en los vivos y en la llama.',
+        'accent:rubi': 'Rojo rubí en los vivos y en la llama.',
         'accent:esmeralda': 'Verde esmeralda en los vivos y en la llama.',
         'accent:grafito': 'Detalles gunmetal. Apaga el traje entero.',
         'accent:carmesi': 'Carmesí en cada vivo del equipo.',
@@ -830,6 +846,7 @@ export const translations: Record<Language, TranslationStrings> = {
         gold: 'Excepcional',
       },
       chestBenchAdd: 'Añadir',
+      chestGranted: 'Gratis',
       chestBenchSelected: (count, max) => `${count}/${max} en la mesa`,
       chestBenchClear: 'Vaciar',
       chestBenchEmpty: 'Añade un cofre para empezar',
@@ -1042,8 +1059,8 @@ export const translations: Record<Language, TranslationStrings> = {
     battle: {
       buttonLabel: 'Duelo',
       modalTitle: 'Duelo estelar',
-      description: (wager, seconds) =>
-        `Reta a quien quieras a un duelo de disparos. Tenéis ${seconds} segundos para clicar todo lo que podáis — quien haga más se lleva ${wager} de mineral del otro.`,
+      description: (seconds) =>
+        `Reta a quien quieras a un duelo de disparos. Tenéis ${seconds} segundos para clicar todo lo que podáis — quien haga más se lleva la apuesta del otro. Tú eliges cuánto apostar en cada duelo.`,
       newBattle: 'Nuevo duelo',
       incomingSection: 'Duelos pendientes',
       historySection: 'Historial',
@@ -1256,6 +1273,9 @@ export const translations: Record<Language, TranslationStrings> = {
       signedOutTitle: 'Sign in to get a profile',
       signedOutBody:
         'Your progress is already being saved locally. Sign in to save it to the cloud and compete against other players on the leaderboard.',
+      signInRewardTitle: 'Welcome gift',
+      signInRewardBody: (style, rare) =>
+        `Sign in and you get ${style} style chests and ${rare} rare style chest.`,
       signIn: 'Sign in',
       errorUsernameTaken: 'That name is already taken. Try another one.',
       errorUsernameInvalid: 'That name is not valid. Use 4-20 characters, no symbols or accents, and not only numbers.',
@@ -1323,7 +1343,9 @@ export const translations: Record<Language, TranslationStrings> = {
         anillos: 'Rings',
         estrella: 'Star',
         rayo: 'Bolt',
+        zafiro: 'Sapphire',
         esmeralda: 'Emerald',
+        rubi: 'Ruby',
         oro: 'Gold',
         carmesi: 'Crimson',
         grafito: 'Graphite',
@@ -1352,6 +1374,8 @@ export const translations: Record<Language, TranslationStrings> = {
 
         'helmet:estandar': 'Standard-issue white shell with a violet visor. What everyone wears on day one.',
         'helmet:diamante': 'Diamond glass over the usual shell. Cold and clean.',
+        'helmet:zafiro': 'Sapphire visor, deep night-flight blue.',
+        'helmet:rubi': 'Ruby visor, red as the alarm that never sounds.',
         'helmet:esmeralda': 'Emerald visor, the probe pilots’ favourite.',
         'helmet:oro': 'Gold visor with an anti-glare coat. Expensive, and it shows.',
         'helmet:carmesi': 'Crimson glass. Visible from the far side of the hangar.',
@@ -1374,6 +1398,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'belt:violeta': 'Regulation violet belt with a square buckle.',
         'belt:oro': 'Gold band and buckle. Pure decoration, which is the point.',
         'belt:diamante': 'A diamond band cutting the suit in half.',
+        'belt:zafiro': 'Sapphire blue with a bright seam down the middle.',
+        'belt:rubi': 'Ruby red, matte outside and lit within.',
         'belt:esmeralda': 'Emerald green with a resin sheen.',
         'belt:grafito': 'Gunmetal band, understated on purpose.',
         'belt:carmesi': 'Crimson red. The most visible line on the suit.',
@@ -1381,6 +1407,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'bracelet:violeta': 'Violet cuffs matching the standard kit.',
         'bracelet:oro': 'Gold cuffs. The first thing people see when you wave.',
         'bracelet:diamante': 'Electric diamond on both wrists.',
+        'bracelet:zafiro': 'Sapphire blue with an enamelled finish.',
+        'bracelet:rubi': 'Hand-polished ruby red.',
         'bracelet:esmeralda': 'Emerald green with an enamelled finish.',
         'bracelet:grafito': 'Sober gunmetal, for anyone who’d rather not shine.',
         'bracelet:carmesi': 'Deep crimson at the cuffs of the suit.',
@@ -1413,6 +1441,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'accent:violeta': 'Violet on the trim, the pack and the thruster. The house colour.',
         'accent:oro': 'Gold across every detail of the suit.',
         'accent:diamante': 'Cold diamond running through the gear.',
+        'accent:zafiro': 'Sapphire blue on the trim and the flame.',
+        'accent:rubi': 'Ruby red on the trim and the flame.',
         'accent:esmeralda': 'Emerald green on the trim and the flame.',
         'accent:grafito': 'Gunmetal details. Turns the whole suit down.',
         'accent:carmesi': 'Crimson on every piece of trim.',
@@ -1484,6 +1514,7 @@ export const translations: Record<Language, TranslationStrings> = {
         gold: 'Exceptional',
       },
       chestBenchAdd: 'Add',
+      chestGranted: 'Free',
       chestBenchSelected: (count, max) => `${count}/${max} on the bench`,
       chestBenchClear: 'Clear',
       chestBenchEmpty: 'Add a chest to get started',
@@ -1695,8 +1726,8 @@ export const translations: Record<Language, TranslationStrings> = {
     battle: {
       buttonLabel: 'Duel',
       modalTitle: 'Stellar Duel',
-      description: (wager, seconds) =>
-        `Challenge anyone to a shooting duel. You both get ${seconds} seconds to click as much as you can — whoever taps more takes ${wager} ore from the other.`,
+      description: (seconds) =>
+        `Challenge anyone to a shooting duel. You both get ${seconds} seconds to click as much as you can — whoever taps more takes the other's stake. You pick how much to wager on each duel.`,
       newBattle: 'New duel',
       incomingSection: 'Pending duels',
       historySection: 'History',

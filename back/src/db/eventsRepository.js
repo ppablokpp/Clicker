@@ -2,6 +2,20 @@ import { database } from './pool.js'
 import { EVENT_MIN_INTERVAL_SECONDS } from '../events/config.js'
 import { ANOMALY_UNLOCK_NODE_ID } from '../tree/anomalyUnlock.js'
 import { ANOMALY_REWARD_NODE_ID, anomalyRewardValue } from '../tree/anomalyReward.js'
+import { TRAJECTORY_TIER_THRESHOLDS } from '../game/trajectory.js'
+
+/**
+ * Ceiling on one Anomalía payout, as a fraction of the tier's own goal.
+ *
+ * Extracción pays a percentage of whatever you are holding, which is fine
+ * mid-run and absurd right before a prestige: a player sitting on a full
+ * tier's worth of material could take a tenth of the next asteroid off a
+ * single 15-second minigame. The cap is randomised across a small band so a
+ * capped payout still reads as a roll rather than as the same flat number
+ * every time you are rich.
+ */
+const ANOMALY_CAP_MIN_PCT = 0.04
+const ANOMALY_CAP_MAX_PCT = 0.05
 
 export const eventsRepository = {
   // Pays out anomalyRewardValue(level) of whatever total_clicks is *right
@@ -18,7 +32,7 @@ export const eventsRepository = {
       await client.query('BEGIN')
 
       const userRow = await client.query(
-        'SELECT total_clicks, last_event_reward_at FROM users WHERE id = $1 FOR UPDATE',
+        'SELECT total_clicks, last_event_reward_at, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
         [userId],
       )
       if (!userRow.rows[0]) {
@@ -51,7 +65,12 @@ export const eventsRepository = {
       const anomalyRewardLevel = Number(anomalyRewardRow.rows[0]?.level ?? 0)
 
       const totalClicks = Number(userRow.rows[0].total_clicks)
-      const reward = Math.floor(totalClicks * anomalyRewardValue(anomalyRewardLevel))
+      // The node's own percentage still decides the payout; the cap only
+      // bites when you are holding a large fraction of the tier already.
+      const goal = TRAJECTORY_TIER_THRESHOLDS[Number(userRow.rows[0].prestige_tier) + 1]
+      const capPct = ANOMALY_CAP_MIN_PCT + Math.random() * (ANOMALY_CAP_MAX_PCT - ANOMALY_CAP_MIN_PCT)
+      const cap = goal ? goal * capPct : Infinity
+      const reward = Math.floor(Math.min(totalClicks * anomalyRewardValue(anomalyRewardLevel), cap))
       if (reward <= 0) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'nothing-to-reward' }

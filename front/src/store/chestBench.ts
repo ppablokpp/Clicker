@@ -23,6 +23,13 @@ export const CHEST_ORDER: ChestId[] = ['material', 'gems', 'style', 'styleRare']
  * Display only — the server charges from its own copy of these
  * (back/src/store/chestBench.js). Keep the two in step.
  */
+/**
+ * What a new account is handed the first time it signs in. Mirrors
+ * back/src/store/chestBench.js — the profile advertises these numbers before
+ * you sign in, and the server grants from its own copy.
+ */
+export const SIGNIN_CHEST_REWARD = { style: 5, styleRare: 1 }
+
 export const CHEST_KEY_COST: Record<ChestId, number> = {
   material: 1,
   gems: 10,

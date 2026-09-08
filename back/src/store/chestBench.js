@@ -22,6 +22,14 @@ export const MAX_CHESTS_PER_PULL = 5
  * - 'cosmetic' chests roll INSIDE it, because the pool depends on what the
  *   user already owns — see rollCosmetic's no-duplicates rule.
  */
+/**
+ * What a new account is handed the first time it signs in.
+ *
+ * Advertised on the profile before you sign in, so the numbers the player is
+ * promised and the numbers they are given are read from the same place.
+ */
+export const SIGNIN_CHEST_REWARD = { style: 5, styleRare: 1 }
+
 export const BENCH_CHESTS = {
   material: { kind: 'currency', keyCost: 1, prizes: CASE_PRIZES, roll: pickWeightedPrize },
   gems: { kind: 'currency', keyCost: 10, prizes: GEM_CHEST_PRIZES, roll: pickGemChestPrize },

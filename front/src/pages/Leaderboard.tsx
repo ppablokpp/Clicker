@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Loader2, Medal, Minus, Plus, Search, Swords, User, X, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Medal, Minus, Plus, Search, Swords, X, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import { useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
@@ -214,16 +214,10 @@ const WIN_CARD_STYLE = 'border-green-400/25 bg-[#0f1f16]'
 const LOSE_CARD_STYLE = 'border-red-400/25 bg-[#1f0d0d]'
 const TIE_CARD_STYLE = 'border-white/5 bg-white/[0.02]'
 
-function HistorySide({ avatarUrl, name, value }: { avatarUrl: string | null; name: string | null; value: number | null }) {
+function HistorySide({ style, name, value }: { style: unknown; name: string | null; value: number | null }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-      ) : (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-          <User size={14} />
-        </div>
-      )}
+      <AstronautHeadshot size={32} styleIds={normalizeStyle(style)} />
       <span className="max-w-full truncate text-[11px] font-medium text-neutral-300">{name ?? '—'}</span>
       <span className="font-[Space_Grotesk] text-lg font-bold tabular-nums text-white">{value ?? 0}</span>
     </div>
@@ -241,7 +235,7 @@ function BattlesModal({
 }) {
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
-  const { wager, durationSeconds, battles, isLoadingBattles, fetchBattles, accept } = useBattlesContext()
+  const { durationSeconds, battles, isLoadingBattles, fetchBattles, accept } = useBattlesContext()
   const { totalClicks } = useClickCounterContext()
   const { promptSignIn } = useSignInPrompt()
   const [showPicker, setShowPicker] = useState(false)
@@ -258,7 +252,6 @@ function BattlesModal({
   // accept, and ones I sent that are waiting on the other player.
   const pending = battles.filter((b) => b.status === 'awaiting_opponent')
   const history = battles.filter((b) => b.status === 'completed')
-  const canAfford = totalClicks >= wager
 
   async function handleAccept(battleId: number) {
     setAcceptingId(battleId)
@@ -295,7 +288,7 @@ function BattlesModal({
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto pr-4">
           <div className="flex flex-col gap-4">
             <p className="text-xs leading-relaxed text-neutral-500">
-              {strings.battle.description(wager.toLocaleString(locale), durationSeconds)}
+              {strings.battle.description(durationSeconds)}
             </p>
 
             {/* Battles are the one feature a guest genuinely can't have:
@@ -321,19 +314,13 @@ function BattlesModal({
                 {pending.map((b) => {
                   const isMine = b.role === 'challenger'
                   const rivalName = (isMine ? b.opponentUsername : b.challengerUsername) ?? strings.leaderboard.fallbackName
-                  const rivalAvatar = isMine ? b.opponentAvatarUrl : b.challengerAvatarUrl
+                  const rivalStyle = isMine ? b.opponentAstronautStyle : b.challengerAstronautStyle
                   return (
                     <div
                       key={b.id}
                       className="flex flex-wrap items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
                     >
-                      {rivalAvatar ? (
-                        <img src={rivalAvatar} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-                          <User size={14} />
-                        </div>
-                      )}
+                      <AstronautHeadshot size={28} styleIds={normalizeStyle(rivalStyle)} />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-200">{rivalName}</span>
                       {isMine ? (
                         <span className="shrink-0 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-1.5 text-xs font-semibold text-neutral-400">
@@ -342,17 +329,17 @@ function BattlesModal({
                       ) : (
                         <button
                           onClick={() => handleAccept(b.id)}
-                          disabled={acceptingId === b.id || !canAfford}
-                          aria-label={strings.battle.acceptButton(wager.toLocaleString(locale))}
+                          disabled={acceptingId === b.id || totalClicks < b.wager}
+                          aria-label={strings.battle.acceptButton(b.wager.toLocaleString(locale))}
                           className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-                            canAfford
+                            totalClicks >= b.wager
                               ? 'border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15 disabled:opacity-50'
                               : 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
                           }`}
                         >
                           <span className="flex items-center justify-center gap-1">
                             <PlatinumIcon size={13} className="opacity-70" />
-                            <span className="tabular-nums">{wager.toLocaleString(locale)}</span>
+                            <span className="tabular-nums">{b.wager.toLocaleString(locale)}</span>
                           </span>
                         </button>
                       )}
@@ -381,10 +368,10 @@ function BattlesModal({
                 {history.map((b) => {
                   const isMine = b.role === 'challenger'
                   const myName = (isMine ? b.challengerUsername : b.opponentUsername) ?? strings.leaderboard.fallbackName
-                  const myAvatar = isMine ? b.challengerAvatarUrl : b.opponentAvatarUrl
+                  const myStyle = isMine ? b.challengerAstronautStyle : b.opponentAstronautStyle
                   const myTaps = isMine ? b.challengerTaps : b.opponentTaps
                   const rivalName = (isMine ? b.opponentUsername : b.challengerUsername) ?? strings.leaderboard.fallbackName
-                  const rivalAvatar = isMine ? b.opponentAvatarUrl : b.challengerAvatarUrl
+                  const rivalStyle = isMine ? b.opponentAstronautStyle : b.challengerAstronautStyle
                   const rivalTaps = isMine ? b.opponentTaps : b.challengerTaps
                   const isTie = b.winnerId === null
                   const didWin = b.winnerId === userId
@@ -395,9 +382,9 @@ function BattlesModal({
                     <div key={b.id} className={`rounded-xl border px-3 py-3 ${cardStyle}`}>
                       <p className={`mb-2 text-center text-[11px] font-semibold ${resultColor}`}>{resultLabel}</p>
                       <div className="flex items-center justify-center gap-2.5">
-                        <HistorySide avatarUrl={myAvatar} name={myName} value={myTaps} />
+                        <HistorySide style={myStyle} name={myName} value={myTaps} />
                         <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-neutral-500">VS</span>
-                        <HistorySide avatarUrl={rivalAvatar} name={rivalName} value={rivalTaps} />
+                        <HistorySide style={rivalStyle} name={rivalName} value={rivalTaps} />
                       </div>
                     </div>
                   )

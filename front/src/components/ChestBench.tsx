@@ -15,7 +15,7 @@ import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useDailyCaseContext, type DailyCasePrize } from '../context/DailyCaseContext'
 import { useGemChestContext } from '../context/GemChestContext'
 import { playCaseReveal, playCaseTick } from '../lib/caseSound'
-import { openChests, type ChestBatchResult } from '../lib/chestBenchApi'
+import { fetchOwnedChests, openChests, type ChestBatchResult } from '../lib/chestBenchApi'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
 import {
   CHEST_KEY_COST,
@@ -237,6 +237,12 @@ export function ChestBench() {
   const { userId, getToken } = useAppAuth()
   const { promptSignIn } = useSignInPrompt()
   const { keys, syncKeys } = useKeysContext()
+  // How many chests of each kind this account is holding. Only the two style
+  // ones cover their own key cost on this bench; material and gems are stock
+  // the daily case spends elsewhere, so their count is shown but never
+  // discounts anything here.
+  const [held, setHeld] = useState<Record<string, number>>({ material: 0, gems: 0, style: 0, styleRare: 0 })
+  const COVERS_ITS_COST = (chest: ChestId) => chest === 'style' || chest === 'styleRare'
   const { syncGems } = useGemsContext()
   const { prestigeTier, syncTotalClicks, suspendSync, resumeSync } = useClickCounterContext()
   const { catalog: materialCatalog } = useDailyCaseContext()
@@ -301,6 +307,24 @@ export function ChestBench() {
   const [isOpening, setIsOpening] = useState(false)
   const [results, setResults] = useState<{ uid: number; item: LaneItem }[]>([])
   const [catalogFor, setCatalogFor] = useState<ChestId | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const token = await getToken()
+        const counts = await fetchOwnedChests(token)
+        if (!cancelled) setHeld(counts)
+      } catch {
+        // A failed read just means no free chests are shown; the server is
+        // still the one that decides what a pull costs.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId, getToken])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -322,7 +346,16 @@ export function ChestBench() {
     }
   }, [resumeSync])
 
-  const totalCost = picks.reduce((sum, p) => sum + CHEST_KEY_COST[p.chest], 0)
+  // Mirrors openChestBatch: granted chests are consumed first, cheapest
+  // accounting first, and only what is left over is priced in keys.
+  const remaining = { ...held }
+  const totalCost = picks.reduce((sum, p) => {
+    if (COVERS_ITS_COST(p.chest) && (remaining[p.chest] ?? 0) > 0) {
+      remaining[p.chest] -= 1
+      return sum
+    }
+    return sum + CHEST_KEY_COST[p.chest]
+  }, 0)
   const countOf = (chest: ChestId) => picks.filter((p) => p.chest === chest).length
   const isBusy = isSpinning || isOpening
   // Checked here only to keep the button honest; the server re-checks it
@@ -449,6 +482,9 @@ export function ChestBench() {
       // behind the press. The winnings are the opposite: held back until the
       // reels land, or the header would spoil every result.
       if (typeof res.keys === 'number') syncKeys(res.keys)
+      // The open response carries the fresh counts, so the card stops
+      // advertising a chest that was just spent.
+      if (res.ownedChests) setHeld(res.ownedChests)
       suspendSync()
       if (typeof res.totalClicks === 'number') syncTotalClicks(res.totalClicks)
       pendingGemsRef.current = typeof res.gems === 'number' ? res.gems : null
@@ -530,18 +566,53 @@ export function ChestBench() {
                 <List size={11} />
               </button>
 
-              {isCosmeticChest(chest) ? (
-                <Shirt size={18} className={accent.text} />
-              ) : (
-                <Archive size={18} className={accent.text} />
-              )}
+              <span className="relative flex h-[18px] items-center justify-center">
+                {/* The icon you already see IS the first chest, so the ghosts
+                    behind it are however many MORE you hold — one chest draws
+                    one shape, not two. Capped so a large stack never turns
+                    the card into a smear. */}
+                {Array.from({ length: Math.min(Math.max((held[chest] ?? 0) - 1, 0), 2) }, (_, i) => (
+                  <span
+                    key={i}
+                    aria-hidden
+                    className={`absolute ${accent.text}`}
+                    style={{ transform: `translate(${(i + 1) * 3}px, ${(i + 1) * -3}px)`, opacity: 0.32 - i * 0.09 }}
+                  >
+                    {isCosmeticChest(chest) ? <Shirt size={18} /> : <Archive size={18} />}
+                  </span>
+                ))}
+                {isCosmeticChest(chest) ? (
+                  <Shirt size={18} className={`relative ${accent.text}`} />
+                ) : (
+                  <Archive size={18} className={`relative ${accent.text}`} />
+                )}
+              </span>
               <span className="text-center text-[11px] font-semibold leading-tight text-neutral-300">
                 {chestName[chest]}
               </span>
-              <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums text-amber-200/90">
-                <Key size={11} className="opacity-70" />
-                {CHEST_KEY_COST[chest]}
-              </span>
+              {(held[chest] ?? 0) > 0 ? (
+                <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums">
+                  {/* The price only reads as free where a held chest actually
+                      pays it. On the other two it stays, with the count
+                      beside it — saying GRATIS there would be a lie. */}
+                  {COVERS_ITS_COST(chest) ? (
+                    <span className={`${accent.text} uppercase tracking-wide`}>{s.chestGranted}</span>
+                  ) : (
+                    <>
+                      <Key size={11} className="text-amber-200/90 opacity-70" />
+                      <span className="text-amber-200/90">{CHEST_KEY_COST[chest]}</span>
+                    </>
+                  )}
+                  <span className={`rounded-full px-1.5 py-px text-[10px] ${accent.ring} border bg-black/30 ${accent.text}`}>
+                    ×{held[chest]}
+                  </span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums text-amber-200/90">
+                  <Key size={11} className="opacity-70" />
+                  {CHEST_KEY_COST[chest]}
+                </span>
+              )}
 
               {count === 0 ? (
                 <button

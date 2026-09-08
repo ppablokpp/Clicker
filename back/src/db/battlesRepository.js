@@ -38,7 +38,9 @@ export const battlesRepository = {
       `SELECT b.id, b.challenger_id, b.opponent_id, b.wager, b.status,
               b.challenger_taps, b.opponent_taps, b.winner_id, b.created_at, b.resolved_at,
               uc.username AS challenger_username, uc.avatar_url AS challenger_avatar_url,
-              uo.username AS opponent_username, uo.avatar_url AS opponent_avatar_url
+              uc.astronaut_style AS challenger_astronaut_style,
+              uo.username AS opponent_username, uo.avatar_url AS opponent_avatar_url,
+              uo.astronaut_style AS opponent_astronaut_style
        FROM battles b
        JOIN users uc ON uc.id = b.challenger_id
        JOIN users uo ON uo.id = b.opponent_id
@@ -57,7 +59,9 @@ export const battlesRepository = {
       winnerId: row.winner_id,
       challengerUsername: row.challenger_username,
       challengerAvatarUrl: row.challenger_avatar_url,
+      challengerAstronautStyle: row.challenger_astronaut_style ?? null,
       opponentUsername: row.opponent_username,
+      opponentAstronautStyle: row.opponent_astronaut_style ?? null,
       opponentAvatarUrl: row.opponent_avatar_url,
       createdAt: row.created_at,
       resolvedAt: row.resolved_at,
