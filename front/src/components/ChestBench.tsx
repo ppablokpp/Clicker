@@ -1,11 +1,12 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
-import { Archive, Gem, List, Loader2, Minus, Plus, X } from 'lucide-react'
+import { Gem, List, Loader2, Minus, Plus, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
 import { MineralIcon } from './MaterialIcons'
 import { ChestCatalogModal } from './ChestCatalogModal'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { VaultChest, VaultKey } from './VaultChest'
+import { StampedHeading } from './StampedHeading'
 import { useLanguage } from '../context/LanguageContext'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -531,30 +532,37 @@ export function ChestBench() {
   const lanes = spin?.lanes ?? []
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-red-500/10 blur-2xl" />
-
-      <div className="relative mb-1 flex items-center gap-2">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400/30 to-rose-500/20 text-red-200">
-          <Archive size={17} />
-        </div>
-        <div className="text-base font-semibold text-white">{s.casesSection}</div>
-        <button
-          onClick={handleClaimKey}
-          disabled={claimedToday || isClaiming}
-          aria-label={s.claimDailyKey}
-          className={`ml-auto flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-            claimedToday
-              ? 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-              : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-          }`}
-        >
-          <VaultKey tone="key" size={28} />
-          {isClaiming ? s.claimingKey : claimedToday ? formatCountdown(cooldownSecondsLeft) : s.claimDailyKey}
-        </button>
-      </div>
-
-      <p className="relative mb-5 mt-4 text-sm text-neutral-500">{s.casesSubtitle}</p>
+    <div className="relative">
+      {/* The same stamp every section of the store wears, so they read as one
+          hand. Red, not the shop's violet: this section has been red since it
+          had an icon, the shops either side are amber and indigo, and the form
+          is what makes them a family while the colour keeps them apart. */}
+      <StampedHeading
+        ruleFrom="bg-gradient-to-r from-transparent to-red-300/50"
+        ruleTo="bg-gradient-to-l from-transparent to-red-300/50"
+        tone="text-red-50"
+        className="mb-6"
+      >
+        {s.casesSection}
+      </StampedHeading>
+      {/* The claim it always was — plain pill, plain label — only run the
+          full width now that the heading above it is full width too. It
+          hands you a key rather than spending any, so it stays out of the
+          bench card below and off the console styling: mono caps and a lit
+          edge would read as part of a machine this button is not part of. */}
+      <button
+        onClick={handleClaimKey}
+        disabled={claimedToday || isClaiming}
+        aria-label={s.claimDailyKey}
+        className={`relative mb-5 mt-2 flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+          claimedToday
+            ? 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+            : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
+        }`}
+      >
+        <VaultKey tone="key" size={28} />
+        {isClaiming ? s.claimingKey : claimedToday ? formatCountdown(cooldownSecondsLeft) : s.claimDailyKey}
+      </button>
 
       {/* The rack. Two per row, every chest priced in the one currency. */}
       <div className="relative mb-4 grid grid-cols-2 gap-3">
@@ -706,183 +714,192 @@ export function ChestBench() {
         })}
       </div>
 
-      <div className="relative mb-2 flex items-center justify-between text-xs">
-        <span className="font-semibold tabular-nums text-neutral-400">
-          {s.chestBenchSelected(picks.length, MAX_SELECTED)}
-        </span>
-        {picks.length > 0 && !isBusy && (
-          <button
-            onClick={() => setPicks([])}
-            className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-2 py-0.5 font-semibold text-neutral-400 transition-colors hover:bg-white/[0.07] hover:text-neutral-200"
-          >
-            <X size={11} />
-            {s.chestBenchClear}
-          </button>
-        )}
-      </div>
+      {/* The bench itself in a card: how many are on it, the reel, and the
+          button that spends your keys. The rack above stays outside — every
+          chest already sits in a card of its own, and wrapping four cards in
+          a fifth is the box-inside-a-box this section just got rid of.
 
-      {/* One machine, N lanes. The pointer rail is on the container and runs
-          through the gaps between lanes, which is what stops five reels from
-          reading as five separate widgets stacked up. */}
-      <div ref={viewportRef} className="relative mb-3">
-        {picks.length > 0 && (
-          <>
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-red-300/70 shadow-[0_0_8px_rgba(252,165,165,0.8)]" />
-            <div className="pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-red-300" />
-            <div className="pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-red-300" />
-          </>
-        )}
+          What is left inside is one machine: the count feeds the reel, the
+          reel feeds the button, and the button prices all three. */}
+      <div className="relative mt-4 rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+        <div className="relative mb-2 flex items-center justify-between text-xs">
+          <span className="font-semibold tabular-nums text-neutral-400">
+            {s.chestBenchSelected(picks.length, MAX_SELECTED)}
+          </span>
+          {picks.length > 0 && !isBusy && (
+            <button
+              onClick={() => setPicks([])}
+              className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-2 py-0.5 font-semibold text-neutral-400 transition-colors hover:bg-white/[0.07] hover:text-neutral-200"
+            >
+              <X size={11} />
+              {s.chestBenchClear}
+            </button>
+          )}
+        </div>
 
-        <div className="flex flex-col gap-1.5">
-          {picks.length === 0 && (
-            <div className="flex h-[92px] items-center justify-center rounded-xl border border-dashed border-white/[0.07] bg-black/20 px-6 text-center text-xs text-neutral-600">
-              {s.chestBenchEmpty}
-            </div>
+        {/* One machine, N lanes. The pointer rail is on the container and runs
+            through the gaps between lanes, which is what stops five reels from
+            reading as five separate widgets stacked up. */}
+        <div ref={viewportRef} className="relative mb-3">
+          {picks.length > 0 && (
+            <>
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-0.5 -translate-x-1/2 bg-red-300/70 shadow-[0_0_8px_rgba(252,165,165,0.8)]" />
+              <div className="pointer-events-none absolute -top-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-red-300" />
+              <div className="pointer-events-none absolute -bottom-1 left-1/2 z-10 h-2 w-2 -translate-x-1/2 rotate-45 bg-red-300" />
+            </>
           )}
 
-          {picks.map((pick, i) => {
-            const lane = lanes.find((l) => l.uid === pick.uid)
-            const accent = CHEST_ACCENT[pick.chest]
-            return (
-              <div
-                key={pick.uid}
-                className="relative overflow-hidden rounded-xl border border-white/5 bg-black/30"
-                style={{ height: LANE_HEIGHT }}
-              >
-                <span
-                  className={`pointer-events-none absolute left-2 top-1.5 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${accent.chip} ${accent.text}`}
-                >
-                  {chestName[pick.chest]}
-                </span>
-
-                {lane && spin ? (
-                  <motion.div
-                    key={`${spin.id}-${lane.uid}`}
-                    className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center"
-                    style={{ gap: GAP }}
-                    initial={{ x: 0 }}
-                    animate={{ x: -lane.targetX }}
-                    transition={{
-                      duration: BASE_SPIN_SECONDS,
-                      delay: lane.delay,
-                      ease: [0.12, 0.72, 0.29, 1],
-                    }}
-                    onUpdate={
-                      // Only the top lane drives the tick. Five lanes ticking
-                      // in parallel is not five times the feedback, it's
-                      // noise — one rail, one sound.
-                      i === 0
-                        ? (latest) => {
-                            const x = typeof latest.x === 'number' ? latest.x : 0
-                            const width = viewportRef.current?.clientWidth ?? 320
-                            const index = Math.floor((width / 2 - x) / SPAN)
-                            if (index !== lastTickIndexRef.current) {
-                              lastTickIndexRef.current = index
-                              playCaseTick()
-                            }
-                          }
-                        : undefined
-                    }
-                    onAnimationComplete={() => {
-                      const won = lane.result
-                      setResults((prev) => [...prev, { uid: lane.uid, item: won }])
-                      // Reveal pitch rises with how good the pull was: the
-                      // rarity ladder for cosmetics, the catalogue's own order
-                      // for currency (both run cheapest-first).
-                      const table = lane.chest === 'gems' ? gemCatalog : materialCatalog
-                      const tier =
-                        won.kind === 'cosmetic'
-                          ? COSMETIC_RARITY_ORDER.indexOf(won.item.rarity)
-                          : table.findIndex((p) => p.id === won.prize.id)
-                      playCaseReveal(tier < 0 ? 0 : tier)
-                      landedRef.current += 1
-                      if (landedRef.current >= lanes.length) settle()
-                    }}
-                  >
-                    {lane.items.map((item, j) => (
-                      <LaneTile key={j} item={item} label={labelFor(item)} />
-                    ))}
-                  </motion.div>
-                ) : (
-                  <IdleLane items={pick.idle} labelFor={labelFor} />
-                )}
+          <div className="flex flex-col gap-1.5">
+            {picks.length === 0 && (
+              <div className="flex h-[92px] items-center justify-center rounded-xl border border-dashed border-white/[0.07] bg-black/20 px-6 text-center text-xs text-neutral-600">
+                {s.chestBenchEmpty}
               </div>
-            )
-          })}
-        </div>
-      </div>
+            )}
 
-      {/* The haul, as one row of chips — five separate reveal panels would be
-          taller than the machine that produced them. */}
-      {results.length > 0 && (
-        <div className="relative mb-3 flex flex-wrap gap-1.5">
-          {results.map(({ uid, item }) => {
-            const style = laneItemStyle(item)
-            return (
-              <motion.span
-                key={uid}
-                initial={{ opacity: 0, scale: 0.85, y: -4 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-bold"
-                style={{
-                  borderColor: `${style.color}55`,
-                  backgroundColor: `${style.color}14`,
-                  color: style.color,
-                }}
-              >
-                {item.kind === 'cosmetic' ? (
-                  <AstronautPieceById slot={item.item.slot} id={item.item.id} size={18} />
-                ) : item.prize.currency === 'gems' ? (
-                  <Gem size={11} />
-                ) : (
-                  <MineralIcon size={16} />
-                )}
-                <span className="tabular-nums">{labelFor(item)}</span>
-              </motion.span>
-            )
-          })}
-        </div>
-      )}
+            {picks.map((pick, i) => {
+              const lane = lanes.find((l) => l.uid === pick.uid)
+              const accent = CHEST_ACCENT[pick.chest]
+              return (
+                <div
+                  key={pick.uid}
+                  className="relative overflow-hidden rounded-xl border border-white/5 bg-black/30"
+                  style={{ height: LANE_HEIGHT }}
+                >
+                  <span
+                    className={`pointer-events-none absolute left-2 top-1.5 z-10 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${accent.chip} ${accent.text}`}
+                  >
+                    {chestName[pick.chest]}
+                  </span>
 
-      <button
-        onClick={handleOpen}
-        disabled={openDisabled}
-        aria-label={`${s.openCase} — ${totalCost}`}
-        className={`relative flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-          openDisabled
-            ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-            : 'border border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-        }`}
-      >
-        {isOpening ? (
-          <Loader2 size={16} className="animate-spin" />
-        ) : (
-          <>
-            {/* Side by side, not tucked in the corner the way a card's
-                price is: that one is a tag on an object, this one is the
-                confirmation of what you are about to spend, and it has
-                to be read as a sentence. Pulled in past the button's own
-                gap-2 because the tilt leaves the key's lower right empty
-                and the total can sit into that space. */}
-            <span className="flex items-center">
-              <VaultKey tone="key" size={40} />
-              <span className="-ml-1 translate-y-[4px] tabular-nums">×{totalCost}</span>
-            </span>
-          </>
+                  {lane && spin ? (
+                    <motion.div
+                      key={`${spin.id}-${lane.uid}`}
+                      className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center"
+                      style={{ gap: GAP }}
+                      initial={{ x: 0 }}
+                      animate={{ x: -lane.targetX }}
+                      transition={{
+                        duration: BASE_SPIN_SECONDS,
+                        delay: lane.delay,
+                        ease: [0.12, 0.72, 0.29, 1],
+                      }}
+                      onUpdate={
+                        // Only the top lane drives the tick. Five lanes ticking
+                        // in parallel is not five times the feedback, it's
+                        // noise — one rail, one sound.
+                        i === 0
+                          ? (latest) => {
+                              const x = typeof latest.x === 'number' ? latest.x : 0
+                              const width = viewportRef.current?.clientWidth ?? 320
+                              const index = Math.floor((width / 2 - x) / SPAN)
+                              if (index !== lastTickIndexRef.current) {
+                                lastTickIndexRef.current = index
+                                playCaseTick()
+                              }
+                            }
+                          : undefined
+                      }
+                      onAnimationComplete={() => {
+                        const won = lane.result
+                        setResults((prev) => [...prev, { uid: lane.uid, item: won }])
+                        // Reveal pitch rises with how good the pull was: the
+                        // rarity ladder for cosmetics, the catalogue's own order
+                        // for currency (both run cheapest-first).
+                        const table = lane.chest === 'gems' ? gemCatalog : materialCatalog
+                        const tier =
+                          won.kind === 'cosmetic'
+                            ? COSMETIC_RARITY_ORDER.indexOf(won.item.rarity)
+                            : table.findIndex((p) => p.id === won.prize.id)
+                        playCaseReveal(tier < 0 ? 0 : tier)
+                        landedRef.current += 1
+                        if (landedRef.current >= lanes.length) settle()
+                      }}
+                    >
+                      {lane.items.map((item, j) => (
+                        <LaneTile key={j} item={item} label={labelFor(item)} />
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <IdleLane items={pick.idle} labelFor={labelFor} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* The haul, as one row of chips — five separate reveal panels would be
+            taller than the machine that produced them. */}
+        {results.length > 0 && (
+          <div className="relative mb-3 flex flex-wrap gap-1.5">
+            {results.map(({ uid, item }) => {
+              const style = laneItemStyle(item)
+              return (
+                <motion.span
+                  key={uid}
+                  initial={{ opacity: 0, scale: 0.85, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-bold"
+                  style={{
+                    borderColor: `${style.color}55`,
+                    backgroundColor: `${style.color}14`,
+                    color: style.color,
+                  }}
+                >
+                  {item.kind === 'cosmetic' ? (
+                    <AstronautPieceById slot={item.item.slot} id={item.item.id} size={18} />
+                  ) : item.prize.currency === 'gems' ? (
+                    <Gem size={11} />
+                  ) : (
+                    <MineralIcon size={16} />
+                  )}
+                  <span className="tabular-nums">{labelFor(item)}</span>
+                </motion.span>
+              )
+            })}
+          </div>
         )}
-      </button>
 
-      {/* Says why the button is dead, and by how much — a greyed-out total on
-          its own doesn't distinguish "pick something" from "you can't afford
-          this", and knowing you're 4 keys short is what tells you whether to
-          drop a chest or wait for tomorrow's claim. */}
-      {cantAfford && (
-        <p className="relative mt-2 text-center text-xs text-amber-300/70">
-          {s.chestBenchMissingKeys(missingKeys)}
-        </p>
-      )}
-      {error && <p className="relative mt-2 text-center text-xs text-red-400">{error}</p>}
+        <button
+          onClick={handleOpen}
+          disabled={openDisabled}
+          aria-label={`${s.openCase} — ${totalCost}`}
+          className={`relative flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+            openDisabled
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+              : 'border border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
+          }`}
+        >
+          {isOpening ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <>
+              {/* Side by side, not tucked in the corner the way a card's
+                  price is: that one is a tag on an object, this one is the
+                  confirmation of what you are about to spend, and it has
+                  to be read as a sentence. Pulled in past the button's own
+                  gap-2 because the tilt leaves the key's lower right empty
+                  and the total can sit into that space. */}
+              <span className="flex items-center">
+                <VaultKey tone="key" size={40} />
+                <span className="-ml-1 translate-y-[4px] tabular-nums">×{totalCost}</span>
+              </span>
+            </>
+          )}
+        </button>
+
+        {/* Says why the button is dead, and by how much — a greyed-out total on
+            its own doesn't distinguish "pick something" from "you can't afford
+            this", and knowing you're 4 keys short is what tells you whether to
+            drop a chest or wait for tomorrow's claim. */}
+        {cantAfford && (
+          <p className="relative mt-2 text-center text-xs text-amber-300/70">
+            {s.chestBenchMissingKeys(missingKeys)}
+          </p>
+        )}
+        {error && <p className="relative mt-2 text-center text-xs text-red-400">{error}</p>}
+      </div>
 
       {catalogFor && (
         <ChestCatalogModal

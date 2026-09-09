@@ -43,7 +43,7 @@ function pile(
 ) {
   const stones = Array.from({ length: count }, (_, i) => {
     const t = ((i * 2654435761) % 1000) / 1000
-    const u = ((i * 40503 + 17) % 1000) / 1000
+    const u = ((i * 748241 + 331) % 1000) / 1000
     return {
       x: cx + (t - 0.5) * w,
       y: cy - u * h,
@@ -118,7 +118,7 @@ function keyPile(
 ) {
   const keys = Array.from({ length: count }, (_, i) => {
     const t = ((i * 2654435761) % 1000) / 1000
-    const u = ((i * 40503 + 17) % 1000) / 1000
+    const u = ((i * 748241 + 331) % 1000) / 1000
     return { x: cx + (t - 0.5) * w, y: cy - u * h, size: s * (0.8 + 0.4 * u), rot: -70 + t * 140 }
   })
   if (dropLeftmost && keys.length > 1) {
@@ -286,7 +286,7 @@ export function GemContainer({
           <ellipse cx="50" cy="86" rx="32" ry="7" fill={g('ao')} />
           <ellipse cx="50" cy="44" rx="29" ry="13" fill={g('glow')} />
           {contents === 'keys' ? (
-            keyPile(6, 50, 43, 38, 8, 34)
+            keyPile(8, 50, 47, 46, 8, 31)
           ) : (
             <g style={{ color: GEM_TINT }}>{pile(6, 50, 45, 38, 9, 20, { dx: 4, dy: 2 })}</g>
           )}
@@ -324,9 +324,9 @@ export function GemContainer({
       {kind === 'hopper' && (
         <>
           <ellipse cx="50" cy="90" rx="34" ry="7" fill={g('ao')} />
-          <ellipse cx="50" cy="38" rx="33" ry="14" fill={g('glow')} />
+          <ellipse cx="50" cy="37" rx="35" ry="16" fill={g('glow')} />
           {contents === 'keys' ? (
-            keyPile(8, 50, 37, 48, 10, 34)
+            keyPile(14, 50, 41, 58, 12, 31)
           ) : (
             <g style={{ color: GEM_TINT }}>{pile(9, 50, 39, 48, 11, 20, { dx: 4.5, dy: 2 })}</g>
           )}

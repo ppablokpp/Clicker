@@ -209,9 +209,7 @@ export interface TranslationStrings {
     active: string
     owned: string
     notEnoughClicks: string
-    lootSection: string
     casesSection: string
-    casesSubtitle: string
     openCase: string
     openCaseMoney: string
     openCaseGems: string
@@ -258,7 +256,6 @@ export interface TranslationStrings {
     chestBenchEmpty: string
     chestCollectionComplete: string
     chestBenchMissingKeys: (count: number) => string
-    powerupsSection: string
     powerupsCardTitle: string
     powerupsSubtitle: string
     upgradesSection: string
@@ -795,9 +792,7 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Activo',
       owned: 'Comprado',
       notEnoughClicks: 'Te falta platino',
-      lootSection: 'Premios',
       casesSection: 'Cofres',
-      casesSubtitle: 'Elige hasta 5 cofres y ábrelos con tus llaves.',
       openCase: 'Abrir cofre',
       openCaseMoney: 'Comprar cofre',
       openCaseGems: 'Abrir con gemas',
@@ -860,7 +855,6 @@ export const translations: Record<Language, TranslationStrings> = {
       chestBenchEmpty: 'Añade un cofre para empezar',
       chestCollectionComplete: 'Colección completa',
       chestBenchMissingKeys: (count) => (count === 1 ? 'Te falta 1 llave' : `Te faltan ${count} llaves`),
-      powerupsSection: 'Potenciadores',
       powerupsCardTitle: 'Multiplicadores',
       powerupsSubtitle: 'Multiplica la potencia de tus disparos durante un tiempo.',
       upgradesSection: 'Mejoras permanentes',
@@ -1469,9 +1463,7 @@ export const translations: Record<Language, TranslationStrings> = {
       active: 'Active',
       owned: 'Owned',
       notEnoughClicks: "You're short on platinum",
-      lootSection: 'Prizes',
       casesSection: 'Chests',
-      casesSubtitle: 'Pick up to 5 chests and open them with your keys.',
       openCase: 'Open chest',
       openCaseMoney: 'Buy chest',
       openCaseGems: 'Open with gems',
@@ -1534,7 +1526,6 @@ export const translations: Record<Language, TranslationStrings> = {
       chestBenchEmpty: 'Add a chest to get started',
       chestCollectionComplete: 'Collection complete',
       chestBenchMissingKeys: (count) => (count === 1 ? 'You need 1 more key' : `You need ${count} more keys`),
-      powerupsSection: 'Powerups',
       powerupsCardTitle: 'Multipliers',
       powerupsSubtitle: "Multiplies your shots' power for a while.",
       upgradesSection: 'Permanent upgrades',

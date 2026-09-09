@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
-import { Rocket, Dices, Clock, Loader2, X } from 'lucide-react'
+import { Clock, Loader2, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { KeyIcon } from '../components/VaultChest'
 import { GemContainer, gemContainerFor, keyContainerFor } from '../components/StallGoods'
@@ -18,10 +18,70 @@ import { useClickPacksContext, type ClickPackDef } from '../context/ClickPacksCo
 import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { ChestBench } from '../components/ChestBench'
+import { StampedHeading } from '../components/StampedHeading'
 import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
 import { playChestPurchase } from '../lib/caseSound'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
+
+interface WalletBayProps {
+  icon: React.ReactNode
+  amount: string
+  ariaLabel: string
+  /** Icon, amount and plus chip. A hex, not a class: the material bay's colour
+      is picked at runtime from the tier you are on, and Tailwind can only ship
+      classes it can see in the source. The other two follow the same mechanism
+      so a bay is a bay. */
+  tone: string
+  /** The light this stock throws onto the shelf under it. Also a hex. */
+  pool: string
+  onClick: () => void
+}
+
+// One bay of the counter: what you hold, and the door to buying more of it.
+//
+// No name under the amount. A gem beside a number in gem colour is already
+// "gems", and the three labels were the only thing making the counter tall.
+// They live on the aria-label, where they were doing the work that mattered.
+function WalletBay({ icon, amount, ariaLabel, tone, pool, onClick }: WalletBayProps) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="group relative flex flex-col items-center gap-1.5 px-2 py-3 transition-colors hover:bg-white/[0.025]"
+    >
+      <span className="relative flex h-7 items-center justify-center">
+        <span
+          className="pointer-events-none absolute h-9 w-9 rounded-full opacity-60 blur-lg transition-opacity group-hover:opacity-100"
+          style={{ background: pool }}
+        />
+        <span className="relative flex" style={{ color: tone }}>
+          {icon}
+        </span>
+      </span>
+
+      {/* The amount centres on the icon above it, and the plus hangs off its
+          right edge without a say in that. As a third item in a centred row
+          the plus pushed the number half a chip off the icon — the kind of
+          misalignment you feel before you can name it.
+
+          The plus also has to hold still: a phone has no hover, so a bay that
+          only admits to being a button when a cursor lands on it never admits
+          it at all. */}
+      <span className="relative block">
+        <span className="font-[Space_Grotesk] text-lg font-bold leading-none tabular-nums" style={{ color: tone }}>
+          {amount}
+        </span>
+        <span
+          className="absolute left-full top-1/2 ml-1.5 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-[11px] font-bold leading-none opacity-60 transition-opacity group-hover:opacity-100"
+          style={{ background: `${pool}22`, color: tone, boxShadow: `inset 0 0 0 1px ${pool}55` }}
+        >
+          +
+        </span>
+      </span>
+    </button>
+  )
+}
 
 export function Store() {
   const { language, strings } = useLanguage()
@@ -30,6 +90,9 @@ export function Store() {
   // follows this instead of hardcoding "platino" (see Home.tsx's own copy).
   const currentMaterialName = strings.home.trajectoryTierNames[prestigeTier]
   const materialTheme = MATERIAL_BUTTON_THEMES[prestigeTier]
+  // Clamped: a tier past the end of the ladder should light the counter with
+  // the first material rather than crash on an undefined.
+  const materialColors = MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]
   const { gems } = useGemsContext()
   const { keys } = useKeysContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
@@ -40,67 +103,92 @@ export function Store() {
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-6 sm:px-6 sm:pb-24 sm:pt-8">
       <div className="mx-auto max-w-2xl">
-        <header className="mb-8">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white sm:text-3xl">
-              {strings.store.title}
-            </h1>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
+        {/* The page wears the same stamp its sections do, struck in whatever
+            you are currently mining — the one heading here that changes colour
+            as you prestige. */}
+        <header className="mb-10">
+          <StampedHeading
+            ruleFrom={materialTheme.stampFrom}
+            ruleTo={materialTheme.stampTo}
+            tone={materialTheme.stampTone}
+            className="mb-4"
+          >
+            {strings.store.title}
+          </StampedHeading>
+
+          {/* The counter: one plate, three bays. Three separate pills read as
+              three readouts that happen to sit near each other, and hid the
+              fact that every one of them is a door into a shop. Bays cut into
+              a single plate read as one instrument, and the plate is lit by
+              whatever you are currently mining, so the wallet and the heading
+              above it change colour together. */}
+          <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+            <span
+              className="pointer-events-none absolute inset-x-0 top-0 h-px"
+              style={{ background: `linear-gradient(90deg, transparent, ${materialColors.fill}, transparent)` }}
+            />
+            <span
+              className="pointer-events-none absolute -top-24 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full opacity-20 blur-3xl"
+              style={{ background: materialColors.glow }}
+            />
+
+            <div className="relative grid grid-cols-3">
+              {/* Inset hairlines rather than full-height dividers: a cut that
+                  stops short of the edges is what separates bays milled into
+                  one plate from three panels bolted together. */}
+              <span className="pointer-events-none absolute inset-y-3 left-1/3 w-px bg-white/[0.06]" />
+              <span className="pointer-events-none absolute inset-y-3 left-2/3 w-px bg-white/[0.06]" />
+
+              <WalletBay
+                icon={<MineralIcon size={26} />}
+                amount={formatPlatino(totalClicks, language)}
+                ariaLabel={strings.store.buyClicksTitle(currentMaterialName)}
+                tone={materialColors.light}
+                pool={materialColors.fill}
                 onClick={() => setShowClickPacks(true)}
-                aria-label={strings.store.buyClicksTitle(currentMaterialName)}
-                className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums transition-colors ${materialTheme.pill}`}
-              >
-                <MineralIcon size={20} />
-                {formatPlatino(totalClicks, language)}
-              </button>
-              <button
+              />
+              <WalletBay
+                icon={<KeyIcon size={26} />}
+                amount={keys.toLocaleString(locale)}
+                ariaLabel={strings.store.buyKeysTitle}
+                tone="#FDE68A"
+                pool="#F59E0B"
                 onClick={() => setShowKeyPacks(true)}
-                aria-label={strings.store.buyKeysTitle}
-                className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-amber-200 transition-colors hover:bg-amber-500/[0.14]"
-              >
-                <KeyIcon size={20} />
-                {keys.toLocaleString(locale)}
-              </button>
-              <button
+              />
+              <WalletBay
+                icon={<GemIcon size={26} />}
+                amount={gems.toLocaleString(locale)}
+                ariaLabel={strings.store.buyGemsTitle}
+                tone="#C7D2FE"
+                pool="#6366F1"
                 onClick={() => setShowGemPacks(true)}
-                aria-label={strings.store.buyGemsTitle}
-                className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-indigo-200 transition-colors hover:bg-indigo-500/[0.14]"
-              >
-                <GemIcon size={20} />
-                {gems.toLocaleString(locale)}
-              </button>
+              />
             </div>
           </div>
         </header>
 
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.lootSection}</h2>
+        <section className="mb-10">
           <ChestBench />
         </section>
 
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-neutral-200">{strings.store.powerupsSection}</h2>
-          <div className="flex flex-col gap-4">
-            <PowerupGridCard
-              locale={locale}
-              totalClicks={totalClicks}
-              strings={strings.store}
-              materialButtonClass={materialTheme.button}
-            />
-            <TimedLuckGridCard
-              locale={locale}
-              totalClicks={totalClicks}
-              strings={strings.store}
-              materialButtonClass={materialTheme.button}
-            />
-          </div>
-        </section>
+        <div className="flex flex-col gap-10">
+          <PowerupRack
+            locale={locale}
+            totalClicks={totalClicks}
+            strings={strings.store}
+            materialButtonClass={materialTheme.button}
+          />
+          <TimedLuckRack
+            locale={locale}
+            totalClicks={totalClicks}
+            strings={strings.store}
+            materialButtonClass={materialTheme.button}
+          />
+        </div>
       </div>
 
       {showClickPacks && (
         <ClickPacksModal
-          locale={locale}
           strings={strings.store}
           currentMaterialName={currentMaterialName}
           materialColor={(MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]).fill}
@@ -121,9 +209,7 @@ export interface StoreStrings {
   active: string
   owned: string
   notEnoughClicks: string
-  lootSection: string
   casesSection: string
-  casesSubtitle: string
   openCase: string
   openCaseMoney: string
   openCaseGems: string
@@ -152,7 +238,6 @@ export interface StoreStrings {
   caseMythicLabel: string
   caseTitleClicks: (materialName: string) => string
   caseTitleGems: string
-  powerupsSection: string
   powerupsCardTitle: string
   powerupsSubtitle: string
   upgradesSection: string
@@ -276,26 +361,9 @@ function PackManifest({
           <X size={16} />
         </button>
 
-        {/* Stamped, not written: wide-tracked caps between two hairlines,
-            which is what a heading looks like when it has been struck into a
-            plate rather than printed on a page. No icon — the lots below are
-            made of the thing, so one up here would say it twice.
-
-            The rules are fixed at 40px rather than flexing to the edges: a
-            full-width rule would run underneath the close button, and short
-            ones read as a stamp instead of as a divider.
-
-            indent compensates the tracking. Letter-spacing is applied AFTER
-            the last character too, so a centred word sits half a space left
-            of true centre — visible at 0.32em, and the reason wide-tracked
-            headings so often look subtly off. */}
-        <div className="relative mb-6 flex items-center justify-center gap-3.5">
-          <span className={`h-px w-10 ${t.ruleFrom}`} />
-          <p className={`indent-[0.32em] whitespace-nowrap text-lg font-semibold uppercase tracking-[0.32em] ${t.title}`}>
-            {title}
-          </p>
-          <span className={`h-px w-10 ${t.ruleTo}`} />
-        </div>
+        <StampedHeading ruleFrom={t.ruleFrom} ruleTo={t.ruleTo} tone={t.title} className="mb-6">
+          {title}
+        </StampedHeading>
 
         <div className="relative flex flex-col gap-2.5">{children}</div>
 
@@ -384,7 +452,6 @@ function PackLot({
   )
 }
 interface ClickPacksModalProps {
-  locale: string
   strings: StoreStrings
   currentMaterialName: string
   /** The tier material's own colour, applied to the icon. It used to tint
@@ -394,7 +461,8 @@ interface ClickPacksModalProps {
   onClose: () => void
 }
 
-function ClickPacksModal({ locale, strings, currentMaterialName, materialColor, onClose }: ClickPacksModalProps) {
+function ClickPacksModal({ strings, currentMaterialName, materialColor, onClose }: ClickPacksModalProps) {
+  const { language } = useLanguage()
   const { catalog, buyingId, buy } = useClickPacksContext()
   const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
@@ -424,7 +492,7 @@ function ClickPacksModal({ locale, strings, currentMaterialName, materialColor, 
             iconSize={40}
             iconColor={materialColor}
             bundle={Math.min(i + 1, 3)}
-            amountLabel={pack.clicks.toLocaleString(locale)}
+            amountLabel={formatPlatino(pack.clicks, language)}
             priceContent={
               <span className="flex items-center justify-center gap-1">
                 <GemIcon size={16} />
@@ -595,7 +663,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(58% 34% at 50% -2%, rgba(245,199,126,.18), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)',
+              'radial-gradient(58% 34% at 50% -2%, rgba(142,157,255,.2), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)',
           }}
         />
 
@@ -610,16 +678,16 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
         {/* The lamp is a real fixture hanging into frame, not a gradient.
             One visible source is what lets everything below cast in the same
             direction and be believed. */}
-        <div className="relative mx-auto h-4 w-16 rounded-b-lg bg-gradient-to-b from-[#6D7480] to-[#2C3037] shadow-[0_10px_26px_rgba(245,199,126,0.34)]" />
+        <div className="relative mx-auto h-4 w-16 rounded-b-lg bg-gradient-to-b from-[#6D7480] to-[#2C3037] shadow-[0_10px_26px_rgba(142,157,255,0.4)]" />
 
         <div className="relative mt-5 flex flex-col items-center">
           <p
             className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
-            style={{ borderColor: 'rgba(245,199,126,.45)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(245,199,126,.3)' }}
+            style={{ borderColor: 'rgba(142,157,255,.5)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(142,157,255,.35)' }}
           >
             {strings.gemsTitle}
           </p>
-          <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.28em] text-[#F5C77E]/55">
+          <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.28em] text-[#8E9DFF]/60">
             {strings.gemsStallTagline}
           </p>
         </div>
@@ -644,7 +712,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
                     button reads as a checkout; on a swinging card it reads
                     as a market. It costs nothing and says something else. */}
                 <span className="relative block h-9 w-full">
-                  <span className="absolute left-1/2 top-0 h-3 w-px bg-[#F5C77E]/45" />
+                  <span className="absolute left-1/2 top-0 h-3 w-px bg-[#8E9DFF]/50" />
                   <span
                     className="absolute left-1/2 top-2.5 -translate-x-1/2 -rotate-3 whitespace-nowrap bg-gradient-to-b from-[#F3E3BE] to-[#D9BE82] py-1 pl-4 pr-3 font-mono text-[11px] font-semibold text-[#2A1E08] shadow-md shadow-black/50"
                     style={{ clipPath: 'polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%)' }}
@@ -656,7 +724,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
                 <span className="relative">
                   <GemContainer kind={gemContainerFor(i)} size={104} />
                   {discount !== undefined && (
-                    <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#E8A33D] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#2A1A06] shadow-md shadow-black/50">
+                    <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#A5B4FC] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#1B1B3A] shadow-md shadow-black/50">
                       {strings.savingsBadge(discount)}
                     </span>
                   )}
@@ -681,9 +749,114 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
   )
 }
 
-interface TierTileProps {
+/** One rung of a section's ladder: dim and cheap at the bottom, white-hot at the top. */
+interface BoostHeat {
+  /** Border and ground of the cell. */
+  frame: string
+  /** Fill of the charge rail, read bottom-up. */
+  rail: string
+  numeral: string
+  /** textShadow for the numeral — the glow ramps with the rung. */
+  glow: string
+}
+
+interface BoostTheme {
+  ruleFrom: string
+  ruleTo: string
+  tone: string
+  /** Used for whatever is currently running: the live countdown and the ring. */
+  status: string
+  ring: string
+  heat: readonly BoostHeat[]
+}
+
+// Two ladders of four. Spelled out rather than generated from the tier index
+// because Tailwind only ships the class names it can literally see in the
+// source — a `border-${hue}-400/20` would compile to nothing.
+//
+// Each ladder starts inside its section's own colour and ends a hue along it:
+// violet running to fuchsia, emerald running to lime. Same family, so the four
+// cells read as one rack; hotter at the top, so the ladder reads as a ladder.
+const BOOST_THEMES: Record<'power' | 'luck', BoostTheme> = {
+  power: {
+    ruleFrom: 'bg-gradient-to-r from-transparent to-violet-300/50',
+    ruleTo: 'bg-gradient-to-l from-transparent to-violet-300/50',
+    tone: 'text-violet-50',
+    status: 'text-violet-300',
+    ring: 'ring-violet-300/40',
+    heat: [
+      {
+        frame: 'border-violet-400/10 bg-violet-500/[0.02]',
+        rail: 'bg-gradient-to-t from-violet-600/40 to-violet-400/60',
+        numeral: 'text-violet-200/80',
+        glow: '0 0 12px rgba(167,139,250,.25)',
+      },
+      {
+        frame: 'border-violet-400/20 bg-violet-500/[0.04]',
+        rail: 'bg-gradient-to-t from-violet-600/50 to-violet-300/80',
+        numeral: 'text-violet-100',
+        glow: '0 0 14px rgba(167,139,250,.42)',
+      },
+      {
+        frame: 'border-fuchsia-400/25 bg-fuchsia-500/[0.05]',
+        rail: 'bg-gradient-to-t from-fuchsia-600/50 to-fuchsia-300/90',
+        numeral: 'text-fuchsia-100',
+        glow: '0 0 18px rgba(232,121,249,.5)',
+      },
+      {
+        frame: 'border-fuchsia-300/40 bg-fuchsia-500/[0.08]',
+        rail: 'bg-gradient-to-t from-fuchsia-500/60 to-pink-200',
+        numeral: 'text-white',
+        glow: '0 0 22px rgba(240,171,252,.75)',
+      },
+    ],
+  },
+  luck: {
+    ruleFrom: 'bg-gradient-to-r from-transparent to-emerald-300/50',
+    ruleTo: 'bg-gradient-to-l from-transparent to-emerald-300/50',
+    tone: 'text-emerald-50',
+    status: 'text-emerald-300',
+    ring: 'ring-emerald-300/40',
+    heat: [
+      {
+        frame: 'border-emerald-400/10 bg-emerald-500/[0.02]',
+        rail: 'bg-gradient-to-t from-emerald-600/40 to-emerald-400/60',
+        numeral: 'text-emerald-200/80',
+        glow: '0 0 12px rgba(52,211,153,.25)',
+      },
+      {
+        frame: 'border-emerald-400/20 bg-emerald-500/[0.04]',
+        rail: 'bg-gradient-to-t from-emerald-600/50 to-emerald-300/80',
+        numeral: 'text-emerald-100',
+        glow: '0 0 14px rgba(52,211,153,.42)',
+      },
+      {
+        frame: 'border-lime-400/25 bg-lime-500/[0.05]',
+        rail: 'bg-gradient-to-t from-lime-600/50 to-lime-300/90',
+        numeral: 'text-lime-100',
+        glow: '0 0 18px rgba(163,230,53,.5)',
+      },
+      {
+        frame: 'border-lime-300/40 bg-lime-500/[0.08]',
+        rail: 'bg-gradient-to-t from-lime-500/60 to-lime-100',
+        numeral: 'text-white',
+        glow: '0 0 22px rgba(217,249,157,.75)',
+      },
+    ],
+  },
+}
+
+interface BoostTileProps {
+  /** Localised name. The cell shows a numeral; this is what reaches a screen reader. */
   name: string
+  multiplier: number
   durationSeconds: number
+  /** Strongest rung in this section — the rail is drawn as a share of it. */
+  peakMultiplier: number
+  heat: BoostHeat
+  theme: BoostTheme
+  /** Live countdown, set only on the tier that is currently running. */
+  activeCountdown: string | null
   cost: number
   currency: 'clicks' | 'gems'
   locale: string
@@ -695,16 +868,28 @@ interface TierTileProps {
   materialButtonClass: string
 }
 
-// One tile = one freely-buyable tier: name, duration, and a price button —
-// compact enough for all 4 to sit in a row like the original cards did. A
-// gem-priced tier gets the same indigo "diamond" button used everywhere
-// else gems are spent, instead of the white click-currency one. The
-// active/cooldown countdown itself lives once in the card's header, not
-// repeated per tile — the button just goes disabled (same muted style as
-// "can't afford it") and keeps showing its cost.
-function TierTile({
+// A charge cell instead of a row of numbers. The multiplier is the whole face
+// of it, and how hard it hits climbs the rail down the left edge — so the four
+// of them side by side read as a ladder at a glance rather than as arithmetic.
+// How long it runs is a clock and a number underneath: a duration is something
+// you read, not something you eyeball against the tier next to it.
+//
+// The name is gone from the face. It reads "Disparo x2" while the cell already
+// says x2 in 30px, and the heading above already says which family this is —
+// the same redundancy the chest bench's description was. It stays on the
+// button's aria-label, which is where it was doing real work.
+//
+// The cell keeps its heat while it is unbuyable and only the price bar goes
+// dead: the cooldown disables all four at once, and draining four cells for an
+// hour would empty the page out.
+function BoostTile({
   name,
+  multiplier,
   durationSeconds,
+  peakMultiplier,
+  heat,
+  theme,
+  activeCountdown,
   cost,
   currency,
   locale,
@@ -713,54 +898,86 @@ function TierTile({
   buyingLabel,
   onClick,
   materialButtonClass,
-}: TierTileProps) {
+}: BoostTileProps) {
+  const { language } = useLanguage()
+  const charge = Math.round((multiplier / peakMultiplier) * 100)
+
   return (
-    <div className="flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.02] p-2.5 text-center">
-      <span className="text-xs font-semibold text-white">{name}</span>
-      <span className="mb-2 flex items-center gap-1 text-[10px] font-medium text-neutral-500">
-        <Clock size={9} />
-        {durationSeconds}s
-      </span>
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={name}
-        className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-          disabled
-            ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-            : currency === 'gems'
-              ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-              : materialButtonClass
-        }`}
-      >
-        {isBuyingThis ? (
-          buyingLabel
-        ) : (
-          <span className="flex items-center justify-center gap-1">
-            {currency === 'gems' ? (
-              <GemIcon size={14} />
-            ) : (
-              <MineralIcon size={15} />
-            )}
-            <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
+    <div className={`relative flex flex-col overflow-hidden rounded-xl border ${heat.frame}`}>
+      {/* Running right now: a lit ring around the whole cell, so it is findable
+          from across the page rather than only by reading the countdown. */}
+      {activeCountdown && (
+        <span className={`pointer-events-none absolute inset-0 z-10 rounded-xl ring-1 ring-inset ${theme.ring}`} />
+      )}
+
+      <div className="relative">
+        <span className="absolute inset-y-0 left-0 w-1.5 bg-white/[0.06]">
+          <span className={`absolute inset-x-0 bottom-0 ${heat.rail}`} style={{ height: `${charge}%` }} />
+        </span>
+
+        <div className="flex h-[68px] items-center justify-center pl-4 pr-2.5">
+          <span
+            className={`font-[Space_Grotesk] text-[30px] font-bold leading-none tabular-nums ${heat.numeral}`}
+            style={{ textShadow: heat.glow }}
+          >
+            <span className="text-[17px] font-semibold opacity-40">×</span>
+            {multiplier}
           </span>
-        )}
-      </button>
+        </div>
+
+        {/* The window it buys you, and then what is left of it once it runs. */}
+        <div
+          className={`flex items-center justify-center gap-1 pb-2.5 pl-4 pr-2.5 ${
+            activeCountdown ? theme.status : 'text-neutral-500'
+          }`}
+        >
+          <Clock size={10} />
+          <span className="font-mono text-[10px] tabular-nums">
+            {activeCountdown ?? `${durationSeconds}s`}
+          </span>
+        </div>
+      </div>
+
+      <div className="px-1.5 pb-1.5">
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={name}
+          className={`w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+            disabled
+              ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+              : currency === 'gems'
+                ? 'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
+                : materialButtonClass
+          }`}
+        >
+          {isBuyingThis ? (
+            buyingLabel
+          ) : (
+            <span className="flex items-center justify-center gap-1">
+              {currency === 'gems' ? <GemIcon size={14} /> : <MineralIcon size={15} />}
+              <span className="tabular-nums">
+                {currency === 'gems' ? cost.toLocaleString(locale) : formatPlatino(cost, language)}
+              </span>
+            </span>
+          )}
+        </button>
+      </div>
     </div>
   )
 }
 
-interface PowerupGridCardProps {
+interface BoostRackProps {
   locale: string
   totalClicks: number
   strings: StoreStrings
   materialButtonClass: string
 }
 
-// All 4 click-multiplier powerups in one card instead of 4 separate ones —
-// freely buyable in any order (only one can run at a time), each tile is its
-// own price button.
-function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: PowerupGridCardProps) {
+// All 4 click-multiplier tiers in one rack — freely buyable in any order, only
+// one running at a time. No card around them: every cell is already a card, and
+// a fifth box holding four is the nesting the chest bench above just shed.
+function PowerupRack({ locale, totalClicks, strings, materialButtonClass }: BoostRackProps) {
   const { userId } = useAppAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = usePowerupContext()
   const { gems } = useGemsContext()
@@ -774,35 +991,30 @@ function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: 
     if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
+  const theme = BOOST_THEMES.power
+  const peakMultiplier = Math.max(...catalog.map((p) => p.multiplier))
   const activeCountdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
   const cooldownCountdown = `${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-violet-500/10 blur-2xl" />
+    <section className="relative">
+      <StampedHeading ruleFrom={theme.ruleFrom} ruleTo={theme.ruleTo} tone={theme.tone} className="mb-2">
+        {strings.powerupsCardTitle}
+      </StampedHeading>
 
-      <div className="relative mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
-          <Rocket size={17} />
-        </div>
-        <div>
-          <div className="text-base font-semibold text-white">{strings.powerupsCardTitle}</div>
-          {active ? (
-            <div className="text-xs text-neutral-500">
-              {strings.powerups[active.id]?.name ?? active.id} · {activeCountdown}
-            </div>
-          ) : (
-            cooldownSecondsLeft > 0 && (
-              <div className="text-xs text-neutral-500">{strings.availableIn(cooldownCountdown)}</div>
-            )
-          )}
-        </div>
-      </div>
+      {/* What is being multiplied. The cells say how much and for how long;
+          nothing else on the page says what it lands on. */}
+      <p className="text-center text-xs text-neutral-500">{strings.powerupsSubtitle}</p>
 
-      <p className="relative mb-4 text-sm text-neutral-500">{strings.powerupsSubtitle}</p>
+      {/* Section-wide state under the section's own heading — the tier that is
+          actually running counts down on its own cell instead. The line keeps
+          its height when empty so the rack does not jump the moment you buy. */}
+      <p className={`mb-3 mt-1.5 h-4 text-center font-mono text-[11px] tabular-nums ${theme.status}`}>
+        {!active && cooldownSecondsLeft > 0 ? strings.availableIn(cooldownCountdown) : ''}
+      </p>
 
-      <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {catalog.map((powerup) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {catalog.map((powerup, i) => {
           // Guests always show "affordable" here — the click isn't blocked
           // by balance for them, it opens the sign-in prompt instead.
           // Buying is independent of whether a tier is currently active — it
@@ -815,10 +1027,15 @@ function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: 
           const name = strings.powerups[powerup.id]?.name ?? powerup.id
 
           return (
-            <TierTile
+            <BoostTile
               key={powerup.id}
               name={name}
+              multiplier={powerup.multiplier}
               durationSeconds={powerup.durationSeconds}
+              peakMultiplier={peakMultiplier}
+              heat={theme.heat[Math.min(i, theme.heat.length - 1)]}
+              theme={theme}
+              activeCountdown={active?.id === powerup.id ? activeCountdown : null}
               cost={powerup.cost}
               currency={powerup.currency}
               locale={locale}
@@ -832,22 +1049,17 @@ function PowerupGridCard({ locale, totalClicks, strings, materialButtonClass }: 
         })}
       </div>
 
-      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
-    </div>
+      {error && <p className="relative mt-2 text-center text-xs text-red-400">{error}</p>}
+    </section>
   )
 }
 
-interface TimedLuckGridCardProps {
-  locale: string
-  totalClicks: number
-  strings: StoreStrings
-  materialButtonClass: string
-}
-
-// Same freely-buyable grid as PowerupGridCard, but for the temporary,
-// high-variance version of the permanent Suerte upgrade — same 1% chance,
-// much bigger multiplier, only lasts a short while.
-function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }: TimedLuckGridCardProps) {
+// The same rack for the temporary, high-variance version of the permanent
+// Suerte upgrade — same 1% chance, much bigger multiplier, short window.
+//
+// Every tier here runs for the same 20s: the rung is what changes in this
+// catalogue, the window is not.
+function TimedLuckRack({ locale, totalClicks, strings, materialButtonClass }: BoostRackProps) {
   const { userId } = useAppAuth()
   const { catalog, active, secondsLeft, cooldownSecondsLeft, buyingId, buy } = useTimedLuckPowerupContext()
   const { gems } = useGemsContext()
@@ -861,35 +1073,25 @@ function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }
     if (!result.ok && result.error !== 'not-signed-in') setError(result.error ?? 'error')
   }
 
+  const theme = BOOST_THEMES.luck
+  const peakMultiplier = Math.max(...catalog.map((p) => p.multiplier))
   const activeCountdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
   const cooldownCountdown = `${Math.floor(cooldownSecondsLeft / 60)}:${String(cooldownSecondsLeft % 60).padStart(2, '0')}`
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-green-500/10 blur-2xl" />
+    <section className="relative">
+      <StampedHeading ruleFrom={theme.ruleFrom} ruleTo={theme.ruleTo} tone={theme.tone} className="mb-2">
+        {strings.timedLuckTitle}
+      </StampedHeading>
 
-      <div className="relative mb-4 flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-green-400/30 to-emerald-500/20 text-green-200">
-          <Dices size={17} />
-        </div>
-        <div>
-          <div className="text-base font-semibold text-white">{strings.timedLuckTitle}</div>
-          {active ? (
-            <div className="text-xs text-neutral-500">
-              {strings.timedLuckPowerups[active.id]?.name ?? active.id} · {activeCountdown}
-            </div>
-          ) : (
-            cooldownSecondsLeft > 0 && (
-              <div className="text-xs text-neutral-500">{strings.availableIn(cooldownCountdown)}</div>
-            )
-          )}
-        </div>
-      </div>
+      <p className="text-center text-xs text-neutral-500">{strings.timedLuckSubtitle}</p>
 
-      <p className="relative mb-4 text-sm text-neutral-500">{strings.timedLuckSubtitle}</p>
+      <p className={`mb-3 mt-1.5 h-4 text-center font-mono text-[11px] tabular-nums ${theme.status}`}>
+        {!active && cooldownSecondsLeft > 0 ? strings.availableIn(cooldownCountdown) : ''}
+      </p>
 
-      <div className="relative grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {catalog.map((powerup) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {catalog.map((powerup, i) => {
           // Buying is independent of whether a tier is currently active — it
           // only adds to the owned count, so only the shared cooldown and
           // affordability gate it.
@@ -900,10 +1102,15 @@ function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }
           const name = strings.timedLuckPowerups[powerup.id]?.name ?? powerup.id
 
           return (
-            <TierTile
+            <BoostTile
               key={powerup.id}
               name={name}
+              multiplier={powerup.multiplier}
               durationSeconds={powerup.durationSeconds}
+              peakMultiplier={peakMultiplier}
+              heat={theme.heat[Math.min(i, theme.heat.length - 1)]}
+              theme={theme}
+              activeCountdown={active?.id === powerup.id ? activeCountdown : null}
               cost={powerup.cost}
               currency={powerup.currency}
               locale={locale}
@@ -917,7 +1124,7 @@ function TimedLuckGridCard({ locale, totalClicks, strings, materialButtonClass }
         })}
       </div>
 
-      {error && <p className="relative mt-2 text-xs text-red-400">{error}</p>}
-    </div>
+      {error && <p className="relative mt-2 text-center text-xs text-red-400">{error}</p>}
+    </section>
   )
 }
