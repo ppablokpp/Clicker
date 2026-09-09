@@ -1,6 +1,6 @@
 import { Gem, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
-import { PlatinumIcon } from './PlatinumIcon'
+import { MineralIcon } from './MaterialIcons'
 import { useLanguage } from '../context/LanguageContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import type { DailyCasePrize } from '../context/DailyCaseContext'
@@ -138,7 +138,7 @@ function CurrencySection({
                   {s.casePrizeNames[prize.id] ?? prize.id}
                 </span>
                 <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
-                  <PlatinumIcon size={15} className="opacity-70" />
+                  <MineralIcon size={18} style={{ color: style.color }} />
                   {prize.amount.toLocaleString(locale)}
                 </span>
                 {/* One decimal below 10% — the rarest tiers round to 0% whole. */}

@@ -1,9 +1,11 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
-import { Archive, Gem, Key, List, Loader2, Minus, Plus, Shirt, X } from 'lucide-react'
+import { Archive, Gem, List, Loader2, Minus, Plus, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
-import { PlatinumIcon } from './PlatinumIcon'
+import { MineralIcon } from './MaterialIcons'
 import { ChestCatalogModal } from './ChestCatalogModal'
+import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
+import { VaultChest, VaultKey } from './VaultChest'
 import { useLanguage } from '../context/LanguageContext'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -141,7 +143,7 @@ const LaneTile = memo(function LaneTile({ item, label }: { item: LaneItem; label
       ) : item.prize.currency === 'gems' ? (
         <Gem size={17} style={{ color: style.color }} />
       ) : (
-        <PlatinumIcon size={20} style={{ color: style.color }} />
+        <MineralIcon size={24} style={{ color: style.color }} />
       )}
       <span className="w-full truncate text-[10px] font-bold tabular-nums text-white">{label}</span>
     </div>
@@ -263,12 +265,26 @@ export function ChestBench() {
   } = useDailyKeyContext()
   const materialName = strings.home.trajectoryTierNames[prestigeTier]
 
+  // The tile shows no name at all — the gem says which chest it is, and a
+  // word under a picture of the thing it names carries nothing. What is
+  // left of this map is the catalogue modal's title and the aria labels,
+  // and both are read with no chest in view, so both want the full name.
   const chestName: Record<ChestId, string> = {
     material: s.caseTitleClicks(materialName),
     gems: s.caseTitleGems,
     style: s.cosmeticCaseTitleKeys,
     styleRare: s.cosmeticCaseTitleGems,
   }
+
+  // The material chest wears whatever you are currently mining, so its
+  // gem is read from the tier table the asteroid and the currency icon
+  // already share rather than being a fifth hardcoded colour that would
+  // silently disagree with them after a prestige.
+  const tierGem = MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]
+  const gemFor = (chest: ChestId) =>
+    chest === 'material'
+      ? { lit: tierGem.light, mid: tierGem.fill, deep: tierGem.dark, edge: tierGem.dark }
+      : undefined
 
   const labelFor = (item: LaneItem): string =>
     item.kind === 'cosmetic'
@@ -533,7 +549,7 @@ export function ChestBench() {
               : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
           }`}
         >
-          <Key size={13} className="opacity-80" />
+          <VaultKey tone="key" size={28} />
           {isClaiming ? s.claimingKey : claimedToday ? formatCountdown(cooldownSecondsLeft) : s.claimDailyKey}
         </button>
       </div>
@@ -551,68 +567,97 @@ export function ChestBench() {
           return (
             <div
               key={chest}
-              className={`relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-colors ${
+              className={`relative flex flex-col gap-2 rounded-xl border p-2.5 transition-colors ${
                 count > 0 ? `${accent.ring} ${accent.chip}` : 'border-white/5 bg-white/[0.02]'
               } ${ready ? '' : 'opacity-40'}`}
             >
-              {/* Each chest's odds hang off its own card. One combined list
-                  meant scrolling past three chests to check the one you were
-                  actually weighing up. */}
+              {/* One case, holding everything that describes the chest: the
+                  model, how many you hold, and what it costs. The name is
+                  gone on purpose — the gem already says which chest this is,
+                  and a word under a picture of the thing it names is the one
+                  element on the card carrying no information.
+
+                  The price lives INSIDE here rather than on a plate of its
+                  own below, which read as a button you could press and
+                  could not. In here it is part of a control that really is
+                  pressable, so the affordance stops lying either way. */}
               <button
                 onClick={() => setCatalogFor(chest)}
                 aria-label={`${s.caseCatalogButton} — ${chestName[chest]}`}
-                className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white/[0.08] hover:text-neutral-200"
+                className="group relative flex h-[164px] w-full flex-col overflow-hidden rounded-lg border border-white/5 bg-black/25 transition-colors hover:border-white/15 hover:bg-black/40"
               >
-                <List size={11} />
-              </button>
+                {/* Lit from the same upper left the model is, so the chest
+                    reads as standing inside a case rather than pasted on. */}
+                <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_32%_24%,rgba(255,255,255,0.07),transparent_62%)]" />
 
-              <span className="relative flex h-[18px] items-center justify-center">
-                {/* The icon you already see IS the first chest, so the ghosts
-                    behind it are however many MORE you hold — one chest draws
-                    one shape, not two. Capped so a large stack never turns
-                    the card into a smear. */}
-                {Array.from({ length: Math.min(Math.max((held[chest] ?? 0) - 1, 0), 2) }, (_, i) => (
-                  <span
-                    key={i}
-                    aria-hidden
-                    className={`absolute ${accent.text}`}
-                    style={{ transform: `translate(${(i + 1) * 3}px, ${(i + 1) * -3}px)`, opacity: 0.32 - i * 0.09 }}
-                  >
-                    {isCosmeticChest(chest) ? <Shirt size={18} /> : <Archive size={18} />}
-                  </span>
-                ))}
-                {isCosmeticChest(chest) ? (
-                  <Shirt size={18} className={`relative ${accent.text}`} />
-                ) : (
-                  <Archive size={18} className={`relative ${accent.text}`} />
-                )}
-              </span>
-              <span className="text-center text-[11px] font-semibold leading-tight text-neutral-300">
-                {chestName[chest]}
-              </span>
-              {(held[chest] ?? 0) > 0 ? (
-                <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums">
-                  {/* The price only reads as free where a held chest actually
-                      pays it. On the other two it stays, with the count
-                      beside it — saying GRATIS there would be a lie. */}
-                  {COVERS_ITS_COST(chest) ? (
-                    <span className={`${accent.text} uppercase tracking-wide`}>{s.chestGranted}</span>
+                {/* 128 = the 100px model plus the 14px two ghosts reach on
+                    each side, so the held stack lands exactly on the edges of
+                    this band and can never be clipped by overflow-hidden. */}
+                <span className="relative flex h-[128px] w-full items-center justify-center">
+                  {/* The chest you can see IS the first one you hold, so the
+                      ghosts behind it are however many MORE there are. */}
+                  {Array.from({ length: Math.min(Math.max((held[chest] ?? 0) - 1, 0), 2) }, (_, i) => (
+                    <span
+                      key={i}
+                      aria-hidden
+                      className="absolute"
+                      style={{ transform: `translate(${(i + 1) * 7}px, ${(i + 1) * -7}px)`, opacity: 0.32 - i * 0.09 }}
+                    >
+                      <VaultChest tone={chest} gem={gemFor(chest)} size={100} />
+                    </span>
+                  ))}
+                  <VaultChest tone={chest} gem={gemFor(chest)} size={100} className="relative" />
+                </span>
+
+                {/* Centred in the gap between the chest and the floor of
+                    the case rather than parked in a band at the very
+                    bottom. 106 is where the chest visually ends: the
+                    128px band centres a 100px model at y=14, and the
+                    model draws its own contact shadow 92% of the way down
+                    its box. Measured from the shadow and not from the box
+                    edge, because the last 8px of that box are empty and
+                    centring against them puts the key visibly low. */}
+                <span className="absolute inset-x-0 bottom-0 top-[106px] flex items-center justify-center">
+                  {(held[chest] ?? 0) > 0 && COVERS_ITS_COST(chest) ? (
+                    <span className={`text-xs font-bold uppercase tracking-wide ${accent.text}`}>{s.chestGranted}</span>
                   ) : (
-                    <>
-                      <Key size={11} className="text-amber-200/90 opacity-70" />
-                      <span className="text-amber-200/90">{CHEST_KEY_COST[chest]}</span>
-                    </>
+                    <span className="relative inline-flex">
+                      <VaultKey tone="key" size={40} />
+                      {/* Tucked into the key's own bottom right, which is
+                          the one corner the tilt leaves empty: the bow sits
+                          low and left, the shaft runs up and right.
+
+                          Anchored by its LEFT edge, not its right. Pinned
+                          right, a wider number grows back toward the key,
+                          so x1 sat further from it than x10 did and the
+                          gap changed every time the price did. Left-pinned,
+                          every price starts in the same place and grows
+                          outward. */}
+                      <span className="absolute bottom-0.5 left-full -ml-2 text-[11px] font-bold tabular-nums text-amber-200/90">
+                        ×{CHEST_KEY_COST[chest]}
+                      </span>
+                    </span>
                   )}
-                  <span className={`rounded-full px-1.5 py-px text-[10px] ${accent.ring} border bg-black/30 ${accent.text}`}>
+                </span>
+
+                {(held[chest] ?? 0) > 0 && (
+                  <span
+                    className={`absolute left-1.5 top-1.5 rounded-full border ${accent.ring} bg-black/60 px-1.5 py-px text-[10px] font-bold tabular-nums ${accent.text}`}
+                  >
                     ×{held[chest]}
                   </span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums text-amber-200/90">
-                  <Key size={11} className="opacity-70" />
-                  {CHEST_KEY_COST[chest]}
-                </span>
-              )}
+                )}
+                {/* Top right, clear of the stack: the ghosts fan up and to
+                    the right, but their slabs start a fifth of the way down
+                    their own box, so nothing of them reaches this corner.
+                    Visible at rest rather than on hover — half the people
+                    here are on a phone and would never see a hover-only
+                    affordance at all. */}
+                <List
+                  size={12}
+                  className="absolute right-1.5 top-1.5 text-neutral-500 transition-colors group-hover:text-neutral-200"
+                />
+              </button>
 
               {count === 0 ? (
                 <button
@@ -633,12 +678,10 @@ export function ChestBench() {
                   )}
                 </button>
               ) : (
-                // Once there's one on the bench the card becomes a stepper —
+                // Once there is one on the bench the card becomes a stepper —
                 // adding and taking away is the whole interaction here, so it
-                // shouldn't need a different control to undo than to do.
-                <div
-                  className={`flex w-full items-center justify-between rounded-lg border ${accent.ring} bg-black/20 px-1 py-1`}
-                >
+                // should not need a different control to undo than to do.
+                <div className={`flex w-full items-center justify-between rounded-lg border ${accent.ring} bg-black/20 px-1 py-1`}>
                   <button
                     onClick={() => remove(chest)}
                     disabled={isBusy}
@@ -793,7 +836,7 @@ export function ChestBench() {
                 ) : item.prize.currency === 'gems' ? (
                   <Gem size={11} />
                 ) : (
-                  <PlatinumIcon size={13} />
+                  <MineralIcon size={16} />
                 )}
                 <span className="tabular-nums">{labelFor(item)}</span>
               </motion.span>
@@ -816,8 +859,16 @@ export function ChestBench() {
           <Loader2 size={16} className="animate-spin" />
         ) : (
           <>
-            <Key size={15} className="opacity-80" />
-            <span className="tabular-nums">{totalCost}</span>
+            {/* Side by side, not tucked in the corner the way a card's
+                price is: that one is a tag on an object, this one is the
+                confirmation of what you are about to spend, and it has
+                to be read as a sentence. Pulled in past the button's own
+                gap-2 because the tilt leaves the key's lower right empty
+                and the total can sit into that space. */}
+            <span className="flex items-center">
+              <VaultKey tone="key" size={40} />
+              <span className="-ml-1 translate-y-[4px] tabular-nums">×{totalCost}</span>
+            </span>
           </>
         )}
       </button>

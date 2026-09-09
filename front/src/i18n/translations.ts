@@ -226,6 +226,9 @@ export interface TranslationStrings {
     claimingKey: string
     buyClicksTitle: (materialName: string) => string
     buyKeysTitle: string
+    keysTitle: string
+    gemsTitle: string
+    gemsStallTagline: string
     buyGemsTitle: string
     savingsBadge: (pct: number) => string
     opening: string
@@ -809,6 +812,9 @@ export const translations: Record<Language, TranslationStrings> = {
       claimingKey: 'Reclamando…',
       buyClicksTitle: (materialName) => `Comprar ${materialName.toLowerCase()}`,
       buyKeysTitle: 'Comprar llaves',
+      keysTitle: 'Llaves',
+      gemsTitle: 'Gemas',
+      gemsStallTagline: 'Puesto de trueque',
       buyGemsTitle: 'Comprar gemas',
       savingsBadge: (pct) => `Ahorra ${pct}%`,
       opening: 'Abriendo…',
@@ -1480,6 +1486,9 @@ export const translations: Record<Language, TranslationStrings> = {
       claimingKey: 'Claiming…',
       buyClicksTitle: (materialName) => `Buy ${materialName.toLowerCase()}`,
       buyKeysTitle: 'Buy keys',
+      keysTitle: 'Keys',
+      gemsTitle: 'Gems',
+      gemsStallTagline: 'Trading post',
       buyGemsTitle: 'Buy gems',
       savingsBadge: (pct) => `Save ${pct}%`,
       opening: 'Opening…',

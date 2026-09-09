@@ -1,8 +1,10 @@
 ﻿import { useState } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
-import { Rocket, Dices, Clock, Loader2, X, Gem, Key } from 'lucide-react'
+import { Rocket, Dices, Clock, Loader2, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
-import { PlatinumIcon } from '../components/PlatinumIcon'
+import { KeyIcon } from '../components/VaultChest'
+import { GemContainer, gemContainerFor, keyContainerFor } from '../components/StallGoods'
+import { GemIcon, MineralIcon } from '../components/MaterialIcons'
 
 // Loose enough to accept both a Lucide icon (Gem, Key…) and our own
 // PlatinumIcon — every consumer here only ever passes size/className.
@@ -16,7 +18,7 @@ import { useClickPacksContext, type ClickPackDef } from '../context/ClickPacksCo
 import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { ChestBench } from '../components/ChestBench'
-import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
+import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
 import { playChestPurchase } from '../lib/caseSound'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
@@ -49,7 +51,7 @@ export function Store() {
                 aria-label={strings.store.buyClicksTitle(currentMaterialName)}
                 className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums transition-colors ${materialTheme.pill}`}
               >
-                <PlatinumIcon size={15} className="opacity-70" />
+                <MineralIcon size={20} />
                 {formatPlatino(totalClicks, language)}
               </button>
               <button
@@ -57,7 +59,7 @@ export function Store() {
                 aria-label={strings.store.buyKeysTitle}
                 className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-amber-200 transition-colors hover:bg-amber-500/[0.14]"
               >
-                <Key size={12} className="opacity-80" />
+                <KeyIcon size={20} />
                 {keys.toLocaleString(locale)}
               </button>
               <button
@@ -65,7 +67,7 @@ export function Store() {
                 aria-label={strings.store.buyGemsTitle}
                 className="flex items-center gap-1 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1 text-xs font-semibold tabular-nums text-indigo-200 transition-colors hover:bg-indigo-500/[0.14]"
               >
-                <Gem size={12} className="opacity-80" />
+                <GemIcon size={20} />
                 {gems.toLocaleString(locale)}
               </button>
             </div>
@@ -101,7 +103,7 @@ export function Store() {
           locale={locale}
           strings={strings.store}
           currentMaterialName={currentMaterialName}
-          iconWrapClassName={materialTheme.iconWrap}
+          materialColor={(MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]).fill}
           onClose={() => setShowClickPacks(false)}
         />
       )}
@@ -136,6 +138,9 @@ export interface StoreStrings {
   claimingKey: string
   buyClicksTitle: (materialName: string) => string
   buyKeysTitle: string
+  keysTitle: string
+  gemsTitle: string
+  gemsStallTagline: string
   buyGemsTitle: string
   savingsBadge: (pct: number) => string
   opening: string
@@ -174,101 +179,79 @@ function computeSavingsPct(baseUnitPrice: number, unitPrice: number): number {
   return Math.round((1 - unitPrice / baseUnitPrice) * 100)
 }
 
-type PackTheme = 'neutral' | 'amber' | 'indigo' | 'violet'
+type PackTheme = 'amber' | 'indigo' | 'violet'
 
-const PACK_THEME: Record<PackTheme, { iconWrap: string }> = {
-  neutral: { iconWrap: 'bg-gradient-to-br from-white/25 to-white/10 text-white' },
-  amber: { iconWrap: 'bg-gradient-to-br from-amber-400/30 to-yellow-500/20 text-amber-200' },
-  indigo: { iconWrap: 'bg-gradient-to-br from-indigo-400/30 to-violet-500/20 text-indigo-200' },
-  // Matches the platino badge/pill's own violet everywhere else (Home's
-  // pt/s pill, the Store header badge).
-  violet: { iconWrap: 'bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200' },
-}
-
-// Same soft glass look by default — bordered, translucent, blurred, not the
-// solid opaque white used elsewhere (e.g. the free-case button). Clicks
-// override this to indigo since they're paid for with gems, same as the
-// gem-case button in the Cofres card.
-const PACK_BUTTON_CLASSES = 'border border-white/15 bg-white/[0.06] text-white backdrop-blur-sm hover:bg-white/[0.1]'
-const PACK_BUTTON_CLASSES_INDIGO =
-  'border border-indigo-400/30 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/15'
-
-interface PackTileData {
-  id: string
-  amount: number
-  priceContent: React.ReactNode
-  isBuying: boolean
-  disabled: boolean
-  savingsBadge: string | null
-  onClick: () => void
-}
-
-function PackTile({
-  tile,
-  icon: Icon,
-  locale,
-  inline = false,
-  accentColorClass = 'text-neutral-300',
-  buttonClassName = PACK_BUTTON_CLASSES,
-}: {
-  tile: PackTileData
-  icon: PackIcon
-  locale: string
-  /** Icon + amount side by side instead of stacked — reads better for small numbers like key/gem counts. */
-  inline?: boolean
-  accentColorClass?: string
-  buttonClassName?: string
-}) {
-  return (
-    <div className="relative flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 pt-4 text-center">
-      {tile.savingsBadge && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-red-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-md shadow-black/30">
-          {tile.savingsBadge}
-        </span>
-      )}
-      {inline ? (
-        <span className={`flex items-center gap-1.5 ${accentColorClass}`}>
-          <Icon size={18} />
-          <span className="text-lg font-bold tabular-nums">x{tile.amount.toLocaleString(locale)}</span>
-        </span>
-      ) : (
-        <>
-          <Icon size={20} className="text-neutral-300" />
-          <span className="text-base font-bold tabular-nums text-white">{tile.amount.toLocaleString(locale)}</span>
-        </>
-      )}
-      <button
-        onClick={tile.onClick}
-        disabled={tile.disabled}
-        className={`mt-0.5 w-full rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed ${
-          tile.disabled
-            ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
-            : buttonClassName
-        }`}
-      >
-        {tile.isBuying ? <Loader2 size={12} className="mx-auto animate-spin" /> : tile.priceContent}
-      </button>
-    </div>
-  )
-}
-
-interface PackModalShellProps {
+// Three modals sell three different things the same way: a stamped heading,
+// then one row per lot. This used to be a 2x2 grid of small tiles, and the
+// grid was the constraint — in a half-width tile there is no room for the
+// item to be anything but a glyph. A row gives it forty-odd pixels, which
+// is the difference between an icon and an object.
+interface ManifestTheme {
+  panel: string
+  ruleFrom: string
+  ruleTo: string
+  lamp: string
   title: string
-  icon: PackIcon
+  row: string
+  amount: string
+  button: string
+  sticker: string
+}
+
+const MANIFEST_THEME: Record<PackTheme, ManifestTheme> = {
+  amber: {
+    panel: 'border-amber-400/15',
+    ruleFrom: 'bg-gradient-to-r from-transparent to-amber-300/50',
+    ruleTo: 'bg-gradient-to-l from-transparent to-amber-300/50',
+    lamp: 'bg-amber-400/10',
+    title: 'text-amber-50',
+    row: 'border-amber-400/15 bg-gradient-to-r from-amber-500/[0.07] via-amber-500/[0.02] to-transparent',
+    amount: 'text-amber-100',
+    button: 'border border-amber-400/35 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25',
+    sticker: 'bg-amber-300 text-[#2a1a06]',
+  },
+  indigo: {
+    panel: 'border-indigo-400/15',
+    ruleFrom: 'bg-gradient-to-r from-transparent to-indigo-300/50',
+    ruleTo: 'bg-gradient-to-l from-transparent to-indigo-300/50',
+    lamp: 'bg-indigo-400/10',
+    title: 'text-indigo-50',
+    row: 'border-indigo-400/15 bg-gradient-to-r from-indigo-500/[0.09] via-indigo-500/[0.03] to-transparent',
+    amount: 'text-indigo-100',
+    button: 'border border-indigo-400/35 bg-indigo-500/15 text-indigo-100 hover:bg-indigo-500/25',
+    sticker: 'bg-indigo-300 text-[#161038]',
+  },
+  violet: {
+    panel: 'border-violet-400/15',
+    ruleFrom: 'bg-gradient-to-r from-transparent to-violet-300/50',
+    ruleTo: 'bg-gradient-to-l from-transparent to-violet-300/50',
+    lamp: 'bg-violet-400/10',
+    title: 'text-violet-50',
+    row: 'border-violet-400/15 bg-gradient-to-r from-violet-500/[0.09] via-violet-500/[0.03] to-transparent',
+    amount: 'text-violet-100',
+    // Paid in gems, so the button is the gems colour even though the panel
+    // is the material you are buying.
+    button: 'border border-indigo-400/35 bg-indigo-500/15 text-indigo-100 hover:bg-indigo-500/25',
+    sticker: 'bg-violet-300 text-[#1d0f3a]',
+  },
+}
+
+function PackManifest({
+  title,
+  theme,
+  onClose,
+  error,
+  children,
+}: {
+  title: string
   theme: PackTheme
-  // Overrides PACK_THEME[theme]'s iconWrap — used by the click-pack modal
-  // so its badge follows the current material's color instead of always
-  // being violet's own fixed gradient.
-  iconWrapClassName?: string
   onClose: () => void
   error?: string | null
   children: React.ReactNode
-}
-
-function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, error, children }: PackModalShellProps) {
-  const classes = PACK_THEME[theme]
-  // Only ever mounted while its modal is open (see the `showX &&` gates
-  // above) — same page-scrolls-behind-the-modal bug as Home's own overlays.
+}) {
+  const t = MANIFEST_THEME[theme]
+  // Only ever mounted while its modal is open — otherwise the page scrolls
+  // behind the overlay.
   useLockBodyScroll(true)
   return (
     <div
@@ -276,25 +259,45 @@ function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, 
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0d0d14] p-6 shadow-2xl shadow-black/50"
+        className={`relative w-full max-w-sm overflow-hidden rounded-2xl border ${t.panel} bg-[#0a0a0e] p-6 shadow-2xl shadow-black/60`}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* A lit rail across the top and a lamp behind it. Two elements, and
+            they are what turn a dark panel into a hold with something
+            valuable in it. */}
+        <span className={`pointer-events-none absolute inset-x-0 top-0 h-px ${t.ruleFrom}`} />
+        <span className={`pointer-events-none absolute -top-20 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full ${t.lamp} blur-3xl`} />
+
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
+          className="absolute right-4 top-4 z-10 text-neutral-500 transition-colors hover:text-neutral-300"
         >
           <X size={16} />
         </button>
 
-        <div className="mb-4 flex items-center gap-2">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-full ${iconWrapClassName ?? classes.iconWrap}`}>
-            <Icon size={17} />
-          </div>
-          <p className="text-sm font-semibold text-white">{title}</p>
+        {/* Stamped, not written: wide-tracked caps between two hairlines,
+            which is what a heading looks like when it has been struck into a
+            plate rather than printed on a page. No icon — the lots below are
+            made of the thing, so one up here would say it twice.
+
+            The rules are fixed at 40px rather than flexing to the edges: a
+            full-width rule would run underneath the close button, and short
+            ones read as a stamp instead of as a divider.
+
+            indent compensates the tracking. Letter-spacing is applied AFTER
+            the last character too, so a centred word sits half a space left
+            of true centre — visible at 0.32em, and the reason wide-tracked
+            headings so often look subtly off. */}
+        <div className="relative mb-6 flex items-center justify-center gap-3.5">
+          <span className={`h-px w-10 ${t.ruleFrom}`} />
+          <p className={`indent-[0.32em] whitespace-nowrap text-lg font-semibold uppercase tracking-[0.32em] ${t.title}`}>
+            {title}
+          </p>
+          <span className={`h-px w-10 ${t.ruleTo}`} />
         </div>
 
-        <div className="grid grid-cols-2 gap-x-2 gap-y-6">{children}</div>
+        <div className="relative flex flex-col gap-2.5">{children}</div>
 
         {error && <p className="relative mt-3 text-xs text-red-400">{error}</p>}
       </div>
@@ -302,15 +305,96 @@ function PackModalShell({ title, icon: Icon, theme, iconWrapClassName, onClose, 
   )
 }
 
+function PackLot({
+  icon: Icon,
+  iconSize,
+  iconClassName,
+  iconColor,
+  bundle,
+  amountLabel,
+  priceContent,
+  discount,
+  isBuying,
+  disabled,
+  onClick,
+  theme,
+}: {
+  icon: PackIcon
+  iconSize: number
+  iconClassName?: string
+  /** Inline colour for icons drawn in currentColor. The material modal uses
+   *  it because its colour is a hex that moves with the prestige tier and so
+   *  cannot be a fixed Tailwind class. */
+  iconColor?: string
+  /** How many copies are drawn — not how many you get. */
+  bundle: number
+  amountLabel: string
+  priceContent: React.ReactNode
+  discount: string | null
+  isBuying: boolean
+  disabled: boolean
+  onClick: () => void
+  theme: PackTheme
+}) {
+  const t = MANIFEST_THEME[theme]
+  return (
+    <div className={`relative flex items-center gap-3 rounded-xl border ${t.row} p-3`}>
+      <span
+        className="relative flex h-[56px] w-[62px] shrink-0 items-center justify-center"
+        style={{ color: iconColor }}
+      >
+        {Array.from({ length: bundle - 1 }, (_, k) => (
+          <span
+            key={k}
+            aria-hidden
+            className="absolute"
+            style={{ transform: `translate(${(k + 1) * 7}px, ${(k + 1) * -5}px)`, opacity: 0.3 - k * 0.1 }}
+          >
+            <Icon size={iconSize} className={iconClassName} />
+          </span>
+        ))}
+        <span className="relative">
+          <Icon size={iconSize} className={iconClassName} />
+        </span>
+      </span>
+
+      <span className={`min-w-0 flex-1 text-xl font-bold tabular-nums ${t.amount}`}>{amountLabel}</span>
+
+      {/* The discount rides the button, not the amount: it is a claim about
+          the PRICE, not about how much is in the lot. */}
+      <span className="relative shrink-0">
+        {discount && (
+          <span
+            className={`pointer-events-none absolute -top-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-wide shadow-md shadow-black/40 ${t.sticker}`}
+          >
+            {discount}
+          </span>
+        )}
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          className={`w-[96px] rounded-lg px-3 py-2 text-center text-sm font-bold tabular-nums transition-colors disabled:cursor-not-allowed ${
+            disabled ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60' : t.button
+          }`}
+        >
+          {isBuying ? <Loader2 size={14} className="mx-auto animate-spin" /> : priceContent}
+        </button>
+      </span>
+    </div>
+  )
+}
 interface ClickPacksModalProps {
   locale: string
   strings: StoreStrings
   currentMaterialName: string
-  iconWrapClassName: string
+  /** The tier material's own colour, applied to the icon. It used to tint
+   *  the header badge; with the badge gone it moves onto the thing itself,
+   *  which is where it belonged. */
+  materialColor: string
   onClose: () => void
 }
 
-function ClickPacksModal({ locale, strings, currentMaterialName, iconWrapClassName, onClose }: ClickPacksModalProps) {
+function ClickPacksModal({ locale, strings, currentMaterialName, materialColor, onClose }: ClickPacksModalProps) {
   const { catalog, buyingId, buy } = useClickPacksContext()
   const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
@@ -328,43 +412,42 @@ function ClickPacksModal({ locale, strings, currentMaterialName, iconWrapClassNa
   }
 
   return (
-    <PackModalShell
-      title={strings.buyClicksTitle(currentMaterialName)}
-      icon={PlatinumIcon}
-      theme="violet"
-      iconWrapClassName={iconWrapClassName}
-      onClose={onClose}
-      error={error}
-    >
+    <PackManifest title={currentMaterialName} theme="violet" onClose={onClose} error={error}>
       {catalog.map((pack, i) => {
         const unitPrice = pack.gemCost / pack.clicks
         const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
         return (
-          <PackTile
+          <PackLot
             key={pack.id}
-            icon={PlatinumIcon}
-            locale={locale}
-            buttonClassName={PACK_BUTTON_CLASSES_INDIGO}
-            tile={{
-              id: pack.id,
-              amount: pack.clicks,
-              priceContent: (
-                <span className="flex items-center justify-center gap-1">
-                  <Gem size={11} className="opacity-70" />
-                  {pack.gemCost}
-                </span>
-              ),
-              isBuying: buyingId === pack.id,
-              disabled: buyingId !== null || gems < pack.gemCost,
-              savingsBadge: i >= 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null,
-              onClick: () => handleBuy(pack),
-            }}
+            theme="violet"
+            icon={MineralIcon}
+            iconSize={40}
+            iconColor={materialColor}
+            bundle={Math.min(i + 1, 3)}
+            amountLabel={pack.clicks.toLocaleString(locale)}
+            priceContent={
+              <span className="flex items-center justify-center gap-1">
+                <GemIcon size={16} />
+                {pack.gemCost}
+              </span>
+            }
+            discount={i >= 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null}
+            isBuying={buyingId === pack.id}
+            disabled={buyingId !== null || gems < pack.gemCost}
+            onClick={() => handleBuy(pack)}
           />
         )
       })}
-    </PackModalShell>
+    </PackManifest>
   )
 }
+
+// Same idea for gems, and for keys below.
+const GEM_PACK_DISCOUNTS: Record<string, number> = { x50_gems: 20, x100_gems: 20 }
+// Lots that carry the bulk discount, and by how much. Kept as data next to
+// the component rather than as an id compared inline in the JSX — that is
+// how x100 ended up without its badge while x50 had one.
+const KEY_PACK_DISCOUNTS: Record<string, number> = { x50_keys: 10, x100_keys: 10 }
 
 interface KeyPacksModalProps {
   locale: string
@@ -375,6 +458,7 @@ interface KeyPacksModalProps {
 function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
   const { catalog, prices, buyingId, buy } = useKeyPacksContext()
   const [error, setError] = useState<string | null>(null)
+  useLockBodyScroll(true)
 
   const handleBuy = async (pack: KeyPackDef) => {
     setError(null)
@@ -385,32 +469,95 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
   }
 
   return (
-    <PackModalShell title={strings.buyKeysTitle} icon={Key} theme="amber" onClose={onClose} error={error}>
-      {catalog.map((pack) => {
-        const priceLabel = prices[pack.id]
-        return (
-          <PackTile
-            key={pack.id}
-            icon={Key}
-            locale={locale}
-            inline
-            accentColorClass="text-amber-300"
-            tile={{
-              id: pack.id,
-              amount: pack.amount,
-              priceContent: priceLabel ?? '···',
-              isBuying: buyingId === pack.id,
-              disabled: buyingId !== null || !priceLabel,
-              savingsBadge: pack.id === 'x50_keys' ? strings.savingsBadge(10) : null,
-              onClick: () => handleBuy(pack),
-            }}
-          />
-        )
-      })}
-    </PackModalShell>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* The same stall as the gem shop, in amber. Same lamp, same shelves,
+          same tags on cords — it is one trader with two counters, and
+          giving each its own furniture would say otherwise. */}
+      <div
+        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-amber-400/15 bg-[#100d09] pb-5 shadow-2xl shadow-black/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(58% 34% at 50% -2%, rgba(245,199,126,.2), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)',
+          }}
+        />
+
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 z-20 text-neutral-500 transition-colors hover:text-neutral-300"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="relative mx-auto h-4 w-16 rounded-b-lg bg-gradient-to-b from-[#6D7480] to-[#2C3037] shadow-[0_10px_26px_rgba(245,199,126,0.34)]" />
+
+        <div className="relative mt-5 flex flex-col items-center">
+          <p
+            className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
+            style={{ borderColor: 'rgba(245,199,126,.45)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(245,199,126,.3)' }}
+          >
+            {strings.keysTitle}
+          </p>
+          <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.28em] text-[#F5C77E]/55">
+            {strings.gemsStallTagline}
+          </p>
+        </div>
+
+        <div className="relative mt-5 grid grid-cols-2 gap-x-2 gap-y-4 px-4">
+          {catalog.map((pack, i) => {
+            const priceLabel = prices[pack.id]
+            const disabled = buyingId !== null || !priceLabel
+            const discount = KEY_PACK_DISCOUNTS[pack.id]
+            return (
+              <button
+                key={pack.id}
+                onClick={() => handleBuy(pack)}
+                disabled={disabled}
+                aria-label={`${pack.amount} — ${priceLabel ?? ''}`}
+                className="group relative flex flex-col items-center rounded-xl px-1 pb-2 pt-1 transition-colors hover:bg-white/[0.03] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="relative block h-9 w-full">
+                  <span className="absolute left-1/2 top-0 h-3 w-px bg-[#F5C77E]/45" />
+                  <span
+                    className="absolute left-1/2 top-2.5 -translate-x-1/2 -rotate-3 whitespace-nowrap bg-gradient-to-b from-[#F3E3BE] to-[#D9BE82] py-1 pl-4 pr-3 font-mono text-[11px] font-semibold text-[#2A1E08] shadow-md shadow-black/50"
+                    style={{ clipPath: 'polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%)' }}
+                  >
+                    {buyingId === pack.id ? '···' : (priceLabel ?? '···')}
+                  </span>
+                </span>
+
+                <span className="relative">
+                  <GemContainer kind={keyContainerFor(i)} contents="keys" size={104} />
+                  {discount !== undefined && (
+                    <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#E8A33D] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#2A1A06] shadow-md shadow-black/50">
+                      {strings.savingsBadge(discount)}
+                    </span>
+                  )}
+                </span>
+
+                <span className="-mt-1.5 h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50" />
+
+                <span className="mt-2.5 text-2xl font-extrabold leading-none text-amber-200 [text-shadow:0_0_18px_rgba(245,199,126,0.35)]">
+                  <span className="text-base opacity-50">×</span>
+                  {pack.amount.toLocaleString(locale)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {error && <p className="relative mt-3 px-6 text-xs text-red-400">{error}</p>}
+      </div>
+    </div>
   )
 }
-
 export interface GemPacksModalProps {
   locale: string
   strings: StoreStrings
@@ -420,6 +567,7 @@ export interface GemPacksModalProps {
 export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
   const { catalog, prices, buyingId, buy } = useGemPacksContext()
   const [error, setError] = useState<string | null>(null)
+  useLockBodyScroll(true)
 
   const handleBuy = async (pack: GemPackDef) => {
     setError(null)
@@ -430,29 +578,106 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
   }
 
   return (
-    <PackModalShell title={strings.buyGemsTitle} icon={Gem} theme="indigo" onClose={onClose} error={error}>
-      {catalog.map((pack) => {
-        const priceLabel = prices[pack.id]
-        return (
-          <PackTile
-            key={pack.id}
-            icon={Gem}
-            locale={locale}
-            inline
-            accentColorClass="text-indigo-300"
-            tile={{
-              id: pack.id,
-              amount: pack.amount,
-              priceContent: priceLabel ?? '···',
-              isBuying: buyingId === pack.id,
-              disabled: buyingId !== null || !priceLabel,
-              savingsBadge: pack.id === 'x50_gems' ? strings.savingsBadge(20) : null,
-              onClick: () => handleBuy(pack),
-            }}
-          />
-        )
-      })}
-    </PackModalShell>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* A trader's stall rather than a list of packs. The lamp, the sign
+          and the shelves are what make the four goods read as stock on a
+          counter; without them they are four buttons with pictures on. */}
+      <div
+        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-indigo-400/15 bg-[#0d0f16] pb-5 shadow-2xl shadow-black/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Bulkhead: a warm pool of lamp light over a faint plate grid, so
+            the back of the stall is a surface and not a void. */}
+        <span
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(58% 34% at 50% -2%, rgba(245,199,126,.18), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)',
+          }}
+        />
+
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 z-20 text-neutral-500 transition-colors hover:text-neutral-300"
+        >
+          <X size={16} />
+        </button>
+
+        {/* The lamp is a real fixture hanging into frame, not a gradient.
+            One visible source is what lets everything below cast in the same
+            direction and be believed. */}
+        <div className="relative mx-auto h-4 w-16 rounded-b-lg bg-gradient-to-b from-[#6D7480] to-[#2C3037] shadow-[0_10px_26px_rgba(245,199,126,0.34)]" />
+
+        <div className="relative mt-5 flex flex-col items-center">
+          <p
+            className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
+            style={{ borderColor: 'rgba(245,199,126,.45)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(245,199,126,.3)' }}
+          >
+            {strings.gemsTitle}
+          </p>
+          <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.28em] text-[#F5C77E]/55">
+            {strings.gemsStallTagline}
+          </p>
+        </div>
+
+        {/* Two by two. Four across does not fit the width of a phone, and at
+            a quarter of it the vial and the pouch stop being different
+            objects — which is the whole idea. */}
+        <div className="relative mt-5 grid grid-cols-2 gap-x-2 gap-y-4 px-4">
+          {catalog.map((pack, i) => {
+            const priceLabel = prices[pack.id]
+            const disabled = buyingId !== null || !priceLabel
+            const discount = GEM_PACK_DISCOUNTS[pack.id]
+            return (
+              <button
+                key={pack.id}
+                onClick={() => handleBuy(pack)}
+                disabled={disabled}
+                aria-label={`${pack.amount} — ${priceLabel ?? ''}`}
+                className="group relative flex flex-col items-center rounded-xl px-1 pb-2 pt-1 transition-colors hover:bg-white/[0.03] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {/* The price hangs off a cord. The same figure inside a
+                    button reads as a checkout; on a swinging card it reads
+                    as a market. It costs nothing and says something else. */}
+                <span className="relative block h-9 w-full">
+                  <span className="absolute left-1/2 top-0 h-3 w-px bg-[#F5C77E]/45" />
+                  <span
+                    className="absolute left-1/2 top-2.5 -translate-x-1/2 -rotate-3 whitespace-nowrap bg-gradient-to-b from-[#F3E3BE] to-[#D9BE82] py-1 pl-4 pr-3 font-mono text-[11px] font-semibold text-[#2A1E08] shadow-md shadow-black/50"
+                    style={{ clipPath: 'polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%)' }}
+                  >
+                    {buyingId === pack.id ? '···' : (priceLabel ?? '···')}
+                  </span>
+                </span>
+
+                <span className="relative">
+                  <GemContainer kind={gemContainerFor(i)} size={104} />
+                  {discount !== undefined && (
+                    <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#E8A33D] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#2A1A06] shadow-md shadow-black/50">
+                      {strings.savingsBadge(discount)}
+                    </span>
+                  )}
+                </span>
+
+                {/* The shelf. Lit along its front lip, which is what puts
+                    the object ON something instead of in front of it. */}
+                <span className="-mt-1.5 h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50" />
+
+                <span className="mt-2.5 text-2xl font-extrabold leading-none text-indigo-300 [text-shadow:0_0_18px_rgba(165,180,252,0.35)]">
+                  <span className="text-base opacity-50">×</span>
+                  {pack.amount.toLocaleString(locale)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {error && <p className="relative mt-3 px-6 text-xs text-red-400">{error}</p>}
+      </div>
+    </div>
   )
 }
 
@@ -513,9 +738,9 @@ function TierTile({
         ) : (
           <span className="flex items-center justify-center gap-1">
             {currency === 'gems' ? (
-              <Gem size={10} className="opacity-80" />
+              <GemIcon size={14} />
             ) : (
-              <PlatinumIcon size={13} className="opacity-70" />
+              <MineralIcon size={15} />
             )}
             <span className="tabular-nums">{cost.toLocaleString(locale)}</span>
           </span>
