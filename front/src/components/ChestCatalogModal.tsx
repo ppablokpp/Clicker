@@ -1,6 +1,6 @@
-import { Gem, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
-import { MineralIcon } from './MaterialIcons'
+import { GemIcon, MineralIcon } from './MaterialIcons'
 import { useLanguage } from '../context/LanguageContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import type { DailyCasePrize } from '../context/DailyCaseContext'
@@ -126,7 +126,7 @@ function CurrencySection({
             {isGems ? (
               <>
                 <span className="flex items-center gap-1 text-sm font-medium" style={{ color: style.color }}>
-                  <Gem size={12} className="opacity-70" />x{prize.amount}
+                  <GemIcon size={16} />x{prize.amount}
                 </span>
                 <span className="ml-auto text-sm font-bold tabular-nums text-white">
                   {Math.round(rawPct)}%

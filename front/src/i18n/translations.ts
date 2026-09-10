@@ -200,7 +200,6 @@ export interface TranslationStrings {
     styleDescriptions: Record<string, string>
   }
   store: {
-    title: string
     subtitle: string
     costLabel: string
     buy: string
@@ -245,6 +244,9 @@ export interface TranslationStrings {
     cosmeticCaseSoon: string
     cosmeticCaseTitleKeys: string
     cosmeticCaseTitleGems: string
+    /** Short form for the plate on the chest itself. */
+    chestTagStyle: string
+    chestTagStyleRare: string
     cosmeticCaseOpen: string
     cosmeticCaseCatalogTitle: string
     cosmeticRarityNames: Record<string, string>
@@ -783,7 +785,6 @@ export const translations: Record<Language, TranslationStrings> = {
       },
     },
     store: {
-      title: 'Tienda',
       subtitle: 'Mejora tus clicks con potenciadores y mejoras permanentes.',
       costLabel: 'platino',
       buy: 'Comprar',
@@ -838,6 +839,8 @@ export const translations: Record<Language, TranslationStrings> = {
       cosmeticCaseSoon: 'Próximamente',
       cosmeticCaseTitleKeys: 'Cofre de estilo',
       cosmeticCaseTitleGems: 'Cofre de estilo raro',
+      chestTagStyle: 'Estilo',
+      chestTagStyleRare: 'Estilo raro',
       cosmeticCaseOpen: 'Girar (demo)',
       cosmeticCaseCatalogTitle: 'Contenido del cofre',
       cosmeticRarityNames: {
@@ -1454,7 +1457,6 @@ export const translations: Record<Language, TranslationStrings> = {
       },
     },
     store: {
-      title: 'Store',
       subtitle: 'Boost your clicks with powerups and permanent upgrades.',
       costLabel: 'platinum',
       buy: 'Buy',
@@ -1509,6 +1511,8 @@ export const translations: Record<Language, TranslationStrings> = {
       cosmeticCaseSoon: 'Coming soon',
       cosmeticCaseTitleKeys: 'Style chest',
       cosmeticCaseTitleGems: 'Rare style chest',
+      chestTagStyle: 'Style',
+      chestTagStyleRare: 'Rare style',
       cosmeticCaseOpen: 'Spin (demo)',
       cosmeticCaseCatalogTitle: 'Chest contents',
       cosmeticRarityNames: {

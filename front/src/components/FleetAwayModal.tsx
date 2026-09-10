@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { MATERIAL_BUTTON_THEMES } from '../lib/materialTiers'
 import { DroneIcon } from './DroneIcon'
 import { PlatinumIcon } from './PlatinumIcon'
+import { formatPlatino } from '../lib/formatPlatino'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 
 // Same cut-corner header shape as Home's own cockpit-styled modals (Centro
@@ -41,7 +42,6 @@ export function FleetAwayModal() {
   const { awayCredit, clearAwayCredit } = useTreeContext()
   const { prestigeTier } = useClickCounterContext()
   const { strings, language } = useLanguage()
-  const locale = language === 'en' ? 'en-US' : 'es-ES'
   const materialTheme = MATERIAL_BUTTON_THEMES[prestigeTier]
   useLockBodyScroll(awayCredit !== null)
 
@@ -89,7 +89,7 @@ export function FleetAwayModal() {
               className={`inline-flex translate-y-[3px] items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold tabular-nums ${materialTheme.pill}`}
             >
               <PlatinumIcon size={13} className="opacity-70" />
-              {awayCredit.toLocaleString(locale)}
+              {formatPlatino(awayCredit, language)}
             </span>{' '}
             {strings.home.fleetAwaySuffix}
           </p>

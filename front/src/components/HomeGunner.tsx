@@ -95,12 +95,14 @@ const ORBIT_RADIUS = 'clamp(210px, 60vmin, 290px)'
  *
  *  Was 34, chosen so two gunners reproduced the ±163deg pair this was
  *  originally hand-placed at. That held while the node capped at four — a
- *  136deg fan — but the cap is seven now, and at 34 apart seven craft spread
- *  across 238deg: they stop reading as a formation escorting the asteroid
- *  and start reading as a ring around it, with the outer two nearly at its
- *  sides. 20 puts seven of them in 140deg, about the width four used to
- *  occupy, so the formation stays a formation however many you own. */
-const FAN_STEP_DEG = 20
+ *  136deg fan — but at 34 apart a full formation spreads far enough round to
+ *  stop reading as an escort and start reading as a ring, with the outer two
+ *  nearly at the asteroid's sides. 16 puts the full six inside 96deg, tighter
+ *  than four used to occupy, so they stay a formation however many you own —
+ *  and close enough together to read as one unit rather than as craft that
+ *  happen to share an orbit. The radius is untouched: same orbit, less air
+ *  between them. */
+const FAN_STEP_DEG = 16
 /** Ceiling on the total spread, so a large formation wraps into a wide arc
  *  instead of overlapping itself past the top of the screen. */
 const MAX_FAN_DEG = 320
@@ -155,7 +157,7 @@ const BAND = {
 
 /**
  * @param count How many gunners are on station — the Artillero node's owned
- *   level, capped at 4 by that node. The fan, the firing stagger and the
+ *   level, capped at 6 by that node. The fan, the firing stagger and the
  *   aiming all derive from it.
  *
  * At 0 it returns null, so nothing at all mounts — no <style>, no gradient

@@ -3,7 +3,7 @@ import { useAppAuth } from '../hooks/useAppAuth'
 import { Clock, Loader2, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { KeyIcon } from '../components/VaultChest'
-import { GemContainer, gemContainerFor, keyContainerFor } from '../components/StallGoods'
+import { GemContainer, GOODS_SHELF_LIFT, GOODS_SIZE, gemContainerFor, keyContainerFor } from '../components/StallGoods'
 import { GemIcon, MineralIcon } from '../components/MaterialIcons'
 
 // Loose enough to accept both a Lucide icon (Gem, Key…) and our own
@@ -69,7 +69,7 @@ function WalletBay({ icon, amount, ariaLabel, tone, pool, onClick }: WalletBayPr
           only admits to being a button when a cursor lands on it never admits
           it at all. */}
       <span className="relative block">
-        <span className="font-[Space_Grotesk] text-lg font-bold leading-none tabular-nums" style={{ color: tone }}>
+        <span className="font-[Space_Grotesk] text-base font-bold leading-none tabular-nums" style={{ color: tone }}>
           {amount}
         </span>
         <span
@@ -103,19 +103,7 @@ export function Store() {
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-6 sm:px-6 sm:pb-24 sm:pt-8">
       <div className="mx-auto max-w-2xl">
-        {/* The page wears the same stamp its sections do, struck in whatever
-            you are currently mining — the one heading here that changes colour
-            as you prestige. */}
         <header className="mb-10">
-          <StampedHeading
-            ruleFrom={materialTheme.stampFrom}
-            ruleTo={materialTheme.stampTo}
-            tone={materialTheme.stampTone}
-            className="mb-4"
-          >
-            {strings.store.title}
-          </StampedHeading>
-
           {/* The counter: one plate, three bays. Three separate pills read as
               three readouts that happen to sit near each other, and hid the
               fact that every one of them is a door into a shop. Bays cut into
@@ -123,14 +111,7 @@ export function Store() {
               whatever you are currently mining, so the wallet and the heading
               above it change colour together. */}
           <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02]">
-            <span
-              className="pointer-events-none absolute inset-x-0 top-0 h-px"
-              style={{ background: `linear-gradient(90deg, transparent, ${materialColors.fill}, transparent)` }}
-            />
-            <span
-              className="pointer-events-none absolute -top-24 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full opacity-20 blur-3xl"
-              style={{ background: materialColors.glow }}
-            />
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/[0.07]" />
 
             <div className="relative grid grid-cols-3">
               {/* Inset hairlines rather than full-height dividers: a cut that
@@ -602,7 +583,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
                 </span>
 
                 <span className="relative">
-                  <GemContainer kind={keyContainerFor(i)} contents="keys" size={104} />
+                  <GemContainer kind={keyContainerFor(i)} contents="keys" size={GOODS_SIZE} />
                   {discount !== undefined && (
                     <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#E8A33D] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#2A1A06] shadow-md shadow-black/50">
                       {strings.savingsBadge(discount)}
@@ -610,7 +591,10 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
                   )}
                 </span>
 
-                <span className="-mt-1.5 h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50" />
+                <span
+                  className="h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50"
+                  style={{ marginTop: -GOODS_SHELF_LIFT }}
+                />
 
                 <span className="mt-2.5 text-2xl font-extrabold leading-none text-amber-200 [text-shadow:0_0_18px_rgba(245,199,126,0.35)]">
                   <span className="text-base opacity-50">×</span>
@@ -722,7 +706,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
                 </span>
 
                 <span className="relative">
-                  <GemContainer kind={gemContainerFor(i)} size={104} />
+                  <GemContainer kind={gemContainerFor(i)} size={GOODS_SIZE} />
                   {discount !== undefined && (
                     <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#A5B4FC] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#1B1B3A] shadow-md shadow-black/50">
                       {strings.savingsBadge(discount)}
@@ -732,7 +716,10 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
 
                 {/* The shelf. Lit along its front lip, which is what puts
                     the object ON something instead of in front of it. */}
-                <span className="-mt-1.5 h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50" />
+                <span
+                  className="h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50"
+                  style={{ marginTop: -GOODS_SHELF_LIFT }}
+                />
 
                 <span className="mt-2.5 text-2xl font-extrabold leading-none text-indigo-300 [text-shadow:0_0_18px_rgba(165,180,252,0.35)]">
                   <span className="text-base opacity-50">×</span>

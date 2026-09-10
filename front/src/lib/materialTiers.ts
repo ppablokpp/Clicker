@@ -60,12 +60,6 @@ export interface MaterialButtonTheme {
   button: string
   /** Icon-wrap gradient badge used by modal headers/section cards. */
   iconWrap: string
-  /** Left hairline of a stamped section heading struck in this material. */
-  stampFrom: string
-  /** Right hairline of the same heading. */
-  stampTo: string
-  /** Text colour of the heading between them. */
-  stampTone: string
 }
 
 export const MATERIAL_BUTTON_THEMES: readonly MaterialButtonTheme[] = [
@@ -75,62 +69,41 @@ export const MATERIAL_BUTTON_THEMES: readonly MaterialButtonTheme[] = [
     pill: 'border border-violet-400/20 bg-violet-500/[0.07] text-violet-200 hover:bg-violet-500/[0.14]',
     button: 'border border-violet-400/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/15',
     iconWrap: 'bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-violet-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-violet-300/50',
-    stampTone: 'text-violet-50',
   },
   {
     // Platino — Tier 1 (swapped with Amatista).
     pill: 'border border-slate-400/20 bg-slate-500/[0.07] text-slate-200 hover:bg-slate-500/[0.14]',
     button: 'border border-slate-400/30 bg-slate-500/10 text-slate-200 hover:bg-slate-500/15',
     iconWrap: 'bg-gradient-to-br from-slate-400/30 to-slate-600/20 text-slate-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-slate-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-slate-300/50',
-    stampTone: 'text-slate-50',
   },
   {
     // Zafiro
     pill: 'border border-blue-400/20 bg-blue-500/[0.07] text-blue-200 hover:bg-blue-500/[0.14]',
     button: 'border border-blue-400/30 bg-blue-500/10 text-blue-200 hover:bg-blue-500/15',
     iconWrap: 'bg-gradient-to-br from-blue-400/30 to-blue-600/20 text-blue-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-blue-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-blue-300/50',
-    stampTone: 'text-blue-50',
   },
   {
     // Esmeralda
     pill: 'border border-emerald-400/20 bg-emerald-500/[0.07] text-emerald-200 hover:bg-emerald-500/[0.14]',
     button: 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15',
     iconWrap: 'bg-gradient-to-br from-emerald-400/30 to-emerald-600/20 text-emerald-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-emerald-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-emerald-300/50',
-    stampTone: 'text-emerald-50',
   },
   {
     // Rubí
     pill: 'border border-red-400/20 bg-red-500/[0.07] text-red-200 hover:bg-red-500/[0.14]',
     button: 'border border-red-400/30 bg-red-500/10 text-red-200 hover:bg-red-500/15',
     iconWrap: 'bg-gradient-to-br from-red-400/30 to-red-600/20 text-red-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-red-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-red-300/50',
-    stampTone: 'text-red-50',
   },
   {
     // Oro
     pill: 'border border-yellow-400/20 bg-yellow-500/[0.07] text-yellow-200 hover:bg-yellow-500/[0.14]',
     button: 'border border-yellow-400/30 bg-yellow-500/10 text-yellow-200 hover:bg-yellow-500/15',
     iconWrap: 'bg-gradient-to-br from-yellow-400/30 to-yellow-600/20 text-yellow-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-yellow-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-yellow-300/50',
-    stampTone: 'text-yellow-50',
   },
   {
     // Diamante
     pill: 'border border-cyan-400/20 bg-cyan-500/[0.07] text-cyan-200 hover:bg-cyan-500/[0.14]',
     button: 'border border-cyan-400/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/15',
     iconWrap: 'bg-gradient-to-br from-cyan-400/30 to-cyan-600/20 text-cyan-200',
-    stampFrom: 'bg-gradient-to-r from-transparent to-cyan-300/50',
-    stampTo: 'bg-gradient-to-l from-transparent to-cyan-300/50',
-    stampTone: 'text-cyan-50',
   },
 ] as const

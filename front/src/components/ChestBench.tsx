@@ -1,8 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
-import { Gem, List, Loader2, Minus, Plus, X } from 'lucide-react'
+import { Loader2, Minus, Plus, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
-import { MineralIcon } from './MaterialIcons'
+import { GemIcon, MineralIcon } from './MaterialIcons'
 import { ChestCatalogModal } from './ChestCatalogModal'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { VaultChest, VaultKey } from './VaultChest'
@@ -84,11 +84,38 @@ function formatCountdown(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-const CHEST_ACCENT: Record<ChestId, { text: string; ring: string; chip: string }> = {
-  material: { text: 'text-neutral-300', ring: 'border-white/10', chip: 'bg-white/[0.04]' },
-  gems: { text: 'text-indigo-300', ring: 'border-indigo-400/25', chip: 'bg-indigo-500/[0.08]' },
-  style: { text: 'text-violet-300', ring: 'border-violet-400/25', chip: 'bg-violet-500/[0.08]' },
-  styleRare: { text: 'text-fuchsia-300', ring: 'border-fuchsia-400/25', chip: 'bg-fuchsia-500/[0.08]' },
+const CHEST_ACCENT: Record<
+  ChestId,
+  { text: string; ring: string; chip: string; plate: string; edge: string }
+> = {
+  material: {
+    text: 'text-neutral-300',
+    ring: 'border-white/10',
+    chip: 'bg-white/[0.04]',
+    plate: 'from-white/[0.07]',
+    edge: 'from-white/30',
+  },
+  gems: {
+    text: 'text-indigo-300',
+    ring: 'border-indigo-400/25',
+    chip: 'bg-indigo-500/[0.08]',
+    plate: 'from-indigo-500/[0.14]',
+    edge: 'from-indigo-300/45',
+  },
+  style: {
+    text: 'text-violet-300',
+    ring: 'border-violet-400/25',
+    chip: 'bg-violet-500/[0.08]',
+    plate: 'from-violet-500/[0.14]',
+    edge: 'from-violet-300/45',
+  },
+  styleRare: {
+    text: 'text-fuchsia-300',
+    ring: 'border-fuchsia-400/25',
+    chip: 'bg-fuchsia-500/[0.08]',
+    plate: 'from-fuchsia-500/[0.14]',
+    edge: 'from-fuchsia-300/45',
+  },
 }
 
 // What lands in a lane: either a currency prize, or a cosmetic. One union
@@ -142,7 +169,7 @@ const LaneTile = memo(function LaneTile({ item, label }: { item: LaneItem; label
       {item.kind === 'cosmetic' ? (
         <AstronautPieceById slot={item.item.slot} id={item.item.id} size={46} />
       ) : item.prize.currency === 'gems' ? (
-        <Gem size={17} style={{ color: style.color }} />
+        <GemIcon size={22} style={{ color: style.color }} />
       ) : (
         <MineralIcon size={24} style={{ color: style.color }} />
       )}
@@ -275,6 +302,17 @@ export function ChestBench() {
     gems: s.caseTitleGems,
     style: s.cosmeticCaseTitleKeys,
     styleRare: s.cosmeticCaseTitleGems,
+  }
+
+  // What goes on the plate. Short, because a plate riveted to the front of a
+  // crate says what is inside it, not what the crate is called — "Cofre de
+  // estilo raro" is the sentence the catalogue modal opens with, read with no
+  // chest in view. Here the chest is right there.
+  const chestTag: Record<ChestId, string> = {
+    material: materialName,
+    gems: s.gemsTitle,
+    style: s.chestTagStyle,
+    styleRare: s.chestTagStyleRare,
   }
 
   // The material chest wears whatever you are currently mining, so its
@@ -579,11 +617,14 @@ export function ChestBench() {
                 count > 0 ? `${accent.ring} ${accent.chip}` : 'border-white/5 bg-white/[0.02]'
               } ${ready ? '' : 'opacity-40'}`}
             >
-              {/* One case, holding everything that describes the chest: the
-                  model, how many you hold, and what it costs. The name is
-                  gone on purpose — the gem already says which chest this is,
-                  and a word under a picture of the thing it names is the one
-                  element on the card carrying no information.
+              {/* One case, holding everything that describes the chest: what
+                  it holds, the model, how many you have, and what it costs.
+
+                  The name went away once on the theory that the gem said which
+                  chest this was. It does not: two of the four are cosmetic
+                  chests whose gems differ only by hue, and the material one is
+                  named after whatever you happen to be mining. So the case gets
+                  a plate, the way a crate in a hold does.
 
                   The price lives INSIDE here rather than on a plate of its
                   own below, which read as a button you could press and
@@ -592,11 +633,33 @@ export function ChestBench() {
               <button
                 onClick={() => setCatalogFor(chest)}
                 aria-label={`${s.caseCatalogButton} — ${chestName[chest]}`}
-                className="group relative flex h-[164px] w-full flex-col overflow-hidden rounded-lg border border-white/5 bg-black/25 transition-colors hover:border-white/15 hover:bg-black/40"
+                className="group relative flex h-[182px] w-full flex-col overflow-hidden rounded-lg border border-white/5 bg-black/25 transition-colors hover:border-white/15 hover:bg-black/40"
               >
                 {/* Lit from the same upper left the model is, so the chest
                     reads as standing inside a case rather than pasted on. */}
                 <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_32%_24%,rgba(255,255,255,0.07),transparent_62%)]" />
+
+                {/* The plate. Struck caps in the chest's own colour, on a wash
+                    and a lit edge that both fade out to the right — lit from
+                    the same corner as everything else in the case, so it reads
+                    as a strip of metal catching the lamp rather than a header
+                    bar drawn on top.
+
+                    It is the same stamp the store's sections wear, shrunk to
+                    fit a card: that form is what ties the rack to the shops
+                    either side of it. */}
+                <span
+                  className={`relative flex h-[18px] w-full shrink-0 items-center justify-center bg-gradient-to-r to-transparent ${accent.plate}`}
+                >
+                  <span
+                    className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r to-transparent ${accent.edge}`}
+                  />
+                  <span
+                    className={`truncate px-2 indent-[0.16em] font-mono text-[9px] font-bold uppercase tracking-[0.16em] ${accent.text}`}
+                  >
+                    {chestTag[chest]}
+                  </span>
+                </span>
 
                 {/* 128 = the 100px model plus the 14px two ghosts reach on
                     each side, so the held stack lands exactly on the edges of
@@ -619,13 +682,13 @@ export function ChestBench() {
 
                 {/* Centred in the gap between the chest and the floor of
                     the case rather than parked in a band at the very
-                    bottom. 106 is where the chest visually ends: the
-                    128px band centres a 100px model at y=14, and the
-                    model draws its own contact shadow 92% of the way down
-                    its box. Measured from the shadow and not from the box
+                    bottom. 124 is where the chest visually ends: the
+                    18px plate, then a 128px band centring a 100px model at
+                    y=14, and the model draws its own contact shadow 92% of
+                    the way down its box. Measured from the shadow and not from the box
                     edge, because the last 8px of that box are empty and
                     centring against them puts the key visibly low. */}
-                <span className="absolute inset-x-0 bottom-0 top-[106px] flex items-center justify-center">
+                <span className="absolute inset-x-0 bottom-0 top-[124px] flex items-center justify-center">
                   {(held[chest] ?? 0) > 0 && COVERS_ITS_COST(chest) ? (
                     <span className={`text-xs font-bold uppercase tracking-wide ${accent.text}`}>{s.chestGranted}</span>
                   ) : (
@@ -654,18 +717,7 @@ export function ChestBench() {
                   >
                     ×{held[chest]}
                   </span>
-                )}
-                {/* Top right, clear of the stack: the ghosts fan up and to
-                    the right, but their slabs start a fifth of the way down
-                    their own box, so nothing of them reaches this corner.
-                    Visible at rest rather than on hover — half the people
-                    here are on a phone and would never see a hover-only
-                    affordance at all. */}
-                <List
-                  size={12}
-                  className="absolute right-1.5 top-1.5 text-neutral-500 transition-colors group-hover:text-neutral-200"
-                />
-              </button>
+                )}              </button>
 
               {count === 0 ? (
                 <button
@@ -850,7 +902,7 @@ export function ChestBench() {
                   {item.kind === 'cosmetic' ? (
                     <AstronautPieceById slot={item.item.slot} id={item.item.id} size={18} />
                   ) : item.prize.currency === 'gems' ? (
-                    <Gem size={11} />
+                    <GemIcon size={15} />
                   ) : (
                     <MineralIcon size={16} />
                   )}

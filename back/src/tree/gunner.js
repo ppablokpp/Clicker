@@ -7,15 +7,21 @@
  * own production. They hold station in a fan derived from the count, so the
  * cap here is an economic choice rather than a number of drawn positions.
  *
- * The rare unit: seven of them across the whole game against dozens of
- * drones, which only works if each one is worth a great deal — hence the
- * 100/s base rate (see gunnerRate.js) against a drone's 1.
+ * The rare unit: six of them across the whole game against dozens of drones,
+ * which only works if each one is worth a great deal — hence the 100/s base
+ * rate (see gunnerRate.js) against a drone's 1.
  */
 export const GUNNER_NODE_ID = 'gunner'
 
 /**
- * One more gunner per asteroid: two on Amatista, three on Platino, up to
- * eight on Diamante.
+ * A single gunner for the first two asteroids, then one more per asteroid:
+ * 1 on Amatista and Platino, 2 on Zafiro, 3 on Esmeralda, up to 6 on
+ * Diamante.
+ *
+ * Holding at one across Amatista AND Platino is what makes the second one an
+ * event. Under the old ladder you could own two before leaving the first
+ * asteroid, which spent the "a new craft joins the formation" moment on the
+ * tier where it means least.
  *
  * The only cap in the tree that grows by a flat step rather than by
  * TIERED_LEVELS_PER_PRESTIGE, and the only one that binds in practice —
@@ -23,11 +29,15 @@ export const GUNNER_NODE_ID = 'gunner'
  * That is the point here: the fleet's other two units are things you own
  * dozens of, and this one is meant to be counted on one hand and to visibly
  * gain a craft each time you move asteroid.
+ *
+ * Prices are untouched: gunnerCost is indexed by level, so the Nth gunner
+ * costs what it always did — this only changes how far up the ladder a given
+ * asteroid lets you climb. Anyone already over the new ceiling keeps every
+ * gunner they own; the cap is only ever read to decide whether the NEXT one
+ * is for sale.
  */
-export const GUNNER_BASE_MAX_LEVEL = 2
-
 export function gunnerMaxLevel(prestigeTier) {
-  return GUNNER_BASE_MAX_LEVEL + Number(prestigeTier)
+  return Math.max(1, Number(prestigeTier))
 }
 
 /**

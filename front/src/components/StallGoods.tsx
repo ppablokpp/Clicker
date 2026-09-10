@@ -20,48 +20,138 @@ import { VaultKey } from './VaultChest'
 type Kind = 'vial' | 'pouch' | 'crate' | 'hopper' | 'ring'
 type Contents = 'gems' | 'keys'
 
+// Where each container's contact shadow sits in its own drawing. They were
+// each drawn to their own eyeline, so lined up on a shelf every one of them
+// stood at a different height above the plank — the crate four units clear of
+// it, the ring six.
+const GROUND_BY_KIND: Record<Kind, number> = { vial: 90, pouch: 88, crate: 86, hopper: 90, ring: 84 }
+
+/** The one line they are all shifted onto, so a single shelf offset fits all. */
+const GROUND = 90
+
+/** The size the stalls draw their goods at. */
+export const GOODS_SIZE = 104
+
+/** How much of the drawing sits below that line, in px at GOODS_SIZE — what a
+ *  shelf has to be pulled up by to meet the goods instead of floating under
+ *  them. */
+export const GOODS_SHELF_LIFT = (GOODS_SIZE * (100 - GROUND)) / 100
+
 /** The gems' own colour, held here rather than inherited. The containers each
  *  have their own material, so `currentColor` is already spoken for by the
  *  glass, the canvas and the steel. */
 const GEM_TINT = '#6E7EF0'
 
-// A heap. Deterministic — a pile that reshuffled on every render would make
-// the modal flicker every time React touched it.
-function pile(
-  count: number,
-  cx: number,
-  cy: number,
-  w: number,
-  h: number,
-  s: number,
-  /** Offset applied to the rightmost stone only. */
-  nudge?: { dx: number; dy: number },
-  /** Drops the leftmost piece. The pouch needs it: its neck is narrower
-   *  than a crate's mouth, and the outermost stone on that side lands
-   *  past the cloth and reads as sitting beside the bag. */
-  dropLeftmost?: boolean,
-) {
-  const stones = Array.from({ length: count }, (_, i) => {
-    const t = ((i * 2654435761) % 1000) / 1000
-    const u = ((i * 748241 + 331) % 1000) / 1000
-    return {
-      x: cx + (t - 0.5) * w,
-      y: cy - u * h,
-      scale: (s * (0.78 + 0.44 * u)) / 100,
-      rot: -26 + t * 52,
-    }
-  })
-  if (dropLeftmost && stones.length > 1) {
-    let k = 0
-    for (let i = 1; i < stones.length; i++) if (stones[i].x < stones[k].x) k = i
-    stones.splice(k, 1)
+// --- Scattering a heap ---------------------------------------------------
+// Deterministic: a pile that reshuffled on every render would make the modal
+// flicker every time React touched it.
+//
+// The two coordinates come from the R2 low-discrepancy sequence rather than
+// from two multiplications of the index. The old pair stepped by -0.239 and
+// +0.241 per piece — almost exactly the same step in opposite directions, so
+// x and y were anti-correlated and every heap came out as one or two diagonal
+// bands with the rest of the container empty. That is the whole reason a full
+// crate read as a clump on one side. R2 exists to avoid precisely that, and
+// for the six to ten pieces a container holds it covers the area far more
+// evenly than random numbers would.
+const R3_X = 0.8191725133961644
+const R3_Y = 0.6710436067037893
+const R3_A = 0.5497004779019702
+const frac = (n: number) => n - Math.floor(n)
+
+/** Independent of position, so size and angle stop tracking where a piece
+ *  landed. They used to share the coordinates' own numbers, which is why the
+ *  biggest stones were always on the same side of the heap. */
+function jitter(n: number) {
+  let x = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b)
+  x ^= x >>> 13
+  x = Math.imul(x, 0xc2b2ae35)
+  x ^= x >>> 16
+  return (x >>> 0) / 4294967296
+}
+
+interface Placed {
+  x: number
+  y: number
+  /** 0 at the base of the heap, 1 at its peak — also how far back it sits. */
+  v: number
+  /** Spread 0..1 for the angle, on its own axis of the sequence. */
+  a: number
+  /** An independent 0..1 for size. */
+  j: number
+}
+
+interface HeapOptions {
+  /** How much the heap narrows towards the top: 0 is a slab, 1 a cone. */
+  taper?: number
+  /** Offset applied to the rightmost piece only. */
+  nudge?: { dx: number; dy: number }
+  /** Drops the leftmost piece. The pouch needs it: its neck is narrower than
+   *  a crate's mouth, and the outermost piece on that side lands past the
+   *  cloth and reads as sitting beside the bag. */
+  dropLeftmost?: boolean
+}
+
+/** Where each piece of a heap sits. `w` is the width at the base, `h` how high
+ *  it stacks above it. */
+function heap(count: number, cx: number, cy: number, w: number, h: number, taper: number): Placed[] {
+  const placed: Placed[] = []
+  for (let i = 1; i <= count; i++) {
+    // Biased towards the base: a mound has more pieces holding it up than
+    // riding on top of it. Uniform height put as many at the peak as at the
+    // bottom, which is a wall, not a heap.
+    const v = Math.pow(frac(0.5 + R3_Y * i), 1.35)
+    // Then a little wobble off the sequence. R3 is beautifully even, which is
+    // exactly what it is for and exactly what a heap is not: dead-even spacing
+    // reads as a row of goods laid out by hand. The independent hash breaks
+    // the lattice without bringing the clumping back.
+    const wobble = jitter(i)
+    placed.push({
+      x: cx + (frac(0.5 + R3_X * i) - 0.5 + (wobble - 0.5) * 0.24) * w * (1 - taper * v),
+      y: cy - v * h + (jitter(i + 977) - 0.5) * h * 0.26,
+      v,
+      a: frac(0.5 + R3_A * i),
+      j: wobble,
+    })
   }
-  if (nudge && stones.length > 0) {
+  // Painter's order: the pieces at the back of the heap are laid down first so
+  // the front row overlaps them instead of being cut by them. Drawing in index
+  // order let a piece behind cover one in front, which is most of the reason a
+  // full container read as a tangle rather than as stock.
+  placed.sort((a, b) => a.y - b.y)
+  return placed
+}
+
+/** Removes the leftmost piece / nudges the rightmost, after placement. */
+function trim(placed: Placed[], { nudge, dropLeftmost }: HeapOptions): Placed[] {
+  const out = placed.slice()
+  if (dropLeftmost && out.length > 1) {
     let k = 0
-    for (let i = 1; i < stones.length; i++) if (stones[i].x > stones[k].x) k = i
-    stones[k] = { ...stones[k], x: stones[k].x + nudge.dx, y: stones[k].y + nudge.dy }
+    for (let i = 1; i < out.length; i++) if (out[i].x < out[k].x) k = i
+    out.splice(k, 1)
   }
-  return stones.map((p, i) => <GemFaces key={i} x={p.x} y={p.y} scale={p.scale} rot={p.rot} />)
+  if (nudge && out.length > 0) {
+    let k = 0
+    for (let i = 1; i < out.length; i++) if (out[i].x > out[k].x) k = i
+    out[k] = { ...out[k], x: out[k].x + nudge.dx, y: out[k].y + nudge.dy }
+  }
+  return out
+}
+
+/** A heap of stones. */
+function pile(count: number, cx: number, cy: number, w: number, h: number, s: number, opts: HeapOptions = {}) {
+  return trim(heap(count, cx, cy, w, h, opts.taper ?? 0), opts).map((p, i) => (
+    <GemFaces
+      key={i}
+      x={p.x}
+      y={p.y}
+      // Smaller towards the peak, because up is also back. It used to be the
+      // other way round — the pieces furthest away were the largest, which is
+      // the single detail that stopped a heap reading as one.
+      scale={(s * (1.1 - 0.3 * p.v + 0.14 * (p.j - 0.5))) / 100}
+      rot={-26 + p.a * 52}
+    />
+  ))
 }
 
 // One real VaultKey, positioned. It renders its own <svg>, which nests
@@ -106,7 +196,16 @@ function keyByBow(i: number, bx: number, by: number, size: number, rot: number) 
   )
 }
 
-/** A heap of keys, same deterministic scatter the stones use. */
+interface KeyHeapOptions extends HeapOptions {
+  /** Bearing the keys point along, in degrees clockwise from straight up.
+   *  90 lays them across. Loose keys in a crate settle flat; only the ones
+   *  crammed into a pouch neck stand up. */
+  bearing?: number
+  /** Total spread of that bearing, in degrees. */
+  spread?: number
+}
+
+/** A heap of keys, on the same scatter the stones use. */
 function keyPile(
   count: number,
   cx: number,
@@ -114,19 +213,12 @@ function keyPile(
   w: number,
   h: number,
   s: number,
-  dropLeftmost?: boolean,
+  opts: KeyHeapOptions = {},
 ) {
-  const keys = Array.from({ length: count }, (_, i) => {
-    const t = ((i * 2654435761) % 1000) / 1000
-    const u = ((i * 748241 + 331) % 1000) / 1000
-    return { x: cx + (t - 0.5) * w, y: cy - u * h, size: s * (0.8 + 0.4 * u), rot: -70 + t * 140 }
-  })
-  if (dropLeftmost && keys.length > 1) {
-    let k = 0
-    for (let i = 1; i < keys.length; i++) if (keys[i].x < keys[k].x) k = i
-    keys.splice(k, 1)
-  }
-  return keys.map((p, i) => keyAt(i, p.x, p.y, p.size, p.rot))
+  const { bearing = 0, spread = 140 } = opts
+  return trim(heap(count, cx, cy, w, h, opts.taper ?? 0), opts).map((p, i) =>
+    keyAt(i, p.x, p.y, s * (1.06 - 0.24 * p.v + 0.12 * (p.j - 0.5)), bearing - KEY_TILT + (p.a - 0.5) * spread),
+  )
 }
 
 export function GemContainer({
@@ -141,7 +233,13 @@ export function GemContainer({
   const uid = useId()
   const g = (n: string) => `url(#${uid}-${n})`
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true" focusable="false">
+    <svg
+      viewBox={`0 ${GROUND_BY_KIND[kind] - GROUND} 100 100`}
+      width={size}
+      height={size}
+      aria-hidden="true"
+      focusable="false"
+    >
       <defs>
         {/* One key light in the upper left for every material, so the four
             goods read as sitting on the same counter under the same lamp. */}
@@ -179,6 +277,24 @@ export function GemContainer({
         <clipPath id={`${uid}-inside`}>
           <path d="M40 34 H60 V72 A10 10 0 0 1 40 72 Z" />
         </clipPath>
+        {/* The hopper's own silhouette. The band is paint ON the body, so it
+            has to be bounded by it — the stripes are parallelograms and the
+            outermost one hung a good five units past the tapered left edge,
+            floating in space beside the machine. Cut off at the silhouette
+            each end stripe reads as carrying on around the side. */}
+        <clipPath id={`${uid}-hopper`}>
+          <path d="M12 42 H88 L70 82 H30 Z" />
+        </clipPath>
+        {/* And the band itself curves round: dark at both ends, open in the
+            middle, which is the whole of what tells you a flat trapezoid is
+            the front of something with a back. */}
+        <linearGradient id={`${uid}-round`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.55" />
+          <stop offset="22%" stopColor="#000000" stopOpacity="0.12" />
+          <stop offset="44%" stopColor="#ffffff" stopOpacity="0.1" />
+          <stop offset="68%" stopColor="#000000" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.6" />
+        </linearGradient>
         <radialGradient id={`${uid}-ao`} cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#000000" stopOpacity="0.55" />
           <stop offset="100%" stopColor="#000000" stopOpacity="0" />
@@ -236,9 +352,9 @@ export function GemContainer({
           <ellipse cx="50" cy="88" rx="26" ry="6" fill={g('ao')} />
           <ellipse cx="50" cy="36" rx="21" ry="13" fill={g('glow')} />
           {contents === 'keys' ? (
-            keyPile(4, 50, 34, 26, 7, 36, true)
+            keyPile(4, 50, 34, 24, 7, 34, { bearing: KEY_TILT, spread: 155 })
           ) : (
-            <g style={{ color: GEM_TINT }}>{pile(4, 50, 36, 24, 7, 19, undefined, true)}</g>
+            <g style={{ color: GEM_TINT }}>{pile(4, 50, 36, 22, 6, 19)}</g>
           )}
           {/* Cloth, so it gets folds and a drawstring instead of bevels. If
               all four were the same material they would be one object at four
@@ -286,9 +402,9 @@ export function GemContainer({
           <ellipse cx="50" cy="86" rx="32" ry="7" fill={g('ao')} />
           <ellipse cx="50" cy="44" rx="29" ry="13" fill={g('glow')} />
           {contents === 'keys' ? (
-            keyPile(8, 50, 47, 46, 8, 31)
+            keyPile(6, 50, 44, 42, 7, 30, { taper: 0.3, bearing: 40, spread: 190 })
           ) : (
-            <g style={{ color: GEM_TINT }}>{pile(6, 50, 45, 38, 9, 20, { dx: 4, dy: 2 })}</g>
+            <g style={{ color: GEM_TINT }}>{pile(11, 50, 45, 62, 9, 19, { taper: 0.34 })}</g>
           )}
           <path
             d="M18 48 H82 L78 82 H22 Z"
@@ -326,9 +442,9 @@ export function GemContainer({
           <ellipse cx="50" cy="90" rx="34" ry="7" fill={g('ao')} />
           <ellipse cx="50" cy="37" rx="35" ry="16" fill={g('glow')} />
           {contents === 'keys' ? (
-            keyPile(14, 50, 41, 58, 12, 31)
+            keyPile(10, 50, 42, 46, 9, 30, { taper: 0.28, bearing: 40, spread: 200 })
           ) : (
-            <g style={{ color: GEM_TINT }}>{pile(9, 50, 39, 48, 11, 20, { dx: 4.5, dy: 2 })}</g>
+            <g style={{ color: GEM_TINT }}>{pile(16, 50, 42, 74, 11, 19, { taper: 0.32 })}</g>
           )}
           <g fill="#1A1D23" stroke="#0F1216" strokeWidth="1.3">
             <path d="M24 78 l-4 12 h9 l3 -12 z" />
@@ -348,14 +464,26 @@ export function GemContainer({
             <path d="M70 42 L62 82" />
           </g>
           {/* Hazard band. The only good on the shelf that looks like it needed
-              a machine to fill it. */}
-          <path d="M17 52 H83 L79 62 H21 Z" fill="#0F1216" opacity={0.55} />
-          <g fill="#E8A33D" opacity={0.9}>
-            <path d="M22 54 h7 l-4 6 h-7 z" />
-            <path d="M34 54 h7 l-4 6 h-7 z" />
-            <path d="M46 54 h7 l-4 6 h-7 z" />
-            <path d="M58 54 h7 l-4 6 h-7 z" />
-            <path d="M70 54 h7 l-4 6 h-7 z" />
+              a machine to fill it.
+
+              Everything here is clipped to the body and runs wider than it, so
+              both ends are cut by the silhouette rather than stopping neatly
+              short of it. A band that ends before the edge is a sticker; one
+              that runs off it goes round the back. */}
+          <g clipPath={g('hopper')}>
+            <path d="M8 51 Q50 55 92 51 L92 63 Q50 67 8 63 Z" fill="#0F1216" opacity={0.6} />
+            <g fill="#E8A33D" opacity={0.92}>
+              <path d="M10 53 h7 l-5 8 h-7 z" />
+              <path d="M22 53 h7 l-5 8 h-7 z" />
+              <path d="M34 53 h7 l-5 8 h-7 z" />
+              <path d="M46 53 h7 l-5 8 h-7 z" />
+              <path d="M58 53 h7 l-5 8 h-7 z" />
+              <path d="M70 53 h7 l-5 8 h-7 z" />
+              <path d="M82 53 h7 l-5 8 h-7 z" />
+            </g>
+            {/* The curve, laid over stripes and backing alike so the whole band
+                turns together. */}
+            <path d="M8 51 Q50 55 92 51 L92 63 Q50 67 8 63 Z" fill={g('round')} />
           </g>
           <path d="M10 38 H90 V44 H10 Z" fill={g('brass')} stroke="#241804" strokeWidth="1.5" />
           <path d="M11 39.4 H89" stroke="#FFE9BE" strokeWidth="1.3" strokeLinecap="round" opacity={0.5} />
