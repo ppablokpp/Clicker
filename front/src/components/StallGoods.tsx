@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { GemFaces } from './MaterialIcons'
+import { GemFaces, RockFaces } from './MaterialIcons'
 import { VaultKey } from './VaultChest'
 
 // The things a pack is sold in. The whole point is that they get physically
@@ -18,7 +18,7 @@ import { VaultKey } from './VaultChest'
 // they do — a vial and a pouch for stones, a ring and a bundle for keys.
 
 type Kind = 'vial' | 'pouch' | 'crate' | 'hopper' | 'ring'
-type Contents = 'gems' | 'keys'
+type Contents = 'gems' | 'keys' | 'mineral'
 
 // Where each container's contact shadow sits in its own drawing. They were
 // each drawn to their own eyeline, so lined up on a shelf every one of them
@@ -41,6 +41,11 @@ export const GOODS_SHELF_LIFT = (GOODS_SIZE * (100 - GROUND)) / 100
  *  have their own material, so `currentColor` is already spoken for by the
  *  glass, the canvas and the steel. */
 const GEM_TINT = '#6E7EF0'
+
+/** Fallback for a mineral container asked for without a tint — Amatista, the
+ *  first asteroid, so a missing prop reads as a mistake rather than as black
+ *  rocks in a crate. */
+const MINERAL_FALLBACK_TINT = '#a78bfa'
 
 // --- Scattering a heap ---------------------------------------------------
 // Deterministic: a pile that reshuffled on every render would make the modal
@@ -84,18 +89,58 @@ interface Placed {
 interface HeapOptions {
   /** How much the heap narrows towards the top: 0 is a slab, 1 a cone. */
   taper?: number
+  /** A continuous course laid along the base before the mound goes on it.
+   *
+   *  A heap built only from the scatter leaves V-shaped notches between
+   *  neighbours, and in a container those notches go all the way down to the
+   *  rim: you see the background through the load. Real stock cannot do that,
+   *  because the layer the mound is riding on is a full one. Evenly spaced
+   *  rather than scattered, since the whole job of this row is to have no
+   *  gaps in it — the wobble is only enough to stop it reading as a row. */
+  base?: number
   /** Offset applied to the rightmost piece only. */
   nudge?: { dx: number; dy: number }
   /** Drops the leftmost piece. The pouch needs it: its neck is narrower than
    *  a crate's mouth, and the outermost piece on that side lands past the
    *  cloth and reads as sitting beside the bag. */
   dropLeftmost?: boolean
+  /** Drops the topmost piece. A heap's peak is the one place a piece can end
+   *  up with nothing under it, and over the hopper's sloped mouth there is no
+   *  rim to catch it — it reads as floating above the load. */
+  dropHighest?: boolean
+  /** Moves the topmost pieces — one entry per piece, counting down from the
+   *  peak. The rock draws a narrower silhouette than the gem at the same
+   *  nominal size, so where a gem heap closes over itself a rock heap can
+   *  leave a piece or two perched on the skyline instead of filling it.
+   *
+   *  Ranked on the heights the pieces landed at, before any of them moves, so
+   *  the second entry always means the same piece however far the first one
+   *  travels. Applied after any drop, so rank one is whatever is really at the
+   *  peak of the heap that ships. */
+  nudgeHighest?: { dx: number; dy: number }[]
 }
 
 /** Where each piece of a heap sits. `w` is the width at the base, `h` how high
  *  it stacks above it. */
-function heap(count: number, cx: number, cy: number, w: number, h: number, taper: number): Placed[] {
+function heap(
+  count: number,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  taper: number,
+  base = 0,
+): Placed[] {
   const placed: Placed[] = []
+  for (let i = 0; i < base; i++) {
+    placed.push({
+      x: cx + ((i + 0.5) / base - 0.5) * w,
+      y: cy + (jitter(i + 4001) - 0.5) * 3,
+      v: 0,
+      a: frac(0.5 + R3_A * (i + 1)),
+      j: jitter(i + 8009),
+    })
+  }
   for (let i = 1; i <= count; i++) {
     // Biased towards the base: a mound has more pieces holding it up than
     // riding on top of it. Uniform height put as many at the peak as at the
@@ -123,25 +168,52 @@ function heap(count: number, cx: number, cy: number, w: number, h: number, taper
 }
 
 /** Removes the leftmost piece / nudges the rightmost, after placement. */
-function trim(placed: Placed[], { nudge, dropLeftmost }: HeapOptions): Placed[] {
+function trim(placed: Placed[], { nudge, dropLeftmost, dropHighest, nudgeHighest }: HeapOptions): Placed[] {
   const out = placed.slice()
   if (dropLeftmost && out.length > 1) {
     let k = 0
     for (let i = 1; i < out.length; i++) if (out[i].x < out[k].x) k = i
     out.splice(k, 1)
   }
+  if (dropHighest && out.length > 1) {
+    let k = 0
+    for (let i = 1; i < out.length; i++) if (out[i].y < out[k].y) k = i
+    out.splice(k, 1)
+  }
+  if (nudgeHighest?.length) {
+    const byHeight = out.map((_, i) => i).sort((a, b) => out[a].y - out[b].y)
+    nudgeHighest.forEach((move, rank) => {
+      const k = byHeight[rank]
+      if (k === undefined) return
+      out[k] = { ...out[k], x: out[k].x + move.dx, y: out[k].y + move.dy }
+    })
+  }
   if (nudge && out.length > 0) {
     let k = 0
     for (let i = 1; i < out.length; i++) if (out[i].x > out[k].x) k = i
     out[k] = { ...out[k], x: out[k].x + nudge.dx, y: out[k].y + nudge.dy }
   }
+  // Back into painter's order. heap() sorted on the way out, but a nudge moves
+  // a piece without moving its place in the list — so a piece pushed down into
+  // the pile kept drawing behind everything it had just landed in front of,
+  // and disappeared instead of filling the hole it was aimed at.
+  out.sort((a, b) => a.y - b.y)
   return out
 }
 
 /** A heap of stones. */
-function pile(count: number, cx: number, cy: number, w: number, h: number, s: number, opts: HeapOptions = {}) {
-  return trim(heap(count, cx, cy, w, h, opts.taper ?? 0), opts).map((p, i) => (
-    <GemFaces
+function pile(
+  count: number,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  s: number,
+  opts: HeapOptions & { rock?: boolean } = {},
+) {
+  const Piece = opts.rock ? RockFaces : GemFaces
+  return trim(heap(count, cx, cy, w, h, opts.taper ?? 0, opts.base), opts).map((p, i) => (
+    <Piece
       key={i}
       x={p.x}
       y={p.y}
@@ -216,7 +288,7 @@ function keyPile(
   opts: KeyHeapOptions = {},
 ) {
   const { bearing = 0, spread = 140 } = opts
-  return trim(heap(count, cx, cy, w, h, opts.taper ?? 0), opts).map((p, i) =>
+  return trim(heap(count, cx, cy, w, h, opts.taper ?? 0, opts.base), opts).map((p, i) =>
     keyAt(i, p.x, p.y, s * (1.06 - 0.24 * p.v + 0.12 * (p.j - 0.5)), bearing - KEY_TILT + (p.a - 0.5) * spread),
   )
 }
@@ -224,14 +296,23 @@ function keyPile(
 export function GemContainer({
   kind,
   contents = 'gems',
+  tint,
   size = 108,
 }: {
   kind: Kind
   contents?: Contents
+  /** Only read for mineral, whose colour is whichever asteroid you are on. */
+  tint?: string
   size?: number
 }) {
   const uid = useId()
   const g = (n: string) => `url(#${uid}-${n})`
+  // The mineral ships in the same vessels as the gems, holds the same counts
+  // and heaps the same way — what changes between the three shops is the
+  // stock, not the crate it travels in.
+  const isRock = contents === 'mineral'
+  const StockPiece = isRock ? RockFaces : GemFaces
+  const stockTint = isRock ? (tint ?? MINERAL_FALLBACK_TINT) : GEM_TINT
   return (
     <svg
       viewBox={`0 ${GROUND_BY_KIND[kind] - GROUND} 100 100`}
@@ -263,8 +344,8 @@ export function GemContainer({
             them did nothing, and a heap inside a steel crate came out as
             one dark mass. */}
         <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={contents === 'keys' ? '#F5C77E' : '#8E9DFF'} stopOpacity="0.75" />
-          <stop offset="100%" stopColor={contents === 'keys' ? '#F5C77E' : '#8E9DFF'} stopOpacity="0" />
+          <stop offset="0%" stopColor={contents === 'keys' ? '#F5C77E' : stockTint} stopOpacity="0.75" />
+          <stop offset="100%" stopColor={contents === 'keys' ? '#F5C77E' : stockTint} stopOpacity="0" />
         </radialGradient>
         {/* Glass: bright on the lit edge, near-black on the far one, nothing
             in between. Two hard steps read as a curved transparent wall where
@@ -306,15 +387,24 @@ export function GemContainer({
           <ellipse cx="50" cy="90" rx="17" ry="5" fill={g('ao')} />
           <ellipse cx="50" cy="66" rx="19" ry="19" fill={g('glow')} />
           <path d="M40 34 H60 V72 A10 10 0 0 1 40 72 Z" fill="#1B1E33" opacity={0.92} />
-          {/* One stone, because this pack is one gem. Showing three in the
-              jar you buy a single gem from is the kind of small lie that
-              makes everything else on the shelf less believable.
+          {/* One stone, because the smallest gem pack IS one gem. Showing
+              three in the jar you buy a single gem from is the kind of small
+              lie that makes everything else on the shelf less believable.
 
-              Resting in the bowl at the bottom, where a loose stone in a
-              bottle actually ends up — floating in the middle of the tube
-              is the giveaway that nothing here has weight. */}
-          <g style={{ color: GEM_TINT }} clipPath={`url(#${uid}-inside)`}>
-            <GemFaces x={50} y={73} scale={0.21} rot={-10} />
+              Ore is sold by the thousand, so that reasoning does not carry
+              over: a lone rock in the smallest sample vial would read as
+              "one rock", which is the very lie the single gem avoids. It
+              gets a few instead.
+
+              Either way they rest in the bowl at the bottom, where loose
+              stock in a bottle actually ends up — floating in the middle of
+              the tube is the giveaway that nothing here has weight. */}
+          <g style={{ color: stockTint }} clipPath={`url(#${uid}-inside)`}>
+            {isRock ? (
+              pile(22, 50, 78, 9, 31, 16, { rock: true })
+            ) : (
+              <StockPiece x={50} y={73} scale={0.21} rot={-10} />
+            )}
           </g>
           <path d="M40 34 H60 V72 A10 10 0 0 1 40 72 Z" fill={g('glass')} />
           <path
@@ -354,7 +444,7 @@ export function GemContainer({
           {contents === 'keys' ? (
             keyPile(4, 50, 34, 24, 7, 34, { bearing: KEY_TILT, spread: 155 })
           ) : (
-            <g style={{ color: GEM_TINT }}>{pile(4, 50, 36, 22, 6, 19)}</g>
+            <g style={{ color: stockTint }}>{pile(5, 50, 36, 15, 7, 18, { taper: 0.3, rock: isRock })}</g>
           )}
           {/* Cloth, so it gets folds and a drawstring instead of bevels. If
               all four were the same material they would be one object at four
@@ -404,7 +494,7 @@ export function GemContainer({
           {contents === 'keys' ? (
             keyPile(6, 50, 44, 42, 7, 30, { taper: 0.3, bearing: 40, spread: 190 })
           ) : (
-            <g style={{ color: GEM_TINT }}>{pile(11, 50, 45, 62, 9, 19, { taper: 0.34 })}</g>
+            <g style={{ color: stockTint }}>{pile(isRock ? 13 : 11, 50, 45, 62, 9, isRock ? 16 : 19, { taper: 0.34, base: 6, rock: isRock, nudgeHighest: isRock ? [{ dx: -14, dy: 1 }] : undefined })}</g>
           )}
           <path
             d="M18 48 H82 L78 82 H22 Z"
@@ -444,7 +534,15 @@ export function GemContainer({
           {contents === 'keys' ? (
             keyPile(10, 50, 42, 46, 9, 30, { taper: 0.28, bearing: 40, spread: 200 })
           ) : (
-            <g style={{ color: GEM_TINT }}>{pile(16, 50, 42, 74, 11, 19, { taper: 0.32 })}</g>
+            <g style={{ color: stockTint }}>{pile(isRock ? 20 : 16, 50, 39, 74, 10, isRock ? 16 : 19, { taper: 0.32, base: 7, rock: isRock, dropHighest: isRock, nudgeHighest: isRock
+                        ? [
+                            { dx: 0, dy: 7 },
+                            { dx: -6, dy: 5 },
+                            { dx: -30, dy: 5 },
+                            { dx: 0, dy: 0 },
+                            { dx: -5, dy: 4 },
+                          ]
+                        : undefined })}</g>
           )}
           <g fill="#1A1D23" stroke="#0F1216" strokeWidth="1.3">
             <path d="M24 78 l-4 12 h9 l3 -12 z" />

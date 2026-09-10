@@ -226,6 +226,8 @@ export interface TranslationStrings {
     keysTitle: string
     gemsTitle: string
     gemsStallTagline: string
+    /** Asked before spending gems on ore, once the lot has been picked. */
+    orePurchaseTitle: (amount: string, materialName: string) => string
     buyGemsTitle: string
     savingsBadge: (pct: number) => string
     opening: string
@@ -811,6 +813,7 @@ export const translations: Record<Language, TranslationStrings> = {
       keysTitle: 'Llaves',
       gemsTitle: 'Gemas',
       gemsStallTagline: 'Puesto de trueque',
+      orePurchaseTitle: (amount, materialName) => `¿Comprar ${amount} de ${materialName.toLowerCase()}?`,
       buyGemsTitle: 'Comprar gemas',
       savingsBadge: (pct) => `Ahorra ${pct}%`,
       opening: 'Abriendo…',
@@ -1483,6 +1486,7 @@ export const translations: Record<Language, TranslationStrings> = {
       keysTitle: 'Keys',
       gemsTitle: 'Gems',
       gemsStallTagline: 'Trading post',
+      orePurchaseTitle: (amount, materialName) => `Buy ${amount} ${materialName.toLowerCase()}?`,
       buyGemsTitle: 'Buy gems',
       savingsBadge: (pct) => `Save ${pct}%`,
       opening: 'Opening…',

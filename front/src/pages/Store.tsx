@@ -6,9 +6,6 @@ import { KeyIcon } from '../components/VaultChest'
 import { GemContainer, GOODS_SHELF_LIFT, GOODS_SIZE, gemContainerFor, keyContainerFor } from '../components/StallGoods'
 import { GemIcon, MineralIcon } from '../components/MaterialIcons'
 
-// Loose enough to accept both a Lucide icon (Gem, Key…) and our own
-// PlatinumIcon — every consumer here only ever passes size/className.
-type PackIcon = React.ComponentType<{ size?: number; className?: string }>
 import { usePowerupContext, type PowerupDef } from '../context/PowerupContext'
 import { useTimedLuckPowerupContext, type TimedLuckPowerupDef } from '../context/TimedLuckPowerupContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -19,7 +16,7 @@ import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { ChestBench } from '../components/ChestBench'
 import { StampedHeading } from '../components/StampedHeading'
-import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
+import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS, type MaterialTierColors } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
 import { playChestPurchase } from '../lib/caseSound'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
@@ -172,7 +169,7 @@ export function Store() {
         <ClickPacksModal
           strings={strings.store}
           currentMaterialName={currentMaterialName}
-          materialColor={(MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]).fill}
+          materialColors={materialColors}
           onClose={() => setShowClickPacks(false)}
         />
       )}
@@ -208,6 +205,7 @@ export interface StoreStrings {
   keysTitle: string
   gemsTitle: string
   gemsStallTagline: string
+  orePurchaseTitle: (amount: string, materialName: string) => string
   buyGemsTitle: string
   savingsBadge: (pct: number) => string
   opening: string
@@ -245,210 +243,45 @@ function computeSavingsPct(baseUnitPrice: number, unitPrice: number): number {
   return Math.round((1 - unitPrice / baseUnitPrice) * 100)
 }
 
-type PackTheme = 'amber' | 'indigo' | 'violet'
-
-// Three modals sell three different things the same way: a stamped heading,
-// then one row per lot. This used to be a 2x2 grid of small tiles, and the
-// grid was the constraint — in a half-width tile there is no room for the
-// item to be anything but a glyph. A row gives it forty-odd pixels, which
-// is the difference between an icon and an object.
-interface ManifestTheme {
-  panel: string
-  ruleFrom: string
-  ruleTo: string
-  lamp: string
-  title: string
-  row: string
-  amount: string
-  button: string
-  sticker: string
-}
-
-const MANIFEST_THEME: Record<PackTheme, ManifestTheme> = {
-  amber: {
-    panel: 'border-amber-400/15',
-    ruleFrom: 'bg-gradient-to-r from-transparent to-amber-300/50',
-    ruleTo: 'bg-gradient-to-l from-transparent to-amber-300/50',
-    lamp: 'bg-amber-400/10',
-    title: 'text-amber-50',
-    row: 'border-amber-400/15 bg-gradient-to-r from-amber-500/[0.07] via-amber-500/[0.02] to-transparent',
-    amount: 'text-amber-100',
-    button: 'border border-amber-400/35 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25',
-    sticker: 'bg-amber-300 text-[#2a1a06]',
-  },
-  indigo: {
-    panel: 'border-indigo-400/15',
-    ruleFrom: 'bg-gradient-to-r from-transparent to-indigo-300/50',
-    ruleTo: 'bg-gradient-to-l from-transparent to-indigo-300/50',
-    lamp: 'bg-indigo-400/10',
-    title: 'text-indigo-50',
-    row: 'border-indigo-400/15 bg-gradient-to-r from-indigo-500/[0.09] via-indigo-500/[0.03] to-transparent',
-    amount: 'text-indigo-100',
-    button: 'border border-indigo-400/35 bg-indigo-500/15 text-indigo-100 hover:bg-indigo-500/25',
-    sticker: 'bg-indigo-300 text-[#161038]',
-  },
-  violet: {
-    panel: 'border-violet-400/15',
-    ruleFrom: 'bg-gradient-to-r from-transparent to-violet-300/50',
-    ruleTo: 'bg-gradient-to-l from-transparent to-violet-300/50',
-    lamp: 'bg-violet-400/10',
-    title: 'text-violet-50',
-    row: 'border-violet-400/15 bg-gradient-to-r from-violet-500/[0.09] via-violet-500/[0.03] to-transparent',
-    amount: 'text-violet-100',
-    // Paid in gems, so the button is the gems colour even though the panel
-    // is the material you are buying.
-    button: 'border border-indigo-400/35 bg-indigo-500/15 text-indigo-100 hover:bg-indigo-500/25',
-    sticker: 'bg-violet-300 text-[#1d0f3a]',
-  },
-}
-
-function PackManifest({
-  title,
-  theme,
-  onClose,
-  error,
-  children,
-}: {
-  title: string
-  theme: PackTheme
-  onClose: () => void
-  error?: string | null
-  children: React.ReactNode
-}) {
-  const t = MANIFEST_THEME[theme]
-  // Only ever mounted while its modal is open — otherwise the page scrolls
-  // behind the overlay.
-  useLockBodyScroll(true)
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className={`relative w-full max-w-sm overflow-hidden rounded-2xl border ${t.panel} bg-[#0a0a0e] p-6 shadow-2xl shadow-black/60`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* A lit rail across the top and a lamp behind it. Two elements, and
-            they are what turn a dark panel into a hold with something
-            valuable in it. */}
-        <span className={`pointer-events-none absolute inset-x-0 top-0 h-px ${t.ruleFrom}`} />
-        <span className={`pointer-events-none absolute -top-20 left-1/2 h-40 w-64 -translate-x-1/2 rounded-full ${t.lamp} blur-3xl`} />
-
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-4 top-4 z-10 text-neutral-500 transition-colors hover:text-neutral-300"
-        >
-          <X size={16} />
-        </button>
-
-        <StampedHeading ruleFrom={t.ruleFrom} ruleTo={t.ruleTo} tone={t.title} className="mb-6">
-          {title}
-        </StampedHeading>
-
-        <div className="relative flex flex-col gap-2.5">{children}</div>
-
-        {error && <p className="relative mt-3 text-xs text-red-400">{error}</p>}
-      </div>
-    </div>
-  )
-}
-
-function PackLot({
-  icon: Icon,
-  iconSize,
-  iconClassName,
-  iconColor,
-  bundle,
-  amountLabel,
-  priceContent,
-  discount,
-  isBuying,
-  disabled,
-  onClick,
-  theme,
-}: {
-  icon: PackIcon
-  iconSize: number
-  iconClassName?: string
-  /** Inline colour for icons drawn in currentColor. The material modal uses
-   *  it because its colour is a hex that moves with the prestige tier and so
-   *  cannot be a fixed Tailwind class. */
-  iconColor?: string
-  /** How many copies are drawn — not how many you get. */
-  bundle: number
-  amountLabel: string
-  priceContent: React.ReactNode
-  discount: string | null
-  isBuying: boolean
-  disabled: boolean
-  onClick: () => void
-  theme: PackTheme
-}) {
-  const t = MANIFEST_THEME[theme]
-  return (
-    <div className={`relative flex items-center gap-3 rounded-xl border ${t.row} p-3`}>
-      <span
-        className="relative flex h-[56px] w-[62px] shrink-0 items-center justify-center"
-        style={{ color: iconColor }}
-      >
-        {Array.from({ length: bundle - 1 }, (_, k) => (
-          <span
-            key={k}
-            aria-hidden
-            className="absolute"
-            style={{ transform: `translate(${(k + 1) * 7}px, ${(k + 1) * -5}px)`, opacity: 0.3 - k * 0.1 }}
-          >
-            <Icon size={iconSize} className={iconClassName} />
-          </span>
-        ))}
-        <span className="relative">
-          <Icon size={iconSize} className={iconClassName} />
-        </span>
-      </span>
-
-      <span className={`min-w-0 flex-1 text-xl font-bold tabular-nums ${t.amount}`}>{amountLabel}</span>
-
-      {/* The discount rides the button, not the amount: it is a claim about
-          the PRICE, not about how much is in the lot. */}
-      <span className="relative shrink-0">
-        {discount && (
-          <span
-            className={`pointer-events-none absolute -top-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-wide shadow-md shadow-black/40 ${t.sticker}`}
-          >
-            {discount}
-          </span>
-        )}
-        <button
-          onClick={onClick}
-          disabled={disabled}
-          className={`w-[96px] rounded-lg px-3 py-2 text-center text-sm font-bold tabular-nums transition-colors disabled:cursor-not-allowed ${
-            disabled ? 'border border-white/5 bg-white/[0.03] text-neutral-500 opacity-60' : t.button
-          }`}
-        >
-          {isBuying ? <Loader2 size={14} className="mx-auto animate-spin" /> : priceContent}
-        </button>
-      </span>
-    </div>
-  )
-}
 interface ClickPacksModalProps {
   strings: StoreStrings
   currentMaterialName: string
-  /** The tier material's own colour, applied to the icon. It used to tint
-   *  the header badge; with the badge gone it moves onto the thing itself,
-   *  which is where it belonged. */
-  materialColor: string
+  /** The whole tier palette, not just one hex: this stall is lit end to end in
+   *  whatever you are currently mining — lamp, sign, cords, ore and figures —
+   *  so it needs the light and the glow as well as the fill. */
+  materialColors: MaterialTierColors
   onClose: () => void
 }
 
-function ClickPacksModal({ strings, currentMaterialName, materialColor, onClose }: ClickPacksModalProps) {
+/**
+ * The third stall on the same street. Same lamp, same shelves, same tags on
+ * cords as the gem and key counters, because it is one trader with three
+ * pitches and giving this one its own furniture would say otherwise.
+ *
+ * Two things do change, and both because of what is being handed over:
+ *
+ * The whole stall is lit in the material you are on, so it repaints itself
+ * every prestige — the only shopfront in the game that does. Nothing here is
+ * a fixed colour; the tier palette drives all of it.
+ *
+ * And the price tag is not paper. The other two counters take money, and a
+ * cream card with a figure on it is what a market stall hands you for money.
+ * This one takes gems, so the tag is a struck chit in gem colours with the
+ * stone itself on it: same silhouette, so it is plainly the same market, and
+ * plainly not the same kind of payment.
+ */
+function ClickPacksModal({ strings, currentMaterialName, materialColors, onClose }: ClickPacksModalProps) {
   const { language } = useLanguage()
   const { catalog, buyingId, buy } = useClickPacksContext()
   const { gems } = useGemsContext()
   const [error, setError] = useState<string | null>(null)
+  // The lot you have picked up, waiting on the till. Nothing is spent until
+  // the button in that panel is pressed.
+  const [pending, setPending] = useState<ClickPackDef | null>(null)
+  useLockBodyScroll(true)
 
   const baseUnitPrice = catalog[0] ? catalog[0].gemCost / catalog[0].clicks : 0
+  const c = materialColors
 
   const handleBuy = async (pack: ClickPackDef) => {
     setError(null)
@@ -457,37 +290,205 @@ function ClickPacksModal({ strings, currentMaterialName, materialColor, onClose 
       setError(result.error === 'not-enough-gems' ? strings.notEnoughGems : strings.purchaseError)
       return
     }
-    if (result.ok) playChestPurchase()
+    if (result.ok) {
+      playChestPurchase()
+      setPending(null)
+    }
   }
 
   return (
-    <PackManifest title={currentMaterialName} theme="violet" onClose={onClose} error={error}>
-      {catalog.map((pack, i) => {
-        const unitPrice = pack.gemCost / pack.clicks
-        const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
-        return (
-          <PackLot
-            key={pack.id}
-            theme="violet"
-            icon={MineralIcon}
-            iconSize={40}
-            iconColor={materialColor}
-            bundle={Math.min(i + 1, 3)}
-            amountLabel={formatPlatino(pack.clicks, language)}
-            priceContent={
-              <span className="flex items-center justify-center gap-1">
-                <GemIcon size={16} />
-                {pack.gemCost}
-              </span>
-            }
-            discount={i >= 2 && savingsPct > 0 ? strings.savingsBadge(savingsPct) : null}
-            isBuying={buyingId === pack.id}
-            disabled={buyingId !== null || gems < pack.gemCost}
-            onClick={() => handleBuy(pack)}
-          />
-        )
-      })}
-    </PackManifest>
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+        onClick={onClose}
+      >
+      <div
+        className="relative w-full max-w-sm overflow-hidden rounded-2xl border bg-[#0c0b11] pb-5 shadow-2xl shadow-black/60"
+        style={{ borderColor: `${c.fill}26` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Bulkhead: a pool of lamp light over a faint plate grid, so the back
+            of the stall is a surface and not a void. */}
+        <span
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(58% 34% at 50% -2%, ${c.fill}33, transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)`,
+          }}
+        />
+
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 z-20 text-neutral-500 transition-colors hover:text-neutral-300"
+        >
+          <X size={16} />
+        </button>
+
+        {/* The lamp is a real fixture hanging into frame, not a gradient. One
+            visible source is what lets everything below cast in the same
+            direction and be believed. */}
+        <div
+          className="relative mx-auto h-4 w-16 rounded-b-lg bg-gradient-to-b from-[#6D7480] to-[#2C3037]"
+          style={{ boxShadow: `0 10px 26px ${c.glow}` }}
+        />
+
+        <div className="relative mt-5 flex flex-col items-center">
+          <p
+            className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
+            style={{
+              borderColor: `${c.fill}80`,
+              textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${c.fill}59`,
+            }}
+          >
+            {currentMaterialName}
+          </p>
+          <p
+            className="mt-2 font-mono text-[9px] uppercase tracking-[0.28em]"
+            style={{ color: `${c.fill}a6` }}
+          >
+            {strings.gemsStallTagline}
+          </p>
+        </div>
+
+        {/* Two by two. Four across does not fit the width of a phone, and at a
+            quarter of it the vial and the pouch stop being different objects —
+            which is the whole idea. */}
+        <div className="relative mt-5 grid grid-cols-2 gap-x-2 gap-y-4 px-4">
+          {catalog.map((pack, i) => {
+            const unitPrice = pack.gemCost / pack.clicks
+            const savingsPct = i >= 2 ? computeSavingsPct(baseUnitPrice, unitPrice) : 0
+            return (
+              // Never disabled, whatever you can afford. Greying out the lots
+              // turns the stall into a wall the moment you run low, and a
+              // shelf is worth looking at even when you cannot buy off it —
+              // the price is what has to say no, and it does, on the panel
+              // this opens.
+              <button
+                key={pack.id}
+                onClick={() => setPending(pack)}
+                aria-label={`${formatPlatino(pack.clicks, language)} — ${pack.gemCost}`}
+                className="group relative flex flex-col items-center rounded-xl px-1 pb-2 pt-1 transition-colors hover:bg-white/[0.03]"
+              >
+                {/* The price hangs off a cord. The same figure inside a button
+                    reads as a checkout; on a swinging card it reads as a
+                    market. It costs nothing and says something else. */}
+                <span className="relative block h-9 w-full">
+                  <span
+                    className="absolute left-1/2 top-0 h-3 w-px"
+                    style={{ background: `${c.light}80` }}
+                  />
+                  <span
+                    className="absolute left-1/2 top-2.5 flex -translate-x-1/2 -rotate-3 items-center gap-1 whitespace-nowrap bg-gradient-to-b from-[#CBD5FF] to-[#8B9BF5] py-1 pl-4 pr-3 font-mono text-[11px] font-semibold text-[#141A3D] shadow-md shadow-black/50"
+                    style={{ clipPath: 'polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%)' }}
+                  >
+                    <GemIcon size={14} style={{ color: '#4453D6' }} />
+                    {pack.gemCost}
+                  </span>
+                </span>
+
+                <span className="relative">
+                  <GemContainer
+                    kind={gemContainerFor(i)}
+                    contents="mineral"
+                    tint={c.fill}
+                    size={GOODS_SIZE}
+                  />
+                  {savingsPct > 0 && (
+                    <span
+                      className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide shadow-md shadow-black/50"
+                      style={{ background: c.fill, color: c.dark }}
+                    >
+                      {strings.savingsBadge(savingsPct)}
+                    </span>
+                  )}
+                </span>
+
+                {/* The shelf. Lit along its front lip, which is what puts the
+                    object ON something instead of in front of it. */}
+                <span
+                  className="h-2 w-24 rounded-sm bg-gradient-to-b from-[#6A717C] from-[2px] to-[#3A3F48] shadow-lg shadow-black/50"
+                  style={{ marginTop: -GOODS_SHELF_LIFT }}
+                />
+
+                <span
+                  className="mt-2.5 text-2xl font-extrabold leading-none"
+                  style={{ color: c.light, textShadow: `0 0 18px ${c.fill}59` }}
+                >
+                  {formatPlatino(pack.clicks, language)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {error && <p className="relative mt-3 px-6 text-xs text-red-400">{error}</p>}
+        </div>
+      </div>
+
+      {/* The till. A sibling of the stall rather than a child, so dismissing
+          it does not also close the shop behind it. */}
+      {pending && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overscroll-contain bg-black/70 px-8 backdrop-blur-sm"
+          onClick={() => setPending(null)}
+        >
+          <div
+            className="relative w-full max-w-[17rem] overflow-hidden rounded-2xl border bg-[#0c0b11] px-5 pb-5 pt-4 shadow-2xl shadow-black/60"
+            style={{ borderColor: `${c.fill}33` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span
+              className="pointer-events-none absolute inset-x-0 top-0 h-px"
+              style={{ background: `linear-gradient(90deg, transparent, ${c.fill}, transparent)` }}
+            />
+
+            <button
+              onClick={() => setPending(null)}
+              aria-label="Close"
+              className="absolute right-3 top-3 z-10 text-neutral-500 transition-colors hover:text-neutral-300"
+            >
+              <X size={15} />
+            </button>
+
+            {/* The lot itself, so what is on the till is plainly the one you
+                just picked up off the shelf. */}
+            <div className="flex justify-center">
+              <GemContainer
+                kind={gemContainerFor(catalog.indexOf(pending))}
+                contents="mineral"
+                tint={c.fill}
+                size={86}
+              />
+            </div>
+
+            <p className="mt-1 text-center text-sm font-semibold text-white">
+              {strings.orePurchaseTitle(formatPlatino(pending.clicks, language), currentMaterialName)}
+            </p>
+
+            {/* The ordinary gem button, the same one every gem price in the
+                game is paid on. This is the control that refuses. */}
+            <button
+              onClick={() => handleBuy(pending)}
+              disabled={buyingId !== null || gems < pending.gemCost}
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-400/30 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-200 transition-colors hover:bg-indigo-500/15 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/[0.03] disabled:text-neutral-500"
+            >
+              {buyingId === pending.id ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <>
+                  <GemIcon size={16} />
+                  <span className="tabular-nums">{pending.gemCost}</span>
+                </>
+              )}
+            </button>
+
+            {gems < pending.gemCost && (
+              <p className="mt-2 text-center text-xs text-neutral-500">{strings.notEnoughGems}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

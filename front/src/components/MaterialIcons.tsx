@@ -244,6 +244,51 @@ const ROCK_FACES: { d: string; c: string; o: number }[] = [
 
 const ROCK_OUTLINE = 'M18 60 L26 34 L48 20 L74 28 L84 52 L74 78 L44 84 L22 76 Z'
 
+/** The rock's faces as a plain group, centred on the origin — the mineral's
+ *  answer to GemFaces, and for the same reason: a heap of ore inside a crate
+ *  has to be the ore you are buying, not a lookalike.
+ *
+ *  Same trims as GemFaces. No gradients and no per-instance ids, because at a
+ *  few pixels across the grain is invisible and a <defs> block per rock in a
+ *  heap of fifteen costs real work for nothing. Seam strokes are pre-multiplied
+ *  since the whole group gets scaled down — a 1.1 stroke at scale 0.19 would
+ *  disappear.
+ *
+ *  The outline is offset by (-52, -51) rather than (-50, -50): the silhouette
+ *  is not centred in its own box, and pivoting on the box would make a heap of
+ *  rotated rocks wobble off the pile.
+ */
+export function RockFaces({
+  x,
+  y,
+  scale,
+  rot = 0,
+}: {
+  x: number
+  y: number
+  scale: number
+  rot?: number
+}) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${scale}) translate(-51 -52)`}>
+      <path d={ROCK_OUTLINE} fill="currentColor" />
+      {ROCK_FACES.map((f, i) => (
+        <path key={i} d={f.d} fill={f.c} opacity={f.o} />
+      ))}
+      <g fill="none" stroke="#000000" strokeWidth="3.4" opacity={0.3} strokeLinejoin="round">
+        <path d="M32 42 L52 32 L66 46 L54 60 L34 58 Z" />
+        <path d="M54 60 L84 52" />
+        <path d="M34 58 L22 76" />
+      </g>
+      <g fill="none" stroke="#ffffff" strokeWidth="3.8" strokeLinecap="round" strokeLinejoin="round" opacity={0.45}>
+        <path d="M26 34 L48 20" />
+        <path d="M32 42 L52 32" />
+      </g>
+      <path d={ROCK_OUTLINE} fill="none" stroke="#000000" strokeWidth="3.4" strokeLinejoin="round" opacity={0.55} />
+    </g>
+  )
+}
+
 export function MineralIcon({ size = 40, className, style }: Props) {
   const uid = useId()
   return (

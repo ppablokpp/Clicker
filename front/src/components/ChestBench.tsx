@@ -84,38 +84,45 @@ function formatCountdown(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-const CHEST_ACCENT: Record<
-  ChestId,
-  { text: string; ring: string; chip: string; plate: string; edge: string }
-> = {
-  material: {
-    text: 'text-neutral-300',
-    ring: 'border-white/10',
-    chip: 'bg-white/[0.04]',
-    plate: 'from-white/[0.07]',
-    edge: 'from-white/30',
-  },
-  gems: {
-    text: 'text-indigo-300',
-    ring: 'border-indigo-400/25',
-    chip: 'bg-indigo-500/[0.08]',
-    plate: 'from-indigo-500/[0.14]',
-    edge: 'from-indigo-300/45',
-  },
-  style: {
-    text: 'text-violet-300',
-    ring: 'border-violet-400/25',
-    chip: 'bg-violet-500/[0.08]',
-    plate: 'from-violet-500/[0.14]',
-    edge: 'from-violet-300/45',
-  },
-  styleRare: {
-    text: 'text-fuchsia-300',
-    ring: 'border-fuchsia-400/25',
-    chip: 'bg-fuchsia-500/[0.08]',
-    plate: 'from-fuchsia-500/[0.14]',
-    edge: 'from-fuchsia-300/45',
-  },
+const CHEST_ACCENT: Record<ChestId, { text: string; ring: string; chip: string }> = {
+  material: { text: 'text-neutral-300', ring: 'border-white/10', chip: 'bg-white/[0.04]' },
+  gems: { text: 'text-indigo-300', ring: 'border-indigo-400/25', chip: 'bg-indigo-500/[0.08]' },
+  style: { text: 'text-violet-300', ring: 'border-violet-400/25', chip: 'bg-violet-500/[0.08]' },
+  styleRare: { text: 'text-fuchsia-300', ring: 'border-fuchsia-400/25', chip: 'bg-fuchsia-500/[0.08]' },
+}
+
+/** What the plate on each case is struck in — the gem inside it, lightened to
+ *  the shade that stays legible as 9px caps. The material chest's is missing
+ *  on purpose: it wears whatever you are currently mining, so it is filled in
+ *  from the tier table at render time. */
+const CHEST_PLATE_TINT: Record<Exclude<ChestId, 'material'>, string> = {
+  gems: '#A5B4FC',
+  style: '#C4B5FD',
+  styleRare: '#F0ABFC',
+}
+
+/**
+ * The material tier's equivalent of those three, mixed rather than listed.
+ *
+ * The tier table only carries a fill and a light, and neither works on its
+ * own: Zafiro's fill is too dark to read as 9px caps on a black plate, and
+ * Platino's light is so close to white that its plate came out looking like
+ * the grey one this replaced. Blending them lands on the same kind of shade
+ * the other three chests are struck in, for all seven materials, without a
+ * second table to keep in step with the first.
+ *
+ * Kept as a hex because the plate needs to append alpha to it.
+ */
+function plateShade(fill: string, light: string) {
+  const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const f = channels(fill)
+  const l = channels(light)
+  return (
+    '#' +
+    f
+      .map((v, i) => Math.round(v * 0.55 + l[i] * 0.45).toString(16).padStart(2, '0'))
+      .join('')
+  )
 }
 
 // What lands in a lane: either a currency prize, or a cosmetic. One union
@@ -324,6 +331,11 @@ export function ChestBench() {
     chest === 'material'
       ? { lit: tierGem.light, mid: tierGem.fill, deep: tierGem.dark, edge: tierGem.dark }
       : undefined
+
+  // Same source as the gem in the lid, so the plate and the stone under it can
+  // never drift apart across a prestige.
+  const plateTint = (chest: ChestId) =>
+    chest === 'material' ? plateShade(tierGem.fill, tierGem.light) : CHEST_PLATE_TINT[chest]
 
   const labelFor = (item: LaneItem): string =>
     item.kind === 'cosmetic'
@@ -607,6 +619,7 @@ export function ChestBench() {
         {CHEST_ORDER.map((chest) => {
           const count = countOf(chest)
           const accent = CHEST_ACCENT[chest]
+          const tint = plateTint(chest)
           const ready = chestReady(chest)
           const addable = canAdd(chest)
           const full = picks.length >= MAX_SELECTED
@@ -649,13 +662,16 @@ export function ChestBench() {
                     fit a card: that form is what ties the rack to the shops
                     either side of it. */}
                 <span
-                  className={`relative flex h-[18px] w-full shrink-0 items-center justify-center bg-gradient-to-r to-transparent ${accent.plate}`}
+                  className="relative flex h-[18px] w-full shrink-0 items-center justify-center"
+                  style={{ background: `linear-gradient(90deg, ${tint}22, transparent)` }}
                 >
                   <span
-                    className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r to-transparent ${accent.edge}`}
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+                    style={{ background: `linear-gradient(90deg, ${tint}73, transparent)` }}
                   />
                   <span
-                    className={`truncate px-2 indent-[0.16em] font-mono text-[9px] font-bold uppercase tracking-[0.16em] ${accent.text}`}
+                    className="truncate px-2 indent-[0.16em] font-mono text-[9px] font-bold uppercase tracking-[0.16em]"
+                    style={{ color: tint }}
                   >
                     {chestTag[chest]}
                   </span>
