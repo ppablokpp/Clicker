@@ -146,6 +146,7 @@ export const SaturnRing = memo(function SaturnRing({
   colors,
   paused = false,
   idPrefix = 'homeRing',
+  mode = 'progress',
 }: {
   /** Which half of the ring this instance draws. 'back' goes behind the
    *  rock in the tree, 'front' in front of it. */
@@ -158,6 +159,10 @@ export const SaturnRing = memo(function SaturnRing({
   /** Keeps the two halves' gradient and clip ids apart from any other
    *  instance on the page, same as Asteroid's. */
   idPrefix?: string
+  /** 'progress' fills the ring to `pct`. 'orbit' ignores `pct` and sends a
+   *  short lit arc round and round instead — the loading screen's spinner,
+   *  drawn as a thing in orbit rather than a stroke going in circles. */
+  mode?: 'progress' | 'orbit'
 }) {
   const id = `${idPrefix}-${half}`
   const c = isMaxed ? GOLD : colors
@@ -168,12 +173,16 @@ export const SaturnRing = memo(function SaturnRing({
   const dash = 'stroke-dashoffset 0.6s ease-out'
   // A closed ring gets no dash at all: a full-length dash still leaves a
   // hairline seam where its two ends meet at the start of the path.
-  const dashArray = isMaxed ? undefined : '100 100'
+  const orbit = mode === 'orbit' && !isMaxed
+  // In orbit the dash is the arc's length and the offset is animated by CSS
+  // (.ring-orbit-arc), which overrides the attribute set here.
+  const dashArray = isMaxed ? undefined : orbit ? '34 66' : '100 100'
+  const arcClass = orbit ? 'ring-orbit-arc' : undefined
 
   const tipAngle = Math.PI / 2 + p * Math.PI * 2
-  const showTip = !isMaxed && p > 0.002 && isFront(tipAngle) === (half === 'front')
+  const showTip = !isMaxed && !orbit && p > 0.002 && isFront(tipAngle) === (half === 'front')
   const [tx, ty] = toScreen(tipAngle, RM)
-  const grainsClass = `ring-grains${isMaxed ? ' ring-grains-fast' : ''}${paused ? ' ring-grains-paused' : ''}`
+  const grainsClass = `ring-grains${isMaxed || orbit ? ' ring-grains-fast' : ''}${paused ? ' ring-grains-paused' : ''}`
 
   return (
     <svg
@@ -218,6 +227,7 @@ export const SaturnRing = memo(function SaturnRing({
             strokeWidth={BAND_W + 8}
             strokeDasharray={dashArray}
             strokeDashoffset={offset}
+            className={arcClass}
             style={{ transition: dash }}
           />
         </mask>
@@ -235,6 +245,7 @@ export const SaturnRing = memo(function SaturnRing({
           strokeWidth={BAND_W}
           strokeDasharray={dashArray}
           strokeDashoffset={offset}
+          className={arcClass}
           style={{ transition: dash }}
         />
         {/* A bright core down the middle of the mined ice, so the filled arc
@@ -248,6 +259,7 @@ export const SaturnRing = memo(function SaturnRing({
           strokeWidth={BAND_W * 0.14}
           strokeDasharray={dashArray}
           strokeDashoffset={offset}
+          className={arcClass}
           style={{ transition: dash }}
         />
         {half === 'front' && (

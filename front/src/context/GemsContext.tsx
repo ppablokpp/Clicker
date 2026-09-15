@@ -6,6 +6,9 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 interface GemsContextValue {
   gems: number
+  /** False until the first read of the balance has settled, one way or the
+   *  other — the store shows its loader rather than a zero until then. */
+  loaded: boolean
   /** Other places that award gems server-side (case prizes) return the fresh authoritative total — this folds it in. */
   syncGems: (newTotal: number) => void
 }
@@ -16,6 +19,7 @@ export function GemsProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAppAuth()
   const { latestGems } = useClickCounterContext()
   const [gems, setGems] = useState(0)
+  const [loaded, setLoaded] = useState(false)
 
   // Every click flush reports the fresh total, so fold it in as soon as it
   // changes — keeps this in step with anything spent or granted elsewhere.
@@ -38,6 +42,8 @@ export function GemsProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error('No se pudieron cargar las gemas', err)
+      } finally {
+        if (!cancelled) setLoaded(true)
       }
     })()
     return () => {
@@ -55,7 +61,7 @@ export function GemsProvider({ children }: { children: ReactNode }) {
   // Since this context sits behind ClickCounterContext (which changes on
   // every tap), an unmemoized value meant every consumer of *this* context
   // re-rendered on every single click too, app-wide, for the whole session.
-  const value = useMemo(() => ({ gems, syncGems }), [gems, syncGems])
+  const value = useMemo(() => ({ gems, loaded, syncGems }), [gems, loaded, syncGems])
   return <GemsContext.Provider value={value}>{children}</GemsContext.Provider>
 }
 

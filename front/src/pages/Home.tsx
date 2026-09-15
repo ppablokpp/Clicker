@@ -67,7 +67,7 @@ import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
 import { Asteroid, type AsteroidColors } from '../components/Asteroid'
-import { SaturnRing } from '../components/SaturnRing'
+import { SpaceObject } from '../components/SpaceObject'
 import { TapEffectsLayer, type TapEffectsHandle } from '../components/TapEffectsLayer'
 
 interface InfoModalData {
@@ -172,69 +172,6 @@ function generateStars(count: number, opacity: number): string {
 // own gradients; the speckle colour is the same for every tier, so it's the
 // component's default and isn't passed.
 const OBJECT_TIERS = MATERIAL_TIER_COLORS
-
-// The thing you're actually clicking — a slowly bobbing/rotating rock,
-// no "breaking" moment anymore (that whole object/prestige-target loop is
-// gone; Trayectoria's platino tiers are prestige now). Its color follows
-// the real current tier, so the rock you click matches whichever
-// Trayectoria stop you're actually on instead of always being violet.
-function SpaceObject({
-  tierIndex,
-  pct,
-  isMaxed,
-  paused,
-}: {
-  tierIndex: number
-  pct: number
-  isMaxed: boolean
-  paused: boolean
-}) {
-  const tier = OBJECT_TIERS[tierIndex]
-  return (
-    <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
-      {/* A radial-gradient glow instead of a blurred solid circle — some
-          mobile Chromium builds flash the pre-filter unblurred shape (a
-          hard-edged square, since `blur-lg` blurs the element's own box)
-          before the `filter: blur()` layer finishes compositing. A gradient
-          fades out on its own with no filter involved, so there's nothing
-          to flash. */}
-      <div
-        className="absolute -inset-6 rounded-full transition-opacity duration-200"
-        style={{
-          background: `radial-gradient(circle, ${tier.glow} 0%, transparent 70%)`,
-          opacity: 0.22 + pct * 0.5,
-        }}
-      />
-      {/* The silhouette no longer rotates, and that's the whole change.
-          Spinning an irregular outline is what a flat disc does; a sphere
-          holds its outline still and lets the surface travel across it. So the
-          rock keeps only its bob, and the craters scroll underneath (see
-          .rock-surface below). */}
-      <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ y: { duration: 3, repeat: Infinity, ease: 'easeInOut' } }}
-      >
-        {/* No `filter: drop-shadow()` here on purpose — same mobile
-            Chromium flash-to-square bug as the old blurred glow div above,
-            just triggered by this SVG's own filter instead. The ambient
-            radial-gradient glow behind the rock already sells the "aura"
-            without needing a second, shape-hugging filtered glow on top. */}
-        {/* The goal ring is part of the rock now — a planetary ring, one
-            half drawn behind it and one in front, so it bobs with it and the
-            rock occludes it. See SaturnRing for the drawing. */}
-        <div className="relative">
-          {/* The rock is `relative` for paint order alone: positioned boxes paint
-              after in-flow ones whatever the tree order says, so a static rock
-              would end up under BOTH halves and the back of the ring would show
-              through it. */}
-          <SaturnRing half="back" pct={pct} isMaxed={isMaxed} colors={tier} paused={paused} />
-          <Asteroid idPrefix="homeRock" size={76} colors={tier} paused={paused} className="relative" />
-          <SaturnRing half="front" pct={pct} isMaxed={isMaxed} colors={tier} paused={paused} />
-        </div>
-      </motion.div>
-    </div>
-  )
-}
 
 // A small rotating preview of one of the OBJECT_TIERS rocks — same
 // shading recipe as SpaceObject (gradient body, crater depth, grain,

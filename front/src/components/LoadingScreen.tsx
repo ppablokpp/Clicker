@@ -1,77 +1,125 @@
 import { useState } from 'react'
-import { MousePointerClick } from 'lucide-react'
+import { SpaceObject } from './SpaceObject'
+import { useLanguage } from '../context/LanguageContext'
+
+/**
+ * The loading screen is the game's own first frame now: the Amatista rock —
+ * the one every account starts on — with its ring, and a lit arc going round
+ * it where the progress would be. It's the very same <SpaceObject> Home
+ * draws, in the very same box, at the very same place on screen, so the
+ * cover lifting onto Home is the rock staying put and the ring settling into
+ * a percentage — not a spinner being swapped for a scene.
+ *
+ * Amatista is hard-coded rather than read from the save on purpose: this
+ * screen is on precisely while that save is still arriving.
+ */
+const AMATISTA_TIER = 0
 
 /**
  * Phase-locks the loops to wall clock instead of to mount time.
  *
- * The app shows a loading screen from two different places — AuthGate, while
- * it works out whose save this is, then GameStateGate, while that save
- * arrives. They sit at different points in the tree, so React unmounts one and
- * mounts the other, and a CSS animation restarts at 0% when that happens: the
- * spinner jumps backwards partway through loading, which is most of what reads
- * as the loader stuttering.
+ * The cover is mounted once per startup (see LoadingGate), but a hot reload
+ * or a sign-in that restarts the gates can still re-create it, and a CSS
+ * animation restarts at 0% when that happens. A negative delay of
+ * `now % duration` starts each animation already that far in, so its phase is
+ * a function of the clock rather than of when the element appeared.
  *
- * A negative delay of `now % duration` starts each animation already that far
- * in, so its phase is a function of the clock rather than of when the element
- * appeared, and the handoff lands mid-spin.
- *
- * The lazy initialiser is the load-bearing part, not the maths. This has to be
- * computed once per MOUNT — fresh when the screen is re-created, then frozen.
- * Computed per *render* it was strictly worse than no fix at all: GameStateGate
- * subscribes to both game contexts, whose values change about ten times a
- * second while loading, so the screen re-renders at that rate — and changing
- * `animation-delay` on a running animation re-seats it. One jump at the handoff
- * became ten jumps a second.
- *
- * Reading the clock in here is impure on purpose: the whole point is that the
- * value must differ between mounts. That's also why it can't be hoisted to a
- * module constant.
+ * The lazy initialiser is the load-bearing part: computed once per MOUNT and
+ * then frozen. Computed per render it re-seats a running animation on every
+ * re-render, which is strictly worse than no fix at all.
  */
 function usePhases() {
   const [phases] = useState(() => {
     const now = performance.now()
-    const at = (durationMs: number) => `-${now % durationMs}ms`
     return {
-      glow: { animationDelay: at(3000) },
-      spin: { animationDuration: '0.8s', animationDelay: at(800) },
-      pulse: { animationDelay: at(2000) },
+      twinkle: { animationDelay: `-${now % 3500}ms` },
+      // Where in the status cycle the clock is, for the lines below.
+      lines: now % CYCLE_MS,
     }
   })
   return phases
 }
 
+// A whole starfield from one 1x1px element — every star is another point in
+// a single box-shadow list, so there's no per-star DOM cost. Two layers, one
+// dim and still, one bright and twinkling. Same trick as Home's sky, which is
+// what this screen hands over to.
+function generateStars(count: number, opacity: number): string {
+  const stars: string[] = []
+  for (let i = 0; i < count; i++) {
+    const x = (Math.random() * 100).toFixed(2)
+    const y = (Math.random() * 100).toFixed(2)
+    stars.push(`${x}vw ${y}vh 0 rgba(255,255,255,${opacity})`)
+  }
+  return stars.join(', ')
+}
+
+/** How long each status line owns the screen. The lines are pure CSS on a
+ *  shared clock — no timer, nothing to re-render while the providers behind
+ *  the cover are busy. Four slots, and the keyframes (loader-line in
+ *  index.css) are cut for exactly four, so the list is capped here. */
+const STEP_MS = 1500
+const STEP_COUNT = 4
+const CYCLE_MS = STEP_MS * STEP_COUNT
+
 export function LoadingScreen() {
   const phases = usePhases()
+  const { strings } = useLanguage()
+  const [stars] = useState(() => ({ dim: generateStars(90, 0.35), bright: generateStars(28, 0.85) }))
+  const steps = strings.loading.steps.slice(0, STEP_COUNT)
+
   return (
-    <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#08080c]">
-      {/* A radial-gradient, not a blurred div. `blur-[100px]` on a 288px
-          element is a large raster the main thread has to produce, and this
-          screen is on precisely when that thread is at its busiest — mounting
-          every provider and parsing what they fetch — so it stuttered exactly
-          when it most needed not to. Painting the falloff directly costs
-          nothing per frame and leaves the opacity pulse pure compositor work.
-          Same swap Home already made for the asteroid and prestige glows,
-          which also dodged a mobile Chromium flash-to-square bug. */}
+    <div className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#08080c]">
+      {/* Sky. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: stars.dim }} />
         <div
-          className="animate-pulse-glow absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(139,92,246,0.28) 0%, transparent 68%)',
-            ...phases.glow,
-          }}
+          className="animate-twinkle absolute h-px w-px rounded-full bg-white"
+          style={{ boxShadow: stars.bright, ...phases.twinkle }}
         />
       </div>
 
-      <div className="relative z-10 flex h-16 w-16 items-center justify-center">
-        <span
-          className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-violet-400 border-r-fuchsia-400"
-          style={phases.spin}
-        />
-        <div
-          className="flex h-10 w-10 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200"
-          style={phases.pulse}
-        >
-          <MousePointerClick size={18} />
+      {/* Home's click box, box for box: the same h-72/h-96 square centred by
+          the root's own justify-center, the same 0.85 shrink inside it. The
+          rock lands on the same pixel it will occupy once the cover lifts.
+          The wordmark hangs off the box's bottom edge rather than sitting in
+          flow under it, so it can't push the rock off centre. */}
+      <div className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
+        <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.85)' }}>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <SpaceObject tierIndex={AMATISTA_TIER} pct={0} isMaxed={false} paused={false} ringMode="orbit" idPrefix="loader" />
+          </div>
+        </div>
+
+        {/* Wordmark and status. The status lines all live in one grid cell
+            and take turns through a staggered animation, so the block never
+            changes height. */}
+        <div className="absolute left-0 right-0 top-full -mt-6 flex flex-col items-center gap-3">
+          <span
+            className="text-[13px] font-bold uppercase tracking-[0.42em] text-violet-100/90"
+            style={{ textIndent: '0.42em' }}
+          >
+            ClankUp
+          </span>
+          <span className="h-px w-8 bg-violet-300/25" />
+          <div className="grid h-5 place-items-center">
+            {steps.map((line, i) => (
+              <span
+                key={line}
+                className="col-start-1 row-start-1 whitespace-nowrap text-[11px] font-medium tracking-[0.18em] text-violet-200/70"
+                style={{
+                  opacity: 0,
+                  animation: `loader-line ${CYCLE_MS}ms ease-in-out infinite`,
+                  // Every line runs the same cycle, offset by its slot — and
+                  // the whole set is phase-locked to the clock like the rest.
+                  // Always negative, so no line sits waiting for a first turn.
+                  animationDelay: `-${phases.lines + (STEP_COUNT - i) * STEP_MS}ms`,
+                }}
+              >
+                {line}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

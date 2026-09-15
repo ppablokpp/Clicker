@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
+import { ContentLoader } from '../components/ContentLoader'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
 import { SUFFIX_TIERS, splitPlatino } from '../lib/formatPlatino'
@@ -66,6 +67,11 @@ export function Leaderboard() {
           </button>
         </div>
       </div>
+
+      {/* Only the first read: a sort switch keeps the old rows on screen
+          while the new order arrives, and covering those would be a flash
+          for nothing. */}
+      <ContentLoader pending={isLoading && leaderboard.length === 0} />
 
       <div className="mx-auto max-w-2xl pt-20 sm:pt-24">
         {!isLoading && leaderboard.length === 0 && (
