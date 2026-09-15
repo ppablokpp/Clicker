@@ -5,6 +5,7 @@ import { AstronautPieceById } from './AstronautPiecePreview'
 import { GemIcon, MineralIcon } from './MaterialIcons'
 import { ChestCatalogModal } from './ChestCatalogModal'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
+import { formatPlatino } from '../lib/formatPlatino'
 import { VaultChest, VaultKey } from './VaultChest'
 import { StampedHeading } from './StampedHeading'
 import { useLanguage } from '../context/LanguageContext'
@@ -337,10 +338,14 @@ export function ChestBench() {
   const plateTint = (chest: ChestId) =>
     chest === 'material' ? plateShade(tierGem.fill, tierGem.light) : CHEST_PLATE_TINT[chest]
 
+  // Gems stay as plain counts; mineral is abbreviated (M / B / T…) like every
+  // other mineral figure, since chest prizes scale with the tier's goal.
   const labelFor = (item: LaneItem): string =>
     item.kind === 'cosmetic'
       ? (strings.profile.styleNames[item.item.id] ?? item.item.id)
-      : item.prize.amount.toLocaleString(locale)
+      : item.prize.currency === 'gems'
+        ? item.prize.amount.toLocaleString(locale)
+        : formatPlatino(item.prize.amount, language)
 
   // Filler tiles for the reel. The pools drop anything already owned, for the
   // same reason the catalogue does: the server can't roll it, so watching it
@@ -974,7 +979,6 @@ export function ChestBench() {
           chest={catalogFor}
           title={chestName[catalogFor]}
           prizes={catalogFor === 'gems' ? gemCatalog : materialCatalog}
-          locale={locale}
           onClose={() => setCatalogFor(null)}
         />
       )}

@@ -15,7 +15,6 @@ import { useClickPacksContext, type ClickPackDef } from '../context/ClickPacksCo
 import { useKeyPacksContext, type KeyPackDef } from '../context/KeyPacksContext'
 import { useGemPacksContext, type GemPackDef } from '../context/GemPacksContext'
 import { ChestBench } from '../components/ChestBench'
-import { ContentLoader } from '../components/ContentLoader'
 import { StampedHeading } from '../components/StampedHeading'
 import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS, type MaterialTierColors } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
@@ -91,8 +90,8 @@ export function Store() {
   // Clamped: a tier past the end of the ladder should light the counter with
   // the first material rather than crash on an undefined.
   const materialColors = MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]
-  const { gems, loaded: gemsLoaded } = useGemsContext()
-  const { keys, loaded: keysLoaded } = useKeysContext()
+  const { gems } = useGemsContext()
+  const { keys } = useKeysContext()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const [showClickPacks, setShowClickPacks] = useState(false)
   const [showKeyPacks, setShowKeyPacks] = useState(false)
@@ -100,10 +99,6 @@ export function Store() {
 
   return (
     <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-6 sm:px-6 sm:pb-24 sm:pt-8">
-      {/* The wallet is the first thing on this screen, and a wallet reading
-          0 for a beat is a lie, not a placeholder — so the screen is covered
-          until both balances have been read once. */}
-      <ContentLoader pending={!(gemsLoaded && keysLoaded)} />
       <div className="mx-auto max-w-2xl">
         <header className="mb-10">
           {/* The counter: one plate, three bays. Three separate pills read as

@@ -56,7 +56,24 @@ function smoothClosedPath(points: Point[]): string {
 // Jitter is 2.2, down from the 3 the polygon used. The rock still isn't a
 // ball, but a sphere's silhouette is smooth, and every unit of wobble is one
 // the eye reads as "flat irregular shape" instead of "lit body".
-export const ASTEROID_PATH = smoothClosedPath(buildRoundRockOutline(24, 42, 2.2))
+const ROCK_OUTLINE = buildRoundRockOutline(24, 42, 2.2)
+export const ASTEROID_PATH = smoothClosedPath(ROCK_OUTLINE)
+
+/**
+ * The same silhouette in pixels, for a CSS `clip-path: path()` — which, unlike
+ * an SVG clipPath, takes its numbers in the element's own px and has no
+ * viewBox to scale them through. One string per size ever asked for.
+ */
+const scaledPathCache = new Map<number, string>()
+function silhouetteAt(size: number): string {
+  let d = scaledPathCache.get(size)
+  if (!d) {
+    const k = size / 100
+    d = smoothClosedPath(ROCK_OUTLINE.map(([x, y]) => [x * k, y * k]))
+    scaledPathCache.set(size, d)
+  }
+  return d
+}
 
 const ROCK_R = 42
 const ROCK_CY = 50
@@ -268,6 +285,24 @@ export interface AsteroidColors {
  * module-level object — Home and the Trayectoria list both pass an entry of
  * MATERIAL_TIER_COLORS, Battle a module constant, and Meteor one held in
  * state. Nothing here is built inline at the call site.
+ *
+ * Three layers, not one SVG, and the reason is the phone in your hand.
+ *
+ * The surface used to scroll by a CSS transform on a <g> inside the one SVG.
+ * A transform on an SVG node is not something the compositor can carry on
+ * its own: every frame, the whole SVG — body gradient, three hundred crater
+ * paths, the limb and shadow overlays — was painted again on the main
+ * thread, sixty times a second, for as long as the rock was on screen. So:
+ *
+ *   1. the body, a still SVG;
+ *   2. the surface, an SVG six windows wide painted ONCE, whose own element
+ *      transform the compositor slides — under a div clipped to the
+ *      silhouette with a CSS path, which is the same outline the SVG clip
+ *      used to be;
+ *   3. the lighting, a still SVG over the top.
+ *
+ * Nothing the eye sees changed. What changed is that a turning rock now
+ * costs one texture moving instead of one full repaint per frame.
  */
 export const Asteroid = memo(function Asteroid({
   idPrefix,
@@ -309,75 +344,52 @@ export const Asteroid = memo(function Asteroid({
   const copies = spin ? [0, SURFACE_BAND] : [0]
 
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} className={className}>
-      <defs>
-        {/* Body shading — brightest toward the upper-left "sun", falling off
-            to a near-black shadow at the far rim. Same key light (33% / 28%)
-            as the astronaut's helmet and the gunner's hull, so everything in
-            the game reads as lit by one sun. */}
-        <radialGradient id={bodyId} cx="33%" cy="28%" r="78%">
-          <stop offset="0%" stopColor={colors.light} />
-          <stop offset="42%" stopColor={colors.fill} />
-          <stop offset="100%" stopColor={colors.dark} />
-        </radialGradient>
-        {/* Limb darkening, and the single strongest sphere cue here.
-            Transparent through the middle, ramping hard to dark in the last
-            fifth — ALL the way round, not just on the shadow side. A real
-            sphere's edge is surface curving away from you, so it dims
-            everywhere; without this the rock reads as a lit disc stuck flat to
-            the page no matter how good the body shading is. It's also what
-            sells the craters: as one scrolls toward the edge it fades exactly
-            the way a feature rotating out of view would, which is
-            foreshortening for free. */}
-        <radialGradient id={limbId} cx="50%" cy="50%" r="52%">
-          <stop offset="0%" stopColor="#000000" stopOpacity="0" />
-          <stop offset="60%" stopColor="#000000" stopOpacity="0" />
-          <stop offset="86%" stopColor="#000000" stopOpacity="0.34" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.7" />
-        </radialGradient>
-        {/* Terminator — the shadow core on the side facing away from the sun.
-            Offset from centre, unlike the limb, because this one is about
-            where the light isn't rather than about curvature. */}
-        <radialGradient id={shadowId} cx="74%" cy="78%" r="66%">
-          <stop offset="0%" stopColor="#000000" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0" />
-        </radialGradient>
-        {/* Rim light on the sunlit limb only. A stroke painted with a gradient
-            that fades out before it reaches the shadow side — lighting both
-            edges would cancel the light source out. */}
-        <linearGradient id={rimId} x1="12%" y1="2%" x2="72%" y2="88%">
-          <stop offset="0%" stopColor={colors.light} stopOpacity="0.85" />
-          <stop offset="48%" stopColor={colors.light} stopOpacity="0" />
-        </linearGradient>
-        {/* Crater bowl, and the lighting is deliberately the INVERSE of every
-            other rounded thing in this app. A dome lit from the upper left is
-            bright at the upper left. A crater is a hole, so the wall nearest
-            the sun is the one turned away from it: the near rim shades the
-            upper-left interior, and the light lands on the far wall at the
-            lower right. One offset gradient does both. */}
-        <radialGradient id={craterId} cx="30%" cy="26%" r="88%">
-          <stop offset="0%" stopColor="rgba(0,0,0,0.66)" />
-          <stop offset="52%" stopColor="rgba(0,0,0,0.40)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.13)" />
-        </radialGradient>
-        <clipPath id={clipId}>
-          <path d={ASTEROID_PATH} />
-        </clipPath>
-      </defs>
+    <div className={`relative block ${className ?? ''}`} style={{ width: size, height: size }}>
+      {/* 1. The body. */}
+      <svg viewBox="0 0 100 100" width={size} height={size} className="absolute left-0 top-0">
+        <defs>
+          {/* Body shading — brightest toward the upper-left "sun", falling off
+              to a near-black shadow at the far rim. Same key light (33% / 28%)
+              as the astronaut's helmet and the gunner's hull, so everything in
+              the game reads as lit by one sun. */}
+          <radialGradient id={bodyId} cx="33%" cy="28%" r="78%">
+            <stop offset="0%" stopColor={colors.light} />
+            <stop offset="42%" stopColor={colors.fill} />
+            <stop offset="100%" stopColor={colors.dark} />
+          </radialGradient>
+        </defs>
+        <path d={ASTEROID_PATH} fill={`url(#${bodyId})`} />
+      </svg>
 
-      <path d={ASTEROID_PATH} fill={`url(#${bodyId})`} />
-
-      {/* Everything below is clipped to the rock's own silhouette so none of
-          it ever pokes past the outline. */}
-      <g clipPath={`url(#${clipId})`}>
-        {/* The surface, drawn twice a band apart and slid one full width per
-            cycle. When copy A reaches -SURFACE_BAND copy B is exactly where A
-            started, so the loop is seamless and needs no fade. This is what
-            replaced spinning the whole rock: features crossing a still outline
-            is what rotation looks like on a sphere, where a turning silhouette
-            is what it looks like on a disc. Anything entering or leaving does
-            so under the darkest part of the limb gradient, so nothing pops. */}
-        <g className={spin ? `rock-surface${paused ? ' rock-surface-paused' : ''}` : undefined}>
+      {/* 2. The surface, drawn twice a band apart and slid one full width per
+          cycle. When copy A reaches -SURFACE_BAND copy B is exactly where A
+          started, so the loop is seamless and needs no fade. This is what
+          replaced spinning the whole rock: features crossing a still outline
+          is what rotation looks like on a sphere, where a turning silhouette
+          is what it looks like on a disc. Anything entering or leaving does
+          so under the darkest part of the limb gradient, so nothing pops.
+          The SVG is two bands wide (600 units at this size) so the keyframe
+          can be a -50% of its own width whatever the pixel size. */}
+      <div className="absolute left-0 top-0 overflow-hidden" style={{ width: size, height: size, clipPath: `path("${silhouetteAt(size)}")` }}>
+        <svg
+          viewBox={`0 0 ${SURFACE_BAND * 2} 100`}
+          width={size * 6}
+          height={size}
+          className={`absolute left-0 top-0 ${spin ? 'rock-surface' : ''}${spin && paused ? ' rock-surface-paused' : ''}`}
+        >
+          <defs>
+            {/* Crater bowl, and the lighting is deliberately the INVERSE of every
+                other rounded thing in this app. A dome lit from the upper left is
+                bright at the upper left. A crater is a hole, so the wall nearest
+                the sun is the one turned away from it: the near rim shades the
+                upper-left interior, and the light lands on the far wall at the
+                lower right. One offset gradient does both. */}
+            <radialGradient id={craterId} cx="30%" cy="26%" r="88%">
+              <stop offset="0%" stopColor="rgba(0,0,0,0.66)" />
+              <stop offset="52%" stopColor="rgba(0,0,0,0.40)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.13)" />
+            </radialGradient>
+          </defs>
           {copies.map((dx) => (
             <g key={dx} transform={`translate(${dx} 0)`}>
               {field.craters.map((c, i) => (
@@ -395,27 +407,65 @@ export const Asteroid = memo(function Asteroid({
                   <path d={c.d} fill={`url(#${craterId})`} />
                 </g>
               ))}
-              {field.speckles.map((s, i) => (
-                <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={speckleColor} />
+              {field.speckles.map((sp, i) => (
+                <circle key={i} cx={sp.cx} cy={sp.cy} r={sp.r} fill={speckleColor} />
               ))}
             </g>
           ))}
+        </svg>
+      </div>
+
+      {/* 3. The lighting, over the surface. Order matters: shadow and limb go
+          OVER the craters so they darken as they rotate away, which is the
+          whole illusion; underneath, every feature would stay equally bright
+          to the edge. Clipped to the silhouette so none of it pokes past. */}
+      <svg viewBox="0 0 100 100" width={size} height={size} className="absolute left-0 top-0">
+        <defs>
+          {/* Limb darkening, and the single strongest sphere cue here.
+              Transparent through the middle, ramping hard to dark in the last
+              fifth — ALL the way round, not just on the shadow side. A real
+              sphere's edge is surface curving away from you, so it dims
+              everywhere; without this the rock reads as a lit disc stuck flat to
+              the page no matter how good the body shading is. It's also what
+              sells the craters: as one scrolls toward the edge it fades exactly
+              the way a feature rotating out of view would, which is
+              foreshortening for free. */}
+          <radialGradient id={limbId} cx="50%" cy="50%" r="52%">
+            <stop offset="0%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="60%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="86%" stopColor="#000000" stopOpacity="0.34" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.7" />
+          </radialGradient>
+          {/* Terminator — the shadow core on the side facing away from the sun.
+              Offset from centre, unlike the limb, because this one is about
+              where the light isn't rather than about curvature. */}
+          <radialGradient id={shadowId} cx="74%" cy="78%" r="66%">
+            <stop offset="0%" stopColor="#000000" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+          </radialGradient>
+          {/* Rim light on the sunlit limb only. A stroke painted with a gradient
+              that fades out before it reaches the shadow side — lighting both
+              edges would cancel the light source out. */}
+          <linearGradient id={rimId} x1="12%" y1="2%" x2="72%" y2="88%">
+            <stop offset="0%" stopColor={colors.light} stopOpacity="0.85" />
+            <stop offset="48%" stopColor={colors.light} stopOpacity="0" />
+          </linearGradient>
+          <clipPath id={clipId}>
+            <path d={ASTEROID_PATH} />
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#${clipId})`}>
+          {/* Sunlit patch — a soft highlight blob, same corner as the body
+              gradient's own bright spot. Fixed, not scrolling: the sun doesn't
+              travel with the surface. */}
+          <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
+          <rect x="0" y="0" width="100" height="100" fill={`url(#${shadowId})`} />
+          <rect x="0" y="0" width="100" height="100" fill={`url(#${limbId})`} />
+          {/* Rim light last, so nothing dims it. Stroked inside the clip, so only
+              its inner half shows and it hugs the edge. */}
+          <path d={ASTEROID_PATH} fill="none" stroke={`url(#${rimId})`} strokeWidth={3} />
         </g>
-
-        {/* Sunlit patch — a soft highlight blob, same corner as the body
-            gradient's own bright spot. Fixed, not scrolling: the sun doesn't
-            travel with the surface. */}
-        <ellipse cx="32" cy="27" rx="20" ry="14" fill="rgba(255,255,255,0.16)" />
-
-        {/* Order matters from here down. Shadow and limb go OVER the surface so
-            craters darken as they rotate away, which is the whole illusion;
-            underneath, every feature would stay equally bright to the edge. */}
-        <rect x="0" y="0" width="100" height="100" fill={`url(#${shadowId})`} />
-        <rect x="0" y="0" width="100" height="100" fill={`url(#${limbId})`} />
-        {/* Rim light last, so nothing dims it. Stroked inside the clip, so only
-            its inner half shows and it hugs the edge. */}
-        <path d={ASTEROID_PATH} fill="none" stroke={`url(#${rimId})`} strokeWidth={3} />
-      </g>
-    </svg>
+      </svg>
+    </div>
   )
 })

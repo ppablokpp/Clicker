@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
 import { GemIcon, MineralIcon } from './MaterialIcons'
+import { formatPlatino } from '../lib/formatPlatino'
 import { useLanguage } from '../context/LanguageContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import type { DailyCasePrize } from '../context/DailyCaseContext'
@@ -30,14 +31,12 @@ export function ChestCatalogModal({
   chest,
   title,
   prizes,
-  locale,
   onClose,
 }: {
   chest: ChestId
   title: string
   /** The live, prestige-scaled catalogue — only used by the paying chests. */
   prizes: DailyCasePrize[]
-  locale: string
   onClose: () => void
 }) {
   const { strings } = useLanguage()
@@ -78,7 +77,7 @@ export function ChestCatalogModal({
           {isCosmeticChest(chest) ? (
             <CosmeticSection pool={cosmeticPool} />
           ) : (
-            <CurrencySection chest={chest} prizes={prizes} locale={locale} />
+            <CurrencySection chest={chest} prizes={prizes} />
           )}
         </div>
       </div>
@@ -98,13 +97,11 @@ export function ChestCatalogModal({
 function CurrencySection({
   chest,
   prizes,
-  locale,
 }: {
   chest: ChestId
   prizes: DailyCasePrize[]
-  locale: string
 }) {
-  const { strings } = useLanguage()
+  const { language, strings } = useLanguage()
   const s = strings.store
   const totalWeight = prizes.reduce((sum, p) => sum + p.weight, 0)
   const isGems = chest === 'gems'
@@ -139,7 +136,10 @@ function CurrencySection({
                 </span>
                 <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white">
                   <MineralIcon size={18} style={{ color: style.color }} />
-                  {prize.amount.toLocaleString(locale)}
+                  {/* Mineral prizes scale with the goal, so past Amatista they
+                      are millions and billions: the M / B / T ladder every
+                      other readout uses, not a run of digits. */}
+                  {formatPlatino(prize.amount, language)}
                 </span>
                 {/* One decimal below 10% — the rarest tiers round to 0% whole. */}
                 <span className="w-11 shrink-0 text-right text-sm font-bold tabular-nums text-neutral-400">

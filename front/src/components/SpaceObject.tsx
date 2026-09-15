@@ -31,6 +31,12 @@ export function SpaceObject({
   idPrefix?: string
 }) {
   const tier = MATERIAL_TIER_COLORS[tierIndex]
+  // `pct` moves about ten times a second. The ring is memoized on its props,
+  // so quantizing here is what lets it sit still: at 1/400 of a turn a step
+  // is well under a pixel of arc, and between steps nothing about the ring
+  // re-renders, transitions or repaints. The glow likewise, at 1/50.
+  const ringPct = Math.round(pct * 400) / 400
+  const glowPct = Math.round(pct * 50) / 50
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
       {/* A radial-gradient glow instead of a blurred solid circle — some
@@ -43,7 +49,7 @@ export function SpaceObject({
         className="absolute -inset-6 rounded-full transition-opacity duration-200"
         style={{
           background: `radial-gradient(circle, ${tier.glow} 0%, transparent 70%)`,
-          opacity: 0.22 + pct * 0.5,
+          opacity: 0.22 + glowPct * 0.5,
         }}
       />
       {/* The silhouette no longer rotates, and that's the whole change.
@@ -70,7 +76,7 @@ export function SpaceObject({
               ring would show through it. */}
           <SaturnRing
             half="back"
-            pct={pct}
+            pct={ringPct}
             isMaxed={isMaxed}
             colors={tier}
             paused={paused}
@@ -80,7 +86,7 @@ export function SpaceObject({
           <Asteroid idPrefix={`${idPrefix}Rock`} size={76} colors={tier} paused={paused} className="relative" />
           <SaturnRing
             half="front"
-            pct={pct}
+            pct={ringPct}
             isMaxed={isMaxed}
             colors={tier}
             paused={paused}

@@ -107,22 +107,21 @@ body::before {
   animation: ripple 0.6s ease-out forwards;
 }
 
-/* The asteroid's surface travelling across a still silhouette — what makes
-   it read as a rotating sphere rather than a spinning disc.
-   One full band width per cycle. The band is drawn twice, SURFACE_BAND apart,
-   so at -SURFACE_BAND the second copy sits exactly where the first began and
-   the loop closes with no seam and no fade. Keep the 300 here in sync with
-   SURFACE_BAND in Home.tsx — they are the same distance.
-   px inside an SVG are user units, so this is 300 viewBox units, not screen
-   pixels. 60s across a window only ~84 units wide works out slow enough to
-   read as a body tumbling rather than a texture being dragged. */
+/* Asteroid surface rotation (components/Asteroid.tsx). The surface is an
+   <svg> element two bands wide, so -50% of its own width is exactly one band
+   — SURFACE_BAND units — whatever pixel size the rock is drawn at. The
+   animated property is the element's own transform, which the compositor
+   carries without a paint; 60s across a window only ~84 units wide works
+   out slow enough to read as a body tumbling rather than a texture being
+   dragged. */
 @keyframes rock-surface {
   to {
-    transform: translateX(-300px);
+    transform: translateX(-50%);
   }
 }
 
 .rock-surface {
+  will-change: transform;
   animation: rock-surface 60s linear infinite;
 }
 
@@ -140,11 +139,11 @@ body::before {
   }
 }
 
-/* The goal ring's grains (components/SaturnRing.tsx). A rotation about the
-   origin of a group that sits under a scale(1 0.37): on screen that's an
-   orbit in the ring's plane, which is why it's a plain rotate and nothing
-   cleverer. The origin has to be pinned — for SVG elements the default is the
-   viewBox corner, not the group's own (0,0). */
+/* The goal ring's grains (components/SaturnRing.tsx): a whole <svg> element
+   turning, under a wrapper that carries the ring's tilt and squash, so on
+   screen the turn is an orbit in the ring's plane. The animated property is
+   the element's own transform and nothing else, which is what lets the
+   compositor run it without the main thread painting a frame. */
 @keyframes ring-orbit {
   to {
     transform: rotate(360deg);
@@ -152,7 +151,8 @@ body::before {
 }
 
 .ring-grains {
-  transform-origin: 0 0;
+  display: block;
+  will-change: transform;
   animation: ring-orbit 48s linear infinite;
 }
 
@@ -165,18 +165,10 @@ body::before {
   animation-play-state: paused;
 }
 
-/* The loading screen's spinner: a 34%-long arc travelling the ring. The
-   path is pathLength=100, so one full turn is an offset of -100; linear,
-   because an orbit doesn't ease. Overrides the stroke-dashoffset attribute
-   SaturnRing sets — a CSS animation beats a presentation attribute. */
-@keyframes ring-orbit-arc {
-  to {
-    stroke-dashoffset: -100;
-  }
-}
-
-.ring-orbit-arc {
-  animation: ring-orbit-arc 2.4s linear infinite;
+/* The loading screen's spinner: the lit arc is a layer on the same turn as
+   the grains, just much faster — one orbit every 2.4s. */
+.ring-orbit-fast {
+  animation-duration: 2.4s;
 }
 
 /* Loading-screen status lines. One cycle is four slots of a quarter each;
@@ -200,37 +192,6 @@ body::before {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ring-orbit-arc {
-    animation: none;
-  }
-}
-
-/* A screen's content loader (components/ContentLoader.tsx). The cover itself
-   cuts in and the timing is the component's (JS); these are the rock fading
-   onto the cover and the cover fading off. */
-@keyframes content-loader-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes content-loader-out {
-  to {
-    opacity: 0;
-  }
-}
-
-.content-loader-in {
-  animation: content-loader-in 200ms ease-out both;
-}
-
-.content-loader-out {
-  animation: content-loader-out 180ms ease-in both;
-}
 
 @keyframes ring-spark {
   0%,
@@ -245,8 +206,7 @@ body::before {
 }
 
 .ring-spark {
-  transform-box: fill-box;
-  transform-origin: center;
+  will-change: opacity, transform;
   animation: ring-spark 1.6s ease-in-out infinite;
 }
 

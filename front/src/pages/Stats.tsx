@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart3, CalendarCheck, CircleUserRound, Flame, Medal } from 'lucide-react'
 import { Profile } from './Profile'
-import { ContentLoader } from '../components/ContentLoader'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
 import { useClickDays } from '../hooks/useClickDays'
@@ -73,7 +72,7 @@ function getCalendarDays(clickDays: Set<string>): CalendarDay[] {
 
 export function Stats() {
   const { language, strings } = useLanguage()
-  const { stats, isLoading: statsLoading } = useUserStats()
+  const { stats } = useUserStats()
   const { clickDays } = useClickDays()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   // Manual milestone pick per category — undefined means "follow the
@@ -164,7 +163,6 @@ export function Stats() {
         <Profile />
       ) : (
       <div className="mx-auto max-w-2xl pt-20 sm:pt-24">
-        <ContentLoader pending={statsLoading} />
         <div className="mb-10 flex items-end gap-3">
           <div
             ref={scrollRef}

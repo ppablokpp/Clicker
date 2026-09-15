@@ -6,8 +6,7 @@ import { SIGNIN_CHEST_REWARD } from '../store/chestBench'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
-import { useLeaderboard, type LeaderboardEntry } from '../hooks/useLeaderboard'
-import { ContentLoader } from '../components/ContentLoader'
+import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { formatPlatino } from '../lib/formatPlatino'
@@ -51,10 +50,6 @@ export function Profile() {
   // still uses the real Clerk token, because that one genuinely needs an
   // account behind it.
   const { getToken: getStyleToken } = useAppAuth()
-  // Read here rather than inside RankCard so this screen can hold its loader
-  // up until the rank is in — the card is the last thing to land, and the
-  // name sitting over an empty slot for a beat was the whole complaint.
-  const { leaderboard, isLoading: rankLoading } = useLeaderboard('clicks')
   useEffect(() => {
     let cancelled = false
     void fetchMyStyle(getStyleToken).then((remote) => {
@@ -196,26 +191,25 @@ export function Profile() {
     )
   }
 
-  // One loader for both waits, in one place in the tree, so its minimum time
-  // on screen is counted once rather than restarted at the handoff.
+  if (!isLoaded) {
+    return <div className="mx-auto max-w-md pt-24 sm:pt-28" />
+  }
+
   return (
-    <>
-      <ContentLoader pending={!isLoaded || rankLoading} />
-      {isLoaded && (
-        <div className="mx-auto flex max-w-md flex-col items-center px-4 pt-24 sm:pt-28">
-          {/* Settings — gear top-right, same fixed strip the tab's own
+    <div className="mx-auto flex max-w-md flex-col items-center px-4 pt-24 sm:pt-28">
+      {/* Settings — gear top-right, same fixed strip the tab's own
           profile/stats pill sits in. Everything account-adjacent (language,
           email, sign out) lives behind it, keeping this main view down to
           just the character and the name. */}
-          <button
-            onClick={() => setShowSettings(true)}
-            aria-label={strings.profile.settingsLabel}
-            className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
-          >
-            <Settings size={16} />
-          </button>
+      <button
+        onClick={() => setShowSettings(true)}
+        aria-label={strings.profile.settingsLabel}
+        className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
+      >
+        <Settings size={16} />
+      </button>
 
-          {/* The whole character is the button, with the pencil as its
+      {/* The whole character is the button, with the pencil as its
           affordance rather than as a separate target — a small icon is a
           poor tap area, and "tap yourself to change yourself" is the
           obvious gesture once something marks it as editable.
@@ -223,43 +217,41 @@ export function Profile() {
           purpose: fully inside reads as part of the artwork, fully outside
           reads as unrelated chrome; straddling the rim is what makes it
           read as attached to the avatar. */}
-          <button
-            onClick={() => navigate('/personalizar')}
-            aria-label={strings.profile.customizeAria}
-            className="group relative mt-6 rounded-full transition-transform active:scale-[0.98]"
-          >
-            <AstronautAvatar styleIds={styleIds} />
-            <span className="pointer-events-none absolute bottom-[4%] -right-[7%] flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-violet-200 shadow-lg shadow-black/40 transition-colors group-hover:bg-[#1d1d28] group-hover:text-violet-100">
-              <Pencil size={15} />
-            </span>
-          </button>
+      <button
+        onClick={() => navigate('/personalizar')}
+        aria-label={strings.profile.customizeAria}
+        className="group relative mt-6 rounded-full transition-transform active:scale-[0.98]"
+      >
+        <AstronautAvatar styleIds={styleIds} />
+        <span className="pointer-events-none absolute bottom-[4%] -right-[7%] flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#15151d] text-violet-200 shadow-lg shadow-black/40 transition-colors group-hover:bg-[#1d1d28] group-hover:text-violet-100">
+          <Pencil size={15} />
+        </span>
+      </button>
 
-          {/* Tapping the name itself opens the edit modal below — no separate
+      {/* Tapping the name itself opens the edit modal below — no separate
           pencil icon sitting next to it. */}
-          <button
-            onClick={() => setShowUsernameModal(true)}
-            aria-label={strings.profile.editName}
-            className="mt-5 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
-          >
-            @{username || strings.profile.usernamePlaceholder}
-          </button>
+      <button
+        onClick={() => setShowUsernameModal(true)}
+        aria-label={strings.profile.editName}
+        className="mt-5 rounded-lg px-2 py-1 font-[Space_Grotesk] text-2xl font-bold tracking-tight text-white transition-colors hover:bg-white/[0.06]"
+      >
+        @{username || strings.profile.usernamePlaceholder}
+      </button>
 
-          <RankCard leaderboard={leaderboard} />
+      <RankCard />
 
-          {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
-          {showUsernameModal && (
-            <EditUsernameModal
-              username={username}
-              setUsername={setUsername}
-              status={nameStatus}
-              error={error}
-              onSave={handleSaveName}
-              onClose={cancelEdit}
-            />
-          )}
-        </div>
+      {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
+      {showUsernameModal && (
+        <EditUsernameModal
+          username={username}
+          setUsername={setUsername}
+          status={nameStatus}
+          error={error}
+          onSave={handleSaveName}
+          onClose={cancelEdit}
+        />
       )}
-    </>
+    </div>
   )
 }
 
@@ -276,14 +268,21 @@ export function Profile() {
 //
 // No backend work behind any of it: /api/leaderboard already returns the
 // full sorted list, so the rank is the player's own index in it.
-function RankCard({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
+function RankCard() {
   const { strings, language } = useLanguage()
   const { userId } = useAuth()
   const navigate = useNavigate()
+  const { leaderboard, isLoading } = useLeaderboard('clicks')
+
+  // Reserve the card's height while loading so the name above it doesn't
+  // jump once the ranking lands.
+  if (isLoading) return <div className="mt-6 h-[168px] w-full" />
 
   const index = leaderboard.findIndex((entry) => entry.id === userId)
   if (index < 0) {
-    return <p className="mt-6 text-sm text-neutral-600">{strings.profile.rankUnranked}</p>
+    return (
+      <p className="mt-6 text-sm text-neutral-600">{strings.profile.rankUnranked}</p>
+    )
   }
 
   const me = leaderboard[index]

@@ -6,9 +6,6 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 interface KeysContextValue {
   keys: number
-  /** False until the first read of the balance has settled, one way or the
-   *  other — the store shows its loader rather than a zero until then. */
-  loaded: boolean
   /** Other places that award/spend keys server-side return the fresh authoritative total — this folds it in. */
   syncKeys: (newTotal: number) => void
 }
@@ -19,7 +16,6 @@ export function KeysProvider({ children }: { children: ReactNode }) {
   const { userId, getToken } = useAppAuth()
   const { latestKeys } = useClickCounterContext()
   const [keys, setKeys] = useState(0)
-  const [loaded, setLoaded] = useState(false)
 
   // Every click flush reports the fresh total, so fold it in as soon as it
   // changes — keeps this in step with anything spent or granted elsewhere.
@@ -42,8 +38,6 @@ export function KeysProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error('No se pudieron cargar las llaves', err)
-      } finally {
-        if (!cancelled) setLoaded(true)
       }
     })()
     return () => {
@@ -56,7 +50,7 @@ export function KeysProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Memoized — see GemsContext's identical comment for why this matters.
-  const value = useMemo(() => ({ keys, loaded, syncKeys }), [keys, loaded, syncKeys])
+  const value = useMemo(() => ({ keys, syncKeys }), [keys, syncKeys])
   return <KeysContext.Provider value={value}>{children}</KeysContext.Provider>
 }
 

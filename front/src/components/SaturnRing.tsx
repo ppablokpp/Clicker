@@ -17,7 +17,7 @@
 // the right ellipses, thins the bands at the front and back, and flattens the
 // grains' motion into an orbit. No ellipse maths anywhere.
 
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import type { MaterialTierColors } from '../lib/materialTiers'
 
 /** Tilt of the ring plane on screen, degrees. Negative lifts the right side. */
@@ -116,16 +116,100 @@ function toScreen(th: number, r: number): [number, number] {
  *  i.e. the lower half before the tilt. */
 const isFront = (th: number) => Math.sin(th) > 0
 
-/** The grains are 84 circles drawn twice per half. Memoized on colour alone so
- *  the tick that moves `pct` ten times a second re-diffs two dash attributes,
- *  not 336 circles. */
-const Grains = memo(function Grains({ color, opacity }: { color: string; opacity: number }) {
+/**
+ * The grains, on their own layer.
+ *
+ * They used to be circles inside the ring's SVG, spun by a CSS rotation on an
+ * inner <g>. A transform on an element INSIDE an SVG is not something the
+ * compositor can do on its own: every frame the whole SVG is painted again —
+ * gradients, masks, clips, every circle — on the main thread, at 60fps, for
+ * as long as the app is open. Two halves of that was a phone warming up in
+ * your hand with nothing else going on.
+ *
+ * So the grains are a separate <svg> element that is painted ONCE, and the
+ * spin is a transform animation on the element itself, which the compositor
+ * runs off the main thread as a texture rotating. The tilt and squash sit on
+ * a wrapper (a plain CSS transform, same numbers as the ring's), so inside
+ * the wrapper a rotation is still an orbit in the ring plane; and the half
+ * is a clip-path on that wrapper, which clips in the wrapper's own box —
+ * i.e. in ring-plane space — exactly like the SVG clip did.
+ *
+ * One copy, one colour. The mined/unmined split the grains used to carry
+ * needed a mask driven by the dash, and a mask is repainted with everything
+ * under it. The band carries the progress; the grains are texture.
+ */
+function PlaneLayer({
+  half,
+  spinClass,
+  children,
+}: {
+  half: 'back' | 'front'
+  /** The spin, as a class on the <svg> (ring-grains / ring-orbit-fast…). */
+  spinClass: string
+  children: ReactNode
+}) {
   return (
-    <g fill={color} opacity={opacity}>
-      {GRAINS.map((g, i) => (
-        <circle key={i} cx={g.cx} cy={g.cy} r={g.r} opacity={g.a} />
-      ))}
-    </g>
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        left: `calc(50% - ${HALF}px)`,
+        top: `calc(50% - ${HALF}px)`,
+        width: SIZE,
+        height: SIZE,
+        transform: `rotate(${TILT}deg) scaleY(${SQUASH})`,
+        clipPath: half === 'back' ? 'inset(0 0 50% 0)' : 'inset(50% 0 0 0)',
+      }}
+    >
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className={spinClass}>
+        {children}
+      </svg>
+    </div>
+  )
+}
+
+const Grains = memo(function Grains({
+  half,
+  color,
+  fast,
+  paused,
+}: {
+  half: 'back' | 'front'
+  color: string
+  fast: boolean
+  paused: boolean
+}) {
+  return (
+    <PlaneLayer
+      half={half}
+      spinClass={`ring-grains${fast ? ' ring-grains-fast' : ''}${paused ? ' ring-grains-paused' : ''}`}
+    >
+      <g fill={color} opacity={0.5}>
+        {GRAINS.map((g, i) => (
+          <circle key={i} cx={HALF + g.cx} cy={HALF + g.cy} r={g.r} opacity={g.a} />
+        ))}
+      </g>
+    </PlaneLayer>
+  )
+})
+
+/**
+ * The loading screen's travelling arc, as its own turning layer. It used to
+ * be a CSS animation on stroke-dashoffset, which repaints the SVG every
+ * frame — on the one screen that is up while the main thread is busiest.
+ * A fixed 34% dash on a layer that rotates is the same picture for the cost
+ * of a texture turning.
+ */
+const OrbitArc = memo(function OrbitArc({ half, id, colors }: { half: 'back' | 'front'; id: string; colors: MaterialTierColors }) {
+  return (
+    <PlaneLayer half={half} spinClass="ring-grains ring-orbit-fast">
+      <defs>
+        <Bands id={`${id}-orbit-ice`} colors={colors} alpha={1} />
+      </defs>
+      <g transform={`translate(${HALF} ${HALF})`}>
+        <path d={RING_D} pathLength={100} fill="none" stroke={`url(#${id}-orbit-ice)`} strokeWidth={BAND_W} strokeDasharray="34 66" />
+        <path d={RING_D} pathLength={100} fill="none" stroke={colors.light} strokeOpacity={0.45} strokeWidth={BAND_W * 0.14} strokeDasharray="34 66" />
+      </g>
+    </PlaneLayer>
   )
 })
 
@@ -173,137 +257,121 @@ export const SaturnRing = memo(function SaturnRing({
   const dash = 'stroke-dashoffset 0.6s ease-out'
   // A closed ring gets no dash at all: a full-length dash still leaves a
   // hairline seam where its two ends meet at the start of the path.
+  // In orbit the arc is a separate turning layer (OrbitArc) and the ring
+  // here is only the dust track and the shadow.
   const orbit = mode === 'orbit' && !isMaxed
-  // In orbit the dash is the arc's length and the offset is animated by CSS
-  // (.ring-orbit-arc), which overrides the attribute set here.
-  const dashArray = isMaxed ? undefined : orbit ? '34 66' : '100 100'
-  const arcClass = orbit ? 'ring-orbit-arc' : undefined
+  const dashArray = isMaxed ? undefined : '100 100'
 
   const tipAngle = Math.PI / 2 + p * Math.PI * 2
   const showTip = !isMaxed && !orbit && p > 0.002 && isFront(tipAngle) === (half === 'front')
   const [tx, ty] = toScreen(tipAngle, RM)
-  const grainsClass = `ring-grains${isMaxed || orbit ? ' ring-grains-fast' : ''}${paused ? ' ring-grains-paused' : ''}`
 
   return (
-    <svg
-      width={SIZE}
-      height={SIZE}
-      viewBox={`0 0 ${SIZE} ${SIZE}`}
-      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-visible"
-    >
-      <defs>
-        <Bands id={`${id}-ice`} colors={c} alpha={1} />
-        <Bands id={`${id}-dust`} colors={DUST} alpha={0.23} />
-        {/* The rock's shadow on the ring. The sun everything in the game is
-            lit by sits upper-left, so the shadow falls lower-right, onto the
-            front of the ring just past the rock's limb. In ring-plane units,
-            like everything under the squash. */}
-        <radialGradient id={`${id}-shadow`} gradientUnits="userSpaceOnUse" cx={ROCK_R * 0.55} cy={ROCK_R * 1.1} r={ROCK_R * 1.5}>
-          <stop offset="0%" stopColor="#000" stopOpacity="0.72" />
-          <stop offset="55%" stopColor="#000" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#000" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id={`${id}-tip`}>
-          <stop offset="0%" stopColor={c.light} stopOpacity="0.95" />
-          <stop offset="35%" stopColor={c.fill} stopOpacity="0.55" />
-          <stop offset="100%" stopColor={c.fill} stopOpacity="0" />
-        </radialGradient>
-        {/* The half. A rect over the top or bottom of the ring plane; clipped
-            inside the tilted, squashed group so "top" means the far side. */}
-        <clipPath id={`${id}-half`}>
-          <rect x={-SIZE} y={half === 'back' ? -SIZE : 0} width={SIZE * 2} height={SIZE} />
-        </clipPath>
-        <clipPath id={`${id}-annulus`} clipRule="evenodd">
-          <path d={ANNULUS_D} clipRule="evenodd" />
-        </clipPath>
-        {/* The mined arc, as a mask: the grains over it take the ice's colour,
-            the rest stay dust. Same dash as the band, so the two never drift. */}
-        <mask id={`${id}-mined`} maskUnits="userSpaceOnUse" x={-SIZE} y={-SIZE} width={SIZE * 2} height={SIZE * 2}>
-          <path
-            d={RING_D}
-            pathLength={100}
-            fill="none"
-            stroke="#fff"
-            strokeWidth={BAND_W + 8}
-            strokeDasharray={dashArray}
-            strokeDashoffset={offset}
-            className={arcClass}
-            style={{ transition: dash }}
-          />
-        </mask>
-      </defs>
+    <>
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-visible"
+      >
+        <defs>
+          <Bands id={`${id}-ice`} colors={c} alpha={1} />
+          <Bands id={`${id}-dust`} colors={DUST} alpha={0.23} />
+          {/* The rock's shadow on the ring. The sun everything in the game is
+              lit by sits upper-left, so the shadow falls lower-right, onto the
+              front of the ring just past the rock's limb. In ring-plane units,
+              like everything under the squash. */}
+          <radialGradient id={`${id}-shadow`} gradientUnits="userSpaceOnUse" cx={ROCK_R * 0.55} cy={ROCK_R * 1.1} r={ROCK_R * 1.5}>
+            <stop offset="0%" stopColor="#000" stopOpacity="0.72" />
+            <stop offset="55%" stopColor="#000" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id={`${id}-tip`}>
+            <stop offset="0%" stopColor={c.light} stopOpacity="0.95" />
+            <stop offset="35%" stopColor={c.fill} stopOpacity="0.55" />
+            <stop offset="100%" stopColor={c.fill} stopOpacity="0" />
+          </radialGradient>
+          {/* The half. A rect over the top or bottom of the ring plane; clipped
+              inside the tilted, squashed group so "top" means the far side. */}
+          <clipPath id={`${id}-half`}>
+            <rect x={-SIZE} y={half === 'back' ? -SIZE : 0} width={SIZE * 2} height={SIZE} />
+          </clipPath>
+          <clipPath id={`${id}-annulus`} clipRule="evenodd">
+            <path d={ANNULUS_D} clipRule="evenodd" />
+          </clipPath>
+        </defs>
 
-      <g transform={`translate(${HALF} ${HALF}) rotate(${TILT}) scale(1 ${SQUASH})`} clipPath={`url(#${id}-half)`}>
-        {/* What's left to mine: the same bands, in dust. */}
-        <path d={RING_D} fill="none" stroke={`url(#${id}-dust)`} strokeWidth={BAND_W} />
-        {/* What's mined: ice in the mineral's colour, a dash that grows. */}
-        <path
-          d={RING_D}
-          pathLength={100}
-          fill="none"
-          stroke={`url(#${id}-ice)`}
-          strokeWidth={BAND_W}
-          strokeDasharray={dashArray}
-          strokeDashoffset={offset}
-          className={arcClass}
-          style={{ transition: dash }}
-        />
-        {/* A bright core down the middle of the mined ice, so the filled arc
-            reads from across the room and not only up close. */}
-        <path
-          d={RING_D}
-          pathLength={100}
-          fill="none"
-          stroke={c.light}
-          strokeOpacity={0.45}
-          strokeWidth={BAND_W * 0.14}
-          strokeDasharray={dashArray}
-          strokeDashoffset={offset}
-          className={arcClass}
-          style={{ transition: dash }}
-        />
-        {half === 'front' && (
-          <g clipPath={`url(#${id}-annulus)`}>
-            <circle r={R1 + 3} fill={`url(#${id}-shadow)`} />
+        <g transform={`translate(${HALF} ${HALF}) rotate(${TILT}) scale(1 ${SQUASH})`} clipPath={`url(#${id}-half)`}>
+          {/* What's left to mine: the same bands, in dust. */}
+          <path d={RING_D} fill="none" stroke={`url(#${id}-dust)`} strokeWidth={BAND_W} />
+          {/* What's mined: ice in the mineral's colour, a dash that grows. */}
+          {!orbit && (
+            <path
+              d={RING_D}
+              pathLength={100}
+              fill="none"
+              stroke={`url(#${id}-ice)`}
+              strokeWidth={BAND_W}
+              strokeDasharray={dashArray}
+              strokeDashoffset={offset}
+              style={{ transition: dash }}
+            />
+          )}
+          {/* A bright core down the middle of the mined ice, so the filled arc
+              reads from across the room and not only up close. */}
+          {!orbit && (
+            <path
+              d={RING_D}
+              pathLength={100}
+              fill="none"
+              stroke={c.light}
+              strokeOpacity={0.45}
+              strokeWidth={BAND_W * 0.14}
+              strokeDasharray={dashArray}
+              strokeDashoffset={offset}
+              style={{ transition: dash }}
+            />
+          )}
+          {half === 'front' && (
+            <g clipPath={`url(#${id}-annulus)`}>
+              <circle r={R1 + 3} fill={`url(#${id}-shadow)`} />
+            </g>
+          )}
+        </g>
+
+        {/* The leading edge, in screen space so its glow stays round. */}
+        {showTip && (
+          <g transform={`translate(${tx.toFixed(2)} ${ty.toFixed(2)})`}>
+            <circle r={11} fill={`url(#${id}-tip)`} />
+            <circle r={2.2} fill="#fff" />
           </g>
         )}
-        {/* Grains: a dust copy everywhere, and an ice copy showing only over
-            the mined arc. Both orbit — a rotation about the origin, which
-            under the squash is an orbit in the ring plane. */}
-        <g className={grainsClass}>
-          <Grains color={DUST.light} opacity={0.22} />
-        </g>
-        <g mask={`url(#${id}-mined)`}>
-          <g className={grainsClass}>
-            <Grains color={c.light} opacity={0.75} />
-          </g>
-        </g>
-      </g>
+      </svg>
 
-      {/* The leading edge, in screen space so its glow stays round. */}
-      {showTip && (
-        <g transform={`translate(${tx.toFixed(2)} ${ty.toFixed(2)})`}>
-          <circle r={11} fill={`url(#${id}-tip)`} />
-          <circle r={2.2} fill="#fff" />
-        </g>
-      )}
+      {orbit && <OrbitArc half={half} id={id} colors={c} />}
+      <Grains half={half} color={c.light} fast={isMaxed || orbit} paused={paused} />
 
-      {/* Goal met: sparks along the ring, each on its own twinkle. */}
+      {/* Goal met: sparks along the ring, each on its own twinkle. HTML
+          spans, not SVG circles, for the same reason the grains moved out:
+          each is its own tiny layer whose opacity the compositor animates,
+          instead of a repaint of the whole ring per frame. */}
       {isMaxed &&
-        SPARKS.filter((s) => isFront(s.th) === (half === 'front')).map((s, i) => {
-          const [x, y] = toScreen(s.th, s.r)
+        SPARKS.filter((sp) => isFront(sp.th) === (half === 'front')).map((sp, i) => {
+          const [x, y] = toScreen(sp.th, sp.r)
           return (
-            <circle
+            <span
               key={i}
-              cx={x.toFixed(2)}
-              cy={y.toFixed(2)}
-              r={1.3}
-              fill="#fff8d6"
-              className="ring-spark"
-              style={{ animationDelay: `${s.delay}s` }}
+              className="ring-spark pointer-events-none absolute h-[3px] w-[3px] rounded-full bg-[#fff8d6]"
+              style={{
+                left: `calc(50% - ${HALF}px + ${x.toFixed(1)}px)`,
+                top: `calc(50% - ${HALF}px + ${y.toFixed(1)}px)`,
+                marginLeft: -1.5,
+                marginTop: -1.5,
+                animationDelay: `${sp.delay}s`,
+              }}
             />
           )
         })}
-    </svg>
+    </>
   )
 })
