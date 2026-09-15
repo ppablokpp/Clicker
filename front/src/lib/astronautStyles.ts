@@ -435,6 +435,18 @@ export const ACCENT_STYLES: AccentStyle[] = [
     flame: { outer: '#10b981', innerMid: '#d1fae5', innerTo: '#6ee7b7' },
   },
   {
+    // Cuarzo — the asteroid's milky white. Warm, so it is not the cool
+    // platinum the stock suit is already made of; the pack goes to warm grey
+    // for the same reason. The flame is the one place it gets to be loud:
+    // white-hot rather than tinted.
+    id: 'cuarzo',
+    swatch: '#f5f5f4',
+    color: '#f5f5f4',
+    badge: { from: '#ffffff', to: '#d6d3d1' },
+    pack: { from: '#d6d3d1', to: '#a8a29e' },
+    flame: { outer: '#e7e5e4', innerMid: '#ffffff', innerTo: '#fafaf9' },
+  },
+  {
     id: 'rubi',
     swatch: '#ef4444',
     color: '#ef4444',
@@ -452,7 +464,7 @@ export const ACCENT_STYLES: AccentStyle[] = [
   },
 ]
 
-// Bracelets, belts and accents deliberately share one six-colour set, so a
+// Bracelets, belts and accents deliberately share one colour set, so a
 // player can match them across slots without hunting for a shade that only
 // exists on one of them. Graphite is in place of a pink here: against the
 // dark card panel a mid-slate reads as gunmetal, where a true #334155
@@ -465,6 +477,7 @@ const SHARED_ACCESSORY_COLORS = [
   { id: 'grafito', color: '#64748b' },
   { id: 'carmesi', color: '#fb7185' },
   { id: 'esmeralda', color: '#34d399' },
+  { id: 'cuarzo', color: '#f5f5f4' },
   { id: 'rubi', color: '#ef4444' },
 ] as const
 
@@ -482,6 +495,7 @@ export const BELT_STYLES: BeltStyle[] = [
   { id: 'grafito', swatch: '#64748b', band: { from: '#4a5464', mid: '#8a95a5', to: '#2c333d' } },
   { id: 'carmesi', swatch: '#fb7185', band: { from: '#d8586b', mid: '#fca6b2', to: '#a63f4f' } },
   { id: 'esmeralda', swatch: '#34d399', band: { from: '#26a67e', mid: '#7cebc0', to: '#197a5c' } },
+  { id: 'cuarzo', swatch: '#f5f5f4', band: { from: '#d6d3d1', mid: '#ffffff', to: '#a8a29e' } },
   { id: 'rubi', swatch: '#ef4444', band: { from: '#c93a3a', mid: '#f89090', to: '#932a2a' } },
 ]
 

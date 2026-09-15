@@ -683,6 +683,7 @@ export const translations: Record<Language, TranslationStrings> = {
         rayo: 'Rayo',
         zafiro: 'Zafiro',
         esmeralda: 'Esmeralda',
+        cuarzo: 'Cuarzo',
         rubi: 'Rubí',
         oro: 'Oro',
         carmesi: 'Carmesí',
@@ -739,6 +740,7 @@ export const translations: Record<Language, TranslationStrings> = {
         'belt:zafiro': 'Azul zafiro con veta clara en el centro.',
         'belt:rubi': 'Rojo rubí, mate por fuera y encendido por dentro.',
         'belt:esmeralda': 'Verde esmeralda con brillo de resina.',
+        'belt:cuarzo': 'Blanco cuarzo, como recién pulido.',
         'belt:grafito': 'Banda gunmetal, discreta a propósito.',
         'belt:carmesi': 'Rojo carmesí. La línea más visible del traje.',
 
@@ -748,6 +750,7 @@ export const translations: Record<Language, TranslationStrings> = {
         'bracelet:zafiro': 'Azul zafiro con acabado esmaltado.',
         'bracelet:rubi': 'Rojo rubí pulido a mano.',
         'bracelet:esmeralda': 'Verde esmeralda con acabado esmaltado.',
+        'bracelet:cuarzo': 'Blanco cuarzo con veta translúcida.',
         'bracelet:grafito': 'Gunmetal sobrio, para quien no quiere brillo.',
         'bracelet:carmesi': 'Carmesí intenso en los puños del traje.',
 
@@ -782,6 +785,7 @@ export const translations: Record<Language, TranslationStrings> = {
         'accent:zafiro': 'Azul zafiro en los vivos y en la llama.',
         'accent:rubi': 'Rojo rubí en los vivos y en la llama.',
         'accent:esmeralda': 'Verde esmeralda en los vivos y en la llama.',
+        'accent:cuarzo': 'Blanco cuarzo en los vivos; la llama, al rojo blanco.',
         'accent:grafito': 'Detalles gunmetal. Apaga el traje entero.',
         'accent:carmesi': 'Carmesí en cada vivo del equipo.',
       },
@@ -1356,6 +1360,7 @@ export const translations: Record<Language, TranslationStrings> = {
         rayo: 'Bolt',
         zafiro: 'Sapphire',
         esmeralda: 'Emerald',
+        cuarzo: 'Quartz',
         rubi: 'Ruby',
         oro: 'Gold',
         carmesi: 'Crimson',
@@ -1412,6 +1417,7 @@ export const translations: Record<Language, TranslationStrings> = {
         'belt:zafiro': 'Sapphire blue with a bright seam down the middle.',
         'belt:rubi': 'Ruby red, matte outside and lit within.',
         'belt:esmeralda': 'Emerald green with a resin sheen.',
+        'belt:cuarzo': 'Quartz white, freshly polished.',
         'belt:grafito': 'Gunmetal band, understated on purpose.',
         'belt:carmesi': 'Crimson red. The most visible line on the suit.',
 
@@ -1421,6 +1427,7 @@ export const translations: Record<Language, TranslationStrings> = {
         'bracelet:zafiro': 'Sapphire blue with an enamelled finish.',
         'bracelet:rubi': 'Hand-polished ruby red.',
         'bracelet:esmeralda': 'Emerald green with an enamelled finish.',
+        'bracelet:cuarzo': 'Quartz white with a translucent vein.',
         'bracelet:grafito': 'Sober gunmetal, for anyone who’d rather not shine.',
         'bracelet:carmesi': 'Deep crimson at the cuffs of the suit.',
 
@@ -1455,6 +1462,7 @@ export const translations: Record<Language, TranslationStrings> = {
         'accent:zafiro': 'Sapphire blue on the trim and the flame.',
         'accent:rubi': 'Ruby red on the trim and the flame.',
         'accent:esmeralda': 'Emerald green on the trim and the flame.',
+        'accent:cuarzo': 'Quartz white on the trim; the flame burns white-hot.',
         'accent:grafito': 'Gunmetal details. Turns the whole suit down.',
         'accent:carmesi': 'Crimson on every piece of trim.',
       },
