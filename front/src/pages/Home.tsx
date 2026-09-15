@@ -57,7 +57,6 @@ import {
   MATERIAL_TIER_COLORS,
   MATERIAL_BUTTON_THEMES,
   MATERIAL_ABBREVIATIONS,
-  type MaterialTierColors,
 } from '../lib/materialTiers'
 import { formatPlatino, formatRate } from '../lib/formatPlatino'
 // Lifetime-platino threshold each tier unlocks at — index-aligned with
@@ -68,6 +67,7 @@ import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
 import { Asteroid, type AsteroidColors } from '../components/Asteroid'
+import { SaturnRing } from '../components/SaturnRing'
 import { TapEffectsLayer, type TapEffectsHandle } from '../components/TapEffectsLayer'
 
 interface InfoModalData {
@@ -160,65 +160,6 @@ function generateStars(count: number, opacity: number): string {
   return stars.join(', ')
 }
 
-// Glowing ring around the counter that fills up towards the prestige target.
-//
-// It's painted in the mineral currently being mined, so the ring, the rock and
-// every reading in the console all move to the new palette together on a
-// prestige. It used to be violet whatever you were on, which quietly said
-// "amethyst" while you stood on gold.
-//
-// The maxed state stays gold on purpose, and that's the one place the tier
-// colour isn't used: at that point the ring has stopped reporting progress and
-// become a "there's something to do here" halo. Tinting it with the tier would
-// make the finished state look like more of the same bar rather than a state
-// change — and on the gold tier it would be invisible.
-function ProgressRing({ pct, isMaxed, colors }: { pct: number; isMaxed: boolean; colors: MaterialTierColors }) {
-  const radius = 92
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference * (1 - Math.max(0, Math.min(1, pct)))
-
-  return (
-    <svg
-      viewBox="0 0 200 200"
-      className={`pointer-events-none absolute inset-0 h-full w-full overflow-visible -rotate-90 ${isMaxed ? 'animate-spin-slow' : ''}`}
-    >
-      <defs>
-        {/* fill → light rather than two arbitrary hues: it's the same material
-            ramp the rock is lit with, so the ring reads as the same substance
-            catching the same light instead of as a UI accent that happens to
-            match. */}
-        <linearGradient id="homeProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={colors.fill} />
-          <stop offset="100%" stopColor={colors.light} />
-        </linearGradient>
-        <linearGradient id="homePrestigeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fde68a" />
-          <stop offset="50%" stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#fde68a" />
-        </linearGradient>
-      </defs>
-      <circle cx="100" cy="100" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="3" fill="none" />
-      <circle
-        cx="100"
-        cy="100"
-        r={radius}
-        stroke={isMaxed ? 'url(#homePrestigeGradient)' : 'url(#homeProgressGradient)'}
-        strokeWidth={isMaxed ? 4 : 3}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={isMaxed ? 0 : offset}
-        style={{
-          transition: 'stroke-dashoffset 0.6s ease-out',
-          // The tier's own glow, the same one the halo behind the rock uses,
-          // so ring and rock bloom in one colour rather than two.
-          filter: isMaxed ? 'drop-shadow(0 0 10px rgba(245,158,11,0.8))' : `drop-shadow(0 0 6px ${colors.glow})`,
-        }}
-      />
-    </svg>
-  )
-}
-
 // The rock's geometry, crater field and lighting all live in
 // components/Asteroid.tsx now — one copy for the whole game, instead of the
 // three hand-mirrored ones this file used to be one of.
@@ -237,7 +178,17 @@ const OBJECT_TIERS = MATERIAL_TIER_COLORS
 // gone; Trayectoria's platino tiers are prestige now). Its color follows
 // the real current tier, so the rock you click matches whichever
 // Trayectoria stop you're actually on instead of always being violet.
-function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: number; paused: boolean }) {
+function SpaceObject({
+  tierIndex,
+  pct,
+  isMaxed,
+  paused,
+}: {
+  tierIndex: number
+  pct: number
+  isMaxed: boolean
+  paused: boolean
+}) {
   const tier = OBJECT_TIERS[tierIndex]
   return (
     <div className="pointer-events-none relative flex h-24 w-24 items-center justify-center sm:h-32 sm:w-32">
@@ -268,7 +219,18 @@ function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: numbe
             just triggered by this SVG's own filter instead. The ambient
             radial-gradient glow behind the rock already sells the "aura"
             without needing a second, shape-hugging filtered glow on top. */}
-        <Asteroid idPrefix="homeRock" size={76} colors={tier} paused={paused} />
+        {/* The goal ring is part of the rock now — a planetary ring, one
+            half drawn behind it and one in front, so it bobs with it and the
+            rock occludes it. See SaturnRing for the drawing. */}
+        <div className="relative">
+          {/* The rock is `relative` for paint order alone: positioned boxes paint
+              after in-flow ones whatever the tree order says, so a static rock
+              would end up under BOTH halves and the back of the ring would show
+              through it. */}
+          <SaturnRing half="back" pct={pct} isMaxed={isMaxed} colors={tier} paused={paused} />
+          <Asteroid idPrefix="homeRock" size={76} colors={tier} paused={paused} className="relative" />
+          <SaturnRing half="front" pct={pct} isMaxed={isMaxed} colors={tier} paused={paused} />
+        </div>
       </motion.div>
     </div>
   )
@@ -1583,19 +1545,17 @@ export function Home() {
               and the aiming all derive from the count. */}
           <HomeGunner count={gunnerLevel} />
 
-          {/* Ring + asteroid shrunk together by the same 0.85 the orbit
-              radius below was scaled by (index.css) — one shared wrapper so
-              the two always shrink in lockstep instead of two separately
-              hand-tuned scale factors drifting apart later. */}
+          {/* Shrunk by the same 0.85 the orbit radius below was scaled by
+              (index.css). The goal ring lives inside SpaceObject now, around
+              the rock, so it shrinks with it by construction. */}
           <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.85)' }}>
-            {/* Scaled down from the object's own box — the ring used to hug
-                the object edge-to-edge, which read as oversized next to it. */}
-            <div className="pointer-events-none absolute inset-0" style={{ transform: 'scale(0.7)' }}>
-              <ProgressRing pct={prestige.pct} isMaxed={prestige.readyToPrestige} colors={OBJECT_TIERS[currentTierIndex]} />
-            </div>
-
             <div className="absolute inset-0 flex items-center justify-center">
-              <SpaceObject tierIndex={currentTierIndex} pct={prestige.pct} paused={isAnyModalOpen} />
+              <SpaceObject
+                tierIndex={currentTierIndex}
+                pct={prestige.pct}
+                isMaxed={prestige.readyToPrestige}
+                paused={isAnyModalOpen}
+              />
             </div>
           </div>
         </div>

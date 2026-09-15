@@ -140,6 +140,56 @@ body::before {
   }
 }
 
+/* The goal ring's grains (components/SaturnRing.tsx). A rotation about the
+   origin of a group that sits under a scale(1 0.37): on screen that's an
+   orbit in the ring's plane, which is why it's a plain rotate and nothing
+   cleverer. The origin has to be pinned — for SVG elements the default is the
+   viewBox corner, not the group's own (0,0). */
+@keyframes ring-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ring-grains {
+  transform-origin: 0 0;
+  animation: ring-orbit 48s linear infinite;
+}
+
+/* Goal met: the ring picks up speed, the way the old ring started spinning. */
+.ring-grains-fast {
+  animation-duration: 18s;
+}
+
+.ring-grains-paused {
+  animation-play-state: paused;
+}
+
+@keyframes ring-spark {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+}
+
+.ring-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ring-spark 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-grains,
+  .ring-spark {
+    animation: none;
+  }
+}
+
 @keyframes pulse-glow {
   0%,
   100% {
