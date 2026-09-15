@@ -8,7 +8,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
-import { formatPlatino, SUFFIX_TIERS } from '../lib/formatPlatino'
+import { SUFFIX_TIERS, splitPlatino } from '../lib/formatPlatino'
 import { useBattlesContext, type BattleOpponent } from '../context/BattlesContext'
 import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -198,13 +198,31 @@ function LeaderboardRow({
               {entry.bestCps.toFixed(1)} <span className="text-xs font-medium opacity-60">t/s</span>
             </>
           ) : (
-            // Same compact form as Home/Tienda/Perfil — the raw digit string
-            // was pushing the widest rows into the name beside it.
-            formatPlatino(entry.lifetimePlatino, language)
+            // Same compact figure as Home/Tienda/Perfil — the raw digit string
+            // was pushing the widest rows into the name beside it — but with
+            // the unit set the way the t/s beside it is: apart, smaller and
+            // lighter, so the number is the thing you read and the unit is
+            // the thing you check.
+            <ScoreFigure value={entry.lifetimePlatino} language={language} />
           )}
         </motion.span>
       </button>
     </motion.li>
+  )
+}
+
+function ScoreFigure({ value, language }: { value: number; language: 'es' | 'en' }) {
+  const { amount, suffix } = splitPlatino(value, language)
+  return (
+    <>
+      {amount}
+      {suffix && (
+        <>
+          {' '}
+          <span className="text-xs font-medium opacity-60">{suffix}</span>
+        </>
+      )}
+    </>
   )
 }
 

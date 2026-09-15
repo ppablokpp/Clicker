@@ -7,10 +7,21 @@
 // unlike the plain-number branch below, this is a compact game-style unit
 // suffix, not a localized number, so it stays consistent either way.
 export function formatPlatino(value: number, language: 'es' | 'en'): string {
+  const { amount, suffix } = splitPlatino(value, language)
+  return amount + suffix
+}
+
+/**
+ * The same figure in two parts, for a place that wants to set the unit apart
+ * from the number — smaller, lighter, a space away — rather than run them
+ * together. Below 1M there is no unit and `suffix` is empty, so a caller
+ * that renders it conditionally never draws a stray gap.
+ */
+export function splitPlatino(value: number, language: 'es' | 'en'): { amount: string; suffix: string } {
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const floored = Math.floor(value)
   const abs = Math.abs(floored)
-  if (abs < 1_000_000) return floored.toLocaleString(locale)
+  if (abs < 1_000_000) return { amount: floored.toLocaleString(locale), suffix: '' }
   return abbreviate(floored)
 }
 
@@ -60,16 +71,16 @@ const EXPONENT_FROM = 1e36
  */
 const SLACK = 1e-9
 
-function abbreviate(value: number): string {
+function abbreviate(value: number): { amount: string; suffix: string } {
   const abs = Math.abs(value)
   if (abs >= EXPONENT_FROM) {
     const exponent = Math.floor(Math.log10(abs) + SLACK)
     const mantissa = Math.floor((value / 10 ** exponent) * 100 + SLACK) / 100
-    return `${mantissa.toFixed(2)}e${exponent}`
+    return { amount: mantissa.toFixed(2), suffix: `e${exponent}` }
   }
   const [threshold, suffix] = SUFFIX_TIERS.find(([t]) => abs >= t) ?? SUFFIX_TIERS[SUFFIX_TIERS.length - 1]
   const scaled = Math.floor((value / threshold) * 100 + SLACK) / 100
-  return `${scaled.toFixed(2)}${suffix}`
+  return { amount: scaled.toFixed(2), suffix }
 }
 
 /**
@@ -85,5 +96,6 @@ export function formatRate(value: number, language: 'es' | 'en'): string {
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const abs = Math.abs(value)
   if (abs < 1_000_000) return value.toLocaleString(locale, { maximumFractionDigits: 2 })
-  return abbreviate(value)
+  const { amount, suffix } = abbreviate(value)
+  return amount + suffix
 }
