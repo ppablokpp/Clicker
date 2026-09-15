@@ -1,17 +1,88 @@
 import { memo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Trophy, CircleUserRound, Store, Network, Rocket } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 
+/**
+ * The tab glyphs, drawn here rather than taken from an icon set — the same
+ * treatment the locker's own tab strip gives its pieces: solid silhouettes in
+ * `currentColor`, chunky enough to survive 20px, and each one a thing from
+ * this game rather than the generic sign for its category.
+ *
+ *   tree         the upgrade tree: a hub and two branches, as nodes
+ *   leaderboard  a cup, with the handles and the plinth
+ *   home         the rock with its ring — the thing you click, Saturn-style
+ *   store        a market stall: the scalloped awning over the counter
+ *   stats        the helmet, which is the profile's own avatar
+ *
+ * Solid fill instead of strokes on purpose: overlapping shapes merge into one
+ * mass, which is what reads at this size. The cup's bowl is a cut-out
+ * (evenodd) rather than a second colour, so it holds in any tint.
+ */
+function TabGlyph({ kind, size = 22 }: { kind: string; size?: number }) {
+  switch (kind) {
+    case 'tree':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 6 L5.5 17.5 M12 6 L18.5 17.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+          <circle cx="12" cy="5.5" r="3.4" />
+          <circle cx="5.2" cy="18.2" r="3.2" />
+          <circle cx="18.8" cy="18.2" r="3.2" />
+        </svg>
+      )
+    case 'leaderboard':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M5.5 4h13v2.4h2.5v2.2a4.4 4.4 0 0 1-3.2 4.2A6.5 6.5 0 0 1 12 15a6.5 6.5 0 0 1-5.8-2.2A4.4 4.4 0 0 1 3 8.6V6.4h2.5z M5.5 8.6v1.6a2.6 2.6 0 0 0 .3 1.2A6.5 6.5 0 0 1 5.5 9.5z M18.5 8.6a6.5 6.5 0 0 1-.3 2.8 2.6 2.6 0 0 0 .3-1.2z" fillRule="evenodd" />
+          <rect x="10.4" y="14.5" width="3.2" height="3.5" />
+          <rect x="6.5" y="17.5" width="11" height="3.2" rx="1.4" />
+        </svg>
+      )
+    case 'home':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          {/* The ring, tilted like the real one; the rock sits over its
+              far half and merges with the near half, which is exactly how
+              the silhouette of a ringed body reads. No craters: at this
+              size two holes read as a face, not a surface. */}
+          <ellipse cx="12" cy="12" rx="11" ry="3.6" transform="rotate(-16 12 12)" fill="none" stroke="currentColor" strokeWidth="2" />
+          <circle cx="12" cy="12" r="6.8" />
+        </svg>
+      )
+    case 'store':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          {/* The storefront the old icon-set glyph drew — a flared awning of
+              three scallops over a rounded front with an arched doorway —
+              flattened to a silhouette like the rest. The front's top sits
+              just inside the scallops' lowest point, so the two overlap
+              instead of leaving a hairline between them. */}
+          <path d="M2.4 8 L3.9 3.6 a1.4 1.4 0 0 1 1.3-.9 h13.6 a1.4 1.4 0 0 1 1.3 .9 L21.6 8 v.4 a3.2 3.2 0 0 1-6.4 0 a3.2 3.2 0 0 1-6.4 0 a3.2 3.2 0 0 1-6.4 0 z" />
+          <path d="M3.8 11.2 h16.4 v7.7 a2.2 2.2 0 0 1-2.2 2.2 H6 A2.2 2.2 0 0 1 3.8 18.9 z M9.6 21.1 v-3.5 a2.4 2.4 0 0 1 4.8 0 v3.5 z" fillRule="evenodd" />
+        </svg>
+      )
+    default:
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          {/* The helmet, as the locker's own tab draws it: dome, collar and
+              antenna, one solid mass. */}
+          <path d="M16.5 7.5 L20 4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+          <circle cx="20.2" cy="3.8" r="1.7" />
+          <rect x="7" y="17" width="9" height="4.4" rx="2.2" />
+          <circle cx="11.5" cy="11.5" r="8" />
+        </svg>
+      )
+  }
+}
+
 const PILL_ITEMS = [
-  { to: '/arbol', key: 'tree', icon: Network, end: false },
-  { to: '/clasificacion', key: 'leaderboard', icon: Trophy, end: false },
-  { to: '/', key: 'home', icon: Rocket, end: true },
-  { to: '/tienda', key: 'store', icon: Store, end: false },
-  // Profile icon, not a chart one: this tab opens on the profile now and
+  { to: '/arbol', key: 'tree', end: false },
+  { to: '/clasificacion', key: 'leaderboard', end: false },
+  { to: '/', key: 'home', end: true },
+  { to: '/tienda', key: 'store', end: false },
+  // Profile glyph, not a chart one: this tab opens on the profile now and
   // the stats sit behind its own pill (see Stats.tsx).
-  { to: '/estadisticas', key: 'stats', icon: CircleUserRound, end: false },
+  { to: '/estadisticas', key: 'stats', end: false },
 ] as const
 
 // Thin wrapper — the only thing here that reads ClickCounterContext, whose
@@ -31,6 +102,11 @@ export function BottomNavPill() {
   return <BottomNavPillContent isSyncSuspended={isSyncSuspended} />
 }
 
+// The same glyph language as the locker's tabs — solid silhouettes — on the
+// bar's own states: the open tab is a soft white wash with the glyph in
+// violet, everything else a silhouette in the dark. The centre — the rock —
+// is the one thing raised off the bar, because it's the screen the whole
+// app is about.
 const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspended }: { isSyncSuspended: boolean }) {
   const { strings } = useLanguage()
   const location = useLocation()
@@ -54,45 +130,18 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
         isSyncSuspended ? 'pointer-events-none opacity-40' : ''
       }`}
     >
-      {/* A touch of the cockpit console's own material/accent — subtle
-          scanline texture and a thin violet hairline — layered onto the
-          plain rounded pill instead of replacing it, so the bar still
-          reads as minimal, just with a hint of "ship" to it. */}
-      <div className="relative rounded-full border border-white/10 bg-gradient-to-b from-[#17171f] via-[#101017] to-[#0a0a10] shadow-lg shadow-black/30 backdrop-blur-xl">
-        {/* Clipped to the pill shape on its own — the raised Nave circle
-            below still needs to poke out past this same rounded-full
-            outline uncropped, so only this decorative layer (not the
-            whole bar) gets overflow-hidden. */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(180deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px)',
-            }}
-          />
-          <div className="absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
-        </div>
-
-        <nav className="relative flex items-center gap-0.5 p-1">
-        {PILL_ITEMS.map(({ to, key, icon: Icon, end }) => {
+      <nav className="relative flex items-center gap-1 rounded-full border border-white/[0.09] bg-[#0d0d14]/85 p-1 shadow-lg shadow-black/40 backdrop-blur-xl">
+        {PILL_ITEMS.map(({ to, key, end }) => {
           const label = strings.nav[key]
-          // The home tab (the actual clicker screen, and the default route
-          // on load) sits in the center of the pill with a permanent
-          // violet glow matching the ClankUp wordmark icon — everything
-          // else is flat/minimal by comparison.
-          const isCenter = key === 'home'
 
-          // The raised center button is absolutely positioned (centered
-          // both ways) inside a wider, same-height placeholder — height
-          // stays h-10 so the pill's own height doesn't grow, the extra
-          // width reserves breathing room from its neighbors (otherwise
-          // their active-state highlight overlapped the raised circle),
-          // and centering it on both axes makes it poke out symmetrically
-          // above and below the bar instead of only on top.
-          if (isCenter) {
+          // The raised centre button is absolutely positioned (centred both
+          // ways) inside a wider, same-height placeholder — height stays
+          // h-10 so the pill's own height doesn't grow, the extra width
+          // reserves breathing room from its neighbours, and centring it on
+          // both axes makes it poke out symmetrically above and below.
+          if (key === 'home') {
             return (
-              <div key={to} className="relative h-10 w-16">
+              <div key={to} className="relative h-10 w-[4.25rem]">
                 <NavLink
                   to={to}
                   end={end}
@@ -100,19 +149,14 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
                   title={label}
                   aria-label={label}
                   className={({ isActive }) =>
-                    `absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-lg transition-colors ${
+                    `absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
                       isActive
-                        ? 'border-violet-400/50 bg-[#171224] shadow-violet-500/30'
-                        : 'border-violet-400/25 bg-[#12101a] shadow-violet-500/10 hover:border-violet-400/40'
+                        ? 'border-violet-400/50 bg-[#171224] text-violet-300 shadow-lg shadow-violet-500/30'
+                        : 'border-violet-400/25 bg-[#12101a] text-violet-400 shadow-lg shadow-violet-500/10 hover:border-violet-400/40'
                     }`
                   }
                 >
-                  {({ isActive }) => (
-                    <Icon
-                      size={22}
-                      className={`text-violet-300 drop-shadow-[0_0_6px_rgba(168,85,247,0.6)] ${isActive ? '' : 'opacity-80'}`}
-                    />
-                  )}
+                  <TabGlyph kind="home" size={30} />
                 </NavLink>
               </div>
             )
@@ -128,19 +172,16 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
               aria-label={label}
               data-tutorial={key === 'tree' ? 'nav-tree' : undefined}
               className={({ isActive }) =>
-                `flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-                  isActive ? 'bg-white/10' : 'hover:bg-white/5'
+                `flex h-10 w-[3.25rem] items-center justify-center rounded-full transition-colors ${
+                  isActive ? 'bg-white/10 text-violet-300' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'
                 }`
               }
             >
-              {({ isActive }) => (
-                <Icon size={17} className={isActive ? 'text-violet-300' : 'text-neutral-500'} />
-              )}
+              <TabGlyph kind={key} />
             </NavLink>
           )
         })}
-        </nav>
-      </div>
+      </nav>
     </div>
   )
 })
