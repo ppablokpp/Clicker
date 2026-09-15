@@ -1,6 +1,7 @@
 ﻿import { database } from './pool.js'
 import { applyObjectProgress } from '../game/spaceObjects.js'
 import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT, prestigeTierMultiplier } from '../game/trajectory.js'
+import { clickPackAmount } from '../store/clickPacks.js'
 import { accrueProduction } from './treeRepository.js'
 import { SIGNIN_CHEST_REWARD } from '../store/chestBench.js'
 
@@ -810,10 +811,10 @@ export const usersRepository = {
     }
   },
 
-  // Currency exchange, not a real purchase â€” gems in, clicks out, atomic.
-  // gemCost is left as-is; the clicks side scales with prestige tier (see
-  // scaleMaterialAmount) so a pack is always worth the same *relative* chunk
-  // of material, whatever tier the buyer is on.
+  // Currency exchange, not a real purchase: gems in, clicks out, atomic.
+  // gemCost is left as-is; the clicks side is a slice of the buyer's tier
+  // goal (see clickPackAmount) so a pack is always worth the same *relative*
+  // chunk of the road ahead, whatever tier the buyer is on.
   async buyClickPack(id, pack) {
     const client = await database.getClient()
     try {
@@ -829,7 +830,7 @@ export const usersRepository = {
         return { ok: false, reason: 'not-enough-gems' }
       }
 
-      const scaledClicks = scaleMaterialAmount(pack.clicks, user.prestige_tier)
+      const scaledClicks = clickPackAmount(pack, user.prestige_tier)
       const updated = await client.query(
         `UPDATE users
          SET total_clicks = total_clicks + $2,

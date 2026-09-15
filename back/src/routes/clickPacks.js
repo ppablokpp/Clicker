@@ -1,18 +1,18 @@
 import { Router } from 'express'
 import { getAuth } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
-import { CLICK_PACKS, getClickPack } from '../store/clickPacks.js'
-import { prestigeTierMultiplier } from '../game/trajectory.js'
+import { CLICK_PACKS, clickPackAmount, getClickPack } from '../store/clickPacks.js'
 
 export const clickPacksRouter = Router()
 
-// gemCost is left as-is; the clicks side scales with the caller's prestige
-// tier (see usersRepository.buyClickPack, which does the same at purchase
-// time) so the catalog always shows what a pack will actually pay out.
+// gemCost is left as-is; the clicks side is a slice of the caller's tier
+// goal (see clickPackAmount — usersRepository.buyClickPack does the same at
+// purchase time) so the catalog always shows what a pack will actually pay
+// out. A guest is priced as Amatista.
 clickPacksRouter.get('/', async (req, res) => {
   const { userId } = getAuth(req)
-  const multiplier = userId ? prestigeTierMultiplier(await usersRepository.getPrestigeTier(userId)) : 1
-  res.json(CLICK_PACKS.map((p) => ({ ...p, clicks: p.clicks * multiplier })))
+  const tier = userId ? await usersRepository.getPrestigeTier(userId) : 0
+  res.json(CLICK_PACKS.map((p) => ({ id: p.id, gemCost: p.gemCost, clicks: clickPackAmount(p, tier) })))
 })
 
 clickPacksRouter.post('/buy', async (req, res) => {
