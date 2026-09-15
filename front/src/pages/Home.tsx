@@ -274,7 +274,7 @@ function SpaceObject({ tierIndex, pct, paused }: { tierIndex: number; pct: numbe
   )
 }
 
-// A small rotating preview of one of the five OBJECT_TIERS rocks — same
+// A small rotating preview of one of the OBJECT_TIERS rocks — same
 // shading recipe as SpaceObject (gradient body, crater depth, grain,
 // sunlit patch), just smaller and without the bob/glow/flash, for the
 // Trayectoria roadmap list. `tierIndex` feeds unique gradient/clip ids

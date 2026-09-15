@@ -102,7 +102,7 @@ export interface TranslationStrings {
     log: string
     logTitle: string
     logEmpty: string
-    trajectoryTierNames: readonly [string, string, string, string, string, string, string]
+    trajectoryTierNames: readonly [string, string, string, string, string, string, string, string]
     trajectoryExtraction: (current: string, target: string) => string
     trajectoryExtractionUnknown: string
     trajectoryCurrent: string
@@ -563,7 +563,7 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trayectoria',
       logTitle: 'Trayectoria',
       logEmpty: 'Todavía no hay datos de trayectoria.',
-      trajectoryTierNames: ['Amatista', 'Platino', 'Zafiro', 'Esmeralda', 'Rubí', 'Oro', 'Diamante'],
+      trajectoryTierNames: ['Amatista', 'Platino', 'Zafiro', 'Esmeralda', 'Cuarzo', 'Rubí', 'Oro', 'Diamante'],
       trajectoryExtraction: (current, target) => `Extracción: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extracción: ???',
       trajectoryCurrent: 'Actual',
@@ -1236,7 +1236,7 @@ export const translations: Record<Language, TranslationStrings> = {
       log: 'Trajectory',
       logTitle: 'Trajectory',
       logEmpty: 'No trajectory data yet.',
-      trajectoryTierNames: ['Amethyst', 'Platinum', 'Sapphire', 'Emerald', 'Ruby', 'Gold', 'Diamond'],
+      trajectoryTierNames: ['Amethyst', 'Platinum', 'Sapphire', 'Emerald', 'Quartz', 'Ruby', 'Gold', 'Diamond'],
       trajectoryExtraction: (current, target) => `Extraction: ${current}/${target}`,
       trajectoryExtractionUnknown: 'Extraction: ???',
       trajectoryCurrent: 'Current',

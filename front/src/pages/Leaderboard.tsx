@@ -8,7 +8,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
-import { formatPlatino } from '../lib/formatPlatino'
+import { formatPlatino, SUFFIX_TIERS } from '../lib/formatPlatino'
 import { useBattlesContext, type BattleOpponent } from '../context/BattlesContext'
 import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { useClickCounterContext } from '../context/ClickCounterContext'
@@ -411,12 +411,7 @@ function BattlesModal({
 // separator eaten and came out as "100".
 function formatWager(value: number, locale: string): string {
   if (value < 1_000_000) return value.toLocaleString(locale)
-  const tiers: [number, string][] = [
-    [1e12, 'T'],
-    [1e9, 'B'],
-    [1e6, 'M'],
-  ]
-  const [threshold, suffix] = tiers.find(([t]) => value >= t) ?? tiers[tiers.length - 1]
+  const [threshold, suffix] = SUFFIX_TIERS.find(([t]) => value >= t) ?? SUFFIX_TIERS[SUFFIX_TIERS.length - 1]
   return `${value / threshold}${suffix}`
 }
 

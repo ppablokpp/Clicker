@@ -14,9 +14,11 @@
 export const GUNNER_NODE_ID = 'gunner'
 
 /**
- * A single gunner for the first two asteroids, then one more per asteroid:
- * 1 on Amatista and Platino, 2 on Zafiro, 3 on Esmeralda, up to 6 on
- * Diamante.
+ * A single gunner for the first two asteroids, then one more per asteroid,
+ * and never more than six: 1 on Amatista and Platino, 2 on Zafiro, 3 on
+ * Esmeralda, 4 on Cuarzo, 5 on Rubí, 6 on Oro — and still 6 on Diamante.
+ * The formation is full at six; the last asteroid is not owed a seventh
+ * just because the ladder grew by a rung.
  *
  * Holding at one across Amatista AND Platino is what makes the second one an
  * event. Under the old ladder you could own two before leaving the first
@@ -36,8 +38,10 @@ export const GUNNER_NODE_ID = 'gunner'
  * gunner they own; the cap is only ever read to decide whether the NEXT one
  * is for sale.
  */
+export const GUNNER_MAX_LEVEL = 6
+
 export function gunnerMaxLevel(prestigeTier) {
-  return Math.max(1, Number(prestigeTier))
+  return Math.min(GUNNER_MAX_LEVEL, Math.max(1, Number(prestigeTier)))
 }
 
 /**
@@ -53,16 +57,18 @@ export const GUNNER_COST_RATIO = 2
  * arguing about.
  *
  * It has to rise at all because the ladder is short: left flat, maxing every
- * gunner costs 0.0% of Diamante's goal and the rare unit becomes something
- * you buy without noticing. But it must rise slower than the goal (x21.5 a
- * tier) or the opposite happens — an earlier attempt used 39 and by Diamante
- * the FIRST gunner cost seven times that tier's entire goal, which is worse
- * than free: a node nobody can ever buy is worth less than one that gets
- * cheap.
+ * gunner costs a rounding error of Diamante's goal and the rare unit becomes
+ * something you buy without noticing. But it must rise slower than the goals
+ * or the opposite happens — an earlier attempt used 39 and by Diamante the
+ * FIRST gunner cost seven times that tier's entire goal, which is worse than
+ * free: a node nobody can ever buy is worth less than one that gets cheap.
  *
- * At 3 the full ladder runs 210% of Platino's goal, 54% of Zafiro's, 17% of
- * Esmeralda's and 0.4% of Diamante's. Expensive enough to be a project for
- * the first half of the game, cheap enough by the end to never be a wall.
+ * At 3, against the current ladder, the full set runs 200% of Amatista's
+ * goal, 30% of Platino's, 11% of Zafiro's, 4% of Esmeralda's — and then the
+ * goals widen to x50 and x100 a tier while this keeps climbing x3, so from
+ * Cuarzo on it is under 1% and by Rubí it is effectively free. A project for
+ * the first half of the game, a formality in the second; if the second half
+ * is meant to keep earning them, this is the number to raise.
  */
 export const GUNNER_COST_PER_PRESTIGE = 3
 

@@ -7,35 +7,41 @@
  * "extraction" progress display even though there's no tier past it to
  * prestige into.
  *
- * Seven materials now — Zafiro sits between Platino and Esmeralda, Rubí
- * between Esmeralda and Oro — so the ladder climbs about x21 a step instead
- * of the old x100 across five.
+ * Eight materials: Cuarzo sits between Esmeralda and Rubí (migration 041
+ * moved everyone from Rubí up one index to make room).
  *
- * The top rung is deliberately still 1000T. A straight x100 over seven tiers
- * would end at 1e19, which overflows the BIGINT that holds total_clicks and
- * is three orders past the largest integer JavaScript can represent exactly,
- * so the counter itself would start drifting two tiers before the end. The
- * ladder keeps the original 10M / 100B / 1000T rungs and fills the rest with
- * round numbers between them.
- * It was 10M x100, and x100 a tier was simply more than the tree could
- * answer — total production only grows about x43 per prestige, so every
- * tier fell further behind the goal than the last and Diamante worked out
- * at over a thousand days. 58 is not a round number by accident: it is
- * 1.311^15, the cost ratio of a scaled node raised to the levels each
- * prestige unlocks, which is exactly how fast the frontier of the tree
- * moves. Goal growth and tree growth are the same number on purpose.
+ * The first three steps stay gentle (x25, x40) because that is what a fresh
+ * account can actually climb; Esmeralda and Cuarzo are x100 apiece. The old
+ * top was being walked straight through — it ended at 1Qa and there were
+ * accounts sitting at a thousand times that.
+ *
+ * The last three rungs are not an economy, they are a shape, and the shape
+ * is deliberate. Rubí is a short stop (x10 — about half an Amatista run at
+ * the x43-per-prestige production growth the tree delivers). Oro is a real
+ * haul (x3000, on the order of fifty Amatista runs). And Diamante, at
+ * 100Sx, is a horizon: x33333 puts it tens of thousands of Amatista runs
+ * out, which is to say nobody reaches it. That is the point — there is no
+ * tier past it yet, so the last one has to be somewhere the ladder can end
+ * without anyone ever standing on top of it. When there is something beyond
+ * Diamante, this is the number to bring down.
+ *
+ * The ladder used to stop at 1Qa on the grounds that total_clicks was a
+ * BIGINT; it has been a double since migration 022, and a double keeps its
+ * leading digits exact at any size a goal will reach. Nothing here needs to
+ * be an exact integer.
  */
 export const TRAJECTORY_TIER_THRESHOLDS = [
   0,
-  10_000_000,
-  200_000_000,
-  5_000_000_000,
-  100_000_000_000,
-  2_000_000_000_000,
-  50_000_000_000_000,
-  1_000_000_000_000_000,
+  10_000_000, // Amatista  → 10M
+  250_000_000, // Platino   → 250M   x25
+  10_000_000_000, // Zafiro    → 10B    x40
+  1_000_000_000_000, // Esmeralda → 1T     x100
+  100_000_000_000_000, // Cuarzo    → 100T   x100
+  1_000_000_000_000_000, // Rubí      → 1Qa    x10
+  3_000_000_000_000_000_000, // Oro       → 3Qi    x3000
+  100_000_000_000_000_000_000_000, // Diamante  → 100Sx  x33333
 ]
-export const TRAJECTORY_TIER_COUNT = 7
+export const TRAJECTORY_TIER_COUNT = 8
 
 // Every prestige is a full soft-reset with a permanent head start baked in
 // per tier, applied to the two production baselines (see treeRepository.js)

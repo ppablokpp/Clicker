@@ -11,16 +11,17 @@
  */
 export const TRAJECTORY_TIER_THRESHOLDS = [
   0,
-  10_000_000,
-  200_000_000,
-  5_000_000_000,
-  100_000_000_000,
-  2_000_000_000_000,
-  50_000_000_000_000,
-  1_000_000_000_000_000,
+  10_000_000, // Amatista  → 10M
+  250_000_000, // Platino   → 250M
+  10_000_000_000, // Zafiro    → 10B
+  1_000_000_000_000, // Esmeralda → 1T
+  100_000_000_000_000, // Cuarzo    → 100T
+  1_000_000_000_000_000, // Rubí      → 1Qa
+  3_000_000_000_000_000_000, // Oro       → 3Qi
+  100_000_000_000_000_000_000_000, // Diamante  → 100Sx, meant to be out of reach
 ]
 
-export const TRAJECTORY_TIER_COUNT = 7
+export const TRAJECTORY_TIER_COUNT = 8
 
 /**
  * Mirrors back/src/game/trajectory.js's maxClicksPerRequest exactly — the
@@ -41,18 +42,16 @@ export function maxClicksPerRequest(tier: number): number {
 }
 
 /**
- * How much of a tier's own goal you may stake on one duel: 1%. Mirrors
- * maxWagerForTier in back/src/game/battles.js, which is the authority — this
- * copy only decides which rungs the picker draws.
- *
- * At tier 0 the goal is 250M, so the cap is 2.5M, and it climbs ×58 with each
- * prestige exactly as the goals do — which lands every cap precisely on a
- * rung of the wager ladder.
+ * How much of a tier's own goal you may stake on one duel: 0.1%, and never
+ * more than 1B. Mirrors maxWagerForTier in back/src/game/battles.js, which is
+ * the authority and explains both numbers — this copy only decides which
+ * rungs the picker draws.
  */
 export const BATTLE_MIN_MAX_WAGER = 100_000
+export const BATTLE_ABSOLUTE_MAX_WAGER = 1_000_000_000
 
 export function maxWagerForTier(tier: number): number {
   const goal = TRAJECTORY_TIER_THRESHOLDS[tier + 1]
-  const capped = Number.isFinite(goal) ? goal * 0.01 : 0
-  return Math.max(BATTLE_MIN_MAX_WAGER, capped)
+  const capped = Number.isFinite(goal) ? goal * 0.001 : 0
+  return Math.min(BATTLE_ABSOLUTE_MAX_WAGER, Math.max(BATTLE_MIN_MAX_WAGER, capped))
 }
