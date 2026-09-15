@@ -185,6 +185,10 @@ export interface TranslationStrings {
     tabBody: string
     /** The locker grid and the per-piece detail page it opens. */
     lockerCollection: string
+    /** "+2% de producción" — what the worn outfit adds, over the collection count. */
+    lockerProduction: (pct: string) => string
+    /** The same, on one piece's page. */
+    detailProduction: (pct: string) => string
     detailBack: string
     detailUnlock: string
     detailEquip: string
@@ -648,6 +652,8 @@ export const translations: Record<Language, TranslationStrings> = {
       tabHead: 'Cabeza',
       tabBody: 'Cuerpo',
       lockerCollection: 'Colección',
+      lockerProduction: (pct) => `${pct} de producción`,
+      detailProduction: (pct) => `${pct} de producción`,
       detailBack: 'Atrás',
       detailUnlock: 'DESBLOQUEAR',
       detailEquip: 'EQUIPAR',
@@ -1325,6 +1331,8 @@ export const translations: Record<Language, TranslationStrings> = {
       tabHead: 'Head',
       tabBody: 'Body',
       lockerCollection: 'Collection',
+      lockerProduction: (pct) => `${pct} production`,
+      detailProduction: (pct) => `${pct} production`,
       detailBack: 'Back',
       detailUnlock: 'UNLOCK',
       detailEquip: 'EQUIP',

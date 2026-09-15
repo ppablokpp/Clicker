@@ -569,6 +569,7 @@ export function Home() {
     anomalyUnlockLevel,
     anomalyFrequencySeconds,
     offlineProductionValue,
+    cosmeticBonus,
     refetch: refetchTree,
     resetForPrestige: resetTreeForPrestige,
     hasNewUpgrade,
@@ -963,6 +964,11 @@ export function Home() {
   // heat tiers.
   const heatMultiplier =
     heat.key === 'legendary' ? legendaryBonusForTier(legendaryStreak.tier, legendaryBonusStep) : heat.multiplier
+  // The outfit's cut. The server has already folded the same figure into
+  // every fleet rate it sends, so putting it on the hand here is what makes
+  // it a bonus on ALL production rather than on the drones alone. Read from
+  // the tree response, not recomputed from the local style: the server's is
+  // the one that is actually being paid, and it refetches after every save.
   const totalMultiplier =
     baseClickMultiplier *
     tapMultiplierValue *
@@ -970,7 +976,8 @@ export function Home() {
     powerupMultiplier *
     bonusMultiplier *
     moneyMultiplier *
-    reactorValue
+    reactorValue *
+    (1 + cosmeticBonus)
 
   // Permanent Suerte (now a tree node, branch A) and the timed one aren't
   // two separate rolls — owning both multiplies together into a single

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Gem, Loader2 } from 'lucide-react'
+import { ChevronLeft, Loader2 } from 'lucide-react'
+import { GemIcon } from '../components/MaterialIcons'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { AstronautPieceById, type AstronautSlot } from '../components/AstronautPiecePreview'
 import { GemsPill } from '../components/GemsPill'
@@ -11,7 +12,8 @@ import { useCosmetics } from '../context/CosmeticsContext'
 import { useGemsContext } from '../context/GemsContext'
 import { fetchMyStyle, saveMyStyle } from '../lib/astronautStyleApi'
 import { CASE_PRIZE_STYLES, DEFAULT_CASE_PRIZE_STYLE } from '../store/caseConfig'
-import { COSMETIC_GEM_PRICES, getCosmetic } from '../store/cosmeticCase'
+import { COSMETIC_GEM_PRICES, COSMETIC_RARITY_BONUS, formatBonusPct, getCosmetic } from '../store/cosmeticCase'
+import { useTreeContext } from '../context/TreeContext'
 import {
   DEFAULT_STYLE_IDS,
   loadStyleIds,
@@ -58,6 +60,8 @@ export function CosmeticDetail() {
   const locale = language === 'en' ? 'en-US' : 'es-ES'
   const { getToken } = useAppAuth()
   const { isUnlocked, loaded, buyCosmetics } = useCosmetics()
+  // Worn pieces pay, so the tree's rates are re-read after every equip.
+  const { refetch: refetchTree } = useTreeContext()
   const { gems } = useGemsContext()
   const params = useParams<{ slot: string; id: string }>()
 
@@ -115,7 +119,7 @@ export function CosmeticDetail() {
   const persist = (next: AstronautStyleIds) => {
     setStyleIds(next)
     saveStyleIds(next)
-    void saveMyStyle(getToken, next)
+    void saveMyStyle(getToken, next).then(() => refetchTree())
   }
 
   const onPrimary = async () => {
@@ -204,6 +208,11 @@ export function CosmeticDetail() {
                     ] ?? item.rarity)
                   : strings.profile.detailStock}
               </p>
+              {item && (
+                <p className="mt-1 text-center text-[11px] font-bold tabular-nums text-white">
+                  {strings.profile.detailProduction(formatBonusPct(COSMETIC_RARITY_BONUS[item.rarity]))}
+                </p>
+              )}
             </div>
 
             <div className="min-w-0 flex-1">
@@ -224,15 +233,22 @@ export function CosmeticDetail() {
           <button
             onClick={() => void onPrimary()}
             disabled={busy || equipped || (!unlocked && missing > 0)}
-            className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[15px] font-bold tracking-wide transition-colors ${
+            className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[15px] font-bold tracking-wide transition-[filter,background-color] ${
               equipped
-                ? 'cursor-default border border-violet-400/30 bg-violet-500/10 text-violet-200'
+                ? 'cursor-default border'
                 : unlocked
-                  ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/25 hover:bg-violet-400'
+                  ? 'shadow-lg hover:brightness-110'
                   : missing > 0
                     ? 'cursor-not-allowed border border-white/5 bg-white/[0.04] text-neutral-500'
                     : 'border border-indigo-400/30 bg-indigo-500/[0.12] text-indigo-100 hover:bg-indigo-500/[0.2]'
             }`}
+            style={
+              equipped
+                ? { borderColor: `${tint}4d`, backgroundColor: `${tint}1a`, color: tint }
+                : unlocked
+                  ? { backgroundColor: tint, color: '#0b0b10', boxShadow: `0 10px 15px -3px ${tint}40` }
+                  : undefined
+            }
           >
             {busy ? (
               <Loader2 size={16} className="animate-spin" />
@@ -240,7 +256,7 @@ export function CosmeticDetail() {
               primaryLabel
             ) : (
               <>
-                <Gem size={16} className="opacity-85" />
+                <GemIcon size={18} />
                 <span className="tabular-nums">{price.toLocaleString(locale)}</span>
               </>
             )}

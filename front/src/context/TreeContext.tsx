@@ -94,6 +94,9 @@ interface TreeState {
   offlineProductionLevel: number
   offlineProductionValue: number
   offlineProductionNextCost: number | null
+  /** What the worn outfit adds to all production, as a fraction — the same
+   *  figure the server has already folded into every rate above. */
+  cosmeticBonus: number
 }
 
 interface TreeContextValue extends TreeState {
@@ -224,6 +227,7 @@ const EMPTY_STATE: TreeState = {
   anomalyFrequencySeconds: 300,
   anomalyFrequencyNextCost: 0,
   offlineProductionLevel: 0,
+  cosmeticBonus: 0,
   offlineProductionValue: 0.01,
   offlineProductionNextCost: 5_000,
 }
@@ -366,6 +370,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           offlineProductionLevel: data.offlineProductionLevel,
           offlineProductionValue: data.offlineProductionValue,
           offlineProductionNextCost: data.offlineProductionNextCost,
+          cosmeticBonus: data.cosmeticBonus ?? 0,
         })
         // `wasAway` is the whole gate, and it's the only one needed. The
         // server's clock for production is only moved by a poll or a purchase

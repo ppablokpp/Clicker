@@ -1,4 +1,5 @@
 import type { AstronautSlot } from '../components/AstronautPiecePreview'
+import type { AstronautStyleIds } from '../lib/astronautStyles'
 
 /**
  * The client's copy of the cosmetics catalogue: what exists, how rare it is,
@@ -212,6 +213,44 @@ const CATALOG_BY_KEY = new Map(COSMETIC_CATALOG.map((item) => [cosmeticKey(item)
  */
 export function getCosmetic(slot: AstronautSlot, id: string): CosmeticCaseItem | null {
   return CATALOG_BY_KEY.get(`${slot}:${id}`) ?? null
+}
+
+/**
+ * What wearing a piece is worth, as a fraction of total production, by
+ * rarity. Mirrors COSMETIC_RARITY_BONUS in back/src/store/cosmetics.js, which
+ * is the authority: the server folds this into every rate it sends and the
+ * offline credit it pays. This copy exists to print the figure on a piece's
+ * page and to total up the locker without a round trip.
+ *
+ * Only what is WORN counts, never what is owned.
+ */
+export const COSMETIC_RARITY_BONUS: Record<CosmeticRarity, number> = {
+  consumer: 0.001,
+  milspec: 0.01,
+  restricted: 0.02,
+  classified: 0.03,
+  covert: 0.05,
+  gold: 0.1,
+}
+
+/** The stock kit's own worth: a fresh astronaut already stands at +1%. */
+export const COSMETIC_BASE_BONUS = 0.01
+
+/** Base plus one entry per worn catalogue piece; stock pieces add nothing. */
+export function cosmeticProductionBonus(style: AstronautStyleIds): number {
+  let bonus = COSMETIC_BASE_BONUS
+  for (const [slot, id] of Object.entries(style)) {
+    const item = getCosmetic(slot as AstronautSlot, id)
+    if (item) bonus += COSMETIC_RARITY_BONUS[item.rarity]
+  }
+  return bonus
+}
+
+/** "+2%" / "+0.1%" — as many decimals as the figure needs and no more. */
+export function formatBonusPct(bonus: number): string {
+  const pct = bonus * 100
+  const text = Number.isInteger(pct) ? String(pct) : pct.toFixed(1).replace(/.0$/, '')
+  return `+${text}%`
 }
 
 /** Gem price for a piece, or 0 for anything from the stock kit. */

@@ -1,4 +1,4 @@
-import { Gem } from 'lucide-react'
+import { GemIcon } from './MaterialIcons'
 
 /**
  * The gem balance, pinned top-right, styled exactly like the store's own
@@ -26,7 +26,7 @@ export function GemsPill({
       aria-label={label}
       className="fixed right-4 top-4 z-40 flex items-center gap-1.5 rounded-full border border-indigo-400/20 bg-indigo-500/[0.08] px-3 py-1.5 text-xs font-semibold tabular-nums text-indigo-200 shadow-lg shadow-black/20 transition-colors hover:bg-indigo-500/[0.14] sm:right-6 sm:top-6"
     >
-      <Gem size={12} className="opacity-80" />
+      <GemIcon size={16} />
       {gems.toLocaleString(locale)}
     </button>
   )

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { useGemsContext } from './GemsContext'
+import { useTreeContext } from './TreeContext'
 import { playChestPurchase } from '../lib/caseSound'
 import { isDefaultCosmetic, type AstronautStyleIds } from '../lib/astronautStyles'
 import type { AstronautSlot } from '../components/AstronautPiecePreview'
@@ -92,6 +93,11 @@ export function CosmeticsProvider({ children }: { children: ReactNode }) {
    * saved outfit — a second PUT afterwards could fail on its own and leave
    * the player owning a piece their astronaut isn't wearing.
    */
+  // A bought piece is worn in the same request, and worn pieces pay: the
+  // tree's rates have to be re-read or the header keeps the old figure until
+  // something else happens to refresh it.
+  const { refetch: refetchTree } = useTreeContext()
+
   const buyCosmetics = useCallback(
     async (items: { slot: AstronautSlot; id: string }[], style: AstronautStyleIds) => {
       try {
@@ -112,13 +118,14 @@ export function CosmeticsProvider({ children }: { children: ReactNode }) {
         // not on grantCosmetics: a chest opening has its own reveal sound.
         playChestPurchase()
         if (typeof data.gems === 'number') syncGems(data.gems)
+        void refetchTree()
         return { ok: true }
       } catch (err) {
         console.error('No se pudo comprar el cosmético', err)
         return { ok: false, reason: 'network' }
       }
     },
-    [getToken, syncGems],
+    [getToken, syncGems, refetchTree],
   )
 
   const value = useMemo(

@@ -246,6 +246,50 @@ export function canEquip(slot, itemId, ownedKeys) {
   return ownedKeys.has(`${slot}:${itemId}`)
 }
 
+/**
+ * What wearing a piece is worth, as a fraction of total production, by
+ * rarity. Cosmetics stopped being purely cosmetic here: the outfit on the
+ * astronaut is a multiplier on everything the account makes — fleet, scouts,
+ * gunners and the hand alike.
+ *
+ * Only what is WORN counts, never what is owned. The locker is a wardrobe,
+ * not a bank: a piece pays while it is on and stops the moment it comes off,
+ * so choosing a look is a real choice and not a one-time unlock of a bonus
+ * you then forget about.
+ *
+ * Mirrors COSMETIC_RARITY_BONUS in front/src/store/cosmeticCase.ts. The
+ * server is authoritative — it reads the saved style, which the save route
+ * has already filtered to owned pieces, so nothing here can be spoofed by a
+ * client wearing something it does not have.
+ */
+export const COSMETIC_RARITY_BONUS = {
+  consumer: 0.001,
+  milspec: 0.01,
+  restricted: 0.02,
+  classified: 0.03,
+  covert: 0.05,
+  gold: 0.1,
+}
+
+/** The stock kit's own worth: a fresh astronaut already stands at +1%. */
+export const COSMETIC_BASE_BONUS = 0.01
+
+/**
+ * The bonus for a saved style: the base plus one entry per worn catalogue
+ * piece. Stock pieces are not in the catalogue and add nothing on top of the
+ * base; an unknown id (a slot added after this style was saved, say) is
+ * simply ignored rather than thrown on.
+ */
+export function cosmeticProductionBonus(style) {
+  let bonus = COSMETIC_BASE_BONUS
+  if (!style || typeof style !== 'object') return bonus
+  for (const [slot, itemId] of Object.entries(style)) {
+    const item = getCosmetic(slot, itemId)
+    if (item) bonus += COSMETIC_RARITY_BONUS[item.rarity] ?? 0
+  }
+  return bonus
+}
+
 export function cosmeticPoolFor(chest) {
   return chest === 'styleRare' ? COSMETIC_RARE_POOL : COSMETIC_CHEST_POOL
 }

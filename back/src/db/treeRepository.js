@@ -1,5 +1,6 @@
 import { database } from './pool.js'
 import { fleetUpgradeMultiplier } from '../powerups/fleetUpgrades.js'
+import { cosmeticProductionBonus } from '../store/cosmetics.js'
 import { AUTOCLICK_NODE_ID, AUTOCLICK_MAX_LEVEL, autoClickCost } from '../tree/autoClick.js'
 import { LUCK_NODE_ID, luckCost, luckMultiplier } from '../tree/luck.js'
 import { LUCK_CHANCE_NODE_ID, luckChanceCost, luckChanceValue } from '../tree/luckChance.js'
@@ -138,7 +139,7 @@ function accrueWhole(remainder, seconds, currentCps, offlineRate) {
 // implementation instead.
 export async function accrueProduction(client, userId) {
   const userRow = await client.query(
-    'SELECT total_clicks, objects_broken, object_progress, prestige_tier FROM users WHERE id = $1 FOR UPDATE',
+    'SELECT total_clicks, objects_broken, object_progress, prestige_tier, astronaut_style FROM users WHERE id = $1 FOR UPDATE',
     [userId],
   )
   if (!userRow.rows[0]) return null
@@ -181,7 +182,15 @@ export async function accrueProduction(client, userId) {
     `SELECT upgrade_id FROM user_permanent_upgrades WHERE user_id = $1`,
     [userId],
   )
-  const fleetMult = fleetUpgradeMultiplier(fleetUpgradeRows.rows.map((r) => r.upgrade_id))
+  // The outfit is a multiplier on everything, folded in at the same point
+  // Núcleo de flota is and for the same reason: every per-unit rate the UI
+  // prints already carries it, the offline credit below already carries it,
+  // and there is one place to look when a number seems off. The hand's
+  // clicks pick up the same figure on the client, which reads it from this
+  // response (cosmeticBonus) rather than recomputing it from a style that
+  // might not have reached the server yet.
+  const cosmeticBonus = cosmeticProductionBonus(userRow.rows[0].astronaut_style)
+  const fleetMult = fleetUpgradeMultiplier(fleetUpgradeRows.rows.map((r) => r.upgrade_id)) * (1 + cosmeticBonus)
 
   const scoutDroneRate = scoutFrequencyValue(Number(scoutFrequencyRow.rows[0]?.level ?? 0)) * prestigeFleetMultiplier(prestigeTier) * fleetMult
 
@@ -297,6 +306,7 @@ export async function accrueProduction(client, userId) {
     reactorMultiplier,
     offlineProductionLevel: Number(offlineProductionRow.rows[0]?.level ?? 0),
     offlineRate,
+    cosmeticBonus,
   }
 }
 
@@ -334,6 +344,7 @@ export const treeRepository = {
         reactorMultiplier,
         offlineProductionLevel,
         offlineRate,
+        cosmeticBonus,
       } = accrued
       // Shim so every `userRow.rows[0].prestige_tier` reference below
       // (there are many, in the returned response payload) keeps working
@@ -469,6 +480,7 @@ export const treeRepository = {
         multiplierValue: multiplierValue(multiplierLevel) * prestigeClickMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextValue: multiplierValue(multiplierLevel + 1) * prestigeClickMultiplier(Number(userRow.rows[0].prestige_tier)),
         multiplierNextCost: multiplierCost(multiplierLevel, tieredMaxLevel(MULTIPLIER_MAX_LEVEL, userRow.rows[0].prestige_tier)),
+        cosmeticBonus,
         legendaryUnlockLevel,
         legendaryUnlockNextCost: scaleCost(legendaryUnlockCost(legendaryUnlockLevel), userRow.rows[0].prestige_tier),
         legendaryEaseLevel,
