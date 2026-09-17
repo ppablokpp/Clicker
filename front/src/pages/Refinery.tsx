@@ -55,7 +55,11 @@ export function Refinery() {
   const { totalClicks, prestigeTier } = useClickCounterContext()
   const { gems } = useGemsContext()
   const { core, starting, finishing, start, finish } = useRefineryContext()
-  const { active, progress, secondsLeft } = useCoreRepair()
+  const { active, progress: rawProgress, secondsLeft } = useCoreRepair()
+  // The tick is 100 ms; the drawing only needs to change when it would
+  // show — 1/200 of the rod is under a pixel — so between steps neither
+  // the core nor the hall re-renders.
+  const progress = Math.round(rawProgress * 200) / 200
   const [error, setError] = useState<string | null>(null)
   const s = strings.refinery
   const tierIndex = prestigeTier

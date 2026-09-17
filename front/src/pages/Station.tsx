@@ -32,7 +32,7 @@ import { useAppAuth } from '../hooks/useAppAuth'
 import { loadStyleIds } from '../lib/astronautStyles'
 import { fetchMyStyle } from '../lib/astronautStyleApi'
 import { CORES_PER_TIER } from '../lib/refinery'
-import { useCoreRepair, useRefineryContext } from '../context/RefineryContext'
+import { useRefineryContext } from '../context/RefineryContext'
 import { getPlace, setPlace } from '../lib/place'
 
 /** How far in you can go. How far out is the opening view, near enough:
@@ -89,6 +89,11 @@ const DRAG_SLOP = 8
  *  between the top edge and the tab bar, and at 1× at most. Computed for
  *  the first render, not after it, so the screen is right from its first
  *  frame rather than flashing at 1× and then settling. */
+/** The stage's transform for a view: pan, then zoom about the centre. */
+function stageTransform(scale: number, x: number, y: number) {
+  return `translate(${x}px, ${y}px) scale(${scale})`
+}
+
 function fitScene() {
   const w = window.innerWidth - SCENE_INSET.side * 2
   const h = window.innerHeight - SCENE_INSET.top - SCENE_INSET.bottom
@@ -203,6 +208,15 @@ export function Station() {
   const isMaxed = !TRAJECTORY_TIER_THRESHOLDS[tierIndex + 1]
 
   const rockTap = useTap(() => setLeaving(true))
+  // Stable, so the memoized buildings don't re-render on every render of
+  // this page (a modal opening, the outfit arriving).
+  const openFleet = useCallback(() => setShowFleet(true), [])
+  const goRefinery = useCallback(() => navigate('/refineria'), [navigate])
+  const goMarket = useCallback(() => navigate('/tienda'), [navigate])
+  const goPodium = useCallback(() => navigate('/clasificacion'), [navigate])
+  const goNursery = useCallback(() => navigate('/arbol'), [navigate])
+  const goShip = useCallback(() => navigate('/nave'), [navigate])
+  const goProfile = useCallback(() => navigate('/estadisticas'), [navigate])
   const STATION_LABELS = useMemo(
     () => ({
       node: strings.home.stationNode,
@@ -214,8 +228,11 @@ export function Station() {
     [strings],
   )
 
-  const { active: smelting } = useCoreRepair()
+  // Whether a capsule is smelting is on the core itself — not read through
+  // useCoreRepair, whose 100 ms tick would re-render this whole scene (six
+  // buildings of SVG) ten times a second for as long as one is.
   const { core } = useRefineryContext()
+  const smelting = Boolean(core?.startedAt) && (core?.repaired ?? 0) < (core?.total ?? 0)
   // How far the reactor is repaired, for the hatch's glow: capsules loaded
   // over capsules there are, across every material.
   const repair = core ? core.cores.reduce((a, b) => a + b, 0) / (core.cores.length * CORES_PER_TIER) : 0
@@ -255,9 +272,14 @@ export function Station() {
     view.y = next.y
     const el = stageRef.current
     if (!el) return
-    el.style.setProperty('--station-zoom', String(view.scale))
-    el.style.setProperty('--station-pan-x', `${view.x}px`)
-    el.style.setProperty('--station-pan-y', `${view.y}px`)
+    // The transform itself, straight onto the element — not CSS custom
+    // properties feeding a transform. Custom properties inherit, so
+    // changing one restyles every descendant: here that is six buildings
+    // of SVG, thousands of nodes, on every pointermove — which is what
+    // heated the phone and, with the memory that churned, brought the
+    // page down. A transform on an element with its own layer is a
+    // compositor-only update; nothing under it is touched.
+    el.style.transform = stageTransform(view.scale, view.x, view.y)
   }, [])
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -385,14 +407,11 @@ export function Station() {
       <div
         ref={stageRef}
         className="pointer-events-none relative z-0 flex flex-col items-center"
-        style={
-          {
-            '--station-zoom': String(initialView.scale),
-            '--station-pan-x': `${initialView.x}px`,
-            '--station-pan-y': `${initialView.y}px`,
-            transform: 'translate(var(--station-pan-x, 0px), var(--station-pan-y, 0px)) scale(var(--station-zoom, 1))',
-          } as React.CSSProperties
-        }
+        style={{
+          transform: stageTransform(initialView.scale, initialView.x, initialView.y),
+          // its own layer, so panning and zooming never re-rasterise what's in it
+          willChange: 'transform',
+        }}
       >
         <div className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
           {/* the buildings, small: each group scaled about the scene's
@@ -408,11 +427,11 @@ export function Station() {
               offsets={STATION_LAYOUT}
               labels={STATION_LABELS}
               only={REFINERY_ONLY}
-              onOpenFleet={() => setShowFleet(true)}
-              onOpenRefinery={() => navigate('/refineria')}
-              onOpenMarket={() => navigate('/tienda')}
-              onOpenPodium={() => navigate('/clasificacion')}
-              onOpenNursery={() => navigate('/arbol')}
+              onOpenFleet={openFleet}
+              onOpenRefinery={goRefinery}
+              onOpenMarket={goMarket}
+              onOpenPodium={goPodium}
+              onOpenNursery={goNursery}
             />
           </div>
           <div className="pointer-events-none absolute inset-0" style={{ transform: `scale(${BUILDINGS_SCALE})` }}>
@@ -425,11 +444,11 @@ export function Station() {
               offsets={STATION_LAYOUT}
               labels={STATION_LABELS}
               only={THE_REST}
-              onOpenFleet={() => setShowFleet(true)}
-              onOpenRefinery={() => navigate('/refineria')}
-              onOpenMarket={() => navigate('/tienda')}
-              onOpenPodium={() => navigate('/clasificacion')}
-              onOpenNursery={() => navigate('/arbol')}
+              onOpenFleet={openFleet}
+              onOpenRefinery={goRefinery}
+              onOpenMarket={goMarket}
+              onOpenPodium={goPodium}
+              onOpenNursery={goNursery}
               showNursery
             />
           </div>
@@ -460,9 +479,9 @@ export function Station() {
             at={DOCK_AT}
             styleIds={styleIds}
             repair={repair}
-            onTap={() => navigate('/nave')}
+            onTap={goShip}
             astronautLabel={strings.home.stationAstronaut}
-            onTapAstronaut={() => navigate('/estadisticas')}
+            onTapAstronaut={goProfile}
           />
         </div>
       </div>

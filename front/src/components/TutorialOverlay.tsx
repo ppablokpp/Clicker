@@ -400,11 +400,16 @@ export function TutorialOverlay() {
       >
         <div className="flex w-full max-w-md items-end gap-2">
           <div className="pointer-events-none h-36 w-36 shrink-0 sm:h-40 sm:w-40">
-            <Lottie src={robotAnimation} className="h-full w-full" loop autoplay />
+            {/* Canvas, not the default SVG renderer: SVG means a few hundred
+                DOM mutations a frame for as long as the robot is on screen,
+                which over the station (its own dozen animated layers) is
+                what made the tutorial stutter. Canvas draws the same frames
+                into one bitmap. */}
+            <Lottie src={robotAnimation} className="h-full w-full" loop autoplay renderer="canvas" />
           </div>
           <div
             onClick={!done ? skipToEnd : undefined}
-            className="pointer-events-auto relative min-w-0 flex-1 overflow-visible rounded-2xl border border-violet-400/25 bg-[#0d0d14]/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl"
+            className="pointer-events-auto relative min-w-0 flex-1 overflow-visible rounded-2xl border border-violet-400/25 bg-[#0d0d14] p-4 shadow-2xl shadow-black/50"
           >
             <div className="absolute left-0 bottom-6 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-b border-l border-violet-400/25 bg-[#0d0d14]" />
             <p className="min-h-[2.5rem] text-sm leading-snug text-neutral-100">

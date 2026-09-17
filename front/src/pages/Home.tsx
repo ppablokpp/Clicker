@@ -667,6 +667,8 @@ export function Home() {
       infoModal !== null,
   )
   const containerRef = useRef<HTMLDivElement>(null)
+  // The stage the view's pan/zoom transform goes on (the rock and the swarm).
+  const stageRef = useRef<HTMLDivElement>(null)
   // The space object's own on-screen box — click shots animate from the tap
   // point to this element's center, computed fresh on every click since the
   // object stays centered in the viewport but the viewport itself can resize.
@@ -745,11 +747,13 @@ export function Home() {
     view.scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
     view.x = x
     view.y = y
-    const el = containerRef.current
+    const el = stageRef.current
     if (!el) return
-    el.style.setProperty('--home-zoom', String(view.scale))
-    el.style.setProperty('--home-pan-x', `${view.x}px`)
-    el.style.setProperty('--home-pan-y', `${view.y}px`)
+    // Written as the transform itself, not as custom properties feeding
+    // one: a custom property inherits, so changing it restyles the whole
+    // subtree (the rock, the ring, every drone) on every pointermove. See
+    // Station's applyView, where that took the page down.
+    el.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`
   }, [])
 
   const resetView = useCallback(() => applyView(1, 0, 0), [applyView])
@@ -1540,8 +1544,9 @@ export function Home() {
         // z-0, below the cockpit header (z-10) and the tab bar (z-40): zoomed
         // in far enough the asteroid reaches them, and the chrome has to read
         // as the layer nearest the player, not something the game paints over.
+        ref={stageRef}
         className="pointer-events-none relative z-0 flex flex-col items-center"
-        style={{ transform: 'translate(var(--home-pan-x, 0px), var(--home-pan-y, 0px)) scale(var(--home-zoom, 1))' }}
+        style={{ transform: 'translate(0px, 0px) scale(1)', willChange: 'transform' }}
       >
         <div
           ref={objectRef}
