@@ -62,11 +62,15 @@ const STEP_MS = 1500
 const STEP_COUNT = 4
 const CYCLE_MS = STEP_MS * STEP_COUNT
 
-export function LoadingScreen() {
+export function LoadingScreen({ steps: stepsProp }: { steps?: string[] } = {}) {
   const phases = usePhases()
   const { strings } = useLanguage()
   const [stars] = useState(() => ({ dim: generateStars(90, 0.35), bright: generateStars(28, 0.85) }))
-  const steps = strings.loading.steps.slice(0, STEP_COUNT)
+  // The startup lines by default; a flight (TravelCover) hands in its own —
+  // and a flight starts its lines from the first, since it is only on screen
+  // for a couple of seconds and "Trazando rumbo" is the one to open on.
+  const steps = (stepsProp ?? strings.loading.steps).slice(0, STEP_COUNT)
+  const linePhase = stepsProp ? 0 : phases.lines
 
   return (
     <div className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#08080c]">
@@ -113,7 +117,7 @@ export function LoadingScreen() {
                   // Every line runs the same cycle, offset by its slot — and
                   // the whole set is phase-locked to the clock like the rest.
                   // Always negative, so no line sits waiting for a first turn.
-                  animationDelay: `-${phases.lines + (STEP_COUNT - i) * STEP_MS}ms`,
+                  animationDelay: `-${linePhase + (STEP_COUNT - i) * STEP_MS}ms`,
                 }}
               >
                 {line}

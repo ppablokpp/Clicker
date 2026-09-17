@@ -14,6 +14,7 @@ import { CosmeticsProvider } from './context/CosmeticsContext'
 import { KeysProvider } from './context/KeysContext'
 import { DailyKeyProvider } from './context/DailyKeyContext'
 import { ClickPacksProvider } from './context/ClickPacksContext'
+import { RefineryProvider } from './context/RefineryContext'
 import { KeyPacksProvider } from './context/KeyPacksContext'
 import { GemPacksProvider } from './context/GemPacksContext'
 import { InventoryProvider } from './context/InventoryContext'
@@ -39,6 +40,9 @@ import { CosmeticDetail } from './pages/CosmeticDetail'
 import { Store } from './pages/Store'
 import { Stats } from './pages/Stats'
 import { Tree } from './pages/Tree'
+import { Station } from './pages/Station'
+import { Refinery } from './pages/Refinery'
+import { Ship } from './pages/Ship'
 import { Battle } from './pages/Battle'
 
 function ClickerApp() {
@@ -56,6 +60,7 @@ function ClickerApp() {
                 <KeysProvider>
                   <DailyKeyProvider>
                     <ClickPacksProvider>
+                    <RefineryProvider>
                       <KeyPacksProvider>
                         <GemPacksProvider>
                           <InventoryProvider>
@@ -84,6 +89,9 @@ function ClickerApp() {
                                               <Route path="/estadisticas" element={<Stats />} />
                                               <Route path="/tienda" element={<Store />} />
                                               <Route path="/arbol" element={<Tree />} />
+                                              <Route path="/estacion" element={<Station />} />
+                                              <Route path="/refineria" element={<Refinery />} />
+                                              <Route path="/nave" element={<Ship />} />
                                               <Route path="/batalla/:battleId" element={<Battle />} />
                                             </Routes>
                                             <BottomNavPill />
@@ -102,6 +110,7 @@ function ClickerApp() {
                           </InventoryProvider>
                         </GemPacksProvider>
                       </KeyPacksProvider>
+                    </RefineryProvider>
                     </ClickPacksProvider>
                   </DailyKeyProvider>
                 </KeysProvider>

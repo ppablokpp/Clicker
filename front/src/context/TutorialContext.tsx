@@ -52,6 +52,10 @@ export interface TutorialStepDef {
   // means it's immune to click-timing races with whatever else that same
   // tap's onClick handler does.
   advanceOnTargetVisible?: string
+  // C0-PI and the bubble sit at the bottom of the screen; a step whose
+  // target is down there too (the airlock button, in its corner) puts them
+  // at the top instead, so they never cover what they're pointing at.
+  bubbleAt?: 'top'
 }
 
 // Home's asteroid (x5) → Tree's nav tab → the drone node itself → its buy
@@ -108,6 +112,24 @@ export const DRONE_FUSION_STEPS: TutorialStepDef[] = [
   { id: 'droneFusionHome', autoAdvanceOnClick: false, route: '/' },
 ]
 
+// The station tutorial: fired from Tree.tsx the moment the fifth drone is
+// bought on the first asteroid, once ever (station_tutorial_completed).
+// A word on the growing fleet, then out through the airlock — the button
+// Home only shows from that purchase on — the confirm, the station, the
+// Refinería, and the first capsule smelted (free, see the server's
+// firstCapsuleFree), with what it is all for said over it.
+export const STATION_STEPS: TutorialStepDef[] = [
+  { id: 'stationIntro', autoAdvanceOnClick: false, route: '/arbol' },
+  { id: 'stationExit', target: 'home-exit', autoAdvanceOnClick: false, route: '/', advanceOnTargetVisible: 'travel-go', bubbleAt: 'top' },
+  { id: 'stationExitConfirm', target: 'travel-go', autoAdvanceOnClick: false, advanceOnRoute: '/estacion' },
+  { id: 'stationArrive', autoAdvanceOnClick: false, route: '/estacion' },
+  { id: 'stationRefinery', target: 'station-refinery', autoAdvanceOnClick: false, route: '/estacion', advanceOnRoute: '/refineria' },
+  { id: 'stationRefineryIntro', autoAdvanceOnClick: false, route: '/refineria', bubbleAt: 'top' },
+  { id: 'stationSmelt', target: 'refinery-start', autoAdvanceOnClick: false, route: '/refineria', advanceOnTargetVisible: 'refinery-smelting', bubbleAt: 'top' },
+  { id: 'stationSmelting', autoAdvanceOnClick: false, route: '/refineria', bubbleAt: 'top' },
+  { id: 'stationPlan', autoAdvanceOnClick: false, route: '/refineria', bubbleAt: 'top' },
+]
+
 interface StartOptions {
   // Set when replaying via the "?" button and the drone node is already
   // past level 0 — skips the forced-buy step entirely instead of trying
@@ -121,6 +143,9 @@ interface StartOptions {
   // DRONE_FUSION_STEPS) — completely ad-hoc, doesn't touch
   // tutorial_completed/skipDroneGrant at all.
   steps?: TutorialStepDef[]
+  // A custom sequence that IS persisted, under its own flag: the station
+  // tutorial marks station_tutorial_completed when it finishes.
+  persistAs?: 'station'
 }
 
 interface TutorialContextValue {
@@ -128,6 +153,8 @@ interface TutorialContextValue {
   currentStep: TutorialStepDef | null
   isLastStep: boolean
   skipDroneGrant: boolean
+  /** The station tutorial has run for this account (or is running). */
+  stationTutorialDone: boolean
   start: (options?: StartOptions) => void
   advance: () => void
 }
@@ -145,6 +172,12 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   // (that flag means the *onboarding* flow specifically, not "any tutorial
   // ever shown").
   const [customSteps, setCustomSteps] = useState<TutorialStepDef[] | null>(null)
+  const [persistAs, setPersistAs] = useState<'station' | null>(null)
+  // Until /me answers, assume it has run — the trigger is a purchase, and
+  // firing the tutorial on a stale "not yet" would be worse than missing
+  // it on a race that in practice can't happen (the read lands long before
+  // a fifth drone could be bought).
+  const [stationTutorialDone, setStationTutorialDone] = useState(true)
   const hasCheckedRef = useRef(false)
 
   // Recomputed only when skipDroneGrant/customSteps actually change (i.e. on
@@ -171,6 +204,7 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
             setSkipDroneGrant(false)
             setStepIndex(0)
           }
+          setStationTutorialDone(data.stationTutorialCompleted !== false)
         }
       } catch (err) {
         console.error('No se pudo comprobar el estado del tutorial', err)
@@ -179,16 +213,20 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   }, [userId, getToken])
 
   const finish = useCallback(
-    async (wasCustom: boolean) => {
+    async (wasCustom: boolean, persisted: 'station' | null) => {
       setStepIndex(null)
       setCustomSteps(null)
+      setPersistAs(null)
       // Ad-hoc sequences (DRONE_FUSION_STEPS etc.) never touch this — see
       // `no hace falta guardar nada de bd` on that feature: nothing here is
       // checked or persisted, so finishing one is purely a local state reset.
-      if (wasCustom || !userId) return
+      // The station tutorial is the exception: custom, but with a flag.
+      if (!userId) return
+      if (wasCustom && !persisted) return
+      const path = persisted === 'station' ? 'station-tutorial-complete' : 'tutorial-complete'
       try {
         const token = await getToken()
-        await fetch(`${API_URL}/api/users/tutorial-complete`, {
+        await fetch(`${API_URL}/api/users/${path}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -202,6 +240,10 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   const start = useCallback((options?: StartOptions) => {
     if (options?.steps) {
       setCustomSteps(options.steps)
+      setPersistAs(options.persistAs ?? null)
+      // Marked done the moment it starts, so a second purchase mid-run
+      // (or a reload) can never start it twice.
+      if (options.persistAs === 'station') setStationTutorialDone(true)
       setStepIndex(0)
       return
     }
@@ -219,12 +261,12 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
       if (prev === null) return prev
       const next = prev + 1
       if (next >= steps.length) {
-        void finish(customSteps !== null)
+        void finish(customSteps !== null, persistAs)
         return null
       }
       return next
     })
-  }, [steps, finish, customSteps])
+  }, [steps, finish, customSteps, persistAs])
 
   const currentStep = stepIndex !== null ? (steps[stepIndex] ?? null) : null
 
@@ -233,8 +275,8 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap.
   const value = useMemo(
-    () => ({ isActive, currentStep, isLastStep, skipDroneGrant, start, advance }),
-    [isActive, currentStep, isLastStep, skipDroneGrant, start, advance],
+    () => ({ isActive, currentStep, isLastStep, skipDroneGrant, stationTutorialDone, start, advance }),
+    [isActive, currentStep, isLastStep, skipDroneGrant, stationTutorialDone, start, advance],
   )
 
   return <TutorialContext.Provider value={value}>{children}</TutorialContext.Provider>

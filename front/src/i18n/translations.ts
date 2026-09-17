@@ -11,11 +11,65 @@ export interface TranslationStrings {
     /** Shown one at a time under the rock while the save arrives. */
     steps: string[]
   }
+  station: {
+    /** The button on Home that opens the sheet for stepping out of the ship. */
+    travelLabel: string
+    travelTitle: string
+    travelBody: string
+    travelGo: string
+    /** The button outside that opens the sheet for going back in. */
+    returnLabel: string
+    returnTitle: string
+    returnBody: string
+    returnGo: string
+    cancel: string
+    /** Status lines for the way out through the airlock and the way back in. */
+    travelSteps: string[]
+    returnSteps: string[]
+    /** Status lines for the flight to the next asteroid. */
+    prestigeSteps: string[]
+  }
+  ship: {
+    title: string
+    reactor: string
+    intro: string
+    repairedPct: (pct: number) => string
+    coresWhole: (n: number, total: number) => string
+  }
+  refinery: {
+    title: string
+    intro: (material: string) => string
+    finishNow: string
+    preparing: string
+    coreOf: (material: string) => string
+    repairedCount: (n: number, total: number) => string
+    nextCore: string
+    coreLabel: (i: number, total: number) => string
+    seconds: (n: number) => string
+    start: string
+    refining: string
+    notEnough: (material: string) => string
+    complete: string
+    /** After the core's name, up top, once it is whole. */
+    repaired: string
+    completeBody: (material: string) => string
+    error: string
+  }
   home: {
     objectLabel: (n: string) => string
     objectsProgress: (broken: string, target: string) => string
     prestigeReady: string
+    /** The goal is met but the core isn't whole yet. */
+    prestigeNeedsCore: string
     viewModeLabel: string
+    /** The two stations found in adjust-view space. */
+    stationNode: string
+    stationRefinery: string
+    stationDock: string
+    stationMarket: string
+    stationPodium: string
+    stationNursery: string
+    stationAstronaut: string
     changePrestige: string
     tps: string
     totalLabel: string
@@ -465,6 +519,15 @@ export interface TranslationStrings {
     closingText: string
     droneFusionIntroText: string
     droneFusionHomeText: string
+    stationIntroText: string
+    stationExitText: string
+    stationExitConfirmText: string
+    stationArriveText: string
+    stationRefineryText: string
+    stationRefineryIntroText: string
+    stationSmeltText: string
+    stationSmeltingText: string
+    stationPlanText: string
   }
 }
 
@@ -479,11 +542,63 @@ export const translations: Record<Language, TranslationStrings> = {
     loading: {
       steps: ['Localizando el asteroide', 'Sincronizando la flota', 'Contando el mineral', 'Abriendo la tienda'],
     },
+    station: {
+      travelLabel: 'Salir al exterior',
+      travelTitle: 'Salir al exterior',
+      travelBody: '¿Quieres salir al exterior? Tu flota seguirá produciendo mientras estás fuera.',
+      travelGo: 'Salir',
+      returnLabel: 'Volver a la nave',
+      returnTitle: 'Volver a la nave',
+      returnBody: '¿Quieres volver dentro de la nave?',
+      returnGo: 'Entrar',
+      cancel: 'Quedarme',
+      travelSteps: ['Cerrando el casco', 'Despresurizando la esclusa', 'Abriendo la compuerta', 'Fuera de la nave'],
+      returnSteps: ['Abriendo la compuerta', 'Presurizando la esclusa', 'Quitando el casco', 'Dentro de la nave'],
+      prestigeSteps: ['Soltando amarras', 'Encendiendo propulsores', 'Rumbo al siguiente asteroide', 'En órbita'],
+    },
+    ship: {
+      title: 'Tu nave',
+      reactor: 'Reactor',
+      intro:
+        'El reactor arranca cuando los ocho núcleos estén enteros. Cada uno se carga en la refinería con el mineral de su asteroide.',
+      repairedPct: (pct) => `reparado al ${pct} %`,
+      coresWhole: (n, total) => `${n} de ${total} núcleos enteros`,
+    },
+    refinery: {
+      title: 'Refinería',
+      intro: (material) =>
+        `Carga todas las cápsulas del núcleo fundiendo ${material.toLowerCase()} para poder repararlo.`,
+      finishNow: 'Terminar ahora',
+      preparing: 'Preparando…',
+      coreOf: (material) => `Núcleo de ${material}`,
+      repairedCount: (n, total) => `${n} de ${total} cápsulas cargadas`,
+      nextCore: 'Siguiente cápsula',
+      coreLabel: (i, total) => `Cápsula ${i} / ${total}`,
+      // Game-style: "45s", "2m", "2m 10s".
+      seconds: (n) =>
+        n < 60 ? `${n}s` : n % 60 === 0 ? `${Math.floor(n / 60)}m` : `${Math.floor(n / 60)}m ${n % 60}s`,
+      start: 'Fundir',
+      refining: 'Fundiendo',
+      notEnough: (material) => `Falta ${material}`,
+      complete: 'Núcleo reparado',
+      repaired: 'Reparado',
+      completeBody: (material) =>
+        `El núcleo de ${material} está entero. Cuando lo estén los de todos los minerales, el reactor de la nave volverá a funcionar.`,
+      error: 'No se pudo fundir. Inténtalo de nuevo.',
+    },
     home: {
       objectLabel: (n) => `Objeto #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} niveles`,
       prestigeReady: '¡Mineral disponible!',
+      prestigeNeedsCore: 'Carga las 10 cápsulas del núcleo en la refinería para abandonar el asteroide',
       viewModeLabel: 'Ajustar vista',
+      stationNode: 'Nodo',
+      stationRefinery: 'Refinería',
+      stationDock: 'Muelle',
+      stationMarket: 'Tienda',
+      stationPodium: 'Podio',
+      stationNursery: 'Vivero',
+      stationAstronaut: 'Tu astronauta',
       changePrestige: 'Abandonar asteroide',
       tps: 't/s',
       hudPlatinoLabel: (materialName) => `Tu ${materialName.toLowerCase()}`,
@@ -627,7 +742,8 @@ export const translations: Record<Language, TranslationStrings> = {
         `Al iniciar sesión recibes ${style} cofres de estilo y ${rare} cofre de estilo raro.`,
       signIn: 'Iniciar sesión',
       errorUsernameTaken: 'Ese nombre ya está en uso. Prueba con otro.',
-      errorUsernameInvalid: 'Ese nombre no es válido. Usa entre 4 y 20 caracteres, sin símbolos ni acentos, y no solo números.',
+      errorUsernameInvalid:
+        'Ese nombre no es válido. Usa entre 4 y 20 caracteres, sin símbolos ni acentos, y no solo números.',
       errorGeneric: 'Algo ha fallado. Inténtalo de nuevo.',
       rankLabel: 'Puesto mundial',
       rankOf: (total) => `de ${total} jugadores`,
@@ -787,7 +903,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'badge:rayo': 'Un rayo. Sin explicación y sin necesitarla.',
 
         'pet:ninguna': 'Sin acompañante. El hombro libre también es un look.',
-        'pet:chispa': 'Una mota de luz que te sigue, con tres motas girando a su alrededor. No es una máquina: es la más pequeña de todas.',
+        'pet:chispa':
+          'Una mota de luz que te sigue, con tres motas girando a su alrededor. No es una máquina: es la más pequeña de todas.',
         'pet:mascota1': 'Vigía: un droide compacto que no se separa de tu hombro.',
         'pet:satelite': 'Un satélite con los paneles desplegados orbitando a tu lado.',
         'pet:orbe': 'Un orbe entre dos anillos que giran solos.',
@@ -994,7 +1111,8 @@ export const translations: Record<Language, TranslationStrings> = {
       fleetCoreName: 'Núcleo de flota',
       fleetCoreDesc:
         'Multiplicador permanente aplicado a la producción de toda tu flota — drones, buscadores y artilleros. No se acumula con otros niveles: solo cuenta el más alto que tengas.',
-      premiumDesc: 'Multiplicador permanente aplicado a la potencia de cada disparo, para siempre. No se acumula con otros niveles — solo cuenta el más alto que tengas.',
+      premiumDesc:
+        'Multiplicador permanente aplicado a la potencia de cada disparo, para siempre. No se acumula con otros niveles — solo cuenta el más alto que tengas.',
       currentMultiplier: 'Multiplicador actual:',
       nextMultiplier: 'Multiplicador siguiente nivel:',
       luckName: 'Destello',
@@ -1011,7 +1129,8 @@ export const translations: Record<Language, TranslationStrings> = {
       legendaryUnlockDesc: (tps) =>
         `Desbloquea un multiplicador de la potencia de cada disparo al sobrecalentar el cañón a ${tps} disparos por segundo.`,
       legendaryEaseName: 'Catalizador',
-      legendaryEaseDesc: 'Reduce los disparos necesarios para sobrecalentar el cañón y subir de nivel en modo Legendario.',
+      legendaryEaseDesc:
+        'Reduce los disparos necesarios para sobrecalentar el cañón y subir de nivel en modo Legendario.',
       currentStreakClicks: 'Disparos actuales:',
       nextStreakClicks: 'Disparos siguiente nivel:',
       legendaryGrowthName: 'Impulso',
@@ -1066,7 +1185,8 @@ export const translations: Record<Language, TranslationStrings> = {
         return `${label} minutos`
       },
       offlineProductionName: 'Autonomía',
-      offlineProductionDesc: 'Aumenta la autonomía de tu nave para que tu flota siga produciendo mientras estás ausente.',
+      offlineProductionDesc:
+        'Aumenta la autonomía de tu nave para que tu flota siga produciendo mientras estás ausente.',
       currentOfflineProduction: 'Producción actual:',
       nextOfflineProduction: 'Producción siguiente nivel:',
     },
@@ -1138,8 +1258,9 @@ export const translations: Record<Language, TranslationStrings> = {
       replayConfirmYes: 'Sí',
       replayConfirmNo: 'No',
       introText:
-        'Bienvenido a bordo, comandante. Soy C0-PI, el asistente de tu nave. Estamos anclados junto a un asteroide cargado de Amatista, y tu misión es extraerla antes de que se agote. Vamos a repasar los mandos.',
-      pointAsteroidText: 'Dispara al asteroide para empezar a extraer Amatista. Toca en cualquier parte de la pantalla.',
+        'Bienvenido a bordo, comandante. Soy C0-PI, el asistente de tu nave. Tengo malas noticias: el reactor de la nave se ha roto en plena expedición y estamos varados junto a un asteroide cargado de Amatista. La buena noticia es que ese mineral puede ser nuestra salida. Vamos a repasar los mandos.',
+      pointAsteroidText:
+        'Dispara al asteroide para empezar a extraer Amatista. Toca en cualquier parte de la pantalla.',
       pointTreeNavText: 'Bien hecho. Ahora ve a la sala de progreso de tu nave.',
       pointTreeRootText: 'Aquí gestionas tu flota de drones. Toca este núcleo.',
       pointTreeBuyText: 'Consigue tu primer dron. Te ayudará con la extracción.',
@@ -1149,6 +1270,21 @@ export const translations: Record<Language, TranslationStrings> = {
         '¡Buen trabajo, comandante! Tu flota está creciendo. A partir de ahora, cada diez drones se fusionarán automáticamente en una unidad más grande y eficiente. Vamos a verlo.',
       droneFusionHomeText:
         '¡Mira! Tus diez drones se han fusionado en una unidad más grande y potente. Cada vez que reúnas diez más, se fusionarán en otra igual, así tu flota se mantiene ágil aunque no pare de crecer.',
+      stationIntroText:
+        'Tu flota está aumentando, comandante. Ya va siendo hora de que te cuente un par de cosas más sobre nuestra nave y sobre cómo vamos a salir de aquí.',
+      stationExitText:
+        'Con este botón puedes salir al exterior de la nave. Ahí fuera está todo lo que necesitamos para repararla. Púlsalo.',
+      stationExitConfirmText: 'Ponte el casco. Sal.',
+      stationArriveText:
+        'Esto es la estación orbital. Aquí fuera encontrarás la nave, la tienda, el ranking, el árbol de mejoras… y lo más importante ahora mismo: la refinería.',
+      stationRefineryText: 'Entra en la refinería.',
+      stationRefineryIntroText:
+        'Aquí fundimos el mineral que extraes. Cada núcleo del reactor lleva diez cápsulas, y cada cápsula se carga fundiendo mineral.',
+      stationSmeltText: 'Pulsa Fundir para cargar tu primera cápsula.',
+      stationSmeltingText:
+        'Ya está fundiendo. Cuando termine tendrás una cápsula del núcleo cargada, y cuando las cargues todas habrás conseguido reparar el núcleo.',
+      stationPlanText:
+        'La nave tiene ocho núcleos como este y cada uno se carga con un mineral distinto. Cuando consigas cargar los ocho, el reactor volverá a funcionar y podremos volver a casa. Ese es el plan, comandante.',
     },
   },
   en: {
@@ -1161,11 +1297,61 @@ export const translations: Record<Language, TranslationStrings> = {
     loading: {
       steps: ['Locating the asteroid', 'Syncing the fleet', 'Counting the ore', 'Opening the store'],
     },
+    station: {
+      travelLabel: 'Step outside',
+      travelTitle: 'Step outside',
+      travelBody: 'Step outside the ship? Your fleet will keep producing while you are out there.',
+      travelGo: 'Step out',
+      returnLabel: 'Back to the ship',
+      returnTitle: 'Back to the ship',
+      returnBody: 'Go back inside the ship?',
+      returnGo: 'Go in',
+      cancel: 'Stay',
+      travelSteps: ['Sealing the helmet', 'Depressurising the airlock', 'Opening the hatch', 'Outside the ship'],
+      returnSteps: ['Opening the hatch', 'Pressurising the airlock', 'Helmet off', 'Inside the ship'],
+      prestigeSteps: ['Casting off', 'Firing thrusters', 'Bound for the next asteroid', 'In orbit'],
+    },
+    ship: {
+      title: 'Your ship',
+      reactor: 'Reactor',
+      intro:
+        "The reactor starts once all eight cores are whole. Each one is loaded at the refinery with its asteroid's mineral.",
+      repairedPct: (pct) => `${pct}% repaired`,
+      coresWhole: (n, total) => `${n} of ${total} cores whole`,
+    },
+    refinery: {
+      title: 'Refinery',
+      intro: (material) => `Load every capsule of the core by smelting ${material.toLowerCase()} to repair it.`,
+      finishNow: 'Finish now',
+      preparing: 'Preparing…',
+      coreOf: (material) => `${material} core`,
+      repairedCount: (n, total) => `${n} of ${total} capsules loaded`,
+      nextCore: 'Next capsule',
+      coreLabel: (i, total) => `Capsule ${i} / ${total}`,
+      seconds: (n) =>
+        n < 60 ? `${n}s` : n % 60 === 0 ? `${Math.floor(n / 60)}m` : `${Math.floor(n / 60)}m ${n % 60}s`,
+      start: 'Smelt',
+      refining: 'Smelting',
+      notEnough: (material) => `Not enough ${material}`,
+      complete: 'Core repaired',
+      repaired: 'Repaired',
+      completeBody: (material) =>
+        `The ${material} core is whole. Once every material's core is, the ship's reactor will run again.`,
+      error: "Couldn't smelt. Please try again.",
+    },
     home: {
       objectLabel: (n) => `Object #${n}`,
       objectsProgress: (broken, target) => `${broken} / ${target} levels`,
       prestigeReady: 'Mineral available!',
+      prestigeNeedsCore: 'Load all 10 capsules of the core at the refinery to leave the asteroid',
       viewModeLabel: 'Adjust view',
+      stationNode: 'Hub',
+      stationRefinery: 'Refinery',
+      stationDock: 'Dock',
+      stationMarket: 'Store',
+      stationPodium: 'Podium',
+      stationNursery: 'Nursery',
+      stationAstronaut: 'Your astronaut',
       changePrestige: 'Leave asteroid',
       tps: 't/s',
       hudPlatinoLabel: (materialName) => `Your ${materialName.toLowerCase()}`,
@@ -1305,8 +1491,7 @@ export const translations: Record<Language, TranslationStrings> = {
       signedOutBody:
         'Your progress is already being saved locally. Sign in to save it to the cloud and compete against other players on the leaderboard.',
       signInRewardTitle: 'Welcome gift',
-      signInRewardBody: (style, rare) =>
-        `Sign in and you get ${style} style chests and ${rare} rare style chest.`,
+      signInRewardBody: (style, rare) => `Sign in and you get ${style} style chests and ${rare} rare style chest.`,
       signIn: 'Sign in',
       errorUsernameTaken: 'That name is already taken. Try another one.',
       errorUsernameInvalid: 'That name is not valid. Use 4-20 characters, no symbols or accents, and not only numbers.',
@@ -1469,7 +1654,8 @@ export const translations: Record<Language, TranslationStrings> = {
         'badge:rayo': 'A lightning bolt. No explanation, none needed.',
 
         'pet:ninguna': 'No companion. An empty shoulder is a look too.',
-        'pet:chispa': 'A speck of light that follows you, with three motes turning around it. Not a machine — the smallest companion there is.',
+        'pet:chispa':
+          'A speck of light that follows you, with three motes turning around it. Not a machine — the smallest companion there is.',
         'pet:mascota1': 'Lookout: a compact droid that never leaves your shoulder.',
         'pet:satelite': 'A satellite with its panels out, orbiting beside you.',
         'pet:orbe': 'An orb between two rings that turn on their own.',
@@ -1676,17 +1862,18 @@ export const translations: Record<Language, TranslationStrings> = {
       fleetCoreName: 'Fleet core',
       fleetCoreDesc:
         "A permanent multiplier applied to your whole fleet's output — drones, scouts and gunners alike. Doesn't stack with other levels: only the highest one you own counts.",
-      premiumDesc: 'A permanent multiplier applied to the power of every shot, forever. Doesn\'t stack with other levels — only the highest one you own counts.',
+      premiumDesc:
+        "A permanent multiplier applied to the power of every shot, forever. Doesn't stack with other levels — only the highest one you own counts.",
       currentMultiplier: 'Current multiplier:',
       nextMultiplier: 'Next level multiplier:',
       luckName: 'Glimmer',
       luckDesc: 'Each shot has a chance to find a glimmer and multiply its power.',
       multiplierName: 'Power',
-      multiplierDesc: "Raises the power of each shot.",
+      multiplierDesc: 'Raises the power of each shot.',
       currentClickValue: 'Current power:',
       nextClickValue: 'Next level power:',
       luckChanceName: 'Telescope',
-      luckChanceDesc: "Raises the odds of detecting a glimmer when you fire.",
+      luckChanceDesc: 'Raises the odds of detecting a glimmer when you fire.',
       currentChance: 'Current chance:',
       nextChance: 'Next level chance:',
       legendaryUnlockName: 'Legendary Mode',
@@ -1711,8 +1898,7 @@ export const translations: Record<Language, TranslationStrings> = {
       scoutFrequencyName: 'Frequency',
       scoutFrequencyDesc: "Tunes your scout drones' radar to boost their production.",
       gunnerRateName: 'Caliber',
-      gunnerRateDesc:
-        "Bores out your gunners' cannons. Every shot tears more material off the asteroid.",
+      gunnerRateDesc: "Bores out your gunners' cannons. Every shot tears more material off the asteroid.",
       gunnerName: 'Gunner',
       gunnerDesc:
         'Deploys a gunner that holds position aimed at the asteroid, firing from both cannons. Each one mines on its own.',
@@ -1721,7 +1907,7 @@ export const translations: Record<Language, TranslationStrings> = {
       turboName: 'Overload',
       turboDesc: "Overloads your drones' reactor, increasing their production.",
       tapMultiplierName: 'Amplifier',
-      tapMultiplierDesc: "Multiplies the power of each shot.",
+      tapMultiplierDesc: 'Multiplies the power of each shot.',
       multiShotName: 'Multi-shot',
       multiShotDesc: "Increases the main ship's cannons.",
       currentMultiShot: 'Current cannons:',
@@ -1787,7 +1973,7 @@ export const translations: Record<Language, TranslationStrings> = {
       acceptButton: (wager) => `Accept for ${wager}`,
       notEnoughPlatinum: "You're short on ore for this",
       waitingForYou: 'Waiting for you to play your round',
-      waitingForOpponent: "Waiting for your rival",
+      waitingForOpponent: 'Waiting for your rival',
       youWon: 'You won!',
       youLost: 'You lost.',
       tieResult: 'Tie — your wager was refunded.',
@@ -1819,7 +2005,7 @@ export const translations: Record<Language, TranslationStrings> = {
       replayConfirmYes: 'Yes',
       replayConfirmNo: 'No',
       introText:
-        "Welcome aboard, commander. I'm C0-PI, your ship's assistant. We're anchored next to an asteroid loaded with Amatista, and your mission is to extract it before it runs out. Let's walk through the controls.",
+        "Welcome aboard, commander. I'm C0-PI, your ship's assistant. Bad news: the reactor broke mid-expedition and we're stranded next to an asteroid loaded with Amatista. The good news is that mineral might be our way out. Let's walk through the controls.",
       pointAsteroidText: 'Fire at the asteroid to start extracting Amatista. Tap anywhere on screen.',
       pointTreeNavText: "Nice work. Now head to your ship's progress room.",
       pointTreeRootText: 'This is where you manage your drone fleet. Tap this core.',
@@ -1830,6 +2016,21 @@ export const translations: Record<Language, TranslationStrings> = {
         "Great work, commander! Your fleet is growing. From now on, every ten drones will automatically merge into one bigger, more efficient unit. Let's take a look.",
       droneFusionHomeText:
         "Look! Your ten drones have merged into one bigger, more powerful unit. Every time you gather ten more, they'll merge into another one just like it, keeping your fleet lean no matter how large it grows.",
+      stationIntroText:
+        "Your fleet is growing, commander. It's about time I told you a couple more things about our ship, and about how we're getting out of here.",
+      stationExitText:
+        'This button takes you outside the ship. Everything we need to repair it is out there. Press it.',
+      stationExitConfirmText: 'Helmet on. Step out.',
+      stationArriveText:
+        "This is the orbital station. Out here you'll find the ship, the store, the ranking, the upgrade tree… and what matters most right now: the refinery.",
+      stationRefineryText: 'Go into the refinery.',
+      stationRefineryIntroText:
+        'This is where we smelt the mineral you mine. Each reactor core holds ten capsules, and each capsule is loaded by smelting mineral.',
+      stationSmeltText: 'Press Smelt to load your first capsule.',
+      stationSmeltingText:
+        "It's smelting. When it's done you'll have one capsule of the core loaded, and once you've loaded them all you'll have repaired the core.",
+      stationPlanText:
+        "The ship has eight cores like this one, each loaded with a different mineral. Once you've loaded all eight, the reactor will run again and we can go home. That's the plan, commander.",
     },
   },
 }

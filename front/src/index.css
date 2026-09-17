@@ -77,6 +77,30 @@ body::before {
   background: transparent;
 }
 
+/* A card arriving: a short fade and a few px of lift, once, on mount —
+   quiet enough to register as the card settling rather than as a
+   transition. Off under reduced motion. */
+@keyframes card-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-appear {
+  animation: card-appear 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-appear {
+    animation: none;
+  }
+}
+
 @keyframes float-up {
   0% {
     opacity: 1;
@@ -192,6 +216,301 @@ body::before {
   }
 }
 
+
+/* The stations out in adjust-view space (components/SpaceStations.tsx).
+   Every one of these animates an element's own transform or opacity and
+   nothing else — same rule as the rock's surface and the ring's grains, so
+   a station on screen costs the compositor a texture, not the main thread
+   a paint. */
+@keyframes station-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.station-spin {
+  display: block;
+  will-change: transform;
+  animation: station-spin 90s linear infinite;
+}
+
+/* The Podio's radar: the same turn, at a radar's pace. */
+.station-sweep {
+  display: block;
+  will-change: transform;
+  animation: station-spin 5s linear infinite;
+}
+
+/* The ore strip is two arms long and slides by one arm, towards the
+   station, then snaps back to an identical frame. */
+@keyframes station-conveyor {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.station-conveyor {
+  will-change: transform;
+  animation: station-conveyor 5s linear infinite;
+}
+
+/* The ore in the Refinería hall's ceiling pipe: the strip is a period
+   longer than the pipe and slides one period towards the down-pipe, then
+   snaps back to an identical frame. The period is the strip's own, set
+   inline as --ore-period. */
+@keyframes hall-ore {
+  from {
+    transform: translateX(calc(-1 * var(--ore-period)));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.hall-ore {
+  will-change: transform;
+  animation: hall-ore 3.2s linear infinite;
+}
+
+/* The light going round the ship's reactor sphere: the same turn as the
+   Nodo's ring, at a reactor's pace. */
+.reactor-turn {
+  will-change: transform;
+  animation: station-spin 9s linear infinite;
+}
+
+/* The console plate the rooms' controls sit on: a slab of graphite
+   standing on the deck, lit along its top edge, opaque so the grating
+   behind reads as behind. */
+.console-plate {
+  padding: 14px 16px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 38%),
+    #101117;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes station-smoke {
+  from {
+    opacity: 0.4;
+    transform: translate(0, 0) scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: translate(4px, -44px) scale(2.2);
+  }
+}
+
+.station-smoke {
+  will-change: transform, opacity;
+  animation: station-smoke 3.6s ease-out infinite;
+}
+
+/* The refinery's chimney: bubbles of the mineral rising, growing, and
+   thinning out — the plant's "producing" tell. */
+@keyframes station-bubble {
+  from {
+    opacity: 0.95;
+    transform: translate(0, 0) scale(0.45);
+  }
+  to {
+    opacity: 0;
+    transform: translate(8px, -64px) scale(1.5);
+  }
+}
+
+.station-bubble {
+  will-change: transform, opacity;
+  animation: station-bubble 3.5s ease-out infinite;
+}
+
+/* The landing pad's approach lights: each one flares briefly on a shared
+   4 s loop, offset by its place round the rim, so the flare runs round. */
+@keyframes station-chase {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  6%,
+  14% {
+    opacity: 1;
+  }
+  22% {
+    opacity: 0.15;
+  }
+}
+
+.station-chase {
+  animation: station-chase 4s linear infinite;
+}
+
+/* The berth adrift: a slow lift and settle on the whole box, the same
+   breath as the astronaut's own bob. */
+@keyframes station-hover {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.station-hover {
+  will-change: transform;
+  animation: station-hover 4.5s ease-in-out infinite;
+}
+
+@keyframes station-flame-a {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1, 1);
+  }
+  30% {
+    transform: translateX(-50%) scale(1.08, 1.14);
+  }
+  65% {
+    transform: translateX(-50%) scale(0.94, 0.9);
+  }
+}
+
+@keyframes station-flame-b {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1, 1);
+  }
+  40% {
+    transform: translateX(-50%) scale(0.9, 1.16);
+  }
+  75% {
+    transform: translateX(-50%) scale(1.1, 0.88);
+  }
+}
+
+@keyframes station-flame-c {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1, 1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.2, 0.8);
+  }
+}
+
+.station-flame-a {
+  will-change: transform;
+  animation: station-flame-a 0.34s ease-in-out infinite;
+}
+
+.station-flame-b {
+  will-change: transform;
+  animation: station-flame-b 0.27s ease-in-out infinite;
+}
+
+.station-flame-c {
+  will-change: transform;
+  animation: station-flame-c 0.19s ease-in-out infinite;
+}
+
+/* The ship's broken reactor port: a weak, uneven breathing. */
+@keyframes station-flicker {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  18% {
+    opacity: 0.7;
+  }
+  26% {
+    opacity: 0.3;
+  }
+  55% {
+    opacity: 0.8;
+  }
+  70% {
+    opacity: 0.4;
+  }
+}
+
+.station-flicker {
+  animation: station-flicker 3.2s ease-in-out infinite;
+}
+
+@keyframes station-blink {
+  0%,
+  88%,
+  100% {
+    opacity: 0.25;
+  }
+  90%,
+  97% {
+    opacity: 1;
+  }
+}
+
+.station-blink {
+  animation: station-blink 2.4s linear infinite;
+}
+
+@keyframes station-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.station-pulse {
+  animation: station-pulse 2.6s ease-in-out infinite;
+}
+
+.station-paused {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .station-spin,
+  .station-sweep,
+  .reactor-turn,
+  .station-conveyor,
+  .hall-ore,
+  .station-smoke,
+  .station-bubble,
+  .station-flicker,
+  .station-chase,
+  .station-hover,
+  .station-flame-a,
+  .station-flame-b,
+  .station-flame-c,
+  .station-blink,
+  .station-pulse {
+    animation: none;
+  }
+}
+
+/* The Refinería's core under repair: its rod's outline breathes. */
+@keyframes core-rod-active {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.core-rod-active {
+  animation: core-rod-active 1.2s ease-in-out infinite;
+}
 
 @keyframes ring-spark {
   0%,
@@ -720,4 +1039,131 @@ body::before {
   height: 3px;
   border-radius: 999px;
   transform: translateY(-50%);
+}
+
+/* Under a bulkhead (see components/Bulkhead) the grid shows only between
+   the cards. Every card surface is a faint tint over the ground, which
+   the grid would show through — so under the `bulkhead` class each of
+   those tints becomes the same colour mixed into the ground, opaque: the
+   card looks as it did, and the grid stops at its edge. Off hover only,
+   so a button's hover tint still lands. Modals are excluded — they float
+   over a dimmed page, where a glass surface is the point. */
+.bulkhead .bg-white\/\[0\.02\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 2%, #08080c);
+}
+.bulkhead .bg-white\/\[0\.03\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 3%, #08080c);
+}
+.bulkhead .bg-white\/\[0\.04\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 4%, #08080c);
+}
+.bulkhead .bg-white\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 5%, #08080c);
+}
+.bulkhead .bg-white\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 6%, #08080c);
+}
+.bulkhead .bg-white\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 8%, #08080c);
+}
+.bulkhead .bg-white\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 10%, #08080c);
+}
+.bulkhead .bg-black\/20:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #000 20%, #08080c);
+}
+.bulkhead .bg-black\/25:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #000 25%, #08080c);
+}
+.bulkhead .bg-black\/30:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #000 30%, #08080c);
+}
+.bulkhead .bg-black\/40:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #000 40%, #08080c);
+}
+.bulkhead .bg-indigo-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-indigo-500) 8%, #08080c);
+}
+.bulkhead .bg-indigo-500\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-indigo-500) 10%, #08080c);
+}
+.bulkhead .bg-indigo-500\/15:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-indigo-500) 15%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.02\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 2%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.04\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 4%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 6%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.07\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 7%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 8%, #08080c);
+}
+.bulkhead .bg-violet-500\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 10%, #08080c);
+}
+.bulkhead .bg-violet-500\/15:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 15%, #08080c);
+}
+.bulkhead .bg-fuchsia-500\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-fuchsia-500) 5%, #08080c);
+}
+.bulkhead .bg-fuchsia-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-fuchsia-500) 8%, #08080c);
+}
+.bulkhead .bg-fuchsia-500\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-fuchsia-500) 10%, #08080c);
+}
+.bulkhead .bg-emerald-500\/\[0\.02\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-emerald-500) 2%, #08080c);
+}
+.bulkhead .bg-emerald-500\/\[0\.04\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-emerald-500) 4%, #08080c);
+}
+.bulkhead .bg-lime-500\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-lime-500) 5%, #08080c);
+}
+.bulkhead .bg-lime-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-lime-500) 8%, #08080c);
+}
+.bulkhead .bg-amber-500\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-amber-500) 10%, #08080c);
+}
+.bulkhead .bg-orange-400\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-orange-400) 10%, #08080c);
+}
+.bulkhead .bg-white\/5:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 5%, #08080c);
+}
+.bulkhead .bg-white\/\[0\.14\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, #fff 14%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.09\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 9%, #08080c);
+}
+.bulkhead .bg-red-500\/\[0\.07\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-red-500) 7%, #08080c);
+}
+.bulkhead .bg-orange-500\/10:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-orange-500) 10%, #08080c);
+}
+.bulkhead .bg-amber-500\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-amber-500) 6%, #08080c);
+}
+.bulkhead .bg-violet-500\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-violet-500) 5%, #08080c);
+}
+.bulkhead .bg-indigo-500\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+  background-color: color-mix(in srgb, var(--color-indigo-500) 6%, #08080c);
+}
+/* …and a card whose surface is a gradient of tints gets the ground under
+   the gradient instead. */
+.bulkhead .from-white\/\[0\.05\]:not(.bg-black\/70 *) {
+  background-color: #08080c;
 }

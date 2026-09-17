@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart3, CalendarCheck, CircleUserRound, Flame, Medal } from 'lucide-react'
 import { Profile } from './Profile'
+import { Bulkhead } from '../components/Bulkhead'
+import { OutsideBackButton } from '../components/OutsideBackButton'
+import { useClickCounterContext } from '../context/ClickCounterContext'
+import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { useLanguage } from '../context/LanguageContext'
 import { useUserStats } from '../hooks/useUserStats'
 import { useClickDays } from '../hooks/useClickDays'
@@ -72,6 +76,8 @@ function getCalendarDays(clickDays: Set<string>): CalendarDay[] {
 
 export function Stats() {
   const { language, strings } = useLanguage()
+  const { prestigeTier } = useClickCounterContext()
+  const tier = MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]
   const { stats } = useUserStats()
   const { clickDays } = useClickDays()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
@@ -128,7 +134,9 @@ export function Stats() {
   }, [view])
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
+    <div className="bulkhead relative min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
+      <Bulkhead tier={tier} />
+      <OutsideBackButton />
       {/* Same floating pill, same position, as Leaderboard's own sort
           toggle — this tab holds two views (the profile and these stats)
           and this is what switches between them. Top offset matches
@@ -162,7 +170,7 @@ export function Stats() {
       {view === 'profile' ? (
         <Profile />
       ) : (
-      <div className="mx-auto max-w-2xl pt-20 sm:pt-24">
+      <div className="relative mx-auto max-w-2xl pt-20 sm:pt-24">
         <div className="mb-10 flex items-end gap-3">
           <div
             ref={scrollRef}
@@ -178,7 +186,7 @@ export function Stats() {
                     clicked
                       ? 'border-violet-400/30 bg-violet-500/10 text-violet-200'
                       : isFuture
-                        ? 'border-dashed border-white/5 text-neutral-700'
+                        ? 'border-dashed border-white/5 bg-[#08080c] text-neutral-700'
                         : 'border-white/5 bg-white/[0.02] text-neutral-600'
                   } ${isToday ? 'border-2 border-white/40' : ''}`}
                   style={{ width: DAY_CARD_WIDTH, height: DAY_CARD_HEIGHT }}

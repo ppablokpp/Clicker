@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
+import { PLACE_ROUTES, usePlace } from '../lib/place'
 
 /**
  * The tab glyphs, drawn here rather than taken from an icon set — the same
@@ -110,12 +111,20 @@ export function BottomNavPill() {
 const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspended }: { isSyncSuspended: boolean }) {
   const { strings } = useLanguage()
   const location = useLocation()
+  // The centre tab leads to wherever you last were — the rock or the
+  // station (see lib/place) — so leaving the station for the store and
+  // coming back lands you back at the station.
+  const place = usePlace()
   // No nav during a battle — the bottom of the screen is the countdown
   // bar's spot instead. Same for someone else's public profile: it's a
   // read-only drill-down reached by tapping a leaderboard row, not one of
   // the app's own tabs, so the only way back is its own back button —
   // showing the tab bar there would make it look like a sixth destination.
+  // And none outside the ship: the tabs are the ship's own console, and
+  // out there the stations are the way around, each screen they open with
+  // a back button to outside (see OutsideBackButton).
   if (
+    place === 'station' ||
     location.pathname.startsWith('/batalla') ||
     location.pathname.startsWith('/perfil/') ||
     location.pathname.startsWith('/personalizar')
@@ -143,7 +152,7 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
             return (
               <div key={to} className="relative h-10 w-[4.25rem]">
                 <NavLink
-                  to={to}
+                  to={PLACE_ROUTES[place]}
                   end={end}
                   replace
                   title={label}

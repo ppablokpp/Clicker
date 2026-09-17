@@ -20,11 +20,8 @@ import {
   Archive,
   Dices,
   Package,
-  Plane,
   ClipboardList,
-  Crosshair,
   Info,
-  ChartNoAxesCombined,
   Orbit,
   Split,
   Route,
@@ -53,12 +50,8 @@ import { useInventoryContext } from '../context/InventoryContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { playLaserShot } from '../lib/battleSound'
-import {
-  MATERIAL_TIER_COLORS,
-  MATERIAL_BUTTON_THEMES,
-  MATERIAL_ABBREVIATIONS,
-} from '../lib/materialTiers'
-import { formatPlatino, formatRate } from '../lib/formatPlatino'
+import { MATERIAL_TIER_COLORS, MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
+import { formatPlatino } from '../lib/formatPlatino'
 // Lifetime-platino threshold each tier unlocks at — index-aligned with
 // OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])).
 import { TRAJECTORY_TIER_THRESHOLDS } from '../lib/trajectory'
@@ -68,6 +61,13 @@ import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
 import { Asteroid, type AsteroidColors } from '../components/Asteroid'
 import { SpaceObject } from '../components/SpaceObject'
+import { TravelModal } from '../components/TravelModal'
+import { ExitGlyph } from '../components/AirlockGlyphs'
+import { TravelCover } from '../components/TravelCover'
+import { useRefineryContext } from '../context/RefineryContext'
+import { useTutorialContext, STATION_STEPS } from '../context/TutorialContext'
+import { setPlace } from '../lib/place'
+import { FleetReportModal, type FleetReportFigures } from '../components/FleetReportModal'
 import { TapEffectsLayer, type TapEffectsHandle } from '../components/TapEffectsLayer'
 
 interface InfoModalData {
@@ -82,6 +82,13 @@ interface InfoModalData {
 // with no server round trip, purely derived from clicksPerSecond. Legendario
 // also doubles the value of each click (registerClick(multiplier)). `key` is
 // resolved against strings.home.heat inside the component for translation.
+/** How long the flight to the next asteroid shows for at least, in ms —
+ *  the cover lifts when the new tier is loaded, but not before this. */
+const PRESTIGE_FLIGHT_MS = 2000
+/** The airlock opens once the fleet is this big on the first asteroid —
+ *  the station tutorial fires on that same purchase and walks you out. */
+const AIRLOCK_UNLOCK_DRONES = 5
+
 const HEAT_LEVELS = [
   { min: 0, key: null, badge: 'text-neutral-300', icon: 'text-neutral-600', ripple: 'bg-violet-400/40', glow: 'rgba(168,85,247,0.25)', multiplier: 1 },
   { min: 6, key: 'onFire', badge: 'text-amber-300', icon: 'text-amber-400', ripple: 'bg-amber-400/50', glow: 'rgba(251,191,36,0.35)', multiplier: 1 },
@@ -620,8 +627,16 @@ export function Home() {
   const tapEffectsRef = useRef<TapEffectsHandle>(null)
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false)
   const [prestigeError, setPrestigeError] = useState<string | null>(null)
+  // The flight between asteroids: the cover over the screen while the next
+  // tier's everything is fetched, lifted onto the new rock once it is all
+  // there (see handleConfirmPrestige).
+  const [prestiging, setPrestiging] = useState(false)
   const [showInventory, setShowInventory] = useState(false)
   const [showShip, setShowShip] = useState(false)
+  // The flight to the station: the sheet that asks, then the cover that
+  // flies. Landing is a navigate — see TravelCover.
+  const [showTravel, setShowTravel] = useState(false)
+  const [traveling, setTraveling] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
@@ -641,7 +656,15 @@ export function Home() {
   // from scrolling underneath while open, since only the overlay's own
   // content was ever made scrollable.
   useLockBodyScroll(
-    showPrestigeConfirm || showInventory || showShip || showTasks || showLog || showEventChallenge || infoModal !== null,
+    showPrestigeConfirm ||
+      showInventory ||
+      showShip ||
+      showTravel ||
+      traveling ||
+      showTasks ||
+      showLog ||
+      showEventChallenge ||
+      infoModal !== null,
   )
   const containerRef = useRef<HTMLDivElement>(null)
   // The space object's own on-screen box — click shots animate from the tap
@@ -891,6 +914,29 @@ export function Home() {
   // your odds from 19% to 1% — you were paying gems to get unlucky.
   const luckChance = Math.max(permanentLuckChance, activeLuckPowerup?.chance ?? 0)
   const combinedLuckMultiplier = permanentLuckMultiplier * (activeLuckPowerup?.multiplier ?? 1)
+  // Everything the fleet report prints, in one object, so the station can
+  // hand the same modal the same numbers (see components/FleetReportModal).
+  const fleetFigures: FleetReportFigures = {
+    currentMaterialName,
+    cpsUnit,
+    autoClickLevel,
+    autoClickCps,
+    scoutDroneLevel,
+    scoutDroneRate,
+    scoutDroneCps,
+    gunnerLevel,
+    gunnerRate,
+    gunnerCps,
+    multiShotValue,
+    baseClickMultiplier,
+    tapMultiplierValue,
+    autoMultiplierValue,
+    moneyMultiplier,
+    hasLuck,
+    luckChance,
+    combinedLuckMultiplier,
+    offlineProductionValue,
+  }
 
   // Prestige is tier-based now — each Trayectoria tier *is* a prestige
   // level, driven by lifetime platino (see TRAJECTORY_TIER_THRESHOLDS), not
@@ -902,16 +948,39 @@ export function Home() {
   // lifetimePlatino keeps climbing in the background for as long as they
   // keep farming past that point. `isMaxed` is a separate, final state —
   // true only once there's no tier left above the current one at all.
+  // Two conditions now, not one: the goal, and the tier's core whole at
+  // the Refinería (all ten capsules loaded). The ring fills on the goal
+  // alone; the button waits for both, and says what's missing meanwhile.
   const hasNextTier = currentTierIndex < OBJECT_TIERS.length - 1
+  const { core: refineryCore } = useRefineryContext()
+
+  // The station tutorial fires on buying the fifth drone (see Tree.tsx) —
+  // but an account that already had five or more when it shipped never
+  // buys that one, so it fires here instead, once, the first time such an
+  // account is seen with the flag still down. Only once the fleet has
+  // been read (the level defaults to 0 until then) and with nothing else
+  // running.
+  const tutorial = useTutorialContext()
+  const stationTutorialFiredRef = useRef(false)
+  useEffect(() => {
+    if (stationTutorialFiredRef.current || tutorial.stationTutorialDone || tutorial.isActive) return
+    if (currentTierIndex > 0 || autoClickLevel >= AIRLOCK_UNLOCK_DRONES) {
+      stationTutorialFiredRef.current = true
+      tutorial.start({ steps: STATION_STEPS, persistAs: 'station' })
+    }
+  }, [tutorial, currentTierIndex, autoClickLevel])
+  const coreWhole = Boolean(refineryCore && refineryCore.tier === currentTierIndex && refineryCore.repaired >= refineryCore.total)
   const prestige = useMemo(() => {
     const tierFrom = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex]
     const tierTo = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex + 1]
+    const goalMet = hasNextTier && lifetimePlatino >= tierTo
     return {
       isMaxed: !hasNextTier,
-      readyToPrestige: hasNextTier && lifetimePlatino >= tierTo,
+      goalMet,
+      readyToPrestige: goalMet && coreWhole,
       pct: tierTo ? Math.min(1, (lifetimePlatino - tierFrom) / (tierTo - tierFrom)) : 1,
     }
-  }, [lifetimePlatino, currentTierIndex, hasNextTier])
+  }, [lifetimePlatino, currentTierIndex, hasNextTier, coreWhole])
 
   const starsDim = useMemo(() => generateStars(220, 0.5), [])
   const starsBright = useMemo(() => generateStars(60, 0.9), [])
@@ -929,18 +998,26 @@ export function Home() {
     const result = await confirmPrestige()
     if (result.ok) {
       setShowPrestigeConfirm(false)
+      setPrestiging(true)
+      const liftOff = Date.now()
       // Before the refetch, not after: the local production tick would
       // otherwise keep crediting the just-deleted fleet for the whole round
       // trip and land those clicks on a counter that is supposed to read 0.
       resetTreeForPrestige()
-      refetchTree()
       refetchDailyCaseCatalog()
       refetchGemChestCatalog()
       refetchClickPacksCatalog()
       refetchPowerupCatalog()
       refetchLuckCatalog()
+      // The cover stays up until the tree is back from the server — that is
+      // what the swarm is drawn from, and lifting it sooner showed the old
+      // fleet for a beat over the new rock — and for the flight's two
+      // seconds at least, so a quick answer doesn't cut the flight short.
+      await refetchTree()
+      const left = Math.max(0, PRESTIGE_FLIGHT_MS - (Date.now() - liftOff))
+      window.setTimeout(() => setPrestiging(false), left)
     } else if (result.error !== 'not-signed-in') {
-      setPrestigeError(result.error ?? 'error')
+      setPrestigeError(result.error === 'core-not-whole' ? strings.home.prestigeNeedsCore : (result.error ?? 'error'))
     }
   }
 
@@ -1163,7 +1240,15 @@ export function Home() {
   // window-level keydown listener bypasses that bubbling entirely, so this
   // needs its own explicit check.
   const isAnyModalOpen =
-    showPrestigeConfirm || showInventory || showShip || showTasks || showLog || infoModal !== null || showEventChallenge
+    showPrestigeConfirm ||
+    showInventory ||
+    showShip ||
+    showTravel ||
+    traveling ||
+    showTasks ||
+    showLog ||
+    infoModal !== null ||
+    showEventChallenge
 
   useEffect(() => {
     if (isAnyModalOpen || zoomMode) return
@@ -1221,7 +1306,7 @@ export function Home() {
           `blur-[140px]` div (same mobile Chromium flash-to-square bug fixed
           on the asteroid's own glow, so it's built the filter-free way
           from the start here). */}
-      {prestige.readyToPrestige && (
+      {prestige.goalMet && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
             className="animate-pulse-glow absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
@@ -1437,7 +1522,7 @@ export function Home() {
                     iconClass="text-sky-300"
                     ledClass="bg-sky-400 shadow-[0_0_3px_1px_rgba(56,189,248,0.9)]"
                     borderClass="border-sky-400/20"
-                    lit={prestige.readyToPrestige}
+                    lit={prestige.goalMet}
                   />
                 </div>
               </div>
@@ -1490,7 +1575,7 @@ export function Home() {
               <SpaceObject
                 tierIndex={currentTierIndex}
                 pct={prestige.pct}
-                isMaxed={prestige.readyToPrestige}
+                isMaxed={prestige.goalMet}
                 paused={isAnyModalOpen}
               />
             </div>
@@ -1502,21 +1587,26 @@ export function Home() {
             flex-col's own height. That mattered: as a normal-flow sibling
             it was pushing the whole stack (ring included) upward to stay
             centered on the page whenever it appeared. */}
-        {prestige.readyToPrestige && (
-          <div className="pointer-events-none absolute left-0 right-0 top-full mt-8 flex flex-col items-center px-3">
+        {prestige.goalMet && (
+          <div className="pointer-events-none absolute left-0 right-0 top-full mt-12 flex flex-col items-center px-3">
             <span className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-amber-300">
               {strings.home.prestigeReady}
             </span>
-            <div className="pointer-events-auto flex flex-col items-center gap-1.5">
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setShowPrestigeConfirm(true)}
-                className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
-              >
-                <Sparkles size={13} className="text-amber-300" />
-                {strings.home.changePrestige}
-              </button>
-            </div>
+            {prestige.readyToPrestige ? (
+              <div className="pointer-events-auto flex flex-col items-center gap-1.5">
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => setShowPrestigeConfirm(true)}
+                  className="animate-prestige-pulse flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 px-4 py-2 text-xs font-bold text-amber-200 shadow-lg shadow-amber-500/10 transition-transform hover:scale-105"
+                >
+                  <Sparkles size={13} className="text-amber-300" />
+                  {strings.home.changePrestige}
+                </button>
+              </div>
+            ) : (
+              /* the goal is met but the core isn't: say so, where the button would be */
+              <p className="max-w-[26ch] text-center text-[11px] leading-snug text-neutral-400">{strings.home.prestigeNeedsCore}</p>
+            )}
           </div>
         )}
       </div>
@@ -1545,6 +1635,22 @@ export function Home() {
         >
           <Move size={15} />
         </button>
+        {/* The airlock, under the view control: Home is the inside of the
+            ship, and this steps outside to where the ship, the Refinería
+            and the rock all are. Same size, same material, the ship's
+            violet so it reads as "go somewhere" next to a control that
+            only adjusts the framing. */}
+        {(currentTierIndex > 0 || autoClickLevel >= AIRLOCK_UNLOCK_DRONES) && (
+        <button
+          data-tutorial="home-exit"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowTravel(true)}
+          aria-label={strings.station.travelLabel}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-400/40 bg-violet-500/20 text-violet-200 backdrop-blur-xl transition-colors hover:bg-violet-500/30"
+        >
+          <ExitGlyph size={16} />
+        </button>
+        )}
       </div>
 
       <TapEffectsLayer ref={tapEffectsRef} />
@@ -1753,212 +1859,32 @@ export function Home() {
         </div>
       )}
 
-      {showShip && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setShowShip(false)}
-        >
-          <div
-            className="relative w-full max-w-sm overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
-            style={{ clipPath: MODAL_CLIP_PATH }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <CockpitModalChrome />
-            {/* Cockpit-glow header strip — same radial-gradient trick as the
-                asteroid/prestige glows elsewhere (never a CSS `blur()`, which
-                flashes-to-square on some mobile Chromium builds). */}
-            <div className="relative overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
-              <div
-                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.35) 0%, transparent 70%)' }}
-              />
-              <button
-                onClick={() => setShowShip(false)}
-                aria-label="Close"
-                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
-              >
-                <X size={16} />
-              </button>
-              <div className="relative flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-400/30 bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
-                  <Joystick size={19} />
-                </div>
-                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.commandCenterTitle}</p>
-              </div>
-            </div>
-
-            <div className="scroll-thin flex max-h-[60vh] flex-col gap-5 overflow-y-auto p-5">
-              <div>
-                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  {strings.home.shipSection}
-                </p>
-                <div className="flex flex-col gap-2.5">
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-300">
-                        <Crosshair size={14} />
-                      </div>
-                      <p className="text-sm font-semibold text-white">{strings.home.shipPower}</p>
-                    </div>
-                    <p className="text-xs text-neutral-400">
-                      {strings.home.shipPowerDesc(currentMaterialName)}{' '}
-                      <span className="font-semibold text-white">
-                        {formatPlatino(baseClickMultiplier * tapMultiplierValue * moneyMultiplier, language)}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300">
-                        <Split size={14} />
-                      </div>
-                      <p className="text-sm font-semibold text-white">{strings.home.shipMultiShot}</p>
-                    </div>
-                    <p className="text-xs text-neutral-400">
-                      {strings.home.shipMultiShotDesc} <span className="font-semibold text-white">{multiShotValue}</span>
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-300">
-                        <Sparkles size={14} />
-                      </div>
-                      <p className="text-sm font-semibold text-white">{strings.home.shipLuckChance}</p>
-                    </div>
-                    {hasLuck ? (
-                      <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
-                        <p>
-                          {strings.home.shipLuckPowerDesc}{' '}
-                          <span className="font-semibold text-white">{combinedLuckMultiplier}</span>
-                        </p>
-                        <p>
-                          {strings.home.shipLuckChanceDesc}{' '}
-                          <span className="font-semibold text-white">{Math.round(luckChance * 100)}%</span>
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs font-medium text-neutral-600">{strings.home.shipNotInstalled}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  {strings.home.fleetSection}
-                </p>
-                <div className="flex flex-col gap-2.5">
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-500/20 text-zinc-300">
-                        <ChartNoAxesCombined size={14} />
-                      </div>
-                      <p className="text-sm font-semibold text-white">{strings.home.shipDroneProduction}</p>
-                    </div>
-                    <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
-                      <p>
-                        {strings.home.shipDroneProductionDesc}{' '}
-                        <span className="font-semibold text-white">
-                          {formatPlatino(autoClickCps + scoutDroneCps + gunnerCps, language)}
-                        </span>{' '}
-                        {cpsUnit}
-                      </p>
-                      <p>
-                        {strings.home.shipOfflineProductionDesc}{' '}
-                        <span className="font-semibold text-white">
-                          {formatRate((autoClickCps + scoutDroneCps + gunnerCps) * offlineProductionValue, language)}
-                        </span>{' '}
-                        {cpsUnit}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-violet-300">
-                        <DroneIcon size={14} />
-                      </div>
-                      <p className="text-sm font-semibold text-white">{strings.home.shipDroneCount}</p>
-                    </div>
-                    <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
-                      <p>
-                        {strings.home.shipDroneCountDesc}{' '}
-                        <span className="font-semibold text-white">{autoClickLevel}</span>
-                      </p>
-                      <p>
-                        {strings.home.shipDronePerUnitDesc}{' '}
-                        <span className="font-semibold text-white">
-                          {formatRate(autoMultiplierValue, language)}
-                        </span>{' '}
-                        {cpsUnit}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
-                        <DroneIcon size={14} />
-                      </div>
-                      <p className="text-sm font-semibold text-white">{strings.home.shipScoutDrones}</p>
-                    </div>
-                    {scoutDroneLevel > 0 ? (
-                      <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
-                        <p>
-                          {strings.home.shipScoutDronesCountDesc}{' '}
-                          <span className="font-semibold text-white">{scoutDroneLevel}</span>
-                        </p>
-                        <p>
-                          {strings.home.shipScoutDronesPerUnitDesc}{' '}
-                          <span className="font-semibold text-white">
-                            {formatRate(scoutDroneRate, language)}
-                          </span>{' '}
-                          {cpsUnit}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs font-medium text-neutral-600">{strings.home.shipNotInstalled}</p>
-                    )}
-                  </div>
-
-                  {/* Gunners get no "not installed" placeholder, unlike the
-                      scouts above: the drone tiles describe units the fleet
-                      is expected to have, where this one is off a late node
-                      most accounts will never reach. An empty slot for it
-                      would read as something missing rather than something
-                      optional. */}
-                  {gunnerLevel > 0 && (
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5D6532]/30 text-[#c3cc85]">
-                          <Plane size={14} />
-                        </div>
-                        <p className="text-sm font-semibold text-white">{strings.home.shipGunners}</p>
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-xs text-neutral-400">
-                        <p>
-                          {strings.home.shipGunnersCountDesc}{' '}
-                          <span className="font-semibold text-white">{gunnerLevel}</span>
-                        </p>
-                        <p>
-                          {strings.home.shipGunnersPerUnitDesc}{' '}
-                          <span className="font-semibold text-white">
-                            {formatRate(gunnerRate, language)}
-                          </span>{' '}
-                          {cpsUnit}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {showTravel && (
+        <TravelModal
+          title={strings.station.travelTitle}
+          body={strings.station.travelBody}
+          confirm={strings.station.travelGo}
+          cancel={strings.station.cancel}
+          onConfirm={() => {
+            setShowTravel(false)
+            setTraveling(true)
+          }}
+          onClose={() => setShowTravel(false)}
+        />
       )}
+      {traveling && (
+        <TravelCover
+          steps={strings.station.travelSteps}
+          onDone={() => {
+            // The place changes with the flight, not with the URL: that is
+            // what lets a reload on /estacion know nobody flew there.
+            setPlace('station')
+            navigate('/estacion')
+          }}
+        />
+      )}
+
+      {showShip && <FleetReportModal figures={fleetFigures} onClose={() => setShowShip(false)} />}
 
       {showTasks && (
         <div
@@ -2268,6 +2194,7 @@ export function Home() {
         </div>
       )}
 
+      {prestiging && <TravelCover steps={strings.station.prestigeSteps} onDone={() => {}} />}
       {showPrestigeConfirm && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"

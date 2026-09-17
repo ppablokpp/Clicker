@@ -1,4 +1,7 @@
-﻿import { useState } from 'react'
+﻿import { Bulkhead } from '../components/Bulkhead'
+import { OutsideBackButton } from '../components/OutsideBackButton'
+import { usePlace } from '../lib/place'
+import { useState } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { Clock, Loader2, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
@@ -49,7 +52,7 @@ function WalletBay({ icon, amount, ariaLabel, tone, pool, onClick }: WalletBayPr
     >
       <span className="relative flex h-7 items-center justify-center">
         <span
-          className="pointer-events-none absolute h-9 w-9 rounded-full opacity-60 blur-lg transition-opacity group-hover:opacity-100"
+          className="pointer-events-none absolute h-8 w-8 rounded-full opacity-25 blur-lg transition-opacity group-hover:opacity-50"
           style={{ background: pool }}
         />
         <span className="relative flex" style={{ color: tone }}>
@@ -81,6 +84,9 @@ function WalletBay({ icon, amount, ariaLabel, tone, pool, onClick }: WalletBayPr
 }
 
 export function Store() {
+  // Opened from outside the ship, the store has no tab bar under it and
+  // a way back over it, so its header moves down to make the room.
+  const outside = usePlace() === 'station'
   const { language, strings } = useLanguage()
   const { totalClicks, prestigeTier } = useClickCounterContext()
   // Whatever's currently being mined — every "your balance" label here
@@ -98,8 +104,24 @@ export function Store() {
   const [showGemPacks, setShowGemPacks] = useState(false)
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 pt-6 sm:px-6 sm:pb-24 sm:pt-8">
-      <div className="mx-auto max-w-2xl">
+    <div className={`relative min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24 ${outside ? 'pt-14 sm:pt-16' : 'pt-6 sm:pt-8'}`}>
+      <Bulkhead tier={materialColors} />
+      <OutsideBackButton />
+      <div className="bulkhead relative mx-auto max-w-2xl">
+        {/* The name, stamped between two rules the way the Refinería's is,
+            lit in whatever is being mined — the same light the wallet
+            plate under it takes. */}
+        <div className="relative mb-6 flex justify-center">
+          <p
+            className="relative border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
+            style={{
+              borderColor: `${materialColors.fill}80`,
+              textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${materialColors.fill}59`,
+            }}
+          >
+            {strings.home.stationMarket}
+          </p>
+        </div>
         <header className="mb-10">
           {/* The counter: one plate, three bays. Three separate pills read as
               three readouts that happen to sit near each other, and hid the
@@ -270,7 +292,9 @@ interface ClickPacksModalProps {
  * stone itself on it: same silhouette, so it is plainly the same market, and
  * plainly not the same kind of payment.
  */
-function ClickPacksModal({ strings, currentMaterialName, materialColors, onClose }: ClickPacksModalProps) {
+// Exported for Home: the Refinería out in adjust-view space opens this same
+// stall, since that is where the ore goes.
+export function ClickPacksModal({ strings, currentMaterialName, materialColors, onClose }: ClickPacksModalProps) {
   const { language } = useLanguage()
   const { catalog, buyingId, buy } = useClickPacksContext()
   const { gems } = useGemsContext()

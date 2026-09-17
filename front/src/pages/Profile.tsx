@@ -196,7 +196,7 @@ export function Profile() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center px-4 pt-24 sm:pt-28">
+    <div className="relative mx-auto flex max-w-md flex-col items-center px-4 pt-24 sm:pt-28">
       {/* Settings — gear top-right, same fixed strip the tab's own
           profile/stats pill sits in. Everything account-adjacent (language,
           email, sign out) lives behind it, keeping this main view down to
@@ -300,7 +300,7 @@ function RankCard() {
     <button
       onClick={() => navigate('/clasificacion')}
       aria-label={strings.profile.rankViewAll}
-      className="mt-9 w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition-colors hover:border-white/[0.14]"
+      className="card-appear mt-9 w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-left transition-colors hover:border-white/[0.14]"
     >
       <div className="flex items-start justify-between gap-3">
         <div>

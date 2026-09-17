@@ -393,7 +393,11 @@ export function TutorialOverlay() {
           right, tailed back toward it via an asymmetric triangle notch at
           its bottom-left corner, stretching further left than tall — the
           classic corner comic-bubble tail, not a symmetric little diamond. */}
-      <div className="pointer-events-none fixed inset-x-4 bottom-24 flex justify-center sm:bottom-28 sm:inset-x-0">
+      <div
+        className={`pointer-events-none fixed inset-x-4 flex justify-center sm:inset-x-0 ${
+          currentStep.bubbleAt === 'top' ? 'top-6 sm:top-8' : 'bottom-24 sm:bottom-28'
+        }`}
+      >
         <div className="flex w-full max-w-md items-end gap-2">
           <div className="pointer-events-none h-36 w-36 shrink-0 sm:h-40 sm:w-40">
             <Lottie src={robotAnimation} className="h-full w-full" loop autoplay />

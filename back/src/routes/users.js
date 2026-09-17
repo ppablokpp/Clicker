@@ -81,6 +81,7 @@ function toPublicUser(row) {
     casesOpened: Number(row.cases_opened ?? 0),
     milestoneBonusMultiplier: Number(row.milestone_bonus_multiplier ?? 1),
     tutorialCompleted: Boolean(row.tutorial_completed),
+    stationTutorialCompleted: Boolean(row.station_tutorial_completed),
     astronautStyle: row.astronaut_style ?? null,
     activePowerup: isPowerupActive
       ? {
@@ -302,6 +303,21 @@ usersRouter.post('/tutorial-complete', async (req, res) => {
   } catch (err) {
     console.error('Error marking tutorial complete', err)
     res.status(500).json({ error: 'Error marking tutorial complete' })
+  }
+})
+
+// The station tutorial (the fifth drone → out of the ship → the first
+// capsule), once it finishes.
+usersRouter.post('/station-tutorial-complete', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  try {
+    await usersRepository.markStationTutorialCompleted(userId)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Error marking station tutorial complete', err)
+    res.status(500).json({ error: 'Error marking station tutorial complete' })
   }
 })
 

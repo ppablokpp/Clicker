@@ -1,3 +1,5 @@
+import { Bulkhead } from '../components/Bulkhead'
+import { OutsideBackButton } from '../components/OutsideBackButton'
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -33,14 +35,14 @@ import { useLanguage } from '../context/LanguageContext'
 import { formatPlatino, formatRate } from '../lib/formatPlatino'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useTreeContext } from '../context/TreeContext'
-import { useTutorialContext, DRONE_FUSION_STEPS } from '../context/TutorialContext'
+import { useTutorialContext, DRONE_FUSION_STEPS, STATION_STEPS } from '../context/TutorialContext'
 import { useGemUpgradesContext, type GemUpgradeDef } from '../context/GemUpgradesContext'
 import { useFleetUpgradesContext } from '../context/FleetUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
-import { MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS } from '../lib/materialTiers'
+import { MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
 // them animate in first, farther ones follow a beat later, so a whole
@@ -534,9 +536,14 @@ export function Tree() {
   // instant it happens, gated on the *result* of a real purchase (not a
   // level readback afterward, which would still show the pre-render stale
   // value) so it can never double-fire for the same purchase.
+  // The fifth drone on the first asteroid is when the airlock opens and the
+  // station tutorial walks you out (once ever — see TutorialContext).
   const handleBuyAutoClick = async () => {
     const result = await buyAutoClick()
-    if (result.ok && result.newLevel === 10 && prestigeTier === 0) {
+    if (result.ok && result.newLevel === 5 && prestigeTier === 0 && !tutorial.stationTutorialDone) {
+      setShowAutoClickModal(false)
+      tutorial.start({ steps: STATION_STEPS, persistAs: 'station' })
+    } else if (result.ok && result.newLevel === 10 && prestigeTier === 0) {
       setShowAutoClickModal(false)
       tutorial.start({ steps: DRONE_FUSION_STEPS })
     }
@@ -855,7 +862,9 @@ export function Tree() {
   const isVisible = (id: string) => id === 'root' || revealStateById[id] !== 'hidden'
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#08080c]">
+    <div className="bulkhead fixed inset-0 overflow-hidden bg-[#08080c]">
+      <Bulkhead tier={MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]} fixed={false} />
+      <OutsideBackButton />
       <div
         className="h-full w-full touch-none"
         onPointerDown={handlePointerDown}

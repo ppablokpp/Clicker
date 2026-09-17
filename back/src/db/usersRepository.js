@@ -3,6 +3,8 @@ import { applyObjectProgress } from '../game/spaceObjects.js'
 import { TRAJECTORY_TIER_THRESHOLDS, TRAJECTORY_TIER_COUNT, prestigeTierMultiplier } from '../game/trajectory.js'
 import { clickPackAmount } from '../store/clickPacks.js'
 import { accrueProduction } from './treeRepository.js'
+import { settle as settleCore } from './refineryRepository.js'
+import { CORES_PER_TIER } from '../game/refinery.js'
 import { SIGNIN_CHEST_REWARD } from '../store/chestBench.js'
 
 // Applies to both chest types â€” buying more than this just sits unopened,
@@ -342,6 +344,14 @@ export const usersRepository = {
       if (lifetimePlatino < requiredPlatino) {
         await client.query('ROLLBACK')
         return { ok: false, reason: 'not-eligible' }
+      }
+
+      // …and the tier's core has to be whole: every capsule loaded at the
+      // Refinería. Settled first, so a capsule whose time is up counts.
+      const core = await settleCore(client, userId, currentTier)
+      if (core.repaired < CORES_PER_TIER) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'core-not-whole' }
       }
 
       const updated = await client.query(
@@ -1580,5 +1590,9 @@ export const usersRepository = {
   // the tutorial is manually re-watched, not just on the one real first-run.
   async markTutorialCompleted(id) {
     await database.query('UPDATE users SET tutorial_completed = true, updated_at = now() WHERE id = $1', [id])
+  },
+
+  async markStationTutorialCompleted(id) {
+    await database.query('UPDATE users SET station_tutorial_completed = true, updated_at = now() WHERE id = $1', [id])
   },
 }

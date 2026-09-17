@@ -611,7 +611,7 @@ export function ChestBench() {
         aria-label={s.claimDailyKey}
         className={`relative mb-5 mt-2 flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
           claimedToday
-            ? 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60'
+            ? 'border-white/5 bg-white/[0.03] text-neutral-500 [&>*]:opacity-60'
             : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
         }`}
       >

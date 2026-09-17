@@ -1,3 +1,5 @@
+import { Bulkhead } from '../components/Bulkhead'
+import { OutsideBackButton } from '../components/OutsideBackButton'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Loader2, Medal, Minus, Plus, Search, Swords, X, Zap } from 'lucide-react'
@@ -29,9 +31,13 @@ export function Leaderboard() {
   const { language, strings } = useLanguage()
   const [showBattles, setShowBattles] = useState(false)
   const reduceMotion = useReducedMotion()
+  const { prestigeTier } = useClickCounterContext()
+  const tier = MATERIAL_TIER_COLORS[prestigeTier] ?? MATERIAL_TIER_COLORS[0]
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
+    <div className="bulkhead relative min-h-[100dvh] w-full bg-[#08080c] px-4 pb-28 sm:px-6 sm:pb-24">
+      <Bulkhead tier={tier} />
+      <OutsideBackButton />
       <button
         onClick={() => setShowBattles(true)}
         aria-label={strings.battle.buttonLabel}
@@ -67,7 +73,7 @@ export function Leaderboard() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl pt-20 sm:pt-24">
+      <div className="relative mx-auto max-w-2xl pt-20 sm:pt-24">
         {!isLoading && leaderboard.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
             {strings.leaderboard.empty}
