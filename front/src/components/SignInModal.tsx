@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { useSignIn } from '@clerk/clerk-react'
+import { useClerk, useSignIn } from '@clerk/clerk-react'
 import { MousePointerClick, TriangleAlert, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
+import { isNativeApp } from '../lib/native'
+import { NativeSignInCancelled, signInWithGoogleNative } from '../lib/nativeSignIn'
 
 interface ClerkApiError {
   errors?: { message?: string; longMessage?: string }[]
@@ -21,6 +23,7 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 export function SignInModal() {
   const { isOpen, closePrompt } = useSignInPrompt()
   const { signIn, isLoaded } = useSignIn()
+  const clerk = useClerk()
   const { strings } = useLanguage()
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +35,23 @@ export function SignInModal() {
     if (!isLoaded || !signIn) return
     setError(null)
     setIsRedirecting(true)
+    // Inside the native shell there is no redirect: the system's account
+    // sheet opens over the app and the token goes to Clerk directly (see
+    // lib/nativeSignIn). The page never leaves, so the modal closes itself.
+    if (isNativeApp()) {
+      try {
+        await signInWithGoogleNative(clerk)
+        closePrompt()
+      } catch (err) {
+        if (!(err instanceof NativeSignInCancelled)) {
+          console.error('Error iniciando sesión con Google (nativo)', err)
+          setError(extractErrorMessage(err, strings.signIn.genericError))
+        }
+      } finally {
+        setIsRedirecting(false)
+      }
+      return
+    }
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
