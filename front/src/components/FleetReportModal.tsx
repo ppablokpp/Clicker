@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Crosshair, Plane, Sparkles, Split } from 'lucide-react'
+import { ChevronRight, Crosshair, Package, Plane, Sparkles, Split } from 'lucide-react'
 import { StallModalHeader, StallModalWall } from './StallModalHeader'
 import { DroneIcon } from './DroneIcon'
 import { useLanguage } from '../context/LanguageContext'
@@ -92,7 +92,11 @@ function Gauge({
     <div className="flex flex-col items-center px-1.5 py-3 text-center">
       <span
         className="flex h-6 w-6 items-center justify-center rounded-full"
-        style={{ color: tone, background: `${tone}22`, boxShadow: dim ? undefined : `0 0 10px ${tone}55` }}
+        style={{
+          color: tone,
+          background: `${tone}22`,
+          boxShadow: dim ? undefined : `0 0 10px ${tone}55`,
+        }}
       >
         {icon}
       </span>
@@ -128,11 +132,16 @@ function Bay({
   return (
     <div
       className={`flex flex-col items-center rounded-lg px-1.5 py-3 text-center ${installed ? 'border border-white/[0.07]' : 'border border-dashed border-white/[0.08]'}`}
-      style={{ background: installed ? `linear-gradient(180deg, ${tone}14, transparent 70%)` : undefined }}
+      style={{
+        background: installed ? `linear-gradient(180deg, ${tone}14, transparent 70%)` : undefined,
+      }}
     >
       <span
         className="flex h-7 w-7 items-center justify-center rounded-full"
-        style={{ color: installed ? tone : '#525252', background: installed ? `${tone}22` : 'rgba(255,255,255,0.04)' }}
+        style={{
+          color: installed ? tone : '#525252',
+          background: installed ? `${tone}22` : 'rgba(255,255,255,0.04)',
+        }}
       >
         {icon}
       </span>
@@ -151,7 +160,20 @@ function Bay({
 /** The command centre's stall colour: the ship's violet. */
 const STALL_VIOLET = { fill: '#a78bfa', glow: 'rgba(168,85,247,0.6)' }
 
-export function FleetReportModal({ figures, onClose }: { figures: FleetReportFigures; onClose: () => void }) {
+export function FleetReportModal({
+  figures,
+  onClose,
+  onOpenInventory,
+  inventoryLit,
+}: {
+  figures: FleetReportFigures
+  onClose: () => void
+  /** The hold: opens the inventory in the console's place. Only from the
+      cockpit — outside the ship the console has no hold behind it. */
+  onOpenInventory?: () => void
+  /** Something unseen in the hold. */
+  inventoryLit?: boolean
+}) {
   const { language, strings } = useLanguage()
   const {
     currentMaterialName,
@@ -178,9 +200,21 @@ export function FleetReportModal({ figures, onClose }: { figures: FleetReportFig
   // Each unit's share of the production, for the bar — the tones are the
   // bays' own, so the bar reads as the same three things.
   const shares = [
-    { key: 'drones', tone: '#a78bfa', pct: totalCps ? autoClickCps / totalCps : 0 },
-    { key: 'scouts', tone: '#fbbf24', pct: totalCps ? scoutDroneCps / totalCps : 0 },
-    { key: 'gunners', tone: '#22d3ee', pct: totalCps ? gunnerCps / totalCps : 0 },
+    {
+      key: 'drones',
+      tone: '#a78bfa',
+      pct: totalCps ? autoClickCps / totalCps : 0,
+    },
+    {
+      key: 'scouts',
+      tone: '#fbbf24',
+      pct: totalCps ? scoutDroneCps / totalCps : 0,
+    },
+    {
+      key: 'gunners',
+      tone: '#22d3ee',
+      pct: totalCps ? gunnerCps / totalCps : 0,
+    },
   ]
   return (
     <div
@@ -297,6 +331,29 @@ export function FleetReportModal({ figures, onClose }: { figures: FleetReportFig
                 />
               </div>
             </Panel>
+
+            {/* ── the hold: a door to the inventory, since its switch left
+                the cockpit for the handset ── */}
+            {onOpenInventory && (
+              <button
+                onClick={onOpenInventory}
+                className="flex items-center gap-3 rounded-lg border border-amber-400/20 px-3 py-2.5 text-left transition-[filter] hover:brightness-125"
+                style={{
+                  // solid under the tint: the bulkhead's grid must not show
+                  // through this the way it does through a translucent card
+                  background: 'linear-gradient(180deg, rgba(251,191,36,0.08), rgba(251,191,36,0) 70%), #0c0b11',
+                }}
+              >
+                <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-amber-400/15 text-amber-300">
+                  <Package size={15} />
+                  {inventoryLit && (
+                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_4px_1px_rgba(251,191,36,0.9)]" />
+                  )}
+                </span>
+                <span className="flex-1 text-sm font-semibold text-neutral-100">{strings.home.inventoryTitle}</span>
+                <ChevronRight size={16} className="text-neutral-500" />
+              </button>
+            )}
           </div>
         </div>
       </div>

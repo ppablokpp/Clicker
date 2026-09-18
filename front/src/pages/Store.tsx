@@ -33,8 +33,11 @@ interface WalletBayProps {
       classes it can see in the source. The other two follow the same mechanism
       so a bay is a bay. */
   tone: string
-  /** The light this stock throws onto the shelf under it. Also a hex. */
+  /** The plus chip's tint. Also a hex. */
   pool: string
+  /** The icon's own colour when it isn't the tone: the mineral shows in
+      the tier's colour, not the pale one its number takes. */
+  iconTone?: string
   onClick: () => void
 }
 
@@ -43,7 +46,7 @@ interface WalletBayProps {
 // No name under the amount. A gem beside a number in gem colour is already
 // "gems", and the three labels were the only thing making the counter tall.
 // They live on the aria-label, where they were doing the work that mattered.
-function WalletBay({ icon, amount, ariaLabel, tone, pool, onClick }: WalletBayProps) {
+function WalletBay({ icon, amount, ariaLabel, tone, pool, iconTone, onClick }: WalletBayProps) {
   return (
     <button
       onClick={onClick}
@@ -51,11 +54,7 @@ function WalletBay({ icon, amount, ariaLabel, tone, pool, onClick }: WalletBayPr
       className="group relative flex flex-col items-center gap-1.5 px-2 py-3 transition-colors hover:bg-white/[0.025]"
     >
       <span className="relative flex h-7 items-center justify-center">
-        <span
-          className="pointer-events-none absolute h-8 w-8 rounded-full opacity-25 blur-lg transition-opacity group-hover:opacity-50"
-          style={{ background: pool }}
-        />
-        <span className="relative flex" style={{ color: tone }}>
+        <span className="relative flex" style={{ color: iconTone ?? tone }}>
           {icon}
         </span>
       </span>
@@ -116,7 +115,7 @@ export function Store() {
             className="relative border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
             style={{
               borderColor: `${materialColors.fill}80`,
-              textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${materialColors.fill}59`,
+              textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${materialColors.fill}4d`,
             }}
           >
             {strings.home.stationMarket}
@@ -145,6 +144,7 @@ export function Store() {
                 ariaLabel={strings.store.buyClicksTitle(currentMaterialName)}
                 tone={materialColors.light}
                 pool={materialColors.fill}
+                iconTone={materialColors.fill}
                 onClick={() => setShowClickPacks(true)}
               />
               <WalletBay
@@ -361,7 +361,7 @@ export function ClickPacksModal({ strings, currentMaterialName, materialColors, 
             className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
             style={{
               borderColor: `${c.fill}80`,
-              textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${c.fill}59`,
+              textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${c.fill}4d`,
             }}
           >
             {currentMaterialName}
@@ -575,7 +575,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
         <div className="relative mt-5 flex flex-col items-center">
           <p
             className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
-            style={{ borderColor: 'rgba(245,199,126,.45)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(245,199,126,.3)' }}
+            style={{ borderColor: 'rgba(245,199,126,.45)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(245,199,126,.26)' }}
           >
             {strings.keysTitle}
           </p>
@@ -692,7 +692,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
         <div className="relative mt-5 flex flex-col items-center">
           <p
             className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
-            style={{ borderColor: 'rgba(142,157,255,.5)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(142,157,255,.35)' }}
+            style={{ borderColor: 'rgba(142,157,255,.5)', textShadow: '0 2px 0 rgba(0,0,0,.5), 0 0 26px rgba(142,157,255,.3)' }}
           >
             {strings.gemsTitle}
           </p>

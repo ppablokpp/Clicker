@@ -48,7 +48,10 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
   const wholeCount = whole.filter(Boolean).length
   const loadedHere = Math.min(CORES_PER_TIER, cores[figures.tierIndex] ?? 0)
   const now = new Date()
-  const today = now.toLocaleDateString(language === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'long' })
+  const today = now.toLocaleDateString(language === 'en' ? 'en-US' : 'es-ES', {
+    day: 'numeric',
+    month: 'long',
+  })
   // The day's entry: the asteroid's own three, rotating with the date so a
   // different one is written each day.
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000)
@@ -61,16 +64,18 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
       head: d.todayHead,
       content: (
         <div className="relative h-full">
-          <ShipSketch className="pointer-events-none absolute -right-2 -top-1 h-24 w-16 opacity-80" />
+          {/* the ship floats in the corner: the entry wraps round it for
+              its first lines and takes the full width under it */}
+          <ShipSketch className="pointer-events-none float-right -mr-2 -mt-1 ml-2 h-[78px] w-[52px] opacity-80" />
           <p className="text-[17px]">{today}</p>
-          <p className="pr-14">{entry}</p>
+          <p>{entry}</p>
           <ul className="mt-[26px] list-none">
             <li>· {d.todayMined(formatPlatino(figures.lifetimePlatino, language))}</li>
             <li>· {d.todayFleet(figures.autoClickLevel + figures.scoutDroneLevel + figures.gunnerLevel)}</li>
             <li>· {d.todayCapsules(loadedHere, CORES_PER_TIER)}</li>
           </ul>
           {/* C0-PI, over its signature, in the blank below the figures */}
-          <RobotSketch className="pointer-events-none absolute bottom-[26px] right-0 h-[104px] w-[104px] opacity-80" />
+          <RobotSketch className="pointer-events-none absolute bottom-[26px] right-0 h-[78px] w-[78px] opacity-80" />
           <p className="absolute bottom-0 right-0 -rotate-6 text-[13px] text-[#8a8070]">{d.signature}</p>
         </div>
       ),
@@ -81,7 +86,11 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
       content: (
         <div>
           <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{strings.ship.reactor}</p>
-          <ReactorSketch whole={whole} className="mx-auto mt-[26px] h-[208px] w-64" />
+          <ReactorSketch
+            whole={whole}
+            colors={whole.map((_, i) => MATERIAL_TIER_COLORS[i]?.fill)}
+            className="mx-auto mt-[26px] h-[208px] w-64"
+          />
           <p className="mt-[26px]">{d.reactorNote}</p>
           <p className="text-[13px] text-[#8a8070]">{d.reactorCaption(wholeCount, whole.length)}</p>
         </div>
@@ -130,7 +139,11 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
       <PencilFilter />
       {/* the book is the whole sheet — no card round it, no title over it */}
       <div className="relative flex w-full justify-center" onClick={(e) => e.stopPropagation()}>
-        <DiaryBook pages={pages} font={DIARY_FONT} onClose={onClose} />
+        {/* scaled as a whole rather than laid out smaller: every block on a
+            page is sized to the rules, and a scale keeps them in step */}
+        <div className="flex shrink-0 justify-center" style={{ transform: 'scale(0.923077)' }}>
+          <DiaryBook pages={pages} font={DIARY_FONT} onClose={onClose} />
+        </div>
       </div>
     </div>
   )

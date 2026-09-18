@@ -31,9 +31,26 @@ export function PencilFilter() {
   )
 }
 
-const line = { fill: 'none', stroke: INK, strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
-const ghost = { fill: 'none', stroke: INK, strokeOpacity: 0.28, strokeWidth: 1, strokeLinecap: 'round' } as const
-const hatch = { stroke: INK, strokeOpacity: 0.35, strokeWidth: 0.8, strokeLinecap: 'round' } as const
+const line = {
+  fill: 'none',
+  stroke: INK,
+  strokeWidth: 1.3,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+} as const
+const ghost = {
+  fill: 'none',
+  stroke: INK,
+  strokeOpacity: 0.28,
+  strokeWidth: 1,
+  strokeLinecap: 'round',
+} as const
+const hatch = {
+  stroke: INK,
+  strokeOpacity: 0.35,
+  strokeWidth: 0.8,
+  strokeLinecap: 'round',
+} as const
 
 /** Hatching: short parallel strokes across a box, for shade — clipped to
  *  the box, so the pencil doesn't run off what it is shading. */
@@ -45,6 +62,7 @@ function Hatch({
   gap = 4,
   angle = -45,
   rx = 0,
+  color,
 }: {
   x: number
   y: number
@@ -54,6 +72,8 @@ function Hatch({
   angle?: number
   /** Rounded corners on the box, for hatching right up to a rounded outline. */
   rx?: number
+  /** Strokes in a colour — crayon, a little bolder — instead of graphite. */
+  color?: string
 }) {
   const id = useId()
   const n = Math.ceil((w + h) / gap) + 2
@@ -69,7 +89,17 @@ function Hatch({
         <g transform={`rotate(${angle} ${x + w / 2} ${y + h / 2})`}>
           {Array.from({ length: n }, (_, i) => {
             const yy = y - h / 2 + i * gap
-            return <line key={i} x1={x - w} y1={yy} x2={x + w * 2} y2={yy} {...hatch} />
+            return (
+              <line
+                key={i}
+                x1={x - w}
+                y1={yy}
+                x2={x + w * 2}
+                y2={yy}
+                {...hatch}
+                {...(color ? { stroke: color, strokeOpacity: 0.75, strokeWidth: 1.2 } : {})}
+              />
+            )
           })}
         </g>
       </g>
@@ -127,9 +157,20 @@ export function RefinerySketch({ className }: { className?: string }) {
 
 /**
  * The reactor: the sphere in its housing, eight sockets round it on
- * conduits, the ones that are whole filled in.
+ * conduits. A socket whose core is whole is hatched in, in that core's
+ * mineral — the same thin strokes as before, coloured, and boxed a little
+ * wider than the socket so they run over its line here and there, the
+ * way the rocks on the route are coloured.
  */
-export function ReactorSketch({ whole, className }: { whole: boolean[]; className?: string }) {
+export function ReactorSketch({
+  whole,
+  colors,
+  className,
+}: {
+  whole: boolean[]
+  colors: readonly (string | undefined)[]
+  className?: string
+}) {
   const cx = 110
   const cy = 90
   return (
@@ -142,19 +183,17 @@ export function ReactorSketch({ whole, className }: { whole: boolean[]; classNam
         const a = (i / whole.length) * Math.PI * 2 - Math.PI / 2
         const x = cx + Math.cos(a) * 66
         const y = cy + Math.sin(a) * 66
+        const x0 = cx + Math.cos(a) * 26
+        const y0 = cy + Math.sin(a) * 26
+        const x1 = x - Math.cos(a) * 14
+        const y1 = y - Math.sin(a) * 14
+        const color = on ? colors[i] : undefined
         return (
           <g key={i}>
-            <path
-              d={`M${cx + Math.cos(a) * 26} ${cy + Math.sin(a) * 26} L${x - Math.cos(a) * 14} ${y - Math.sin(a) * 14}`}
-              {...line}
-              strokeWidth={1}
-            />
+            {color && <Hatch x={x - 11} y={y - 11} w={22} h={22} gap={3} angle={45} color={color} />}
+            <path d={`M${x0} ${y0} L${x1} ${y1}`} {...line} strokeWidth={1} />
             <circle cx={x} cy={y} r="13" {...line} />
-            {on ? (
-              <Hatch x={x - 9} y={y - 9} w={18} h={18} gap={3} angle={45} />
-            ) : (
-              <path d={`M${x - 3} ${y} h6 M${x} ${y - 3} v6`} {...ghost} />
-            )}
+            {!on && <path d={`M${x - 3} ${y} h6 M${x} ${y - 3} v6`} {...ghost} />}
           </g>
         )
       })}
@@ -306,7 +345,11 @@ function RockGlyph({ known, color }: { known: boolean; color?: string }) {
  */
 // Each stop: where the rock is, and where the ship goes when we are at
 // it — picked by hand so the ship never sits on the course or a name.
-const ROUTE: ReadonlyArray<{ x: number; y: number; ship: readonly [number, number] }> = [
+const ROUTE: ReadonlyArray<{
+  x: number
+  y: number
+  ship: readonly [number, number]
+}> = [
   { x: 48, y: 40, ship: [30, -38] },
   { x: 150, y: 66, ship: [28, -5] },
   { x: 248, y: 38, ship: [26, -18] },

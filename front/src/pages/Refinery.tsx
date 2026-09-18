@@ -110,7 +110,7 @@ export function Refinery() {
       <div className="relative mt-8 flex flex-col items-center">
         <p
           className="border-y-2 px-7 py-1 text-3xl font-extrabold uppercase tracking-wider text-[#F7F3EA]"
-          style={{ borderColor: `${c.fill}80`, textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${c.fill}59` }}
+          style={{ borderColor: `${c.fill}80`, textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${c.fill}4d` }}
         >
           {s.title}
         </p>

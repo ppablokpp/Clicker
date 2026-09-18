@@ -30,7 +30,7 @@ export function Bulkhead({ tier, fixed = true }: { tier: MaterialTierColors; fix
       />
       <span
         className="pointer-events-none absolute inset-x-0 top-0 h-[42vh]"
-        style={{ background: `radial-gradient(60% 70% at 50% -10%, ${tier.fill}33, transparent 70%)` }}
+        style={{ background: `radial-gradient(60% 70% at 50% -10%, ${tier.fill}2b, transparent 70%)` }}
       />
     </>
   )

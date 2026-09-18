@@ -175,8 +175,13 @@ function Leaf({
         // position — a shifted tile leaves the top of the leaf without its
         // rules. Every block on a page is a whole number of lines tall, so
         // the text stays in step all the way down.
+        //
+        // The book is shown at 12/13 (see DiaryModal), which makes a line
+        // 24px; the rule is 13/12 px wide from 3.79px so that, scaled, it
+        // is one whole pixel from 3.5 — a thinner rule at an odd offset
+        // fell between pixels and some rules went missing.
         background:
-          'repeating-linear-gradient(180deg, transparent 0 3.5px, rgba(61,56,48,0.10) 3.5px 4.5px, transparent 4.5px 26px), #efe6d2',
+          'repeating-linear-gradient(180deg, transparent 0 3.7917px, rgba(61,56,48,0.10) 3.7917px 4.875px, transparent 4.875px 26px), #efe6d2',
         boxShadow: 'inset 0 0 0 1px rgba(61,56,48,0.12)',
       }}
       onClick={

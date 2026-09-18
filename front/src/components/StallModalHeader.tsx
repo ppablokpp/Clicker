@@ -63,7 +63,7 @@ export function StallModalHeader({
       <div className="relative mt-5 flex flex-col items-center px-6">
         <p
           className={`border-y-2 px-7 py-1 text-center font-extrabold uppercase tracking-wider text-[#F7F3EA] ${size === 'sm' ? 'text-xl' : 'text-2xl'}`}
-          style={{ borderColor: `${accent.fill}80`, textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${accent.fill}59` }}
+          style={{ borderColor: `${accent.fill}80`, textShadow: `0 2px 0 rgba(0,0,0,.5), 0 0 26px ${accent.fill}4d` }}
         >
           {title}
         </p>

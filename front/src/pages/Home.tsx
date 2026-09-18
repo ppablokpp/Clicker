@@ -16,16 +16,11 @@ import { useAppAuth } from '../hooks/useAppAuth'
 import {
   Zap,
   Rocket,
-  Joystick,
   Archive,
   Dices,
-  Package,
-  NotebookPen,
   Info,
   Orbit,
   Split,
-  Route,
-  Lock,
   X,
   Sparkles,
   Check,
@@ -59,10 +54,12 @@ import { DroneIcon } from '../components/DroneIcon'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
-import { Asteroid, type AsteroidColors } from '../components/Asteroid'
+import type { AsteroidColors } from '../components/Asteroid'
 import { SpaceObject } from '../components/SpaceObject'
 import { TravelModal } from '../components/TravelModal'
 import { StallModalHeader, StallModalWall } from '../components/StallModalHeader'
+import { CommsHandset } from '../components/CommsHandset'
+import { DiaryCover } from '../components/DiaryCover'
 import { DiaryModal } from '../components/DiaryModal'
 import { ExitGlyph } from '../components/AirlockGlyphs'
 import { TravelCover } from '../components/TravelCover'
@@ -88,10 +85,9 @@ interface InfoModalData {
  *  the cover lifts when the new tier is loaded, but not before this. */
 const PRESTIGE_FLIGHT_MS = 2000
 /** The header sheets' stall colours: the inventory's amber, the tasks'
- *  emerald, the log's sky — the lamp, the rules and the title's glow. */
+ *  emerald — the lamp, the rules and the title's glow. */
 const STALL_AMBER = { fill: '#fbbf24', glow: 'rgba(251,191,36,0.6)' }
 const STALL_EMERALD = { fill: '#34d399', glow: 'rgba(52,211,153,0.6)' }
-const STALL_SKY = { fill: '#38bdf8', glow: 'rgba(56,189,248,0.6)' }
 /** The airlock opens once the fleet is this big on the first asteroid —
  *  the station tutorial fires on that same purchase and walks you out. */
 const AIRLOCK_UNLOCK_DRONES = 5
@@ -186,32 +182,6 @@ function generateStars(count: number, opacity: number): string {
 // own gradients; the speckle colour is the same for every tier, so it's the
 // component's default and isn't passed.
 const OBJECT_TIERS = MATERIAL_TIER_COLORS
-
-// A small rotating preview of one of the OBJECT_TIERS rocks — same
-// shading recipe as SpaceObject (gradient body, crater depth, grain,
-// sunlit patch), just smaller and without the bob/glow/flash, for the
-// Trayectoria roadmap list. `tierIndex` feeds unique gradient/clip ids
-// (`traj...-${tierIndex}`) so five of these — plus SpaceObject's own fixed
-// ids — can all sit in the DOM at once without one instance's gradient
-// silently winning for every other rock on the page.
-function MiniAsteroid({ tierIndex, dimmed }: { tierIndex: number; dimmed: boolean }) {
-  const tier = OBJECT_TIERS[tierIndex]
-  return (
-    <div
-      className={`relative flex h-12 w-12 shrink-0 items-center justify-center transition-opacity ${dimmed ? 'opacity-60' : ''}`}
-    >
-      {/* Turns on its Y axis like Home's rock does, not on Z. Spinning the
-          whole element was rolling a flat disc; the surface travelling across
-          a still outline is what a sphere rotating actually looks like. That
-          motion lives inside <Asteroid> now, so there is nothing to animate
-          out here.
-          Compact detail: these are 48px, and at that size the full crater
-          field is several hundred shapes resolving into noise — with six of
-          them in the list at once. */}
-      <Asteroid idPrefix={`traj-${tierIndex}`} size={48} colors={tier} detail="compact" />
-    </div>
-  )
-}
 
 // Autoclick's swarm — one little drone per level, uncapped, orbiting just
 // outside the prestige ring like Cookie Clicker's cursors circling the
@@ -373,42 +343,6 @@ const OrbitingBots = memo(function OrbitingBots({
   )
 })
 
-
-// One of the four "switches" flanking the platino screen (two stacked on
-// each side) — icon only now, small enough to fit two-high next to the
-// display, but the same chrome as before: bordered tinted box, LED dot in
-// the button's own accent color. The LED is a real notification light, not
-// flavor — lit only while `lit` is true (something new behind that button:
-// a claimable task, a ready prestige, an unseen inventory item/upgrade).
-function CockpitIconButton({
-  icon: Icon,
-  onClick,
-  ariaLabel,
-  iconClass,
-  ledClass,
-  borderClass,
-  lit,
-}: {
-  icon: LucideIcon
-  onClick: () => void
-  ariaLabel: string
-  iconClass: string
-  ledClass: string
-  borderClass: string
-  lit: boolean
-}) {
-  return (
-    <button
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[3px] border bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.09] sm:h-10 sm:w-10 ${borderClass}`}
-    >
-      {lit && <span className={`absolute right-1 top-1 h-1 w-1 rounded-full ${ledClass}`} />}
-      <Icon size={15} className={iconClass} />
-    </button>
-  )
-}
 
 export function Home() {
   const { userId } = useAppAuth()
@@ -621,7 +555,6 @@ export function Home() {
   const [traveling, setTraveling] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
   const [showDiary, setShowDiary] = useState(false)
-  const [showLog, setShowLog] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   // "Anomalía" event — a small asteroid that flies across the whole screen
   // like a shooting star on its own timer (see the Meteor spawn effect
@@ -646,7 +579,6 @@ export function Home() {
       traveling ||
       showTasks ||
       showDiary ||
-      showLog ||
       showEventChallenge ||
       infoModal !== null,
   )
@@ -1238,7 +1170,6 @@ export function Home() {
     traveling ||
     showTasks ||
     showDiary ||
-    showLog ||
     infoModal !== null ||
     showEventChallenge
 
@@ -1434,30 +1365,19 @@ export function Home() {
                   size. Corner brackets + a slow scanline sweep sell the
                   "active screen" feel. */}
               <div className="flex items-stretch gap-2">
-                <div className="pointer-events-auto flex flex-col justify-center gap-2">
-                  <CockpitIconButton
-                    icon={Joystick}
+                {/* The intercom handset takes the whole left column: it
+                    calls up the command centre, and the inventory is a door
+                    inside that now (its switch used to share this column).
+                    The LED is a real notification light: lit while there is
+                    something unseen in the hangar or the hold. */}
+                <div className="pointer-events-auto flex items-stretch">
+                  <CommsHandset
                     ariaLabel={strings.home.commandCenterTitle}
+                    lit={hasNewUpgrade || hasNewItem}
                     onClick={() => {
                       setShowShip(true)
                       markUpgradesSeen()
                     }}
-                    iconClass="text-violet-300"
-                    ledClass="bg-violet-400 shadow-[0_0_3px_1px_rgba(167,139,250,0.9)]"
-                    borderClass="border-violet-400/20"
-                    lit={hasNewUpgrade}
-                  />
-                  <CockpitIconButton
-                    icon={Package}
-                    ariaLabel={strings.home.inventory}
-                    onClick={() => {
-                      setShowInventory(true)
-                      markInventorySeen()
-                    }}
-                    iconClass="text-amber-300"
-                    ledClass="bg-amber-400 shadow-[0_0_3px_1px_rgba(251,191,36,0.9)]"
-                    borderClass="border-amber-400/20"
-                    lit={hasNewItem}
                   />
                 </div>
 
@@ -1497,28 +1417,14 @@ export function Home() {
                   </div>
                 </div>
 
-                <div className="pointer-events-auto flex flex-col justify-center gap-2">
-                  {/* The tasks board is off the console for now — its place is
-                      the diary's, and the tasks will likely move in there
-                      (the modal and its state stay, unreachable). */}
-                  <CockpitIconButton
-                    icon={NotebookPen}
-                    ariaLabel={strings.diary.title}
-                    onClick={() => setShowDiary(true)}
-                    iconClass="text-amber-200"
-                    ledClass="bg-amber-300 shadow-[0_0_3px_1px_rgba(229,207,138,0.9)]"
-                    borderClass="border-amber-300/20"
-                    lit={false}
-                  />
-                  <CockpitIconButton
-                    icon={Route}
-                    ariaLabel={strings.home.log}
-                    onClick={() => setShowLog(true)}
-                    iconClass="text-sky-300"
-                    ledClass="bg-sky-400 shadow-[0_0_3px_1px_rgba(56,189,248,0.9)]"
-                    borderClass="border-sky-400/20"
-                    lit={prestige.goalMet}
-                  />
+                {/* The diary, shut, takes the whole right column — the
+                    Trayectoria switch that used to share it is gone (the
+                    route is the diary's last page now). The tasks board is
+                    off the console too; its place is the diary's, and the
+                    tasks will likely move in there (the modal and its state
+                    stay, unreachable). */}
+                <div className="pointer-events-auto flex items-stretch">
+                  <DiaryCover ariaLabel={strings.diary.title} onClick={() => setShowDiary(true)} />
                 </div>
               </div>
             </div>
@@ -1865,7 +1771,18 @@ export function Home() {
         />
       )}
 
-      {showShip && <FleetReportModal figures={fleetFigures} onClose={() => setShowShip(false)} />}
+      {showShip && (
+        <FleetReportModal
+          figures={fleetFigures}
+          onClose={() => setShowShip(false)}
+          inventoryLit={hasNewItem}
+          onOpenInventory={() => {
+            setShowShip(false)
+            setShowInventory(true)
+            markInventorySeen()
+          }}
+        />
+      )}
 
       {showDiary && (
         <DiaryModal
@@ -2035,80 +1952,6 @@ export function Home() {
                 })}
               </div>
             </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Trayectoria — same empty-state shell as Tareas, invented as a
-          fourth switch so the console's two side stacks come out even (two
-          each). Nothing behind it yet. */}
-      {showLog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setShowLog(false)}
-        >
-          <div
-            className="bulkhead relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border bg-[#0c0b11] shadow-2xl shadow-black/60"
-            style={{ borderColor: '#38bdf826' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <StallModalWall accent={STALL_SKY} onClose={() => setShowLog(false)} />
-            <div className="scroll-thin relative min-h-0 flex-1 overflow-y-auto">
-              <StallModalHeader title={strings.home.logTitle} accent={STALL_SKY} />
-              <div className="flex flex-col gap-2.5 p-5 pt-4">
-                {OBJECT_TIERS.map((tier, i) => {
-                  const isCurrent = i === currentTierIndex
-                  const isLocked = i > currentTierIndex
-                  // Locked (future) tiers are a mystery. Cleared tiers cap
-                  // at their own ceiling instead of ballooning to the full
-                  // (much higher) lifetime total. The current tier is the
-                  // one exception — it shows the real, uncapped number even
-                  // once it's past its own ceiling, since the player keeps
-                  // farming it for as long as they want before confirming
-                  // the actual prestige (see handleConfirmPrestige).
-                  const tierCeiling = TRAJECTORY_TIER_THRESHOLDS[i + 1]
-                  const extractionText = isLocked
-                    ? strings.home.trajectoryExtractionUnknown
-                    : strings.home.trajectoryExtraction(
-                        formatPlatino(isCurrent ? lifetimePlatino : Math.min(lifetimePlatino, tierCeiling), language),
-                        formatPlatino(tierCeiling, language),
-                      )
-                  return (
-                    <div
-                      key={i}
-                      className={`relative flex items-center gap-3 overflow-hidden rounded-[3px] border p-3 transition-colors ${
-                        isCurrent ? 'border-white/15 bg-white/[0.04]' : 'border-white/5 bg-white/[0.02]'
-                      }`}
-                      style={isCurrent ? { boxShadow: `0 0 0 1px ${tier.glow}` } : undefined}
-                    >
-                      <MiniAsteroid tierIndex={i} dimmed={isLocked} />
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className={`text-sm font-semibold ${isLocked ? 'text-neutral-500' : 'text-white'}`}>
-                            {strings.home.trajectoryTierNames[i]}
-                          </p>
-                          {isCurrent && (
-                            <span
-                              className="rounded-full border px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-widest"
-                              style={{ borderColor: tier.glow, color: tier.fill }}
-                            >
-                              {strings.home.trajectoryCurrent}
-                            </span>
-                          )}
-                        </div>
-                        <p className="font-mono text-[10px] text-neutral-500">{extractionText}</p>
-                      </div>
-                      {isLocked && <Lock size={14} className="shrink-0 text-neutral-600" />}
-                    </div>
-                  )
-                })}
-
-                <div className="flex items-center justify-center rounded-[3px] border border-dashed border-white/10 py-3 font-mono text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
-                  {strings.home.trajectoryComingSoon}
-                </div>
-              </div>
             </div>
           </div>
         </div>

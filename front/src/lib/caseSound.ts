@@ -91,6 +91,129 @@ export function playPageTurn() {
   }
 }
 
+/**
+ * The book opening: the cover coming up — a lower, slower whisper than a
+ * page's, with a little body to it — and the elastic band's soft snap as
+ * it comes off. Same paper as the page turn, just more of it.
+ */
+export function playBookOpen() {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
+    const noise = getNoiseBuffer(audioCtx)
+
+    // the band: a short, dull snap
+    const snap = audioCtx.createBufferSource()
+    snap.buffer = noise
+    const snapFilter = audioCtx.createBiquadFilter()
+    snapFilter.type = 'lowpass'
+    snapFilter.frequency.setValueAtTime(700, now)
+    snapFilter.frequency.exponentialRampToValueAtTime(180, now + 0.08)
+    const snapGain = audioCtx.createGain()
+    snapGain.gain.setValueAtTime(0.14, now)
+    snapGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09)
+    snap.connect(snapFilter).connect(snapGain).connect(output)
+    snap.start(now)
+    snap.stop(now + 0.1)
+
+    // the cover: the page's whisper, lower and longer
+    const lift = audioCtx.createBufferSource()
+    lift.buffer = noise
+    const liftFilter = audioCtx.createBiquadFilter()
+    liftFilter.type = 'bandpass'
+    liftFilter.Q.value = 1
+    liftFilter.frequency.setValueAtTime(500, now + 0.05)
+    liftFilter.frequency.exponentialRampToValueAtTime(2400, now + 0.5)
+    const liftGain = audioCtx.createGain()
+    liftGain.gain.setValueAtTime(0.0001, now + 0.05)
+    liftGain.gain.exponentialRampToValueAtTime(0.11, now + 0.22)
+    liftGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62)
+    lift.connect(liftFilter).connect(liftGain).connect(output)
+    lift.start(now + 0.05)
+    lift.stop(now + 0.65)
+  } catch {
+    // audio is a garnish; a failure here never reaches the page
+  }
+}
+
+/**
+ * The intercom switching on: the talk button's click, a crackle of
+ * static as the channel opens, then the set's little power-up chirp —
+ * three square-wave notes stepping up, the way a radio or a robot says
+ * "ready". Short and dry; nothing echoes on a ship.
+ */
+export function playCommsOn() {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
+    const noise = getNoiseBuffer(audioCtx)
+
+    // the button: a dry click
+    const click = audioCtx.createBufferSource()
+    click.buffer = noise
+    const clickFilter = audioCtx.createBiquadFilter()
+    clickFilter.type = 'highpass'
+    clickFilter.frequency.value = 2200
+    const clickGain = audioCtx.createGain()
+    clickGain.gain.setValueAtTime(0.12, now)
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025)
+    click.connect(clickFilter).connect(clickGain).connect(output)
+    click.start(now)
+    click.stop(now + 0.03)
+
+    // the channel opening: a short burst of static
+    const stat = audioCtx.createBufferSource()
+    stat.buffer = noise
+    const statFilter = audioCtx.createBiquadFilter()
+    statFilter.type = 'bandpass'
+    statFilter.Q.value = 0.8
+    statFilter.frequency.value = 1800
+    const statGain = audioCtx.createGain()
+    statGain.gain.setValueAtTime(0.0001, now + 0.03)
+    statGain.gain.exponentialRampToValueAtTime(0.05, now + 0.06)
+    statGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16)
+    stat.connect(statFilter).connect(statGain).connect(output)
+    stat.start(now + 0.03)
+    stat.stop(now + 0.17)
+
+    // the chirp: three square notes stepping up, through a lowpass so they
+    // sound like a small speaker rather than a synth
+    const chirpFilter = audioCtx.createBiquadFilter()
+    chirpFilter.type = 'lowpass'
+    chirpFilter.frequency.value = 2200
+    chirpFilter.Q.value = 1
+    const chirpGain = audioCtx.createGain()
+    chirpGain.gain.value = 0.0001
+    chirpFilter.connect(chirpGain).connect(output)
+    const notes: Array<[number, number, number]> = [
+      [660, now + 0.14, 0.06],
+      [880, now + 0.21, 0.06],
+      [1320, now + 0.28, 0.11],
+    ]
+    for (const [freq, at, len] of notes) {
+      const osc = audioCtx.createOscillator()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(freq, at)
+      // a hair of pitch slide into each note, so it isn't a pure beep
+      osc.frequency.setValueAtTime(freq * 0.94, at)
+      osc.frequency.exponentialRampToValueAtTime(freq, at + 0.02)
+      chirpGain.gain.setValueAtTime(0.0001, at)
+      chirpGain.gain.exponentialRampToValueAtTime(0.035, at + 0.012)
+      chirpGain.gain.setValueAtTime(0.035, at + len - 0.02)
+      chirpGain.gain.exponentialRampToValueAtTime(0.0001, at + len)
+      osc.connect(chirpFilter)
+      osc.start(at)
+      osc.stop(at + len + 0.01)
+    }
+  } catch {
+    // audio is a garnish; a failure here never reaches the page
+  }
+}
+
 /** Short metallic clack — called once per item the reel scrolls past. */
 export function playCaseTick() {
   const audioCtx = getContext()
