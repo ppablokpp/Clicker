@@ -29,6 +29,27 @@ export interface TranslationStrings {
     /** Status lines for the flight to the next asteroid. */
     prestigeSteps: string[]
   }
+  diary: {
+    title: string
+    todayHead: string
+    /** Three entries per asteroid, in tier order; the day picks one. */
+    todayEntries: string[][]
+    todayMined: (amount: string) => string
+    todayFleet: (units: number) => string
+    todayCapsules: (loaded: number, total: number) => string
+    signature: string
+    logHead: string
+    /** One entry per asteroid, in tier order; shown up to the one you're on. */
+    logEntries: string[]
+    logToCome: string
+    manualHead: string
+    refineryNote: string
+    capsulesCaption: (loaded: number, total: number, material: string) => string
+    reactorNote: string
+    reactorCaption: (whole: number, total: number) => string
+    compendiumHead: string
+    compendiumNote: string
+  }
   ship: {
     title: string
     reactor: string
@@ -556,6 +577,78 @@ export const translations: Record<Language, TranslationStrings> = {
       returnSteps: ['Abriendo la compuerta', 'Presurizando la esclusa', 'Quitando el casco', 'Dentro de la nave'],
       prestigeSteps: ['Soltando amarras', 'Encendiendo propulsores', 'Rumbo al siguiente asteroide', 'En órbita'],
     },
+    diary: {
+      title: 'Diario',
+      todayHead: 'Informe del día',
+      todayEntries: [
+        [
+          'Seguimos varados junto al asteroide de Amatista. El reactor sigue frío y la nave cruje por las noches. La flota trabaja sin quejarse; yo, casi. C0-PI dice que el violeta de la roca es "de buen augurio". No sé de dónde saca esas cosas.',
+          'Hoy he contado las cápsulas dos veces, por si acaso. El horno de la refinería ronronea y el pasillo huele a metal caliente. Fuera, la Amatista brilla como si supiera que la necesitamos.',
+          'Primer asteroide y ya me sé cada cráter de memoria. Los drones van y vienen como abejas de piedra. Pienso en casa más de lo que admito en este cuaderno.',
+        ],
+        [
+          'Platino. Blanco, denso, frío. La refinería tarda el doble con esto y C0-PI lo llama "mineral serio". Un núcleo entero atrás; siete por delante. Se puede.',
+          'He apoyado la mano en el casco y por primera vez estaba tibio. Un núcleo. El reactor no arranca, pero ya no está muerto del todo.',
+          'Hoy el Platino ha salido a placas, como escamas. La flota las apila sin preguntar. Yo apunto y espero al horno.',
+        ],
+        [
+          'Zafiro. Azul profundo, tan azul que el visor lo confunde con el espacio. El mineral canta al fundirse, o eso dice C0-PI. Yo solo oigo el horno.',
+          'Dos núcleos y el reactor zumba por las noches, bajito. Me duermo con eso. Es el mejor ruido de la nave desde la avería.',
+          'Un dron ha vuelto con un trozo de Zafiro perfecto, sin una grieta. Lo he dejado en el puente. No todo tiene que ir al horno.',
+        ],
+        [
+          'Esmeralda. Verde por dentro y por fuera. C0-PI asegura que llevamos la mitad del camino. No le creo del todo, pero hoy me apetece creerle.',
+          'La refinería ha estado toda la noche fundiendo y la luz verde salía por las ventanas. Desde fuera la estación parecía habitada. Lo está.',
+          'Tres núcleos. El pasillo de popa ya no está frío. Pequeñas victorias; las apunto todas.',
+        ],
+        [
+          'Cuarzo. Transparente y quebradizo, se rompe si lo miras mal. Se funde mal y se funde bien a la vez; la refinería no se decide.',
+          'Cuatro núcleos. He visto el reactor girar a medias durante un segundo antes de pararse. C0-PI ha aplaudido. No sabía que podía.',
+          'El Cuarzo deja polvo en todo: en el suelo, en los drones, en el visor. Cuando salga el sol de la próxima estrella, esta nave va a brillar.',
+        ],
+        [
+          'Rubí. Rojo hasta en la sombra. El reactor ya calienta el pasillo entero y la refinería trabaja con la puerta abierta. Cinco núcleos.',
+          'Hoy la flota ha traído más Rubí que nunca. Lo he apilado junto al horno y he apagado la luz: seguía brillando. Cosas del Rubí.',
+          'Cinco núcleos y medio. C0-PI ha empezado a hacer planes para casa. Le he dicho que no adelante acontecimientos. Yo también los hago.',
+        ],
+        [
+          'Oro. Nunca había visto tanta luz dentro de la nave. Todo lo que toca el horno sale dorado y la estación parece otra. Seis núcleos.',
+          'Cuando el Oro se funde no huele a nada. Es lo único que no huele en esta nave. Lo apunto porque me parece importante.',
+          'Seis núcleos y el reactor da vueltas solo, aunque sin fuerza. Como un motor que recuerda cómo se hacía. Uno más y volvemos.',
+        ],
+        [
+          'Diamante. El último asteroide. Duro, claro, imposible de rayar; la refinería protesta con cada cápsula. Siete núcleos. Casi.',
+          'He mirado el reactor un buen rato. Siete núcleos enteros y uno a medias. Cuando este esté, volvemos a casa. Lo escribo despacio para creérmelo.',
+          'C0-PI ha limpiado el puente entero sin que se lo pidiera. Dice que es para la vuelta. Yo he vuelto al horno.',
+        ],
+      ],
+      todayMined: (amount) => `${amount} de mineral extraído hasta hoy`,
+      todayFleet: (units) => `${units} unidades en la flota`,
+      todayCapsules: (loaded, total) => `${loaded} de ${total} cápsulas cargadas en este núcleo`,
+      signature: '— C0-PI',
+      logHead: 'Lo que ha pasado',
+      logEntries: [
+        'Explosión en el reactor en plena expedición. Nos quedamos sin propulsión y anclamos junto al primer asteroide que encontramos. Hay mineral. Con eso trabajaremos.',
+        'Primer núcleo entero. Levamos anclas y llegamos a un asteroide blanco, denso, frío al tacto. La refinería tarda más con esto.',
+        'Azul profundo. El mineral canta al fundirse. Dos núcleos y el reactor empieza a zumbar por las noches.',
+        'Verde. C0-PI dice que la mitad del camino está hecha. No le creo del todo.',
+        'Transparente y quebradizo. Se funde mal y se funde bien a la vez. Cinco núcleos.',
+        'Rojo. El reactor ya calienta el pasillo de popa. Seis.',
+        'Dorado. Nunca había visto tanta luz dentro de la nave. Uno más.',
+        'El último asteroide. Cuando este núcleo esté entero, volvemos a casa.',
+      ],
+      logToCome: '(el resto de páginas están en blanco)',
+      manualHead: 'Manual de a bordo',
+      refineryNote:
+        'Aquí se funde el mineral. Cada cápsula del núcleo se carga con una fundición y cuesta más que la anterior. Un núcleo, diez cápsulas.',
+      capsulesCaption: (loaded, total, material) => `Núcleo de ${material}: ${loaded}/${total} cápsulas`,
+      reactorNote:
+        'El reactor de la nave está compuesto por ocho núcleos distintos, cada uno se repara con un mineral. Con los ocho núcleos reparados el reactor vuelve a funcionar y podremos volver a casa.',
+      reactorCaption: (whole, total) => `${whole} de ${total} núcleos reparados`,
+      compendiumHead: 'Trayectoria',
+      compendiumNote:
+        'Estos son los ocho minerales que necesitamos, C0\u2060-\u2060PI dice que el reactor no arranca con menos. Sin los ocho no hay vuelta a casa.',
+    },
     ship: {
       title: 'Tu nave',
       reactor: 'Reactor',
@@ -641,7 +734,7 @@ export const translations: Record<Language, TranslationStrings> = {
       shipMultiShotDesc: 'Cañones de la nave principal:',
       shipNotInstalled: 'No instalado',
       tasks: 'Tareas',
-      tasksTitle: 'Tareas pendientes',
+      tasksTitle: 'Tareas',
       tasksEmpty: 'No tienes tareas pendientes.',
       taskFirstDroneName: 'Primer despegue',
       taskFirstDroneDesc: 'Desbloquea tu primer dron',
@@ -1311,6 +1404,78 @@ export const translations: Record<Language, TranslationStrings> = {
       returnSteps: ['Opening the hatch', 'Pressurising the airlock', 'Helmet off', 'Inside the ship'],
       prestigeSteps: ['Casting off', 'Firing thrusters', 'Bound for the next asteroid', 'In orbit'],
     },
+    diary: {
+      title: 'Diary',
+      todayHead: 'Daily report',
+      todayEntries: [
+        [
+          'Still stranded by the Amatista asteroid. The reactor is cold and the ship creaks at night. The fleet works without complaining; I almost do. C0-PI says the rock\'s violet is "a good omen". No idea where it gets these things.',
+          'Counted the capsules twice today, just in case. The refinery furnace purrs and the corridor smells of hot metal. Outside, the Amatista shines like it knows we need it.',
+          'First asteroid and I already know every crater by heart. The drones come and go like stone bees. I think of home more than I admit in this notebook.',
+        ],
+        [
+          'Platino. White, dense, cold. The refinery takes twice as long with this and C0-PI calls it "serious mineral". One whole core behind us; seven ahead. It can be done.',
+          'Put my hand on the hull and for the first time it was warm. One core. The reactor won\'t start, but it isn\'t quite dead any more.',
+          'The Platino came out in plates today, like scales. The fleet stacks them without asking. I write it down and wait for the furnace.',
+        ],
+        [
+          'Zafiro. Deep blue, so blue the visor mistakes it for space. The mineral sings when it melts, or so C0-PI says. All I hear is the furnace.',
+          'Two cores and the reactor hums at night, quietly. I fall asleep to it. Best sound on the ship since the breakdown.',
+          'A drone came back with a perfect piece of Zafiro, not a crack in it. I left it on the bridge. Not everything has to go in the furnace.',
+        ],
+        [
+          'Esmeralda. Green inside and out. C0-PI insists we are halfway. I don\'t quite believe it, but today I feel like believing.',
+          'The refinery smelted all night and green light came out of the windows. From outside the station looked lived-in. It is.',
+          'Three cores. The aft corridor isn\'t cold any more. Small wins; I write them all down.',
+        ],
+        [
+          'Cuarzo. Clear and brittle, it breaks if you look at it wrong. Melts badly and well at the same time; the refinery can\'t make up its mind.',
+          'Four cores. I saw the reactor half-turn for a second before it stopped. C0-PI applauded. I didn\'t know it could.',
+          'The Cuarzo leaves dust on everything: the floor, the drones, the visor. When the next star rises, this ship is going to shine.',
+        ],
+        [
+          'Rubí. Red even in shadow. The reactor warms the whole corridor now and the refinery works with the door open. Five cores.',
+          'The fleet brought more Rubí than ever today. I stacked it by the furnace and turned off the light: it kept glowing. Rubí things.',
+          'Five and a half cores. C0-PI has started making plans for home. I told it not to get ahead of itself. I make them too.',
+        ],
+        [
+          'Oro. I had never seen so much light inside the ship. Everything the furnace touches comes out golden and the station looks like another place. Six cores.',
+          'When Oro melts it smells of nothing. It is the only thing on this ship that doesn\'t smell. Writing it down because it feels important.',
+          'Six cores and the reactor turns on its own, though with no strength. Like an engine remembering how it was done. One more and we go back.',
+        ],
+        [
+          'Diamante. The last asteroid. Hard, clear, impossible to scratch; the refinery complains with every capsule. Seven cores. Almost.',
+          'I watched the reactor for a good while. Seven cores whole and one halfway. When this one is done, we go home. Writing it slowly to believe it.',
+          'C0-PI cleaned the whole bridge without being asked. Says it is for the trip back. I went back to the furnace.',
+        ],
+      ],
+      todayMined: (amount) => `${amount} of mineral mined so far`,
+      todayFleet: (units) => `${units} units in the fleet`,
+      todayCapsules: (loaded, total) => `${loaded} of ${total} capsules loaded on this core`,
+      signature: '— C0-PI',
+      logHead: 'What has happened',
+      logEntries: [
+        'Reactor blew mid-expedition. No thrust; we anchored by the first asteroid we found. There is mineral. That is what we work with.',
+        'First core whole. We cast off and reached a white asteroid, dense, cold to the touch. The refinery takes longer with this one.',
+        'Deep blue. The mineral sings when it melts. Two cores and the reactor hums at night.',
+        'Green. C0-PI says we are halfway. I do not quite believe it.',
+        'Clear and brittle. Melts badly and well at the same time. Five cores.',
+        'Red. The reactor already warms the aft corridor. Six.',
+        'Golden. I had never seen so much light inside the ship. One more.',
+        'The last asteroid. When this core is whole, we go home.',
+      ],
+      logToCome: '(the rest of the pages are blank)',
+      manualHead: 'Ship manual',
+      refineryNote:
+        'Where the mineral is smelted. Each capsule of the core is loaded by one smelt and costs more than the last. One core, ten capsules.',
+      capsulesCaption: (loaded, total, material) => `${material} core: ${loaded}/${total} capsules`,
+      reactorNote:
+        'The ship\'s reactor is made of eight different cores, each repaired with one mineral. With all eight repaired the reactor runs again and we can go home.',
+      reactorCaption: (whole, total) => `${whole} of ${total} cores repaired`,
+      compendiumHead: 'Trajectory',
+      compendiumNote:
+        'These are the eight minerals we need, C0\u2060-\u2060PI says the reactor will not start on fewer. Without all eight there is no way home.',
+    },
     ship: {
       title: 'Your ship',
       reactor: 'Reactor',
@@ -1394,7 +1559,7 @@ export const translations: Record<Language, TranslationStrings> = {
       shipMultiShotDesc: 'Main ship cannons:',
       shipNotInstalled: 'Not installed',
       tasks: 'Tasks',
-      tasksTitle: 'Pending tasks',
+      tasksTitle: 'Tasks',
       tasksEmpty: "You don't have any pending tasks.",
       taskFirstDroneName: 'First liftoff',
       taskFirstDroneDesc: 'Unlock your first drone',

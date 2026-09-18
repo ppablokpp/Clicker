@@ -24,7 +24,8 @@ const MIN_TICK_INTERVAL = 0.04
 function getContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!isSoundEnabled()) return null
-  const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  const AudioCtor =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!AudioCtor) return null
   unlockAudioSession()
   if (!ctx) ctx = new AudioCtor()
@@ -57,6 +58,37 @@ function getNoiseBuffer(audioCtx: AudioContext): AudioBuffer {
     for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1
   }
   return noiseBuffer
+}
+
+/**
+ * A page turning: a soft, rising whisper of filtered noise as the sheet
+ * comes up. Nothing tonal in it; paper isn't.
+ */
+export function playPageTurn() {
+  const audioCtx = getContext()
+  if (!audioCtx) return
+  try {
+    const now = audioCtx.currentTime
+    const output = getMasterOutput(audioCtx)
+    const noise = getNoiseBuffer(audioCtx)
+
+    const lift = audioCtx.createBufferSource()
+    lift.buffer = noise
+    const liftFilter = audioCtx.createBiquadFilter()
+    liftFilter.type = 'bandpass'
+    liftFilter.Q.value = 1.2
+    liftFilter.frequency.setValueAtTime(900, now)
+    liftFilter.frequency.exponentialRampToValueAtTime(3200, now + 0.32)
+    const liftGain = audioCtx.createGain()
+    liftGain.gain.setValueAtTime(0.0001, now)
+    liftGain.gain.exponentialRampToValueAtTime(0.09, now + 0.12)
+    liftGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4)
+    lift.connect(liftFilter).connect(liftGain).connect(output)
+    lift.start(now)
+    lift.stop(now + 0.42)
+  } catch {
+    // audio is a garnish; a failure here never reaches the page
+  }
 }
 
 /** Short metallic clack — called once per item the reel scrolls past. */

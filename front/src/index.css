@@ -282,6 +282,28 @@ body::before {
   animation: station-spin 9s linear infinite;
 }
 
+/* The diary's page turning about the spine: forward lifts the right
+   leaf's edge over and lays it on the left leaf; back is the same turn
+   undone. The leaf's back face is the same page, so what lands on the
+   left is what was on the right. */
+@keyframes diary-turn-fwd {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(-180deg);
+  }
+}
+
+@keyframes diary-turn-back {
+  from {
+    transform: rotateY(-180deg);
+  }
+  to {
+    transform: rotateY(0deg);
+  }
+}
+
 /* The console plate the rooms' controls sit on: a slab of graphite
    standing on the deck, lit along its top edge, opaque so the grating
    behind reads as behind. */
@@ -1045,125 +1067,164 @@ body::before {
    the cards. Every card surface is a faint tint over the ground, which
    the grid would show through — so under the `bulkhead` class each of
    those tints becomes the same colour mixed into the ground, opaque: the
-   card looks as it did, and the grid stops at its edge. Off hover only,
-   so a button's hover tint still lands. Modals are excluded — they float
-   over a dimmed page, where a glass surface is the point. */
-.bulkhead .bg-white\/\[0\.02\]:not(:hover):not(.bg-black\/70 *) {
+   card looks as it did, and the grid stops at its edge. Hover tints get
+   the same treatment below, so a card never goes to glass under the
+   cursor. The dimmed backdrop of a modal is excluded — a stall card
+   inside one carries the class itself. */
+.bulkhead .bg-white\/\[0\.02\] {
   background-color: color-mix(in srgb, #fff 2%, #08080c);
 }
-.bulkhead .bg-white\/\[0\.03\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/\[0\.03\] {
   background-color: color-mix(in srgb, #fff 3%, #08080c);
 }
-.bulkhead .bg-white\/\[0\.04\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/\[0\.04\] {
   background-color: color-mix(in srgb, #fff 4%, #08080c);
 }
-.bulkhead .bg-white\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/\[0\.05\] {
   background-color: color-mix(in srgb, #fff 5%, #08080c);
 }
-.bulkhead .bg-white\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/\[0\.06\] {
   background-color: color-mix(in srgb, #fff 6%, #08080c);
 }
-.bulkhead .bg-white\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/\[0\.08\] {
   background-color: color-mix(in srgb, #fff 8%, #08080c);
 }
-.bulkhead .bg-white\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/10 {
   background-color: color-mix(in srgb, #fff 10%, #08080c);
 }
-.bulkhead .bg-black\/20:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-black\/20 {
   background-color: color-mix(in srgb, #000 20%, #08080c);
 }
-.bulkhead .bg-black\/25:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-black\/25 {
   background-color: color-mix(in srgb, #000 25%, #08080c);
 }
-.bulkhead .bg-black\/30:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-black\/30 {
   background-color: color-mix(in srgb, #000 30%, #08080c);
 }
-.bulkhead .bg-black\/40:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-black\/40 {
   background-color: color-mix(in srgb, #000 40%, #08080c);
 }
-.bulkhead .bg-indigo-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-indigo-500\/\[0\.08\] {
   background-color: color-mix(in srgb, var(--color-indigo-500) 8%, #08080c);
 }
-.bulkhead .bg-indigo-500\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-indigo-500\/10 {
   background-color: color-mix(in srgb, var(--color-indigo-500) 10%, #08080c);
 }
-.bulkhead .bg-indigo-500\/15:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-indigo-500\/15 {
   background-color: color-mix(in srgb, var(--color-indigo-500) 15%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.02\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.02\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 2%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.04\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.04\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 4%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.06\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 6%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.07\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.07\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 7%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.08\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 8%, #08080c);
 }
-.bulkhead .bg-violet-500\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/10 {
   background-color: color-mix(in srgb, var(--color-violet-500) 10%, #08080c);
 }
-.bulkhead .bg-violet-500\/15:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/15 {
   background-color: color-mix(in srgb, var(--color-violet-500) 15%, #08080c);
 }
-.bulkhead .bg-fuchsia-500\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-fuchsia-500\/\[0\.05\] {
   background-color: color-mix(in srgb, var(--color-fuchsia-500) 5%, #08080c);
 }
-.bulkhead .bg-fuchsia-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-fuchsia-500\/\[0\.08\] {
   background-color: color-mix(in srgb, var(--color-fuchsia-500) 8%, #08080c);
 }
-.bulkhead .bg-fuchsia-500\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-fuchsia-500\/10 {
   background-color: color-mix(in srgb, var(--color-fuchsia-500) 10%, #08080c);
 }
-.bulkhead .bg-emerald-500\/\[0\.02\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-emerald-500\/\[0\.02\] {
   background-color: color-mix(in srgb, var(--color-emerald-500) 2%, #08080c);
 }
-.bulkhead .bg-emerald-500\/\[0\.04\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-emerald-500\/\[0\.04\] {
   background-color: color-mix(in srgb, var(--color-emerald-500) 4%, #08080c);
 }
-.bulkhead .bg-lime-500\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-lime-500\/\[0\.05\] {
   background-color: color-mix(in srgb, var(--color-lime-500) 5%, #08080c);
 }
-.bulkhead .bg-lime-500\/\[0\.08\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-lime-500\/\[0\.08\] {
   background-color: color-mix(in srgb, var(--color-lime-500) 8%, #08080c);
 }
-.bulkhead .bg-amber-500\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-amber-500\/10 {
   background-color: color-mix(in srgb, var(--color-amber-500) 10%, #08080c);
 }
-.bulkhead .bg-orange-400\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-orange-400\/10 {
   background-color: color-mix(in srgb, var(--color-orange-400) 10%, #08080c);
 }
-.bulkhead .bg-white\/5:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/5 {
   background-color: color-mix(in srgb, #fff 5%, #08080c);
 }
-.bulkhead .bg-white\/\[0\.14\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-white\/\[0\.14\] {
   background-color: color-mix(in srgb, #fff 14%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.09\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.09\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 9%, #08080c);
 }
-.bulkhead .bg-red-500\/\[0\.07\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-red-500\/\[0\.07\] {
   background-color: color-mix(in srgb, var(--color-red-500) 7%, #08080c);
 }
-.bulkhead .bg-orange-500\/10:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-orange-500\/10 {
   background-color: color-mix(in srgb, var(--color-orange-500) 10%, #08080c);
 }
-.bulkhead .bg-amber-500\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-amber-500\/\[0\.06\] {
   background-color: color-mix(in srgb, var(--color-amber-500) 6%, #08080c);
 }
-.bulkhead .bg-violet-500\/\[0\.05\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-violet-500\/\[0\.05\] {
   background-color: color-mix(in srgb, var(--color-violet-500) 5%, #08080c);
 }
-.bulkhead .bg-indigo-500\/\[0\.06\]:not(:hover):not(.bg-black\/70 *) {
+.bulkhead .bg-indigo-500\/\[0\.06\] {
   background-color: color-mix(in srgb, var(--color-indigo-500) 6%, #08080c);
 }
 /* …and a card whose surface is a gradient of tints gets the ground under
    the gradient instead. */
-.bulkhead .from-white\/\[0\.05\]:not(.bg-black\/70 *) {
+.bulkhead .from-white\/\[0\.05\] {
   background-color: #08080c;
+}
+
+/* …and the hover tints, opaque too — the mixed colour, not glass. */
+.bulkhead .hover\:bg-white\/\[0\.03\]:hover {
+  background-color: color-mix(in srgb, #fff 3%, #08080c);
+}
+.bulkhead .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: color-mix(in srgb, #fff 6%, #08080c);
+}
+.bulkhead .hover\:bg-white\/\[0\.07\]:hover {
+  background-color: color-mix(in srgb, #fff 7%, #08080c);
+}
+.bulkhead .hover\:bg-white\/10:hover {
+  background-color: color-mix(in srgb, #fff 10%, #08080c);
+}
+.bulkhead .hover\:bg-violet-500\/\[0\.06\]:hover {
+  background-color: color-mix(in srgb, var(--color-violet-500) 6%, #08080c);
+}
+.bulkhead .hover\:bg-violet-500\/\[0\.11\]:hover {
+  background-color: color-mix(in srgb, var(--color-violet-500) 11%, #08080c);
+}
+.bulkhead .hover\:bg-violet-500\/15:hover {
+  background-color: color-mix(in srgb, var(--color-violet-500) 15%, #08080c);
+}
+.bulkhead .hover\:bg-violet-500\/30:hover {
+  background-color: color-mix(in srgb, var(--color-violet-500) 30%, #08080c);
+}
+.bulkhead .hover\:bg-amber-500\/15:hover {
+  background-color: color-mix(in srgb, var(--color-amber-500) 15%, #08080c);
+}
+.bulkhead .hover\:bg-indigo-500\/15:hover {
+  background-color: color-mix(in srgb, var(--color-indigo-500) 15%, #08080c);
+}
+.bulkhead .hover\:bg-indigo-500\/\[0\.2\]:hover {
+  background-color: color-mix(in srgb, var(--color-indigo-500) 20%, #08080c);
+}
+.bulkhead .hover\:bg-black\/40:hover {
+  background-color: color-mix(in srgb, #000 40%, #08080c);
 }

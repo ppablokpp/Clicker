@@ -20,7 +20,7 @@ import {
   Archive,
   Dices,
   Package,
-  ClipboardList,
+  NotebookPen,
   Info,
   Orbit,
   Split,
@@ -62,6 +62,8 @@ import { Meteor } from '../components/Meteor'
 import { Asteroid, type AsteroidColors } from '../components/Asteroid'
 import { SpaceObject } from '../components/SpaceObject'
 import { TravelModal } from '../components/TravelModal'
+import { StallModalHeader, StallModalWall } from '../components/StallModalHeader'
+import { DiaryModal } from '../components/DiaryModal'
 import { ExitGlyph } from '../components/AirlockGlyphs'
 import { TravelCover } from '../components/TravelCover'
 import { useRefineryContext } from '../context/RefineryContext'
@@ -85,6 +87,11 @@ interface InfoModalData {
 /** How long the flight to the next asteroid shows for at least, in ms —
  *  the cover lifts when the new tier is loaded, but not before this. */
 const PRESTIGE_FLIGHT_MS = 2000
+/** The header sheets' stall colours: the inventory's amber, the tasks'
+ *  emerald, the log's sky — the lamp, the rules and the title's glow. */
+const STALL_AMBER = { fill: '#fbbf24', glow: 'rgba(251,191,36,0.6)' }
+const STALL_EMERALD = { fill: '#34d399', glow: 'rgba(52,211,153,0.6)' }
+const STALL_SKY = { fill: '#38bdf8', glow: 'rgba(56,189,248,0.6)' }
 /** The airlock opens once the fleet is this big on the first asteroid —
  *  the station tutorial fires on that same purchase and walks you out. */
 const AIRLOCK_UNLOCK_DRONES = 5
@@ -403,32 +410,6 @@ function CockpitIconButton({
   )
 }
 
-// Exactly the cockpit header's own shape — square top corners, bottom
-// corners cut — reused as-is by the three cockpit-styled modals below
-// (Centro de mando, Inventario, Tareas) so they all read as panels off the
-// same console.
-const MODAL_CLIP_PATH =
-  'polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))'
-
-// The scanline texture + corner rivets from the cockpit header/tab bar,
-// dropped into a modal's own outer card unchanged — everything else about
-// these three modals (header strip, glow, icon badge, body content) stays
-// exactly as it already was.
-function CockpitModalChrome() {
-  return (
-    <>
-      <div
-        className="pointer-events-none absolute inset-0 z-10 opacity-[0.04]"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(180deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px)',
-        }}
-      />
-      <span className="pointer-events-none absolute left-1.5 top-1.5 z-10 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
-      <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 h-1 w-1 rounded-full bg-white/25 shadow-[0_0_2px_rgba(255,255,255,0.4)]" />
-    </>
-  )
-}
-
 export function Home() {
   const { userId } = useAppAuth()
   const navigate = useNavigate()
@@ -584,9 +565,9 @@ export function Home() {
   // state-based (unlike the inventory/upgrade LEDs): it goes dark on its
   // own the moment the last claimable tier is claimed, no "seen" flag
   // needed.
-  const hasClaimableTask = MISSIONS.some((mission) =>
-    mission.tiers.some((tier) => mission.progressValue >= tier.required && !claimedTasks.has(tier.id)),
-  )
+  // (Unused while the tasks button is off the console — kept for when the
+  // board comes back inside the diary.)
+  void MISSIONS
   const {
     catalog: powerupCatalog,
     active: activePowerup,
@@ -639,6 +620,7 @@ export function Home() {
   const [showTravel, setShowTravel] = useState(false)
   const [traveling, setTraveling] = useState(false)
   const [showTasks, setShowTasks] = useState(false)
+  const [showDiary, setShowDiary] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const [infoModal, setInfoModal] = useState<InfoModalData | null>(null)
   // "Anomalía" event — a small asteroid that flies across the whole screen
@@ -663,6 +645,7 @@ export function Home() {
       showTravel ||
       traveling ||
       showTasks ||
+      showDiary ||
       showLog ||
       showEventChallenge ||
       infoModal !== null,
@@ -1254,6 +1237,7 @@ export function Home() {
     showTravel ||
     traveling ||
     showTasks ||
+    showDiary ||
     showLog ||
     infoModal !== null ||
     showEventChallenge
@@ -1514,14 +1498,17 @@ export function Home() {
                 </div>
 
                 <div className="pointer-events-auto flex flex-col justify-center gap-2">
+                  {/* The tasks board is off the console for now — its place is
+                      the diary's, and the tasks will likely move in there
+                      (the modal and its state stay, unreachable). */}
                   <CockpitIconButton
-                    icon={ClipboardList}
-                    ariaLabel={strings.home.tasks}
-                    onClick={() => setShowTasks(true)}
-                    iconClass="text-emerald-300"
-                    ledClass="bg-emerald-400 shadow-[0_0_3px_1px_rgba(52,211,153,0.9)]"
-                    borderClass="border-emerald-400/20"
-                    lit={hasClaimableTask}
+                    icon={NotebookPen}
+                    ariaLabel={strings.diary.title}
+                    onClick={() => setShowDiary(true)}
+                    iconClass="text-amber-200"
+                    ledClass="bg-amber-300 shadow-[0_0_3px_1px_rgba(229,207,138,0.9)]"
+                    borderClass="border-amber-300/20"
+                    lit={false}
                   />
                   <CockpitIconButton
                     icon={Route}
@@ -1689,33 +1676,14 @@ export function Home() {
           onClick={() => setShowInventory(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
-            style={{ clipPath: MODAL_CLIP_PATH }}
+            className="bulkhead relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border bg-[#0c0b11] shadow-2xl shadow-black/60"
+            style={{ borderColor: '#fbbf2426' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <CockpitModalChrome />
-            <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
-              <div
-                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.35) 0%, transparent 70%)' }}
-              />
-              <button
-                onClick={() => setShowInventory(false)}
-                aria-label="Close"
-                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
-              >
-                <X size={16} />
-              </button>
-              <div className="relative flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-400/30 bg-gradient-to-br from-amber-400/30 to-orange-500/20 text-amber-200">
-                  <Package size={19} />
-                </div>
-                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.inventoryTitle}</p>
-              </div>
-            </div>
-
-            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="flex flex-col gap-4">
+            <StallModalWall accent={STALL_AMBER} onClose={() => setShowInventory(false)} />
+            <div className="scroll-thin relative min-h-0 flex-1 overflow-y-auto">
+            <StallModalHeader title={strings.home.inventoryTitle} accent={STALL_AMBER} />
+            <div className="flex flex-col gap-4 p-5 pt-4">
               {(ownedClickChests > 0 || ownedGemChests > 0) && (
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -1899,6 +1867,12 @@ export function Home() {
 
       {showShip && <FleetReportModal figures={fleetFigures} onClose={() => setShowShip(false)} />}
 
+      {showDiary && (
+        <DiaryModal
+          figures={{ tierIndex: currentTierIndex, currentMaterialName, lifetimePlatino, autoClickLevel, scoutDroneLevel, gunnerLevel }}
+          onClose={() => setShowDiary(false)}
+        />
+      )}
       {showTasks && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
@@ -1906,43 +1880,24 @@ export function Home() {
           onClick={() => setShowTasks(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
-            style={{ clipPath: MODAL_CLIP_PATH }}
+            className="bulkhead relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border bg-[#0c0b11] shadow-2xl shadow-black/60"
+            style={{ borderColor: '#34d39926' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <CockpitModalChrome />
-            <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
-              <div
-                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.35) 0%, transparent 70%)' }}
-              />
-              <button
-                onClick={() => setShowTasks(false)}
-                aria-label="Close"
-                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
-              >
-                <X size={16} />
-              </button>
-              <div className="relative flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/30 bg-gradient-to-br from-emerald-400/30 to-teal-500/20 text-emerald-200">
-                  <ClipboardList size={19} />
-                </div>
-                <div className="flex flex-col">
-                  <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.tasksTitle}</p>
-                  <span className="font-mono text-[9px] font-semibold uppercase tracking-widest text-emerald-400/70">
-                    {strings.home.tasksProgress(
-                      String(MISSIONS.filter((m) => m.tiers.every((tier) => claimedTasks.has(tier.id))).length),
-                      String(MISSIONS.length),
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-
+            <StallModalWall accent={STALL_EMERALD} onClose={() => setShowTasks(false)} />
+            <div className="scroll-thin relative min-h-0 flex-1 overflow-y-auto">
+            <StallModalHeader
+              title={strings.home.tasksTitle}
+              subtitle={strings.home.tasksProgress(
+                String(MISSIONS.filter((m) => m.tiers.every((tier) => claimedTasks.has(tier.id))).length),
+                String(MISSIONS.length),
+              )}
+              accent={STALL_EMERALD}
+            />
             {/* Graph-paper texture — a manifest/clipboard feel distinct from
                 the scanline used everywhere else, just for this board. */}
             <div
-              className="scroll-thin relative min-h-0 flex-1 overflow-y-auto p-5"
+              className="relative p-5"
               style={{
                 backgroundImage:
                   'repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 22px), repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 22px)',
@@ -2080,6 +2035,7 @@ export function Home() {
                 })}
               </div>
             </div>
+            </div>
           </div>
         </div>
       )}
@@ -2094,33 +2050,14 @@ export function Home() {
           onClick={() => setShowLog(false)}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-2xl shadow-black/50"
-            style={{ clipPath: MODAL_CLIP_PATH }}
+            className="bulkhead relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border bg-[#0c0b11] shadow-2xl shadow-black/60"
+            style={{ borderColor: '#38bdf826' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <CockpitModalChrome />
-            <div className="relative shrink-0 overflow-hidden border-b border-white/5 px-6 pb-5 pt-6">
-              <div
-                className="pointer-events-none absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(56,189,248,0.35) 0%, transparent 70%)' }}
-              />
-              <button
-                onClick={() => setShowLog(false)}
-                aria-label="Close"
-                className="absolute right-4 top-4 text-neutral-500 hover:text-neutral-300"
-              >
-                <X size={16} />
-              </button>
-              <div className="relative flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-400/30 bg-gradient-to-br from-sky-400/30 to-cyan-500/20 text-sky-200">
-                  <Route size={19} />
-                </div>
-                <p className="font-[Space_Grotesk] text-base font-bold text-white">{strings.home.logTitle}</p>
-              </div>
-            </div>
-
-            <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
-              <div className="flex flex-col gap-2.5">
+            <StallModalWall accent={STALL_SKY} onClose={() => setShowLog(false)} />
+            <div className="scroll-thin relative min-h-0 flex-1 overflow-y-auto">
+              <StallModalHeader title={strings.home.logTitle} accent={STALL_SKY} />
+              <div className="flex flex-col gap-2.5 p-5 pt-4">
                 {OBJECT_TIERS.map((tier, i) => {
                   const isCurrent = i === currentTierIndex
                   const isLocked = i > currentTierIndex
