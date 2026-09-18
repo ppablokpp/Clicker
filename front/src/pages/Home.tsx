@@ -478,6 +478,7 @@ export function Home() {
     cosmeticBonus,
     refetch: refetchTree,
     resetForPrestige: resetTreeForPrestige,
+    awayCredit,
     hasNewUpgrade,
     markUpgradesSeen,
   } = useTreeContext()
@@ -962,17 +963,20 @@ export function Home() {
   // but an account that already had five or more when it shipped never
   // buys that one, so it fires here instead, once, the first time such an
   // account is seen with the flag still down. Only once the fleet has
-  // been read (the level defaults to 0 until then) and with nothing else
-  // running.
+  // been read (the level defaults to 0 until then), with nothing else
+  // running, and not while the "your fleet produced this while you were
+  // away" sheet is up — it lands with the same read, and a tutorial
+  // starting under it left both fighting for the screen.
   const tutorial = useTutorialContext()
   const stationTutorialFiredRef = useRef(false)
   useEffect(() => {
     if (stationTutorialFiredRef.current || tutorial.stationTutorialDone || tutorial.isActive) return
+    if (awayCredit !== null) return
     if (currentTierIndex > 0 || autoClickLevel >= AIRLOCK_UNLOCK_DRONES) {
       stationTutorialFiredRef.current = true
       tutorial.start({ steps: STATION_STEPS, persistAs: 'station' })
     }
-  }, [tutorial, currentTierIndex, autoClickLevel])
+  }, [tutorial, currentTierIndex, autoClickLevel, awayCredit])
   const coreWhole = Boolean(refineryCore && refineryCore.tier === currentTierIndex && refineryCore.repaired >= refineryCore.total)
   const prestige = useMemo(() => {
     const tierFrom = TRAJECTORY_TIER_THRESHOLDS[currentTierIndex]
@@ -1645,17 +1649,21 @@ export function Home() {
             and the rock all are. Same size, same material, the ship's
             violet so it reads as "go somewhere" next to a control that
             only adjusts the framing. */}
-        {(currentTierIndex > 0 || autoClickLevel >= AIRLOCK_UNLOCK_DRONES) && (
-        <button
-          data-tutorial="home-exit"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setShowTravel(true)}
-          aria-label={strings.station.travelLabel}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-400/40 bg-violet-500/20 text-violet-200 backdrop-blur-xl transition-colors hover:bg-violet-500/30"
-        >
-          <ExitGlyph size={16} />
-        </button>
-        )}
+        {/* Its slot is always there, so the view control above it doesn't
+            move the moment the airlock unlocks — the button just appears. */}
+        <div className="pointer-events-none h-9 w-9">
+          {(currentTierIndex > 0 || autoClickLevel >= AIRLOCK_UNLOCK_DRONES) && (
+            <button
+              data-tutorial="home-exit"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setShowTravel(true)}
+              aria-label={strings.station.travelLabel}
+              className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-violet-400/40 bg-violet-500/20 text-violet-200 backdrop-blur-xl transition-colors hover:bg-violet-500/30"
+            >
+              <ExitGlyph size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <TapEffectsLayer ref={tapEffectsRef} />
