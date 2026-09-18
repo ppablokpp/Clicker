@@ -55,6 +55,10 @@ const PORT = process.env.PORT || 3001
 
 const allowedOrigins = [
   'http://localhost:5173',
+  // the native shells (mobile-capacitor/): the web app served from inside
+  // the app on iOS and on Android respectively
+  'capacitor://localhost',
+  'https://localhost',
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
 ]
 
