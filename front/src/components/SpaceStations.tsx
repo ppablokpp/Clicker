@@ -1609,6 +1609,8 @@ const MarketStation = memo(function MarketStation({
   const dishX = shopX + shopW + 32
   const dishY = cy - 78
   const scallops = Array.from({ length: 8 }, (_, i) => awnL + (i * (awnR - awnL)) / 8)
+  // the canopy's outline: a trapezoid, narrower at the top
+  const awning = `M${awnL} ${awnY + 10} L${awnL + 10} ${awnY - 12} H${awnR - 10} L${awnR} ${awnY + 10} z`
   const crates = [
     { x: hullX + 38, y: cy + 58, w: 30, h: 22 },
     { x: hullX + 108, y: cy + 66, w: 34, h: 26 },
@@ -1673,6 +1675,9 @@ const MarketStation = memo(function MarketStation({
             <stop offset="0.5" stopColor={tier.fill} />
             <stop offset="1" stopColor={tier.dark} />
           </linearGradient>
+          <clipPath id="mktAwningClip">
+            <path d={awning} />
+          </clipPath>
           <linearGradient id="mktCrate" x1="0" x2="1" y1="0" y2="1">
             <stop offset="0" stopColor={HULL.lit} />
             <stop offset="0.5" stopColor={HULL.mid} />
@@ -1866,10 +1871,7 @@ const MarketStation = memo(function MarketStation({
 
         {/* the awning: a striped canopy with a scalloped edge, the store
             tab's own shape */}
-        <path
-          d={`M${awnL} ${awnY + 10} L${awnL + 10} ${awnY - 12} H${awnR - 10} L${awnR} ${awnY + 10} z`}
-          fill="url(#mktAwning)"
-        />
+        <path d={awning} fill="url(#mktAwning)" />
         {scallops.map((x, i) => (
           <path
             key={i}
@@ -1877,19 +1879,22 @@ const MarketStation = memo(function MarketStation({
             fill={i % 2 ? tier.fill : tier.dark}
           />
         ))}
-        {scallops.map((x, i) =>
-          i % 2 ? (
-            <rect
-              key={i}
-              x={x}
-              y={awnY - 10}
-              width={(awnR - awnL) / 8}
-              height={20}
-              fill={tier.dark}
-              fillOpacity={0.55}
-            />
-          ) : null,
-        )}
+        {/* the stripes, clipped to the canopy so the end ones follow its slant */}
+        <g clipPath="url(#mktAwningClip)">
+          {scallops.map((x, i) =>
+            i % 2 ? (
+              <rect
+                key={i}
+                x={x}
+                y={awnY - 12}
+                width={(awnR - awnL) / 8}
+                height={22}
+                fill={tier.dark}
+                fillOpacity={0.55}
+              />
+            ) : null,
+          )}
+        </g>
         <line
           x1={awnL + 10}
           y1={awnY - 12}
