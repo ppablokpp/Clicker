@@ -101,7 +101,7 @@ export function Refinery() {
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] w-full flex-col bg-[#08080c] px-5 pb-10 pt-4 sm:px-6">
+    <div className="relative flex min-h-[100dvh] w-full flex-col bg-[#08080c] px-5 pb-7 pt-4 sm:px-6">
       {/* the smelting hall, round everything */}
       <RefineryInterior material={c} repaired={repaired} total={total} progress={progress} smelting={active} />
       <OutsideBackButton always />
