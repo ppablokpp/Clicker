@@ -361,6 +361,140 @@ const ROUTE: ReadonlyArray<{
 ]
 const ROUTE_ROCK = 50
 
+/**
+ * The month, ruled off by hand: a seven-column grid drawn a little
+ * crooked, the weekdays along the top, every day numbered. The days gone
+ * by are crossed out in graphite, except the ones the commander went out
+ * to mine, which get a tick in the mineral's crayon; today is ringed. Nothing to
+ * touch; it's a page of the notebook.
+ */
+export function CalendarSketch({
+  year,
+  month,
+  today,
+  played,
+  color,
+  weekdays,
+  className,
+}: {
+  year: number
+  /** 0-based, like Date's. */
+  month: number
+  /** Day of the month, or null when the month shown isn't this one. */
+  today: number | null
+  played: ReadonlySet<number>
+  color?: string
+  weekdays: readonly string[]
+  className?: string
+}) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  // Monday first: Date's Sunday=0 becomes 6
+  const firstCol = (new Date(year, month, 1).getDay() + 6) % 7
+  const rows = Math.ceil((firstCol + daysInMonth) / 7)
+  const COL = 41
+  const ROW = 26
+  const X0 = 4
+  // The page's rules fall 19px into every 26px block (see DiaryBook), and
+  // this drawing starts on a block: the grid's lines land on the rules, so
+  // the month is ruled straight onto the notebook's own lines.
+  const Y0 = 19
+  const W = COL * 7
+  const H = ROW * rows
+  // a hair of wobble on every line, fixed per line
+  const j = (k: number) => ((Math.abs(Math.sin(k * 12.9898 + 4.1) * 43758.5453) % 1) - 0.5) * 1.6
+  const cellAt = (day: number) => {
+    const i = firstCol + day - 1
+    return { cx: X0 + (i % 7) * COL + COL / 2, cy: Y0 + Math.floor(i / 7) * ROW + ROW / 2 }
+  }
+  return (
+    <svg viewBox="0 0 296 208" className={className} aria-hidden="true" style={{ filter: 'url(#pencil-soft)' }}>
+      {/* the weekdays */}
+      {weekdays.map((w, i) => (
+        <text
+          key={i}
+          x={X0 + i * COL + COL / 2}
+          y={Y0 - 9}
+          textAnchor="middle"
+          fontSize="11"
+          fill={FAINT}
+          fontFamily="inherit"
+        >
+          {w}
+        </text>
+      ))}
+      {/* the grid, ruled by hand */}
+      <g {...line} strokeWidth={1}>
+        {Array.from({ length: 8 }, (_, i) => (
+          <path
+            key={'v' + i}
+            d={`M${X0 + i * COL + j(i)} ${Y0 + j(i + 20)} L${X0 + i * COL + j(i + 40)} ${Y0 + H + j(i + 60)}`}
+          />
+        ))}
+        {Array.from({ length: rows + 1 }, (_, i) => (
+          <path
+            key={'h' + i}
+            d={`M${X0 + j(i + 80)} ${Y0 + i * ROW + j(i + 100)} L${X0 + W + j(i + 120)} ${Y0 + i * ROW + j(i + 140)}`}
+          />
+        ))}
+      </g>
+      {/* the days */}
+      {Array.from({ length: daysInMonth }, (_, k) => {
+        const day = k + 1
+        const { cx, cy } = cellAt(day)
+        const past = today !== null && day < today
+        const isToday = today !== null && day === today
+        const out = played.has(day)
+        const crayon = out && color
+        return (
+          <g key={day}>
+            {past &&
+              (crayon ? (
+                <path
+                  d={`M${cx - 10} ${cy + 1} L${cx - 3} ${cy + 8} L${cx + 11} ${cy - 8}`}
+                  fill="none"
+                  stroke={color}
+                  strokeOpacity={0.65}
+                  strokeWidth={4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <g {...line} strokeWidth={1.1} strokeOpacity={0.7}>
+                  <path d={`M${cx - 9} ${cy - 7} L${cx + 9} ${cy + 7}`} />
+                  <path d={`M${cx + 8} ${cy - 8} L${cx - 8} ${cy + 8}`} />
+                </g>
+              ))}
+            {isToday && (
+              <ellipse
+                cx={cx}
+                cy={cy}
+                rx={14}
+                ry={10}
+                fill="none"
+                stroke={crayon ? color : INK}
+                strokeOpacity={crayon ? 0.7 : 1}
+                strokeWidth={crayon ? 3 : 1.4}
+                strokeLinecap="round"
+                strokeDasharray={crayon ? undefined : '60 4'}
+              />
+            )}
+            <text
+              x={cx}
+              y={cy + 4.5}
+              textAnchor="middle"
+              fontSize="13"
+              fill={today !== null && day > today ? FAINT : INK}
+              fontFamily="inherit"
+            >
+              {day}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 export function RouteSketch({
   names,
   colors,

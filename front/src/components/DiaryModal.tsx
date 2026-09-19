@@ -1,10 +1,12 @@
 import { useLanguage } from '../context/LanguageContext'
 import { useRefineryContext } from '../context/RefineryContext'
+import { useClickDays } from '../hooks/useClickDays'
 import { formatPlatino } from '../lib/formatPlatino'
 import { CORES_PER_TIER } from '../lib/refinery'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { DiaryBook, type DiaryPage } from './DiaryBook'
 import {
+  CalendarSketch,
   CapsulesSketch,
   PencilFilter,
   ReactorSketch,
@@ -57,6 +59,15 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000)
   const entries = d.todayEntries[figures.tierIndex] ?? d.todayEntries[0]
   const entry = entries[dayOfYear % entries.length]
+  // The calendar: this month, with the days the commander went out to
+  // mine (the stats calendar's own days) coloured in.
+  const { clickDays } = useClickDays()
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-`
+  const playedThisMonth = new Set(
+    [...clickDays].filter((day) => day.startsWith(monthKey)).map((day) => Number(day.slice(8))),
+  )
+  const monthName = now.toLocaleDateString(language === 'en' ? 'en-US' : 'es-ES', { month: 'long', year: 'numeric' })
+  const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1)
 
   const pages: DiaryPage[] = [
     // ── the day's entry ──
@@ -110,6 +121,26 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
           <p className="text-[13px] text-[#8a8070]">
             {d.capsulesCaption(loadedHere, CORES_PER_TIER, figures.currentMaterialName)}
           </p>
+        </div>
+      ),
+    },
+    // ── the calendar ──
+    {
+      head: d.calendarHead,
+      content: (
+        <div>
+          <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{monthTitle}</p>
+          <CalendarSketch
+            year={now.getFullYear()}
+            month={now.getMonth()}
+            today={now.getDate()}
+            played={playedThisMonth}
+            color={MATERIAL_TIER_COLORS[figures.tierIndex]?.fill}
+            weekdays={d.calendarWeekdays}
+            className="mt-[26px] h-[208px] w-full"
+          />
+          <p className="mt-[26px]">{d.calendarNote}</p>
+          <p className="text-[13px] text-[#8a8070]">{d.calendarDaysOut(playedThisMonth.size)}</p>
         </div>
       ),
     },

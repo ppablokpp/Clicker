@@ -49,6 +49,11 @@ export interface TranslationStrings {
     reactorCaption: (whole: number, total: number) => string
     compendiumHead: string
     compendiumNote: string
+    calendarHead: string
+    /** Monday first, one letter each. */
+    calendarWeekdays: readonly [string, string, string, string, string, string, string]
+    calendarNote: string
+    calendarDaysOut: (days: number) => string
   }
   ship: {
     title: string
@@ -648,6 +653,11 @@ export const translations: Record<Language, TranslationStrings> = {
       compendiumHead: 'Trayectoria',
       compendiumNote:
         'Estos son los ocho minerales que necesitamos, C0\u2060-\u2060PI dice que el reactor no arranca con menos. Sin los ocho no hay vuelta a casa.',
+      calendarHead: 'Calendario',
+      calendarWeekdays: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
+      calendarNote:
+        'Aquí no hay amaneceres, así que el día empieza cuando yo digo. Lo tacho cuando me quito las botas; hasta entonces sigue siendo hoy.',
+      calendarDaysOut: (days) => (days === 1 ? '1 día de trabajo este mes.' : `${days} días de trabajo este mes.`),
     },
     ship: {
       title: 'Tu nave',
@@ -1475,6 +1485,11 @@ export const translations: Record<Language, TranslationStrings> = {
       compendiumHead: 'Trajectory',
       compendiumNote:
         'These are the eight minerals we need, C0\u2060-\u2060PI says the reactor will not start on fewer. Without all eight there is no way home.',
+      calendarHead: 'Calendar',
+      calendarWeekdays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+      calendarNote:
+        'There are no sunrises here, so the day starts when I say it does. I cross it off when I take my boots off; until then it is still today.',
+      calendarDaysOut: (days) => (days === 1 ? '1 day of work this month.' : `${days} days of work this month.`),
     },
     ship: {
       title: 'Your ship',
