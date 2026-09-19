@@ -4,6 +4,7 @@ import cors from 'cors'
 import { clerkMiddleware } from '@clerk/express'
 import { database } from './db/pool.js'
 import { usersRouter } from './routes/users.js'
+import { nativeAuthRouter } from './routes/nativeAuth.js'
 import { clicksRouter } from './routes/clicks.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
 import { powerupsRouter } from './routes/powerups.js'
@@ -81,6 +82,7 @@ app.get('/health/db', async (_req, res) => {
 })
 
 app.use('/api/users', usersRouter)
+app.use('/api/native-auth', nativeAuthRouter)
 app.use('/api/clicks', clicksRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/powerups', powerupsRouter)

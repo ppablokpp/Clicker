@@ -10,18 +10,22 @@ type ClerkInstance = ReturnType<typeof useClerk>
  * A web view can't run Google's OAuth page (Google refuses embedded
  * browsers), so in the app the Google button doesn't redirect: it opens
  * the system's own account sheet (Credential Manager on Android, the
- * Google SDK on iOS), gets an ID token for the user, and hands that token
- * to Clerk — the same exchange Clerk's own Expo SDK does, under the
- * `google_one_tap` strategy, which takes a Google ID token whose audience
- * is our Web OAuth client. Clerk then either signs the user in or, for a
- * first visit, creates the account (a "transfer" to sign-up).
+ * Google SDK on iOS) and gets an ID token for the user.
  *
- * Needs, on Clerk's side: Google as a social connection with *custom
- * credentials* (our Web client ID + secret) and the app's origin in the
- * instance's allowed origins. On Google's side: that Web client, plus one
- * Android client per signing key (package name + SHA-1). The Web client
- * ID is the only one this code sees, via VITE_GOOGLE_WEB_CLIENT_ID.
+ * That token can't go to Clerk straight from here: Clerk's browser-facing
+ * API only takes Google tokens minted for the Web client itself, and a
+ * token minted for an Android app names the Android client as its
+ * authorized party — Clerk answers 403 from any origin. So the token goes
+ * to our back (routes/nativeAuth.js), which verifies it with Google and
+ * mints a Clerk sign-in token for that user; we redeem that with Clerk's
+ * `ticket` strategy, which is open to every origin, and end up with an
+ * ordinary Clerk session.
+ *
+ * Needs: the Google Web client (its ID here as VITE_GOOGLE_WEB_CLIENT_ID,
+ * the same on the back) plus one Android client per signing key in Google
+ * Cloud, and the app's origin in Clerk's allowed origins.
  */
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const WEB_CLIENT_ID = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined
 
 let initialized: Promise<void> | null = null
@@ -41,18 +45,15 @@ function isCancellation(err: unknown): boolean {
   return msg.includes('cancel') || msg.includes('canceled') || msg.includes('user closed')
 }
 
-interface ClerkApiError {
-  errors?: { code?: string }[]
-}
-const hasErrorCode = (err: unknown, code: string) =>
-  Boolean((err as ClerkApiError)?.errors?.some((e) => e.code === code))
-
 export async function signInWithGoogleNative(clerk: ClerkInstance): Promise<void> {
   await ensureInitialized()
 
   let idToken: string | null | undefined
   try {
-    const res = await SocialLogin.login({ provider: 'google', options: { scopes: ['email', 'profile'] } })
+    // No scopes: without them the plugin does a plain ID-token sign-in (all we
+    // need for Clerk); asking for scopes turns it into an authorization flow
+    // that needs the main activity wired up for it.
+    const res = await SocialLogin.login({ provider: 'google', options: {} })
     idToken = (res.result as { idToken?: string | null }).idToken
   } catch (err) {
     if (isCancellation(err)) throw new NativeSignInCancelled()
@@ -62,25 +63,19 @@ export async function signInWithGoogleNative(clerk: ClerkInstance): Promise<void
 
   const client = clerk.client
   if (!client) throw new Error('Clerk no está listo')
-  const { signIn, signUp } = client
 
-  let sessionId: string | null = null
-  try {
-    await signIn.create({ strategy: 'google_one_tap', token: idToken })
-    if (signIn.firstFactorVerification.status === 'transferable') {
-      // Google knows them, Clerk doesn't yet: carry the verification over
-      // into a fresh account
-      await signUp.create({ transfer: true })
-      sessionId = signUp.createdSessionId
-    } else {
-      sessionId = signIn.createdSessionId
-    }
-  } catch (err) {
-    if (!hasErrorCode(err, 'external_account_not_found')) throw err
-    await signUp.create({ strategy: 'google_one_tap', token: idToken })
-    sessionId = signUp.createdSessionId
+  // the back turns Google's word into Clerk's
+  const res = await fetch(`${API_URL}/api/native-auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken }),
+  })
+  const data = (await res.json().catch(() => ({}))) as { ticket?: string; error?: string }
+  if (!res.ok || !data.ticket) throw new Error(data.error ?? 'No se ha podido validar la cuenta de Google')
+
+  const signIn = await client.signIn.create({ strategy: 'ticket', ticket: data.ticket })
+  if (signIn.status !== 'complete' || !signIn.createdSessionId) {
+    throw new Error(`Clerk no ha completado el inicio de sesión (${signIn.status})`)
   }
-
-  if (!sessionId) throw new Error('Clerk no ha creado la sesión')
-  await clerk.setActive({ session: sessionId })
+  await clerk.setActive({ session: signIn.createdSessionId })
 }
