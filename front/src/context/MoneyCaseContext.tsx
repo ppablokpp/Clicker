@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -16,11 +15,10 @@ import {
 // sign-in instead of charging anyone. The matching backend routes reject an
 // anon token outright for the same reason.
 import { useAuth } from '@clerk/clerk-react'
-import { Purchases, PurchasesError, ErrorCode, type Package } from '@revenuecat/purchases-js'
+import { getStore, PurchaseCancelled } from '../lib/store'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
 const OFFERING_ID = 'case_purchases'
 const PRODUCT_ID = 'case_purchase'
 
@@ -49,32 +47,19 @@ export function MoneyCaseProvider({ children }: { children: ReactNode }) {
   const { promptSignIn } = useSignInPrompt()
   const [price, setPrice] = useState('')
   const [isBuying, setIsBuying] = useState(false)
-  const packageRef = useRef<Package | null>(null)
 
-  const ensureConfigured = useCallback(() => {
-    if (!userId || !REVENUECAT_PUBLIC_KEY) return null
-    if (!Purchases.isConfigured()) {
-      Purchases.configure({ apiKey: REVENUECAT_PUBLIC_KEY, appUserId: userId })
-    }
-    return Purchases.getSharedInstance()
-  }, [userId])
-
+  // The price comes from whichever store sells here (lib/store): the web's
+  // checkout in a browser, Google Play / the App Store inside the app.
   useEffect(() => {
-    if (!userId || !REVENUECAT_PUBLIC_KEY) return
+    if (!userId) return
     let cancelled = false
     ;(async () => {
       try {
-        const purchases = ensureConfigured()
-        if (!purchases) return
-        const offerings = await purchases.getOfferings({ offeringIdentifier: OFFERING_ID })
-        const offering = offerings.all[OFFERING_ID]
-        if (!offering || cancelled) return
-        const pkg = offering.availablePackages.find(
-          (p) => p.webBillingProduct.identifier === PRODUCT_ID,
-        )
-        if (!pkg) return
-        packageRef.current = pkg
-        if (!cancelled) setPrice(pkg.webBillingProduct.price.formattedPrice)
+        const store = await getStore(userId)
+        if (!store) return
+        const listed = await store.loadPrices(OFFERING_ID)
+        const price = listed[PRODUCT_ID]
+        if (!cancelled && price) setPrice(price.formatted)
       } catch (err) {
         console.error('No se pudo cargar el precio del cofre de pago', err)
       }
@@ -82,34 +67,24 @@ export function MoneyCaseProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [userId, ensureConfigured])
+  }, [userId])
 
   const buy = useCallback(async (): Promise<BuyResult> => {
     if (!userId) {
       promptSignIn()
       return { ok: false, error: 'not-signed-in' }
     }
-    const purchases = ensureConfigured()
-    if (!purchases) return { ok: false, error: 'revenuecat-not-configured' }
+    const store = await getStore(userId)
+    if (!store) return { ok: false, error: 'revenuecat-not-configured' }
 
     setIsBuying(true)
     try {
-      let pkg = packageRef.current
-      if (!pkg) {
-        const offerings = await purchases.getOfferings({ offeringIdentifier: OFFERING_ID })
-        const found = offerings.all[OFFERING_ID]?.availablePackages.find(
-          (p) => p.webBillingProduct.identifier === PRODUCT_ID,
-        )
-        if (found) pkg = found
-      }
-      if (!pkg) return { ok: false, error: 'product-not-found' }
-
-      const result = await purchases.purchase({ rcPackage: pkg })
+      const result = await store.purchase(OFFERING_ID, PRODUCT_ID)
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/money-case/redeem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ transactionId: result.storeTransaction.storeTransactionId }),
+        body: JSON.stringify({ transactionId: result.transactionId }),
       })
       const data = await res.json()
       if (!res.ok) return { ok: false, error: data.error }
@@ -123,15 +98,14 @@ export function MoneyCaseProvider({ children }: { children: ReactNode }) {
         gems: data.gems,
       }
     } catch (err) {
-      if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {
-        return { ok: false, error: 'cancelled' }
-      }
+      if (err instanceof PurchaseCancelled) return { ok: false, error: 'cancelled' }
+      if ((err as Error).message === 'product-not-found') return { ok: false, error: 'product-not-found' }
       console.error('No se pudo completar la compra del cofre', err)
       return { ok: false, error: 'purchase-failed' }
     } finally {
       setIsBuying(false)
     }
-  }, [userId, ensureConfigured, getToken, promptSignIn])
+  }, [userId, getToken, promptSignIn])
 
   // Memoized — see GemsContext's comment for why an inline object literal
   // here would cascade re-renders to every consumer on every tap.

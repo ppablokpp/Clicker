@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -16,13 +15,12 @@ import {
 // sign-in instead of charging anyone. The matching backend routes reject an
 // anon token outright for the same reason.
 import { useAuth } from '@clerk/clerk-react'
-import { Purchases, PurchasesError, ErrorCode, type Package } from '@revenuecat/purchases-js'
+import { getStore, PurchaseCancelled } from '../lib/store'
 import { useGemsContext } from './GemsContext'
 import { useSignInPrompt } from './SignInPromptContext'
 import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
 const OFFERING_ID = 'gems'
 
 export interface GemPackDef {
@@ -56,7 +54,6 @@ export function GemPacksProvider({ children }: { children: ReactNode }) {
   const [prices, setPrices] = useState<Record<string, string>>({})
   const [priceAmountsMicros, setPriceAmountsMicros] = useState<Record<string, number>>({})
   const [buyingId, setBuyingId] = useState<string | null>(null)
-  const packagesRef = useRef<Record<string, Package>>({})
 
   useEffect(() => {
     fetch(`${API_URL}/api/gem-packs`)
@@ -65,36 +62,25 @@ export function GemPacksProvider({ children }: { children: ReactNode }) {
       .catch((err) => console.error('No se pudo cargar el catálogo de packs de gemas', err))
   }, [])
 
-  const ensureConfigured = useCallback(() => {
-    if (!userId || !REVENUECAT_PUBLIC_KEY) return null
-    if (!Purchases.isConfigured()) {
-      Purchases.configure({ apiKey: REVENUECAT_PUBLIC_KEY, appUserId: userId })
-    }
-    return Purchases.getSharedInstance()
-  }, [userId])
-
+  // Prices come from whichever store sells here (lib/store): the web's
+  // checkout in a browser, Google Play / the App Store inside the app.
   useEffect(() => {
-    if (!userId || !REVENUECAT_PUBLIC_KEY) return
+    if (!userId) return
     let cancelled = false
     ;(async () => {
       try {
-        const purchases = ensureConfigured()
-        if (!purchases) return
-        const offerings = await purchases.getOfferings({ offeringIdentifier: OFFERING_ID })
-        const offering = offerings.all[OFFERING_ID]
-        if (!offering || cancelled) return
+        const store = await getStore(userId)
+        if (!store) return
+        const listed = await store.loadPrices(OFFERING_ID)
+        if (cancelled) return
         const nextPrices: Record<string, string> = {}
         const nextAmounts: Record<string, number> = {}
-        for (const pkg of offering.availablePackages) {
-          const productId = pkg.webBillingProduct.identifier
-          packagesRef.current[productId] = pkg
-          nextPrices[productId] = pkg.webBillingProduct.price.formattedPrice
-          nextAmounts[productId] = pkg.webBillingProduct.price.amountMicros
+        for (const [productId, price] of Object.entries(listed)) {
+          nextPrices[productId] = price.formatted
+          nextAmounts[productId] = price.micros
         }
-        if (!cancelled) {
-          setPrices(nextPrices)
-          setPriceAmountsMicros(nextAmounts)
-        }
+        setPrices(nextPrices)
+        setPriceAmountsMicros(nextAmounts)
       } catch (err) {
         console.error('No se pudieron cargar los precios de los packs de gemas', err)
       }
@@ -102,7 +88,7 @@ export function GemPacksProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [userId, ensureConfigured])
+  }, [userId])
 
   const buy = useCallback(
     async (pack: GemPackDef): Promise<BuyResult> => {
@@ -110,27 +96,17 @@ export function GemPacksProvider({ children }: { children: ReactNode }) {
         promptSignIn()
         return { ok: false, error: 'not-signed-in' }
       }
-      const purchases = ensureConfigured()
-      if (!purchases) return { ok: false, error: 'revenuecat-not-configured' }
+      const store = await getStore(userId)
+      if (!store) return { ok: false, error: 'revenuecat-not-configured' }
 
       setBuyingId(pack.id)
       try {
-        let pkg = packagesRef.current[pack.id]
-        if (!pkg) {
-          const offerings = await purchases.getOfferings({ offeringIdentifier: OFFERING_ID })
-          const found = offerings.all[OFFERING_ID]?.availablePackages.find(
-            (p) => p.webBillingProduct.identifier === pack.id,
-          )
-          if (found) pkg = found
-        }
-        if (!pkg) return { ok: false, error: 'product-not-found' }
-
-        const result = await purchases.purchase({ rcPackage: pkg })
+        const result = await store.purchase(OFFERING_ID, pack.id)
         const token = await getToken()
         const res = await fetch(`${API_URL}/api/gem-packs/redeem`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ transactionId: result.storeTransaction.storeTransactionId }),
+          body: JSON.stringify({ transactionId: result.transactionId }),
         })
         const data = await res.json()
         if (!res.ok) return { ok: false, error: data.error }
@@ -139,16 +115,15 @@ export function GemPacksProvider({ children }: { children: ReactNode }) {
         playChestPurchase()
         return { ok: true }
       } catch (err) {
-        if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {
-          return { ok: false, error: 'cancelled' }
-        }
+        if (err instanceof PurchaseCancelled) return { ok: false, error: 'cancelled' }
+        if ((err as Error).message === 'product-not-found') return { ok: false, error: 'product-not-found' }
         console.error('No se pudo completar la compra del pack de gemas', err)
         return { ok: false, error: 'purchase-failed' }
       } finally {
         setBuyingId(null)
       }
     },
-    [userId, ensureConfigured, getToken, syncGems, promptSignIn],
+    [userId, getToken, syncGems, promptSignIn],
   )
 
   // Memoized — see GemsContext's comment for why an inline object literal

@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -16,11 +15,10 @@ import {
 // sign-in instead of charging anyone. The matching backend routes reject an
 // anon token outright for the same reason.
 import { useAuth } from '@clerk/clerk-react'
-import { Purchases, PurchasesError, ErrorCode, type Package } from '@revenuecat/purchases-js'
+import { getStore, PurchaseCancelled } from '../lib/store'
 import { useSignInPrompt } from './SignInPromptContext'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const REVENUECAT_PUBLIC_KEY = import.meta.env.VITE_REVENUECAT_PUBLIC_KEY as string | undefined
 const OFFERING_ID = 'permanent_upgrades'
 
 // The Store UI for buying new tiers is commented out (nobody else should be
@@ -54,7 +52,6 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   const [owned, setOwned] = useState<Set<string>>(new Set())
   const [prices, setPrices] = useState<Record<string, string>>({})
   const [buyingId, setBuyingId] = useState<string | null>(null)
-  const packagesRef = useRef<Record<string, Package>>({})
 
   useEffect(() => {
     if (!MONEY_UPGRADES_ENABLED) return
@@ -93,33 +90,20 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
     sync()
   }, [sync])
 
-  const ensureConfigured = useCallback(() => {
-    if (!userId || !REVENUECAT_PUBLIC_KEY) return null
-    if (!Purchases.isConfigured()) {
-      Purchases.configure({ apiKey: REVENUECAT_PUBLIC_KEY, appUserId: userId })
-    }
-    return Purchases.getSharedInstance()
-  }, [userId])
-
-  // Real, localized prices live in RevenueCat, not in our own catalog — our
-  // backend only knows the gameplay numbers (chance/multiplier).
+  // Real, localized prices live in the store (lib/store), not in our own
+  // catalog — our backend only knows the gameplay numbers (chance/multiplier).
   useEffect(() => {
-    if (!MONEY_UPGRADES_ENABLED || !userId || !REVENUECAT_PUBLIC_KEY) return
+    if (!MONEY_UPGRADES_ENABLED || !userId) return
     let cancelled = false
     ;(async () => {
       try {
-        const purchases = ensureConfigured()
-        if (!purchases) return
-        const offerings = await purchases.getOfferings({ offeringIdentifier: OFFERING_ID })
-        const offering = offerings.all[OFFERING_ID]
-        if (!offering || cancelled) return
+        const store = await getStore(userId)
+        if (!store) return
+        const listed = await store.loadPrices(OFFERING_ID)
+        if (cancelled) return
         const nextPrices: Record<string, string> = {}
-        for (const pkg of offering.availablePackages) {
-          const productId = pkg.webBillingProduct.identifier
-          packagesRef.current[productId] = pkg
-          nextPrices[productId] = pkg.webBillingProduct.price.formattedPrice
-        }
-        if (!cancelled) setPrices(nextPrices)
+        for (const [productId, price] of Object.entries(listed)) nextPrices[productId] = price.formatted
+        setPrices(nextPrices)
       } catch (err) {
         console.error('No se pudieron cargar los precios de RevenueCat', err)
       }
@@ -127,7 +111,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [userId, ensureConfigured])
+  }, [userId])
 
   const buy = useCallback(
     async (upgrade: MoneyUpgradeDef) => {
@@ -136,35 +120,24 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
         promptSignIn()
         return { ok: false, error: 'not-signed-in' }
       }
-      const purchases = ensureConfigured()
-      if (!purchases) return { ok: false, error: 'revenuecat-not-configured' }
+      const store = await getStore(userId)
+      if (!store) return { ok: false, error: 'revenuecat-not-configured' }
 
       setBuyingId(upgrade.id)
       try {
-        let pkg = packagesRef.current[upgrade.id]
-        if (!pkg) {
-          const offerings = await purchases.getOfferings({ offeringIdentifier: OFFERING_ID })
-          const found = offerings.all[OFFERING_ID]?.availablePackages.find(
-            (p) => p.webBillingProduct.identifier === upgrade.id,
-          )
-          if (found) pkg = found
-        }
-        if (!pkg) return { ok: false, error: 'product-not-found' }
-
-        await purchases.purchase({ rcPackage: pkg })
+        await store.purchase(OFFERING_ID, upgrade.id)
         await sync(upgrade.id)
         return { ok: true }
       } catch (err) {
-        if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {
-          return { ok: false, error: 'cancelled' }
-        }
+        if (err instanceof PurchaseCancelled) return { ok: false, error: 'cancelled' }
+        if ((err as Error).message === 'product-not-found') return { ok: false, error: 'product-not-found' }
         console.error('No se pudo completar la compra', err)
         return { ok: false, error: 'purchase-failed' }
       } finally {
         setBuyingId(null)
       }
     },
-    [userId, ensureConfigured, sync, promptSignIn],
+    [userId, sync, promptSignIn],
   )
 
   const bestOwned = useMemo(() => {

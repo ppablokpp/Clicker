@@ -90,3 +90,19 @@ opens the system account sheet and the ID token goes to Clerk
   same PATCH on `/v1/instance` with the live secret key).
 - Keys: `front/.env.app` (see `.env.app.example`) — `npm run sync` builds
   the web app with `--mode app`, which loads it over `.env`.
+
+## Purchases (RevenueCat)
+
+The front sells through `front/src/lib/store.ts`: RevenueCat Web Billing
+in a browser, Google Play / App Store through `@revenuecat/purchases-capacitor`
+inside the app. The back verifies either the same way. To turn it on:
+
+- Play Console: create the in-app products with the **same ids** the back
+  serves (`gem-packs`, `key-packs`, money case, permanent upgrades).
+- RevenueCat: add a Play Store app to the existing project (service-account
+  JSON from Google Cloud), import the products, attach them to the same
+  offerings the web uses (`gems`, `keys`, `case_purchases`,
+  `permanent_upgrades`), copy the app's public key into `front/.env.app`
+  as `VITE_REVENUECAT_GOOGLE_KEY`.
+- Test with a license tester account in Play Console (real Play flow, no
+  charge), then confirm the redeem against the back.
