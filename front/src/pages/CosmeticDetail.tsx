@@ -126,6 +126,9 @@ export function CosmeticDetail() {
     if (busy || equipped) return
     if (unlocked) {
       persist(worn)
+      // Equipped: back to the wardrobe, where the change is now visible on
+      // the astronaut. Nothing left to do on this page.
+      navigate(-1)
       return
     }
     if (!item || missing > 0) return
@@ -138,10 +141,11 @@ export function CosmeticDetail() {
       setError(true)
       return
     }
-    // Bought and worn in the same request — mirror it locally so the button
-    // flips to EQUIPPED without waiting for a refetch.
+    // Bought and worn in the same request — mirror it locally, then back to
+    // the wardrobe the same as a plain equip.
     setStyleIds(worn)
     saveStyleIds(worn, styleOwner)
+    navigate(-1)
   }
 
   const primaryLabel = busy

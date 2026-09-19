@@ -732,9 +732,10 @@ export function ChestBench() {
                   )}
                 </span>
 
+                {/* Held count, just under the name plate (18px) so the two never overlap. */}
                 {(held[chest] ?? 0) > 0 && (
                   <span
-                    className={`absolute left-1.5 top-1.5 rounded-full border ${accent.ring} bg-black/60 px-1.5 py-px text-[10px] font-bold tabular-nums ${accent.text}`}
+                    className={`absolute left-1.5 top-[24px] rounded-full border ${accent.ring} bg-black/60 px-1.5 py-px text-[10px] font-bold tabular-nums ${accent.text}`}
                   >
                     ×{held[chest]}
                   </span>
