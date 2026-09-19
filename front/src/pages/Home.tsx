@@ -1549,11 +1549,12 @@ export function Home() {
               </div>
 
               {/* The cannon's charge: a hairline along the foot of the
-                  console, the full width, in the console's violet. Drains
+                  console, from the handset's plate to the diary's fore-edge (the two
+                  switches sit a few px inside their columns), in the console's violet. Drains
                   while a finger holds, dims while it refills, and is written
                   straight to the DOM by the cannon's clock. */}
               {semiAutoLevel > 0 && (
-                <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="relative ml-[4px] mr-[6px] h-[3px] overflow-hidden rounded-full bg-white/[0.06]">
                   <div
                     ref={chargeBarRef}
                     className="h-full w-full origin-left rounded-full bg-violet-400/80 shadow-[0_0_6px_rgba(167,139,250,0.7)]"
