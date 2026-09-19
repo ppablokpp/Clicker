@@ -274,13 +274,13 @@ export function CustomizeAstronaut() {
   const navigate = useNavigate()
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
-  const { getToken } = useAppAuth()
+  const { userId: styleOwner, getToken } = useAppAuth()
   const { isUnlocked, owned, loaded } = useCosmetics()
   const { gems } = useGemsContext()
   // Seeded from the local cache so the character paints correctly on the
   // first frame, then reconciled with the server row — which is the real
   // source of truth, since it's what other players see.
-  const [styleIds, setStyleIds] = useState<AstronautStyleIds>(() => loadStyleIds())
+  const [styleIds, setStyleIds] = useState<AstronautStyleIds>(() => loadStyleIds(styleOwner))
   // The open tab lives in the URL, not in state, so that coming back from a
   // piece's page lands on the shelf you left. `navigate(-1)` restores the
   // whole location including this, where component state would have been
@@ -296,7 +296,7 @@ export function CustomizeAstronaut() {
   // page that just bought or equipped something has to repaint the figure.
   useEffect(() => {
     let cancelled = false
-    void fetchMyStyle(getToken).then((remote) => {
+    void fetchMyStyle(getToken, styleOwner).then((remote) => {
       // A failed fetch returns null on purpose — keep whatever is already
       // on screen rather than repainting the character as the default kit.
       if (!cancelled && remote) setStyleIds(remote)

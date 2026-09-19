@@ -73,11 +73,12 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
     // ── the day's entry ──
     {
       head: d.todayHead,
+      tab: 'report',
       content: (
         <div className="relative h-full">
           {/* the ship floats in the corner: the entry wraps round it for
               its first lines and takes the full width under it */}
-          <ShipSketch className="pointer-events-none float-right -mr-2 -mt-1 ml-2 h-[78px] w-[52px] opacity-80" />
+          <ShipSketch className="pointer-events-none float-right -mt-1 ml-2 h-[78px] w-[56px] opacity-80" />
           <p className="text-[17px]">{today}</p>
           <p>{entry}</p>
           <ul className="mt-[26px] list-none">
@@ -91,42 +92,10 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
         </div>
       ),
     },
-    // ── the manual: the reactor ──
-    {
-      head: d.manualHead,
-      content: (
-        <div>
-          <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{strings.ship.reactor}</p>
-          <ReactorSketch
-            whole={whole}
-            colors={whole.map((_, i) => MATERIAL_TIER_COLORS[i]?.fill)}
-            className="mx-auto mt-[26px] h-[208px] w-64"
-          />
-          <p className="mt-[26px]">{d.reactorNote}</p>
-          <p className="text-[13px] text-[#8a8070]">{d.reactorCaption(wholeCount, whole.length)}</p>
-        </div>
-      ),
-    },
-    // ── the manual: the refinery ──
-    {
-      head: d.manualHead,
-      content: (
-        <div>
-          <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">
-            {strings.home.stationRefinery}
-          </p>
-          <RefinerySketch className="mt-[26px] h-[104px] w-full" />
-          <p className="mt-[26px]">{d.refineryNote}</p>
-          <CapsulesSketch loaded={loadedHere} total={CORES_PER_TIER} className="mt-[26px] h-[26px] w-full" />
-          <p className="text-[13px] text-[#8a8070]">
-            {d.capsulesCaption(loadedHere, CORES_PER_TIER, figures.currentMaterialName)}
-          </p>
-        </div>
-      ),
-    },
     // ── the calendar ──
     {
       head: d.calendarHead,
+      tab: 'report',
       content: (
         <div>
           <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{monthTitle}</p>
@@ -144,9 +113,45 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
         </div>
       ),
     },
+    // ── the manual: the reactor ──
+    {
+      head: d.manualHead,
+      tab: 'manual',
+      content: (
+        <div>
+          <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{strings.ship.reactor}</p>
+          <ReactorSketch
+            whole={whole}
+            colors={whole.map((_, i) => MATERIAL_TIER_COLORS[i]?.fill)}
+            className="mx-auto mt-[26px] h-[208px] w-64"
+          />
+          <p className="mt-[26px]">{d.reactorNote}</p>
+          <p className="text-[13px] text-[#8a8070]">{d.reactorCaption(wholeCount, whole.length)}</p>
+        </div>
+      ),
+    },
+    // ── the manual: the refinery ──
+    {
+      head: d.manualHead,
+      tab: 'manual',
+      content: (
+        <div>
+          <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">
+            {strings.home.stationRefinery}
+          </p>
+          <RefinerySketch className="mt-[26px] h-[104px] w-full" />
+          <p className="mt-[26px]">{d.refineryNote}</p>
+          <CapsulesSketch loaded={loadedHere} total={CORES_PER_TIER} className="mt-[26px] h-[26px] w-full" />
+          <p className="text-[13px] text-[#8a8070]">
+            {d.capsulesCaption(loadedHere, CORES_PER_TIER, figures.currentMaterialName)}
+          </p>
+        </div>
+      ),
+    },
     // ── the compendium ──
     {
       head: d.compendiumHead,
+      tab: 'route',
       content: (
         <div>
           <p className="pr-2">{d.compendiumNote}</p>

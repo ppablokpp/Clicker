@@ -35,7 +35,11 @@ export function normalizeStyle(raw: unknown): AstronautStyleIds {
  * value: a network blip should never repaint someone's character as the
  * default kit.
  */
-export async function fetchMyStyle(getToken: () => Promise<string | null>): Promise<AstronautStyleIds | null> {
+export async function fetchMyStyle(
+  getToken: () => Promise<string | null>,
+  /** Whose look this is, for the cache (see loadStyleIds). */
+  owner?: string | null,
+): Promise<AstronautStyleIds | null> {
   try {
     const token = await getToken()
     const res = await fetch(`${API_URL}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } })
@@ -51,13 +55,14 @@ export async function fetchMyStyle(getToken: () => Promise<string | null>): Prom
     if (!data.astronautStyle) {
       const local = loadStyleIds()
       void saveMyStyle(getToken, local)
+      saveStyleIds(local, owner)
       return local
     }
 
     const style = normalizeStyle(data.astronautStyle)
     // Refresh the local cache so the next cold start paints this, not a
     // stale choice from another device.
-    saveStyleIds(style)
+    saveStyleIds(style, owner)
     return style
   } catch {
     return null

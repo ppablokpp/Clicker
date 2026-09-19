@@ -1,4 +1,5 @@
 import { Bulkhead } from '../components/Bulkhead'
+import { MiniLoader } from '../components/MiniLoader'
 import { OutsideBackButton } from '../components/OutsideBackButton'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
@@ -74,6 +75,7 @@ export function Leaderboard() {
       </div>
 
       <div className="relative mx-auto max-w-2xl pt-20 sm:pt-24">
+        {isLoading && leaderboard.length === 0 && <MiniLoader idPrefix="rankingLoader" />}
         {!isLoading && leaderboard.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/5 bg-white/[0.02] px-4 py-8 text-center text-sm text-neutral-500">
             {strings.leaderboard.empty}

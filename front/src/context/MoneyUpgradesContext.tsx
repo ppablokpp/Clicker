@@ -93,7 +93,7 @@ export function MoneyUpgradesProvider({ children }: { children: ReactNode }) {
   // Real, localized prices live in the store (lib/store), not in our own
   // catalog — our backend only knows the gameplay numbers (chance/multiplier).
   useEffect(() => {
-    if (!MONEY_UPGRADES_ENABLED || !userId) return
+    if (!MONEY_UPGRADES_ENABLED) return
     let cancelled = false
     ;(async () => {
       try {

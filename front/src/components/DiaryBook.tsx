@@ -10,12 +10,18 @@ import { playPageTurn } from '../lib/caseSound'
  *
  * Everything you touch is drawn on the paper: the arrows in the corners
  * turn the pages, the cross in the top corner closes the book. Tapping
- * the page's right or left half turns it too.
+ * the page's right or left half turns it too. Index tabs stick out of the
+ * right edge, one per section: tapping one turns straight to that
+ * section's first page. A tab is glued to that first page, so it goes
+ * where the page goes: it shows while its page is still on the right,
+ * rides the leaf when that page turns, and is gone once it's been turned.
  */
 
 export interface DiaryPage {
   /** The running head, small, at the top of the page. */
   head: string
+  /** The section's tab: pages sharing an id share a tab, drawn with its icon. */
+  tab: 'report' | 'manual' | 'route'
   content: ReactNode
 }
 
@@ -25,36 +31,52 @@ const FAINT = '#8a8070'
 
 export function DiaryBook({ pages, font, onClose }: { pages: DiaryPage[]; font: string; onClose: () => void }) {
   const [index, setIndex] = useState(0)
-  // A turn in flight: which way, and from which page. The leaf turning
-  // carries `from` (forward) or `from - 1` (back) on both its faces — a
-  // sheet's two sides are the same page here, so what lands on the left
-  // is what was on the right.
-  const [turn, setTurn] = useState<{ dir: 1 | -1; from: number } | null>(null)
+  // A turn in flight: which way, from which page, to which. A tab can
+  // jump several pages at once; it still turns one sheet — the one that
+  // lifts (forward) or lands (back) — with the destination underneath.
+  const [turn, setTurn] = useState<{ dir: 1 | -1; from: number; to: number } | null>(null)
 
-  const go = (dir: 1 | -1) => {
-    if (turn) return
-    const to = index + dir
-    if (to < 0 || to >= pages.length) return
-    setTurn({ dir, from: index })
+  const jumpTo = (to: number) => {
+    if (turn || to === index || to < 0 || to >= pages.length) return
+    setTurn({ dir: to > index ? 1 : -1, from: index, to })
     playPageTurn()
   }
+  const go = (dir: 1 | -1) => jumpTo(index + dir)
   // The turn ends when its animation does — not on a timer that could fire
   // a frame early and drop the leaf mid-air.
   const finishTurn = () => {
     if (!turn) return
-    setIndex(turn.from + turn.dir)
+    setIndex(turn.to)
     setTurn(null)
   }
 
   // What the right leaf shows under a turn. Forward: the leaf lifting off
-  // it reveals the next page there. Back: the leaf lands on it over the
-  // current page, which stays until it does. The left leaf is always
-  // blank — the book is written on its right-hand pages only — and so is
-  // the back of every sheet.
-  const rightIndex = turn ? (turn.dir === 1 ? turn.from + 1 : turn.from) : index
-  const leafIndex = turn ? (turn.dir === 1 ? turn.from : turn.from - 1) : null
+  // it (carrying the page we leave) reveals the destination there. Back:
+  // the leaf (carrying the destination) lands on it over the current
+  // page, which stays until it does. The left leaf is always blank — the
+  // book is written on its right-hand pages only — and so is the back of
+  // every sheet.
+  const rightIndex = turn ? (turn.dir === 1 ? turn.to : turn.from) : index
+  const leafIndex = turn ? (turn.dir === 1 ? turn.from : turn.to) : null
   const canBack = index > 0 && !turn
   const canNext = index < pages.length - 1 && !turn
+
+  // The tabs: one per section, at the first page that carries its label.
+  const tabs = pages.reduce<{ id: DiaryPage['tab']; first: number }[]>((acc, page, i) => {
+    if (!acc.some((t) => t.id === page.tab)) acc.push({ id: page.tab, first: i })
+    return acc
+  }, [])
+  // A tab is glued to its section's first page. On the right-hand stack it
+  // shows while that page is on the right: under the leaf turning (still
+  // to come), or on top (the page you are on). The one glued to the leaf
+  // that is turning rides with it (rendered on the leaf, below), and a
+  // page already turned has taken its tab to the left with it.
+  const stackTabs = tabs.filter((t) =>
+    turn ? (turn.dir === 1 ? t.first > turn.from : t.first >= turn.from) : t.first >= index,
+  )
+  const leafTab = leafIndex === null ? null : (tabs.find((t) => t.first === leafIndex) ?? null)
+  // a tab's slot on the edge, fixed by its order, so a tab never shifts
+  const slotTop = (tab: (typeof tabs)[number]) => 40 + tabs.indexOf(tab) * 70
 
   return (
     <div className="relative shrink-0 -translate-x-[11.5rem] sm:translate-x-0" style={{ width: '46rem' }}>
@@ -107,6 +129,14 @@ export function DiaryBook({ pages, font, onClose }: { pages: DiaryPage[]; font: 
                     hasNext={leafIndex < pages.length - 1}
                     font={font}
                   />
+                  {/* the tab glued to this page, turning with it */}
+                  {leafTab && (
+                    <div className="pointer-events-none absolute inset-y-0 left-full w-0">
+                      {/* a tab in flight stays as it was: lit, because it is the top
+                          page's — leaving with it, or arriving with it */}
+                      <Tab id={leafTab.id} top={slotTop(leafTab)} active />
+                    </div>
+                  )}
                 </div>
                 <div
                   className="absolute inset-0"
@@ -116,6 +146,23 @@ export function DiaryBook({ pages, font, onClose }: { pages: DiaryPage[]; font: 
                 </div>
               </div>
             )}
+          </div>
+          {/* the index tabs, out of the right edge: paper, a little
+              stiffer than the pages, each with its section's mark drawn on
+              it in pencil; the current section's stands proud */}
+          <div className="pointer-events-none absolute inset-y-0 left-full z-10 w-0">
+            {stackTabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                id={tab.id}
+                top={slotTop(tab)}
+                // the tab standing proud is the top page's: going forward that is
+                // the destination from the moment the leaf lifts; going back it is
+                // still the page being covered, until the leaf lands on it
+                active={tab.first === (turn ? (turn.dir === 1 ? turn.to : turn.from) : index)}
+                onClick={() => jumpTo(tab.first)}
+              />
+            ))}
           </div>
           {/* the spine's shadow, over both leaves */}
           <span
@@ -270,6 +317,71 @@ function Leaf({
         </>
       )}
     </div>
+  )
+}
+
+/** One index tab: paper a little stiffer than the pages, its section's
+ *  mark drawn on it; the current section's stands proud. Sits at a fixed
+ *  slot down the edge, wherever it is rendered — on the stack or on a
+ *  turning leaf — so it never shifts. */
+function Tab({
+  id,
+  top,
+  active,
+  onClick,
+}: {
+  id: DiaryPage['tab']
+  top: number
+  active: boolean
+  onClick?: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      tabIndex={onClick ? 0 : -1}
+      aria-label={id}
+      aria-hidden={!onClick}
+      className={`absolute -left-[2px] flex h-[3.75rem] items-center justify-center rounded-r-lg border border-l-0 ${
+        onClick ? 'pointer-events-auto' : ''
+      } ${active ? 'w-[28px] border-[#c9b8a0] bg-[#f3ebd8]' : 'w-[25px] border-[#c9b8a0]/70 bg-[#e3d9c1]'}`}
+      style={{ top, boxShadow: '1px 1px 2px rgba(0,0,0,0.35)' }}
+    >
+      <TabMark id={id} faint={!active} />
+    </button>
+  )
+}
+
+/** The mark on each tab, drawn in the same pencil as the rest: a pen for
+ *  the report, a wrench for the manual, a compass for the route. */
+function TabMark({ id, faint }: { id: DiaryPage['tab']; faint: boolean }) {
+  const stroke = faint ? FAINT : INK
+  return (
+    <svg viewBox="0 0 20 20" className="h-[22px] w-[22px]" style={{ filter: 'url(#pencil-soft)' }} aria-hidden="true">
+      <g fill="none" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+        {id === 'report' && (
+          <>
+            {/* a pen, nib down */}
+            <path d="M13.5 2.5 L17.5 6.5 L8 16 L3.5 17 L4.5 12.5 Z" />
+            <path d="M11.5 4.5 L15.5 8.5" />
+            <path d="M4.5 12.5 L8 16" />
+          </>
+        )}
+        {id === 'manual' && (
+          <>
+            {/* a wrench */}
+            <path d="M12.5 2.8 a4.2 4.2 0 0 0 -4.6 5.6 L3 13.3 a1.6 1.6 0 0 0 2.3 2.3 L10.2 10.7 a4.2 4.2 0 0 0 5.6 -4.6 L13.3 8.6 L11 6.3 Z" />
+          </>
+        )}
+        {id === 'route' && (
+          <>
+            {/* a compass rose */}
+            <circle cx="10" cy="10" r="7" />
+            <path d="M10 3 V5 M10 15 V17 M3 10 H5 M15 10 H17" />
+            <path d="M13 7 L11 11 L7 13 L9 9 Z" />
+          </>
+        )}
+      </g>
+    </svg>
   )
 }
 

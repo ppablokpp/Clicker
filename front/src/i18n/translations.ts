@@ -3,6 +3,9 @@ export type Language = 'es' | 'en'
 export interface TranslationStrings {
   signIn: {
     tagline: string
+    /** The three things an account gives, one line each. */
+    perks: readonly [string, string, string]
+    continueAsGuest: string
     continueWithGoogle: string
     redirecting: string
     genericError: string
@@ -560,7 +563,9 @@ export interface TranslationStrings {
 export const translations: Record<Language, TranslationStrings> = {
   es: {
     signIn: {
-      tagline: 'Inicia sesión para guardar tus clicks y competir en la clasificación mundial.',
+      tagline: 'Tu progreso, a salvo en cualquier dispositivo.',
+      perks: ['Guarda el asteroide y la flota', 'Compite en el ranking mundial', 'Compra y recibe recompensas'],
+      continueAsGuest: 'Seguir como invitado',
       continueWithGoogle: 'Continuar con Google',
       redirecting: 'Redirigiendo…',
       genericError: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
@@ -804,8 +809,8 @@ export const translations: Record<Language, TranslationStrings> = {
       trajectoryPrestigeConfirm: 'Abandonar',
       trajectoryPrestigeCancel: 'Cancelar',
       fleetAwayTitle: 'Informe de la flota',
-      fleetAwayPrefix: 'Tu flota ha extraído',
-      fleetAwaySuffix: 'mientras no estabas.',
+      fleetAwayPrefix: 'Mientras no estabas tu flota ha extraído',
+      fleetAwaySuffix: 'Ya está en la bodega.',
       fleetAwayAccept: 'Aceptar',
     },
     nav: {
@@ -1392,7 +1397,9 @@ export const translations: Record<Language, TranslationStrings> = {
   },
   en: {
     signIn: {
-      tagline: 'Sign in to save your clicks and compete on the global leaderboard.',
+      tagline: 'Your progress, safe on any device.',
+      perks: ['Keep your asteroid and your fleet', 'Compete on the global leaderboard', 'Buy and receive rewards'],
+      continueAsGuest: 'Keep playing as a guest',
       continueWithGoogle: 'Continue with Google',
       redirecting: 'Redirecting…',
       genericError: "Couldn't sign in with Google. Please try again.",
@@ -1634,8 +1641,8 @@ export const translations: Record<Language, TranslationStrings> = {
       trajectoryPrestigeConfirm: 'Leave',
       trajectoryPrestigeCancel: 'Cancel',
       fleetAwayTitle: 'Fleet report',
-      fleetAwayPrefix: 'Your fleet extracted',
-      fleetAwaySuffix: 'while you were away.',
+      fleetAwayPrefix: 'While you were away your fleet extracted',
+      fleetAwaySuffix: 'Already in the hold.',
       fleetAwayAccept: 'Accept',
     },
     nav: {

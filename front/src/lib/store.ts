@@ -21,6 +21,11 @@ import { isNativeApp, nativePlatform } from './native'
  * RevenueCat "public" keys (`goog_…`, `appl_…`), only read in the shell.
  * Without the key for the current platform there is no store and nothing
  * is for sale — the same as the web today when its key is missing.
+ *
+ * A guest gets a store too, under an anonymous RevenueCat id, so the
+ * shelves show their prices before anyone signs in; buying is what the
+ * contexts gate on a session (a purchase must land on an account the
+ * buyer can get back to), and it is the sign-in prompt they open instead.
  */
 
 export interface StorePrice {
@@ -54,30 +59,35 @@ export function storeAvailable(): boolean {
   return Boolean(nativePlatform() === 'ios' ? APPLE_KEY : GOOGLE_KEY)
 }
 
-let current: { userId: string; store: Store } | null = null
+let current: { userId: string | null; store: Store } | null = null
+
+/** The id a guest's store runs under: no Clerk user, so RevenueCat's own. */
+const GUEST = null
 
 /**
  * The store for this user — configured once per user id (RevenueCat's
  * SDKs are singletons keyed on the app user id, which is the Clerk id so
- * web and app purchases merge into one record). `null` while signed out or
- * without a key for this platform.
+ * web and app purchases merge into one record), anonymous for a guest.
+ * `null` without a key for this platform.
  */
 export async function getStore(userId: string | null | undefined): Promise<Store | null> {
-  if (!userId || !storeAvailable()) return null
-  if (current?.userId === userId) return current.store
-  const store = isNativeApp() ? await nativeStore(userId) : await webStore(userId)
-  current = { userId, store }
+  if (!storeAvailable()) return null
+  const key = userId ?? GUEST
+  if (current && current.userId === key) return current.store
+  const store = isNativeApp() ? await nativeStore(key) : await webStore(key)
+  current = { userId: key, store }
   return store
 }
 
 // ── the web: RevenueCat Web Billing ──
-async function webStore(userId: string): Promise<Store> {
+async function webStore(userId: string | null): Promise<Store> {
   const { Purchases, PurchasesError, ErrorCode } = await import('@revenuecat/purchases-js')
   type Package = import('@revenuecat/purchases-js').Package
+  const appUserId = userId ?? Purchases.generateRevenueCatAnonymousAppUserId()
   if (!Purchases.isConfigured()) {
-    Purchases.configure({ apiKey: WEB_KEY!, appUserId: userId })
-  } else if (Purchases.getSharedInstance().getAppUserId() !== userId) {
-    await Purchases.getSharedInstance().changeUser(userId)
+    Purchases.configure({ apiKey: WEB_KEY!, appUserId })
+  } else if (Purchases.getSharedInstance().getAppUserId() !== appUserId) {
+    await Purchases.getSharedInstance().changeUser(appUserId)
   }
   const purchases = Purchases.getSharedInstance()
   const packages = new Map<string, Package>()
@@ -112,16 +122,18 @@ async function webStore(userId: string): Promise<Store> {
 }
 
 // ── the shell: Google Play / App Store through RevenueCat's native SDK ──
-async function nativeStore(userId: string): Promise<Store> {
+async function nativeStore(userId: string | null): Promise<Store> {
   const { Purchases, PURCHASES_ERROR_CODE } = await import('@revenuecat/purchases-capacitor')
   type PurchasesPackage = import('@revenuecat/purchases-capacitor').PurchasesPackage
   const apiKey = (nativePlatform() === 'ios' ? APPLE_KEY : GOOGLE_KEY)!
   const { isConfigured } = await Purchases.isConfigured()
   if (!isConfigured) {
-    await Purchases.configure({ apiKey, appUserID: userId })
+    // no id for a guest: the SDK makes an anonymous one
+    await Purchases.configure(userId ? { apiKey, appUserID: userId } : { apiKey })
   } else {
     const { appUserID } = await Purchases.getAppUserID()
-    if (appUserID !== userId) await Purchases.logIn({ appUserID: userId })
+    if (userId && appUserID !== userId) await Purchases.logIn({ appUserID: userId })
+    else if (!userId && !appUserID.startsWith('$RCAnonymousID:')) await Purchases.logOut()
   }
   const packages = new Map<string, PurchasesPackage>()
   const load = async (offeringId: string) => {

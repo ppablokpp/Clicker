@@ -51,7 +51,6 @@ export function MoneyCaseProvider({ children }: { children: ReactNode }) {
   // The price comes from whichever store sells here (lib/store): the web's
   // checkout in a browser, Google Play / the App Store inside the app.
   useEffect(() => {
-    if (!userId) return
     let cancelled = false
     ;(async () => {
       try {

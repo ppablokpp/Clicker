@@ -58,7 +58,7 @@ export function CosmeticDetail() {
   const navigate = useNavigate()
   const { strings, language } = useLanguage()
   const locale = language === 'en' ? 'en-US' : 'es-ES'
-  const { getToken } = useAppAuth()
+  const { userId: styleOwner, getToken } = useAppAuth()
   const { isUnlocked, loaded, buyCosmetics } = useCosmetics()
   // Worn pieces pay, so the tree's rates are re-read after every equip.
   const { refetch: refetchTree } = useTreeContext()
@@ -68,7 +68,7 @@ export function CosmeticDetail() {
   const slot = (params.slot ?? '') as AstronautSlot
   const id = params.id ?? ''
 
-  const [styleIds, setStyleIds] = useState<AstronautStyleIds>(() => loadStyleIds())
+  const [styleIds, setStyleIds] = useState<AstronautStyleIds>(() => loadStyleIds(styleOwner))
   const [busy, setBusy] = useState(false)
   const [showGemPacks, setShowGemPacks] = useState(false)
   const [error, setError] = useState(false)
@@ -77,7 +77,7 @@ export function CosmeticDetail() {
   useEffect(() => {
     mounted.current = true
     let cancelled = false
-    void fetchMyStyle(getToken).then((remote) => {
+    void fetchMyStyle(getToken, styleOwner).then((remote) => {
       if (!cancelled && remote) setStyleIds(remote)
     })
     return () => {
@@ -118,7 +118,7 @@ export function CosmeticDetail() {
 
   const persist = (next: AstronautStyleIds) => {
     setStyleIds(next)
-    saveStyleIds(next)
+    saveStyleIds(next, styleOwner)
     void saveMyStyle(getToken, next).then(() => refetchTree())
   }
 
@@ -141,7 +141,7 @@ export function CosmeticDetail() {
     // Bought and worn in the same request — mirror it locally so the button
     // flips to EQUIPPED without waiting for a refetch.
     setStyleIds(worn)
-    saveStyleIds(worn)
+    saveStyleIds(worn, styleOwner)
   }
 
   const primaryLabel = busy

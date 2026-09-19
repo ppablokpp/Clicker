@@ -240,7 +240,7 @@ export function CapsulesSketch({ loaded, total, className }: { loaded: number; t
 /** The ship, small, in the corner of a page. */
 export function ShipSketch({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 80 120" className={className} aria-hidden="true" style={{ filter: 'url(#pencil)' }}>
+    <svg viewBox="-6 -6 92 132" className={className} aria-hidden="true" style={{ filter: 'url(#pencil-soft)' }}>
       <ShipGlyph />
     </svg>
   )

@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
-import { Check, ChevronRight, Crown, Languages, LogOut, Mail, Pencil, Settings, Shirt, Volume2, VolumeX, X } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  Crown,
+  Languages,
+  LogIn,
+  LogOut,
+  Mail,
+  Pencil,
+  Settings,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react'
 import { SIGNIN_CHEST_REWARD } from '../store/chestBench'
+import { VaultChest } from '../components/VaultChest'
+import { MiniLoader } from '../components/MiniLoader'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -10,7 +25,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { formatPlatino } from '../lib/formatPlatino'
-import { loadStyleIds } from '../lib/astronautStyles'
+import { clearStoredStyleIds, hasStoredStyleFor, loadStyleIds } from '../lib/astronautStyles'
 import { isSoundEnabled, setSoundEnabled } from '../lib/soundSettings'
 import { fetchMyStyle } from '../lib/astronautStyleApi'
 import type { Language } from '../i18n/translations'
@@ -42,23 +57,30 @@ export function Profile() {
   // truth, and what makes the look follow the account across devices.
   // Re-read on every mount: coming back from the customization screen
   // remounts this, which is what picks up a change made there.
-  const [styleIds, setStyleIds] = useState(() => loadStyleIds())
   // Deliberately the guest-capable token, not Clerk's: a guest has their own
   // row and their own saved cosmetics, and Clerk's getToken returns null for
   // them — which would 401 and silently fall back to whatever this browser
   // happened to cache. Everything else on this screen (the username edit)
   // still uses the real Clerk token, because that one genuinely needs an
   // account behind it.
-  const { getToken: getStyleToken } = useAppAuth()
+  const { userId: styleOwner, getToken: getStyleToken } = useAppAuth()
+  const [styleIds, setStyleIds] = useState(() => loadStyleIds(styleOwner))
+  // The cache is only this player's if it was saved under their id; right
+  // after signing in or out it is the previous player's, and the avatar
+  // stays hidden until the server says what this one wears — no frame of
+  // the wrong suit.
+  const [styleReady, setStyleReady] = useState(() => hasStoredStyleFor(styleOwner))
   useEffect(() => {
     let cancelled = false
-    void fetchMyStyle(getStyleToken).then((remote) => {
-      if (!cancelled && remote) setStyleIds(remote)
+    void fetchMyStyle(getStyleToken, styleOwner).then((remote) => {
+      if (cancelled) return
+      if (remote) setStyleIds(remote)
+      setStyleReady(true)
     })
     return () => {
       cancelled = true
     }
-  }, [getStyleToken])
+  }, [getStyleToken, styleOwner])
 
   const [showUsernameModal, setShowUsernameModal] = useState(false)
   const [username, setUsername] = useState('')
@@ -133,13 +155,62 @@ export function Profile() {
     }
   }
 
-  if (isLoaded && !user) {
+  // The gear, the same in every state of this screen: sound and language
+  // are the device's, so it is there for a guest and while loading too.
+  const gear = (
+    <button
+      onClick={() => setShowSettings(true)}
+      aria-label={strings.profile.settingsLabel}
+      className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
+    >
+      <Settings size={16} />
+    </button>
+  )
+
+  // Until Clerk has answered who this is and the server what they wear,
+  // the content below the pill is the loading screen's own rock, small,
+  // turning its ring — so the character never paints in the wrong suit,
+  // or as nobody, for a frame. The pill and the gear stay put.
+  if (!isLoaded || !styleReady) {
+    return (
+      <div className="relative mx-auto flex max-w-md flex-col items-center px-4 pt-24 sm:pt-28">
+        {gear}
+        <MiniLoader idPrefix="profileLoader" />
+        {showSettings && (
+          <SettingsSheet
+            onClose={() => setShowSettings(false)}
+            guest={!user}
+            onSignIn={() => {
+              setShowSettings(false)
+              promptSignIn()
+            }}
+          />
+        )}
+      </div>
+    )
+  }
+
+  if (!user) {
     // Same character as the signed-in view, not a generic person icon —
     // this IS your character already, playing and saving progress as a
     // guest (see useAppAuth.ts); signing in is what gives it a name and
     // makes that progress portable, not what creates it.
+    // `relative`: the bulkhead grid behind is fixed, and a fixed layer
+    // paints over in-flow siblings — positioned, this view paints over it,
+    // so its cards and buttons stay opaque.
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-6 px-4 pt-24 text-center sm:pt-28">
+      <div className="relative mx-auto flex max-w-md flex-col items-center gap-6 px-4 pt-24 text-center sm:pt-28">
+        {gear}
+        {showSettings && (
+          <SettingsSheet
+            onClose={() => setShowSettings(false)}
+            guest
+            onSignIn={() => {
+              setShowSettings(false)
+              promptSignIn()
+            }}
+          />
+        )}
         {/* Editable without an account, same as the signed-in view. A guest
             already has a real row server-side (see useAppAuth), the style
             endpoint accepts their token, and claimAnonymousProgress carries
@@ -166,11 +237,16 @@ export function Profile() {
         </div>
         {/* The numbers come from the same constant the server grants from,
             so what is promised here and what lands cannot drift apart. */}
-        <div className="mt-4 flex w-full max-w-xs items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/[0.06] px-4 py-3 text-left">
-          <div className="flex shrink-0 items-center">
-            <Shirt size={18} className="text-amber-300" />
-            <Shirt size={18} className="-ml-2 text-amber-300/45" />
-            <Shirt size={18} className="-ml-2 text-amber-300/20" />
+        {/* Opaque on purpose: this sits on the bulkhead, whose grid would
+            show through a tinted card (see index.css's .bulkhead rules). */}
+        <div
+          className="mt-4 flex w-full max-w-xs items-center gap-3 rounded-2xl border border-amber-400/20 px-4 py-3 text-left"
+          style={{ background: 'linear-gradient(rgba(245,158,11,0.06), rgba(245,158,11,0.06)), #0c0b11' }}
+        >
+          {/* the chests themselves, the rare one peeking out behind */}
+          <div className="relative h-12 w-14 shrink-0">
+            <VaultChest tone="styleRare" size={40} className="absolute right-0 top-0 opacity-90" />
+            <VaultChest tone="style" size={44} className="absolute bottom-0 left-0 drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)]" />
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
@@ -183,16 +259,14 @@ export function Profile() {
         </div>
         <button
           onClick={promptSignIn}
-          className="mt-1 rounded-xl border border-violet-400/30 bg-violet-500/10 px-5 py-2.5 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
+          className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-violet-400/30 px-5 py-2.5 text-sm font-semibold text-violet-200 transition-[filter] hover:brightness-125"
+          style={{ background: 'linear-gradient(rgba(139,92,246,0.12), rgba(139,92,246,0.12)), #0c0b11' }}
         >
+          <LogIn size={16} />
           {strings.profile.signIn}
         </button>
       </div>
     )
-  }
-
-  if (!isLoaded) {
-    return <div className="mx-auto max-w-md pt-24 sm:pt-28" />
   }
 
   return (
@@ -201,13 +275,7 @@ export function Profile() {
           profile/stats pill sits in. Everything account-adjacent (language,
           email, sign out) lives behind it, keeping this main view down to
           just the character and the name. */}
-      <button
-        onClick={() => setShowSettings(true)}
-        aria-label={strings.profile.settingsLabel}
-        className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
-      >
-        <Settings size={16} />
-      </button>
+      {gear}
 
       {/* The whole character is the button, with the pencil as its
           affordance rather than as a separate target — a small icon is a
@@ -469,7 +537,16 @@ function EditUsernameModal({
 // Language + account actions — split out of the main view entirely per its
 // own trigger button's comment. A plain overlay sheet rather than a new
 // route: it's a handful of controls, not a screen of its own.
-function SettingsSheet({ onClose }: { onClose: () => void }) {
+function SettingsSheet({
+  onClose,
+  guest = false,
+  onSignIn,
+}: {
+  onClose: () => void
+  /** A guest's sheet: no email row, and a way in where the way out goes. */
+  guest?: boolean
+  onSignIn?: () => void
+}) {
   const { strings, language, setLanguage } = useLanguage()
   const { user } = useUser()
   const { signOut } = useClerk()
@@ -581,24 +658,39 @@ function SettingsSheet({ onClose }: { onClose: () => void }) {
 
         <div className="my-4 h-px bg-white/5" />
 
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
-            <Mail size={14} />
+        {!guest && (
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-500">
+              <Mail size={14} />
+            </div>
+            <p className="min-w-0 flex-1 truncate text-sm text-neutral-400">{email ?? strings.profile.noEmail}</p>
           </div>
-          <p className="min-w-0 flex-1 truncate text-sm text-neutral-400">{email ?? strings.profile.noEmail}</p>
-        </div>
+        )}
 
         {/* Always this red, not just on hover — signing out is the one
             genuinely destructive action on this whole screen and should
             read that way at a glance, not only when a cursor happens to be
             over it (which touch never triggers anyway). */}
-        <button
-          onClick={() => signOut()}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/[0.12]"
-        >
-          <LogOut size={16} />
-          {strings.profile.signOut}
-        </button>
+        {guest ? (
+          <button
+            onClick={onSignIn}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
+          >
+            <LogIn size={16} />
+            {strings.profile.signIn}
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              clearStoredStyleIds()
+              void signOut()
+            }}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/[0.12]"
+          >
+            <LogOut size={16} />
+            {strings.profile.signOut}
+          </button>
+        )}
       </div>
     </div>
   )

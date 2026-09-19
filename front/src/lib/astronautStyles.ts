@@ -603,11 +603,32 @@ const STORAGE_KEY = 'clankup_astronaut_style'
 // breaks if it's missing. When it does become an account-level thing (so
 // other players see it on your public profile), this is the one function
 // to change.
-export function loadStyleIds(): AstronautStyleIds {
+/** Forgets the cached look: on signing out, so the guest that follows
+ *  shows up in the default suit and not, for a frame, in the account's. */
+export function clearStoredStyleIds(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // storage may be unavailable; nothing to forget then
+  }
+}
+
+/**
+ * The cached look. With an `owner` (the id the look was saved under — a
+ * Clerk id or a guest id), the cache only counts if it is that owner's:
+ * after a sign-in or sign-out the browser still holds the previous
+ * player's look, and painting it for a frame before the server answers is
+ * the flash this avoids. Without an owner, any cached look is returned,
+ * for the places that only need "whatever this browser last wore".
+ */
+export function loadStyleIds(owner?: string | null): AstronautStyleIds {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_STYLE_IDS
-    const parsed = JSON.parse(raw) as Partial<AstronautStyleIds>
+    const stored = JSON.parse(raw) as Partial<AstronautStyleIds> & { owner?: string; ids?: Partial<AstronautStyleIds> }
+    // the cache is written as { owner, ids }; older ones were the ids alone
+    const parsed: Partial<AstronautStyleIds> = stored.ids ?? stored
+    if (owner && stored.owner !== owner) return DEFAULT_STYLE_IDS
     return {
       helmet: typeof parsed.helmet === 'string' ? parsed.helmet : DEFAULT_STYLE_IDS.helmet,
       visor: typeof parsed.visor === 'string' ? parsed.visor : DEFAULT_STYLE_IDS.visor,
@@ -629,9 +650,22 @@ export function loadStyleIds(): AstronautStyleIds {
   }
 }
 
-export function saveStyleIds(ids: AstronautStyleIds): void {
+/** Whether the cache holds this owner's look — i.e. whether the first
+ *  paint can trust it, or should wait for the server. */
+export function hasStoredStyleFor(owner: string | null | undefined): boolean {
+  if (!owner) return false
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return false
+    return (JSON.parse(raw) as { owner?: string }).owner === owner
+  } catch {
+    return false
+  }
+}
+
+export function saveStyleIds(ids: AstronautStyleIds, owner?: string | null): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ owner: owner ?? undefined, ids }))
   } catch {
     // Storage unavailable — the choice still applies for this session.
   }

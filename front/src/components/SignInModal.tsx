@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useClerk, useSignIn } from '@clerk/clerk-react'
-import { MousePointerClick, TriangleAlert, X } from 'lucide-react'
+import { TriangleAlert, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
@@ -70,39 +70,72 @@ export function SignInModal() {
       className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
       onClick={closePrompt}
     >
+      {/* No name and no title: the sheet opens on the ringed rock itself —
+          the app's own icon, drawn from its starfield — the way the game
+          opens, and says in three lines what an account is for. */}
       <div
-        className="relative flex w-full max-w-sm flex-col items-center rounded-2xl border border-white/5 bg-[#0d0d14] p-8 text-center shadow-2xl shadow-black/50"
+        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0b0910] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={closePrompt}
-          aria-label="Close"
-          className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
-        >
-          <X size={16} />
-        </button>
-
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200">
-          <MousePointerClick size={26} />
+        {/* the sky: the icon's own starfield, fading into the card */}
+        <div className="relative h-44">
+          <img
+            src={`${import.meta.env.BASE_URL}icons/icon-512.png`}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-[50%_42%]"
+            draggable={false}
+          />
+          <span
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(11,9,16,0) 45%, rgba(11,9,16,0.85) 82%, #0b0910 100%)' }}
+          />
+          <button
+            onClick={closePrompt}
+            aria-label="Close"
+            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-neutral-300 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
+          >
+            <X size={15} />
+          </button>
         </div>
-        <h1 className="font-[Space_Grotesk] text-2xl font-bold text-white">ClankUp</h1>
-        <p className="mt-2 text-sm text-neutral-500">{strings.signIn.tagline}</p>
 
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={!isLoaded || isRedirecting}
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 transition-opacity hover:opacity-90 disabled:opacity-60"
-        >
-          <GoogleIcon />
-          {isRedirecting ? strings.signIn.redirecting : strings.signIn.continueWithGoogle}
-        </button>
+        <div className="relative -mt-2 px-6 pb-6">
+          <p className="text-center font-[Space_Grotesk] text-lg font-bold text-white">{strings.signIn.tagline}</p>
 
-        {error && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-left text-xs text-red-300">
-            <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+          {/* what an account is for: three lit points on one line each */}
+          <ul className="mt-4 flex flex-col gap-2">
+            {strings.signIn.perks.map((perk) => (
+              <li key={perk} className="flex items-center gap-3 text-sm text-neutral-300">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-violet-400/30 bg-violet-500/10">
+                  <span className="h-1.5 w-1.5 rounded-full bg-violet-300 shadow-[0_0_6px_1px_rgba(196,181,253,0.8)]" />
+                </span>
+                {perk}
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={!isLoaded || isRedirecting}
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            <GoogleIcon />
+            {isRedirecting ? strings.signIn.redirecting : strings.signIn.continueWithGoogle}
+          </button>
+
+          <button
+            onClick={closePrompt}
+            className="mt-3 w-full py-1.5 text-center text-xs text-neutral-500 transition-colors hover:text-neutral-300"
+          >
+            {strings.signIn.continueAsGuest}
+          </button>
+
+          {error && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-left text-xs text-red-300">
+              <TriangleAlert size={14} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
