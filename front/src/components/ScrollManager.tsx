@@ -30,14 +30,14 @@ import { useLocation, useNavigationType } from 'react-router-dom'
 const offsets = new Map<string, number>()
 
 /**
- * How long to keep re-applying a restored offset, in frames (~0.7s at 60fps).
- * The screen being returned to usually mounts empty and fetches its own
- * content — the ranking does — so for the first few frames the document is
- * too short to hold the offset and the browser clamps it straight back to
- * zero. Bounded because a restore that never gives up would fight the player
- * if they start scrolling themselves.
+ * How long to keep re-applying a restored offset, in frames (~3s at 60fps).
+ * The screen being returned to may mount short and fetch its own content
+ * — the ranking does when its cache is cold — so for the first frames the
+ * document is too short to hold the offset and the browser clamps it
+ * straight back to zero. Bounded, and cut short the moment the player
+ * touches the page, so a restore never fights someone scrolling themselves.
  */
-const RESTORE_FRAMES = 40
+const RESTORE_FRAMES = 180
 
 export function ScrollManager() {
   const { pathname } = useLocation()
@@ -71,15 +71,24 @@ export function ScrollManager() {
 
     let framesLeft = RESTORE_FRAMES
     let raf = 0
+    const letGo = () => {
+      framesLeft = 0
+    }
+    window.addEventListener('touchstart', letGo, { passive: true })
+    window.addEventListener('wheel', letGo, { passive: true })
     const attempt = () => {
       window.scrollTo({ top: target, left: 0, behavior: 'instant' })
-      // Landed, or the document is never going to be tall enough. Either way
-      // stop — retrying forever would fight a player who scrolls meanwhile.
+      // Landed, or the document is never going to be tall enough, or the
+      // player took over. Either way stop.
       if (Math.abs(window.scrollY - target) < 2 || framesLeft-- <= 0) return
       raf = requestAnimationFrame(attempt)
     }
     attempt()
-    return () => cancelAnimationFrame(raf)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('touchstart', letGo)
+      window.removeEventListener('wheel', letGo)
+    }
   }, [pathname, navigationType])
 
   return null

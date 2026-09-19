@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Crown, Loader2, Minus, Plus, Search, Swords, X, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
-import { useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
+import { hasCachedLeaderboard, useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautAvatar } from '../components/AstronautAvatar'
@@ -24,6 +24,10 @@ export function Leaderboard() {
   const navigate = useNavigate()
   const [sortBy, setSortBy] = useState<LeaderboardSort>('clicks')
   const { leaderboard, isLoading } = useLeaderboard(sortBy, true)
+  // No entrance for a ranking that was already in hand when the screen
+  // mounted (coming back from a profile): it should simply be there, at
+  // the offset it was left at, not fade in again.
+  const [arrivedWithData] = useState(() => hasCachedLeaderboard(sortBy))
   const { language, strings } = useLanguage()
   const [showBattles, setShowBattles] = useState(false)
   const reduceMotion = useReducedMotion()
@@ -88,6 +92,7 @@ export function Leaderboard() {
             language={language}
             userId={userId ?? null}
             reduceMotion={!!reduceMotion}
+            animateIn={!arrivedWithData}
             onOpen={(entry) => navigate(entry.id === userId ? '/estadisticas' : `/perfil/${entry.id}`)}
             strings={strings}
           />
@@ -245,6 +250,7 @@ function Podium({
   language,
   userId,
   reduceMotion,
+  animateIn,
   onOpen,
   strings,
 }: {
@@ -253,12 +259,13 @@ function Podium({
   language: 'es' | 'en'
   userId: string | null
   reduceMotion: boolean
+  animateIn: boolean
   onOpen: (entry: LeaderboardEntry) => void
   strings: ReturnType<typeof useLanguage>['strings']
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={animateIn ? { opacity: 0, y: 8 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: reduceMotion ? 0 : 0.3 }}
       className="relative mb-5 grid grid-cols-3 items-end gap-2"
@@ -271,8 +278,9 @@ function Podium({
           <button
             key={entry.id}
             onClick={() => onOpen(entry)}
-            className={`relative flex flex-col items-center overflow-hidden rounded-2xl border px-2 pb-3 text-center transition-transform active:scale-[0.98] ${step.order} ${place === 1 ? 'pt-7' : 'pt-4'}`}
+            className={`relative isolate flex flex-col items-center overflow-hidden rounded-2xl border px-2 pb-3 text-center transition-transform active:scale-[0.98] ${step.order} ${place === 1 ? 'pt-7' : 'pt-4'}`}
             style={{
+              transform: 'translateZ(0)',
               borderColor: `${step.metal}59`,
               background: `linear-gradient(180deg, ${step.metal}1f 0%, #101018 45%, #0c0c12 100%)`,
               boxShadow: `inset 0 1px 0 ${step.light}33, 0 12px 28px rgba(0,0,0,0.45), 0 0 18px ${step.glow}`,
@@ -300,7 +308,7 @@ function Podium({
                 style={{ background: `radial-gradient(50% 60% at 50% 50%, ${step.glow}, transparent 70%)` }}
               />
               <span
-                className={`relative block ${reduceMotion ? '' : 'podium-float'}`}
+                className={`relative block will-change-transform ${reduceMotion ? '' : 'podium-float'}`}
                 style={{ animationDelay: `${i * 0.7}s` }}
               >
                 <AstronautAvatar size={place === 1 ? 84 : 68} styleIds={normalizeStyle(entry.astronautStyle)} showSky={false} />

@@ -19,18 +19,36 @@ export interface LeaderboardEntry {
 }
 
 /**
+ * The last ranking read, per tab, kept for the session. Coming back from a
+ * player's profile mounts the screen again, and without this it mounted
+ * empty behind a loader until the fetch landed: the scroll offset the
+ * ScrollManager tries to restore had no document to land on, and the
+ * podium re-ran its entrance under a page that was still finding its
+ * height. With it, the screen comes back already full and the fetch only
+ * freshens it.
+ */
+const lastRead = new Map<LeaderboardSort, LeaderboardEntry[]>()
+
+/** Whether the ranking for this tab is already in hand, before any fetch. */
+export function hasCachedLeaderboard(sortBy: LeaderboardSort): boolean {
+  return lastRead.has(sortBy)
+}
+
+/**
  * @param live Keep re-reading the ranking while it's on screen. Off by
  *   default, and on only for the ranking screen itself: the neighbourhood card
  *   on the profile reads the same endpoint, and it's a static summary nobody
  *   sits and watches, so polling for it would be traffic buying nothing.
  */
 export function useLeaderboard(sortBy: LeaderboardSort = 'clicks', live = false) {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => lastRead.get(sortBy) ?? [])
+  const [isLoading, setIsLoading] = useState(!lastRead.has(sortBy))
 
   useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
+    const cached = lastRead.get(sortBy)
+    if (cached) setLeaderboard(cached)
+    setIsLoading(!cached)
 
     const load = async () => {
       try {
@@ -39,7 +57,9 @@ export function useLeaderboard(sortBy: LeaderboardSort = 'clicks', live = false)
           const data: LeaderboardEntry[] = await res.json()
           // lifetime_platino can carry a fractional remainder server-side
           // (see click-value multipliers) — never shown as a decimal here.
-          setLeaderboard(data.map((entry) => ({ ...entry, lifetimePlatino: Math.floor(entry.lifetimePlatino) })))
+          const entries = data.map((entry) => ({ ...entry, lifetimePlatino: Math.floor(entry.lifetimePlatino) }))
+          lastRead.set(sortBy, entries)
+          setLeaderboard(entries)
         }
       } catch (err) {
         console.error('No se pudo cargar la clasificación', err)
