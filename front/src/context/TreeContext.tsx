@@ -81,8 +81,24 @@ interface TreeState {
   tapMultiplierValue: number
   tapMultiplierNextCost: number | null
   multiShotLevel: number
+  /** Fingers allowed at once — Multidisparo and Sincronía together. */
   multiShotValue: number
   multiShotNextCost: number | null
+  multiShotExtraLevel: number
+  /** Sincronía opens once Multidisparo is maxed. */
+  multiShotExtraUnlocked: boolean
+  multiShotExtraNextCost: number | null
+  /** Cañón semiautomático: 0 or 1 (a one-time gate). */
+  semiAutoLevel: number
+  semiAutoNextCost: number | null
+  semiAutoRechargeSeconds: number
+  semiAutoHoldLevel: number
+  semiAutoHoldSeconds: number
+  semiAutoHoldNextCost: number | null
+  semiAutoRateLevel: number
+  /** Shots per second while the semi-automatic cannon is held. */
+  semiAutoRateTps: number
+  semiAutoRateNextCost: number | null
   anomalyUnlockLevel: number
   anomalyUnlockNextCost: number | null
   anomalyRewardLevel: number
@@ -136,6 +152,14 @@ interface TreeContextValue extends TreeState {
   buyMultiplier: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryUnlock: boolean
   buyLegendaryUnlock: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingSemiAuto: boolean
+  buySemiAuto: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingSemiAutoHold: boolean
+  buySemiAutoHold: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingSemiAutoRate: boolean
+  buySemiAutoRate: () => Promise<{ ok: boolean; error?: string }>
+  isBuyingMultiShotExtra: boolean
+  buyMultiShotExtra: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryEase: boolean
   buyLegendaryEase: () => Promise<{ ok: boolean; error?: string }>
   isBuyingLegendaryGrowth: boolean
@@ -218,6 +242,18 @@ const EMPTY_STATE: TreeState = {
   multiShotLevel: 0,
   multiShotValue: 1,
   multiShotNextCost: 0,
+  multiShotExtraLevel: 0,
+  multiShotExtraUnlocked: false,
+  multiShotExtraNextCost: 0,
+  semiAutoLevel: 0,
+  semiAutoNextCost: 5_000_000,
+  semiAutoRechargeSeconds: 5,
+  semiAutoHoldLevel: 0,
+  semiAutoHoldSeconds: 5,
+  semiAutoHoldNextCost: 0,
+  semiAutoRateLevel: 0,
+  semiAutoRateTps: 5,
+  semiAutoRateNextCost: 0,
   anomalyUnlockLevel: 0,
   anomalyUnlockNextCost: 5_000,
   anomalyRewardLevel: 0,
@@ -245,6 +281,10 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   const [isBuyingLuckChance, setIsBuyingLuckChance] = useState(false)
   const [isBuyingMultiplier, setIsBuyingMultiplier] = useState(false)
   const [isBuyingLegendaryUnlock, setIsBuyingLegendaryUnlock] = useState(false)
+  const [isBuyingSemiAuto, setIsBuyingSemiAuto] = useState(false)
+  const [isBuyingSemiAutoHold, setIsBuyingSemiAutoHold] = useState(false)
+  const [isBuyingSemiAutoRate, setIsBuyingSemiAutoRate] = useState(false)
+  const [isBuyingMultiShotExtra, setIsBuyingMultiShotExtra] = useState(false)
   const [isBuyingLegendaryEase, setIsBuyingLegendaryEase] = useState(false)
   const [isBuyingLegendaryGrowth, setIsBuyingLegendaryGrowth] = useState(false)
   const [isBuyingLegendaryThreshold, setIsBuyingLegendaryThreshold] = useState(false)
@@ -359,6 +399,18 @@ export function TreeProvider({ children }: { children: ReactNode }) {
           multiShotLevel: data.multiShotLevel,
           multiShotValue: data.multiShotValue,
           multiShotNextCost: data.multiShotNextCost,
+          multiShotExtraLevel: data.multiShotExtraLevel,
+          multiShotExtraUnlocked: data.multiShotExtraUnlocked,
+          multiShotExtraNextCost: data.multiShotExtraNextCost,
+          semiAutoLevel: data.semiAutoLevel,
+          semiAutoNextCost: data.semiAutoNextCost,
+          semiAutoRechargeSeconds: data.semiAutoRechargeSeconds,
+          semiAutoHoldLevel: data.semiAutoHoldLevel,
+          semiAutoHoldSeconds: data.semiAutoHoldSeconds,
+          semiAutoHoldNextCost: data.semiAutoHoldNextCost,
+          semiAutoRateLevel: data.semiAutoRateLevel,
+          semiAutoRateTps: data.semiAutoRateTps,
+          semiAutoRateNextCost: data.semiAutoRateNextCost,
           anomalyUnlockLevel: data.anomalyUnlockLevel,
           anomalyUnlockNextCost: data.anomalyUnlockNextCost,
           anomalyRewardLevel: data.anomalyRewardLevel,
@@ -709,6 +761,137 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: 'error' }
     } finally {
       setIsBuyingMultiplier(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
+
+  const buySemiAuto = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingSemiAuto(true)
+    try {
+      await flushNow()
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/semi-auto/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        semiAutoLevel: data.semiAutoLevel,
+        semiAutoNextCost: data.semiAutoNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Cañón semiautomático', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingSemiAuto(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
+
+  const buySemiAutoHold = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingSemiAutoHold(true)
+    try {
+      await flushNow()
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/semi-auto-hold/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        semiAutoHoldLevel: data.semiAutoHoldLevel,
+        semiAutoHoldSeconds: data.semiAutoHoldSeconds,
+        semiAutoHoldNextCost: data.semiAutoHoldNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Carga', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingSemiAutoHold(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
+
+  const buySemiAutoRate = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingSemiAutoRate(true)
+    try {
+      await flushNow()
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/semi-auto-rate/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        semiAutoRateLevel: data.semiAutoRateLevel,
+        semiAutoRateTps: data.semiAutoRateTps,
+        semiAutoRateNextCost: data.semiAutoRateNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Cadencia', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingSemiAutoRate(false)
+    }
+  }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
+
+  const buyMultiShotExtra = useCallback(async () => {
+    if (!userId) {
+      promptSignIn()
+      return { ok: false, error: 'not-signed-in' }
+    }
+    setIsBuyingMultiShotExtra(true)
+    try {
+      await flushNow()
+      const token = await getToken()
+      const res = await fetch(`${API_URL}/api/tree/multi-shot-extra/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) return { ok: false, error: data.error ?? 'error' }
+      setState((prev) => ({
+        ...prev,
+        multiShotExtraLevel: data.multiShotExtraLevel,
+        multiShotValue: data.multiShotValue,
+        multiShotExtraNextCost: data.multiShotExtraNextCost,
+      }))
+      if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
+      playTreeUpgrade()
+      setHasNewUpgrade(true)
+      return { ok: true }
+    } catch (err) {
+      console.error('No se pudo comprar Sincronía', err)
+      return { ok: false, error: 'error' }
+    } finally {
+      setIsBuyingMultiShotExtra(false)
     }
   }, [userId, getToken, syncTotalClicks, promptSignIn, flushNow])
 
@@ -1073,6 +1256,8 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         multiShotLevel: data.multiShotLevel,
         multiShotValue: data.multiShotValue,
         multiShotNextCost: data.multiShotNextCost,
+        // Sincronía opens the moment Multidisparo maxes out
+        multiShotExtraUnlocked: data.multiShotNextCost === null,
       }))
       if (typeof data.totalClicks === 'number') syncTotalClicks(data.totalClicks)
       playTreeUpgrade()
@@ -1250,6 +1435,14 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       buyMultiplier,
       isBuyingLegendaryUnlock,
       buyLegendaryUnlock,
+      isBuyingSemiAuto,
+      buySemiAuto,
+      isBuyingSemiAutoHold,
+      buySemiAutoHold,
+      isBuyingSemiAutoRate,
+      buySemiAutoRate,
+      isBuyingMultiShotExtra,
+      buyMultiShotExtra,
       isBuyingLegendaryEase,
       buyLegendaryEase,
       isBuyingLegendaryGrowth,
@@ -1299,6 +1492,14 @@ export function TreeProvider({ children }: { children: ReactNode }) {
       buyMultiplier,
       isBuyingLegendaryUnlock,
       buyLegendaryUnlock,
+      isBuyingSemiAuto,
+      buySemiAuto,
+      isBuyingSemiAutoHold,
+      buySemiAutoHold,
+      isBuyingSemiAutoRate,
+      buySemiAutoRate,
+      isBuyingMultiShotExtra,
+      buyMultiShotExtra,
       isBuyingLegendaryEase,
       buyLegendaryEase,
       isBuyingLegendaryGrowth,

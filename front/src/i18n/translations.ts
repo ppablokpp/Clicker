@@ -457,6 +457,21 @@ export interface TranslationStrings {
     multiShotDesc: string
     currentMultiShot: string
     nextMultiShot: string
+    semiAutoName: string
+    semiAutoDesc: () => string
+    semiAutoHoldName: string
+    semiAutoHoldDesc: string
+    currentHold: string
+    nextHold: string
+    holdSeconds: (seconds: number) => string
+    semiAutoRateName: string
+    semiAutoRateDesc: string
+    currentFireRate: string
+    nextFireRate: string
+    rateTps: (tps: number) => string
+    multiShotExtraName: string
+    multiShotExtraDesc: string
+    multiShotExtraLocked: string
     currentProduction: string
     nextProduction: string
     anomalyUnlockName: string
@@ -1271,6 +1286,21 @@ export const translations: Record<Language, TranslationStrings> = {
       multiShotDesc: 'Aumenta los cañones de la nave principal.',
       currentMultiShot: 'Cañones actuales:',
       nextMultiShot: 'Cañones siguiente nivel:',
+      semiAutoName: 'Cañón semiautomático',
+      semiAutoDesc: () => 'Desbloquea un cañón semiautomático para la nave. Mantén pulsado para disparar.',
+      semiAutoHoldName: 'Carga',
+      semiAutoHoldDesc: 'Aumenta la carga del cañón semiautomático.',
+      currentHold: 'Carga actual:',
+      nextHold: 'Carga siguiente nivel:',
+      holdSeconds: (seconds) => `${seconds} segundos`,
+      semiAutoRateName: 'Cadencia',
+      semiAutoRateDesc: 'Aumenta la velocidad de disparo del cañón semiautomático.',
+      currentFireRate: 'Cadencia actual:',
+      nextFireRate: 'Cadencia siguiente nivel:',
+      rateTps: (tps) => `${tps} t/s`,
+      multiShotExtraName: 'Sincronía',
+      multiShotExtraDesc: 'Desbloquea cañones extra para la nave.',
+      multiShotExtraLocked: 'Necesitas Multidisparo al máximo.',
       currentProduction: 'Producción actual:',
       nextProduction: 'Producción siguiente nivel:',
       anomalyUnlockName: 'Anomalías',
@@ -2099,6 +2129,21 @@ export const translations: Record<Language, TranslationStrings> = {
       multiShotDesc: "Increases the main ship's cannons.",
       currentMultiShot: 'Current cannons:',
       nextMultiShot: 'Next level cannons:',
+      semiAutoName: 'Semi-automatic cannon',
+      semiAutoDesc: () => 'Unlocks a semi-automatic cannon for the ship. Hold to fire.',
+      semiAutoHoldName: 'Charge',
+      semiAutoHoldDesc: 'Increases the semi-automatic cannon\'s charge.',
+      currentHold: 'Current charge:',
+      nextHold: 'Next level charge:',
+      holdSeconds: (seconds) => `${seconds} seconds`,
+      semiAutoRateName: 'Fire rate',
+      semiAutoRateDesc: "Increases the semi-automatic cannon's fire rate.",
+      currentFireRate: 'Current fire rate:',
+      nextFireRate: 'Next level fire rate:',
+      rateTps: (tps) => `${tps} t/s`,
+      multiShotExtraName: 'Sync',
+      multiShotExtraDesc: 'Unlocks extra cannons for the ship.',
+      multiShotExtraLocked: 'Requires Multi-shot at max level.',
       currentProduction: 'Current production:',
       nextProduction: 'Next level production:',
       anomalyUnlockName: 'Anomalies',

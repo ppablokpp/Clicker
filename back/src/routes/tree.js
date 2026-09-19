@@ -151,6 +151,42 @@ treeRouter.post('/tap-multiplier/buy', async (req, res) => {
   res.json(result)
 })
 
+treeRouter.post('/semi-auto/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buySemiAutoLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/semi-auto-hold/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buySemiAutoHoldLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/semi-auto-rate/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buySemiAutoRateLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
+treeRouter.post('/multi-shot-extra/buy', async (req, res) => {
+  const { userId } = getAuth(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const result = await treeRepository.buyMultiShotExtraLevel(userId)
+  if (!result.ok) return res.status(400).json({ error: result.reason })
+  res.json(result)
+})
+
 treeRouter.post('/multi-shot/buy', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })

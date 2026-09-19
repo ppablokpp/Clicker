@@ -44,7 +44,16 @@ import {
   autoMultiplierValue,
 } from '../tree/autoMultiplier.js'
 import { TAP_MULTIPLIER_NODE_ID, tapMultiplierCost, tapMultiplierValue } from '../tree/tapMultiplier.js'
-import { MULTI_SHOT_NODE_ID, multiShotCost, multiShotValue } from '../tree/multiShot.js'
+import { MULTI_SHOT_NODE_ID, multiShotCost } from '../tree/multiShot.js'
+import {
+  MULTI_SHOT_EXTRA_NODE_ID,
+  multiShotExtraCost,
+  multiShotExtraUnlocked,
+  totalMultiShotValue,
+} from '../tree/multiShotExtra.js'
+import { SEMI_AUTO_NODE_ID, SEMI_AUTO_RECHARGE_SECONDS, semiAutoCost } from '../tree/semiAuto.js'
+import { SEMI_AUTO_HOLD_NODE_ID, semiAutoHoldCost, semiAutoHoldSeconds } from '../tree/semiAutoHold.js'
+import { SEMI_AUTO_RATE_NODE_ID, semiAutoRateCost, semiAutoRateTps } from '../tree/semiAutoRate.js'
 import { ANOMALY_UNLOCK_NODE_ID, anomalyUnlockCost } from '../tree/anomalyUnlock.js'
 import { ANOMALY_REWARD_NODE_ID, anomalyRewardCost, anomalyRewardValue } from '../tree/anomalyReward.js'
 import { ANOMALY_FREQUENCY_NODE_ID, anomalyFrequencyCost, anomalyFrequencySeconds } from '../tree/anomalyFrequency.js'
@@ -419,6 +428,31 @@ export const treeRepository = {
       )
       const multiShotLevel = Number(multiShotRow.rows[0]?.level ?? 0)
 
+      // Multidisparo's children: Sincronía (fingers past ten, see
+      // multiShotExtra.js), Cañón semiautomático (a one-time gate, see
+      // semiAuto.js) with its Carga (see semiAutoHold.js) and Cadencia (see
+      // semiAutoRate.js).
+      const multiShotExtraRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, MULTI_SHOT_EXTRA_NODE_ID],
+      )
+      const multiShotExtraLevel = Number(multiShotExtraRow.rows[0]?.level ?? 0)
+      const semiAutoRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, SEMI_AUTO_NODE_ID],
+      )
+      const semiAutoLevel = Number(semiAutoRow.rows[0]?.level ?? 0)
+      const semiAutoHoldRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, SEMI_AUTO_HOLD_NODE_ID],
+      )
+      const semiAutoHoldLevel = Number(semiAutoHoldRow.rows[0]?.level ?? 0)
+      const semiAutoRateRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, SEMI_AUTO_RATE_NODE_ID],
+      )
+      const semiAutoRateLevel = Number(semiAutoRateRow.rows[0]?.level ?? 0)
+
       // Anomalías — root's own child, a one-time gate on the whole event
       // (see anomalyUnlock.js), forking into Extracción and Frecuencia.
       const anomalyUnlockRow = await client.query(
@@ -504,8 +538,20 @@ export const treeRepository = {
         tapMultiplierValue: tapMultiplierValue(tapMultiplierLevel),
         tapMultiplierNextCost: scaleCost(tapMultiplierCost(tapMultiplierLevel), userRow.rows[0].prestige_tier),
         multiShotLevel,
-        multiShotValue: multiShotValue(multiShotLevel),
+        multiShotValue: totalMultiShotValue(multiShotLevel, multiShotExtraLevel),
         multiShotNextCost: scaleCost(multiShotCost(multiShotLevel), userRow.rows[0].prestige_tier),
+        multiShotExtraLevel,
+        multiShotExtraUnlocked: multiShotExtraUnlocked(multiShotLevel),
+        multiShotExtraNextCost: scaleCost(multiShotExtraCost(multiShotExtraLevel), userRow.rows[0].prestige_tier),
+        semiAutoLevel,
+        semiAutoNextCost: scaleCost(semiAutoCost(semiAutoLevel), userRow.rows[0].prestige_tier),
+        semiAutoRechargeSeconds: SEMI_AUTO_RECHARGE_SECONDS,
+        semiAutoHoldLevel,
+        semiAutoHoldSeconds: semiAutoHoldSeconds(semiAutoHoldLevel),
+        semiAutoHoldNextCost: scaleCost(semiAutoHoldCost(semiAutoHoldLevel), userRow.rows[0].prestige_tier),
+        semiAutoRateLevel,
+        semiAutoRateTps: semiAutoRateTps(semiAutoRateLevel),
+        semiAutoRateNextCost: scaleCost(semiAutoRateCost(semiAutoRateLevel), userRow.rows[0].prestige_tier),
         anomalyUnlockLevel,
         anomalyUnlockNextCost: scaleCost(anomalyUnlockCost(anomalyUnlockLevel), userRow.rows[0].prestige_tier),
         anomalyRewardLevel,
@@ -1737,6 +1783,14 @@ export const treeRepository = {
         [userId, MULTI_SHOT_NODE_ID],
       )
       const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const multiShotExtraLevelNow = Number(
+        (
+          await client.query(`SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`, [
+            userId,
+            MULTI_SHOT_EXTRA_NODE_ID,
+          ])
+        ).rows[0]?.level ?? 0,
+      )
       const cost = scaleCost(multiShotCost(level), userRow.rows[0].prestige_tier)
       if (cost === null) {
         await client.query('ROLLBACK')
@@ -1765,8 +1819,281 @@ export const treeRepository = {
       return {
         ok: true,
         multiShotLevel: newLevel,
-        multiShotValue: multiShotValue(newLevel),
+        multiShotValue: totalMultiShotValue(newLevel, multiShotExtraLevelNow),
         multiShotNextCost: scaleCost(multiShotCost(newLevel), userRow.rows[0].prestige_tier),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+
+  // Cañón semiautomático — Multidisparo's first child, a one-time gate
+  // (see semiAuto.js), same shape as buyLegendaryUnlockLevel.
+  async buySemiAutoLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, SEMI_AUTO_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = scaleCost(semiAutoCost(level), userRow.rows[0].prestige_tier)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, SEMI_AUTO_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        semiAutoLevel: newLevel,
+        semiAutoNextCost: scaleCost(semiAutoCost(newLevel), userRow.rows[0].prestige_tier),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Carga — Cañón semiautomático's own child (see semiAutoHold.js); needs
+  // the cannon bought first, the way Catalizador needs Modo Legendario.
+  async buySemiAutoHoldLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
+
+      const semiAutoRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, SEMI_AUTO_NODE_ID],
+      )
+      if (Number(semiAutoRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'semi-auto-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, SEMI_AUTO_HOLD_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = scaleCost(semiAutoHoldCost(level), userRow.rows[0].prestige_tier)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, SEMI_AUTO_HOLD_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        semiAutoHoldLevel: newLevel,
+        semiAutoHoldSeconds: semiAutoHoldSeconds(newLevel),
+        semiAutoHoldNextCost: scaleCost(semiAutoHoldCost(newLevel), userRow.rows[0].prestige_tier),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Cadencia — Cañón semiautomático's other child (see semiAutoRate.js);
+  // same gate as Carga: the cannon has to be bought first.
+  async buySemiAutoRateLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
+
+      const semiAutoRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, SEMI_AUTO_NODE_ID],
+      )
+      if (Number(semiAutoRow.rows[0]?.level ?? 0) === 0) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'semi-auto-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, SEMI_AUTO_RATE_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = scaleCost(semiAutoRateCost(level), userRow.rows[0].prestige_tier)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, SEMI_AUTO_RATE_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        semiAutoRateLevel: newLevel,
+        semiAutoRateTps: semiAutoRateTps(newLevel),
+        semiAutoRateNextCost: scaleCost(semiAutoRateCost(newLevel), userRow.rows[0].prestige_tier),
+        totalClicks: Number(spent.rows[0].total_clicks),
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  // Sincronía — Multidisparo's other child (see multiShotExtra.js); only
+  // once Multidisparo itself is maxed, being the same ladder carried on.
+  async buyMultiShotExtraLevel(userId) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      // Credits pending drone/scout-drone production first — see
+      // accrueProduction's own comment for why every endpoint that checks
+      // total_clicks needs this, not just the auto-click node's own buy.
+      const accrued = await accrueProduction(client, userId)
+      if (!accrued) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const userRow = { rows: [{ total_clicks: accrued.totalClicks, prestige_tier: accrued.prestigeTier }] }
+
+      const multiShotRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2`,
+        [userId, MULTI_SHOT_NODE_ID],
+      )
+      const multiShotLevel = Number(multiShotRow.rows[0]?.level ?? 0)
+      if (!multiShotExtraUnlocked(multiShotLevel)) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'multi-shot-max-required' }
+      }
+
+      const nodeRow = await client.query(
+        `SELECT level FROM user_permanent_upgrades WHERE user_id = $1 AND upgrade_id = $2 FOR UPDATE`,
+        [userId, MULTI_SHOT_EXTRA_NODE_ID],
+      )
+      const level = Number(nodeRow.rows[0]?.level ?? 0)
+      const cost = scaleCost(multiShotExtraCost(level), userRow.rows[0].prestige_tier)
+      if (cost === null) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'max-level' }
+      }
+
+      const totalClicks = Number(userRow.rows[0].total_clicks)
+      if (totalClicks < cost) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-enough-clicks' }
+      }
+
+      const spent = await client.query(
+        'UPDATE users SET total_clicks = total_clicks - $2 WHERE id = $1 RETURNING total_clicks',
+        [userId, cost],
+      )
+
+      await client.query(
+        `INSERT INTO user_permanent_upgrades (user_id, upgrade_id, level) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, upgrade_id) DO UPDATE SET level = user_permanent_upgrades.level + 1`,
+        [userId, MULTI_SHOT_EXTRA_NODE_ID],
+      )
+
+      await client.query('COMMIT')
+      const newLevel = level + 1
+      return {
+        ok: true,
+        multiShotExtraLevel: newLevel,
+        multiShotValue: totalMultiShotValue(multiShotLevel, newLevel),
+        multiShotExtraNextCost: scaleCost(multiShotExtraCost(newLevel), userRow.rows[0].prestige_tier),
         totalClicks: Number(spent.rows[0].total_clicks),
       }
     } catch (err) {

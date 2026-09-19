@@ -101,6 +101,22 @@ body::before {
   }
 }
 
+/* The podium's astronauts, adrift a few pixels — a transform only, so the
+   three of them cost nothing to keep moving. */
+@keyframes podium-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+.podium-float {
+  animation: podium-float 3.4s ease-in-out infinite;
+  will-change: transform;
+}
+
 @keyframes float-up {
   0% {
     opacity: 1;

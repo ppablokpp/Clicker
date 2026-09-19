@@ -782,13 +782,10 @@ interface BoostTheme {
   heat: readonly BoostHeat[]
 }
 
-// Two ladders of four. Spelled out rather than generated from the tier index
-// because Tailwind only ships the class names it can literally see in the
-// source — a `border-${hue}-400/20` would compile to nothing.
-//
-// Each ladder starts inside its section's own colour and ends a hue along it:
-// violet running to fuchsia, emerald running to lime. Same family, so the four
-// cells read as one rack; hotter at the top, so the ladder reads as a ladder.
+// One heat per rack: the four cells share a colour and only the rail down
+// the left edge tells the tiers apart. Spelled out rather than generated from
+// the hue because Tailwind only ships the class names it can literally see in
+// the source — a `border-${hue}-400/20` would compile to nothing.
 const BOOST_THEMES: Record<'power' | 'luck', BoostTheme> = {
   power: {
     ruleFrom: 'bg-gradient-to-r from-transparent to-violet-300/50',
@@ -803,24 +800,6 @@ const BOOST_THEMES: Record<'power' | 'luck', BoostTheme> = {
         numeral: 'text-violet-200/80',
         glow: '0 0 12px rgba(167,139,250,.25)',
       },
-      {
-        frame: 'border-violet-400/20 bg-violet-500/[0.04]',
-        rail: 'bg-gradient-to-t from-violet-600/50 to-violet-300/80',
-        numeral: 'text-violet-100',
-        glow: '0 0 14px rgba(167,139,250,.42)',
-      },
-      {
-        frame: 'border-fuchsia-400/25 bg-fuchsia-500/[0.05]',
-        rail: 'bg-gradient-to-t from-fuchsia-600/50 to-fuchsia-300/90',
-        numeral: 'text-fuchsia-100',
-        glow: '0 0 18px rgba(232,121,249,.5)',
-      },
-      {
-        frame: 'border-fuchsia-300/40 bg-fuchsia-500/[0.08]',
-        rail: 'bg-gradient-to-t from-fuchsia-500/60 to-pink-200',
-        numeral: 'text-white',
-        glow: '0 0 22px rgba(240,171,252,.75)',
-      },
     ],
   },
   luck: {
@@ -831,28 +810,10 @@ const BOOST_THEMES: Record<'power' | 'luck', BoostTheme> = {
     ring: 'ring-emerald-300/40',
     heat: [
       {
-        frame: 'border-emerald-400/10 bg-emerald-500/[0.02]',
-        rail: 'bg-gradient-to-t from-emerald-600/40 to-emerald-400/60',
-        numeral: 'text-emerald-200/80',
-        glow: '0 0 12px rgba(52,211,153,.25)',
-      },
-      {
         frame: 'border-emerald-400/20 bg-emerald-500/[0.04]',
         rail: 'bg-gradient-to-t from-emerald-600/50 to-emerald-300/80',
         numeral: 'text-emerald-100',
         glow: '0 0 14px rgba(52,211,153,.42)',
-      },
-      {
-        frame: 'border-lime-400/25 bg-lime-500/[0.05]',
-        rail: 'bg-gradient-to-t from-lime-600/50 to-lime-300/90',
-        numeral: 'text-lime-100',
-        glow: '0 0 18px rgba(163,230,53,.5)',
-      },
-      {
-        frame: 'border-lime-300/40 bg-lime-500/[0.08]',
-        rail: 'bg-gradient-to-t from-lime-500/60 to-lime-100',
-        numeral: 'text-white',
-        glow: '0 0 22px rgba(217,249,157,.75)',
       },
     ],
   },

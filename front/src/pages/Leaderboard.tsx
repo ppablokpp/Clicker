@@ -3,12 +3,13 @@ import { MiniLoader } from '../components/MiniLoader'
 import { OutsideBackButton } from '../components/OutsideBackButton'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Loader2, Medal, Minus, Plus, Search, Swords, X, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Crown, Loader2, Minus, Plus, Search, Swords, X, Zap } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import { useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
 import { PlatinumIcon } from '../components/PlatinumIcon'
+import { AstronautAvatar } from '../components/AstronautAvatar'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
 import { SUFFIX_TIERS, splitPlatino } from '../lib/formatPlatino'
@@ -17,12 +18,6 @@ import { MATERIAL_BUTTON_THEMES, MATERIAL_TIER_COLORS } from '../lib/materialTie
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
-
-const RANK_STYLES: Record<number, string> = {
-  1: 'text-amber-300 border-amber-400/30 bg-amber-400/10',
-  2: 'text-neutral-300 border-neutral-300/30 bg-neutral-300/10',
-  3: 'text-orange-400 border-orange-400/30 bg-orange-400/10',
-}
 
 export function Leaderboard() {
   const { userId } = useAuth()
@@ -82,6 +77,22 @@ export function Leaderboard() {
           </p>
         )}
 
+        {/* The podium: the top three on cards of their own metal, the whole
+            astronaut adrift on each. Keyed on the tab so a metric change
+            rebuilds it with a fade. */}
+        {leaderboard.length > 0 && (
+          <Podium
+            key={sortBy}
+            top={leaderboard.slice(0, 3)}
+            sortBy={sortBy}
+            language={language}
+            userId={userId ?? null}
+            reduceMotion={!!reduceMotion}
+            onOpen={(entry) => navigate(entry.id === userId ? '/estadisticas' : `/perfil/${entry.id}`)}
+            strings={strings}
+          />
+        )}
+
         {/* `relative` is load-bearing: AnimatePresence's popLayout takes an
             exiting row out of flow with position:absolute so the rows below
             close the gap immediately instead of waiting for the fade to
@@ -89,11 +100,11 @@ export function Leaderboard() {
             against the page instead of against the list. */}
         <ol className="scroll-thin relative flex flex-col gap-2">
           <AnimatePresence initial={false} mode="popLayout">
-            {leaderboard.map((entry, i) => (
+            {leaderboard.slice(3).map((entry, i) => (
               <LeaderboardRow
                 key={entry.id}
                 entry={entry}
-                rank={i + 1}
+                rank={i + 4}
                 sortBy={sortBy}
                 language={language}
                 isLocalPlayer={entry.id === userId}
@@ -141,7 +152,6 @@ function LeaderboardRow({
   onOpen: () => void
   strings: ReturnType<typeof useLanguage>['strings']
 }) {
-  const style = RANK_STYLES[rank]
   return (
     <motion.li
       layout="position"
@@ -168,12 +178,8 @@ function LeaderboardRow({
             : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
         }`}
       >
-        <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-            style ?? 'border-white/5 bg-white/[0.03] text-neutral-400'
-          }`}
-        >
-          {rank <= 3 ? <Medal size={15} /> : rank}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-sm font-bold text-neutral-400">
+          {rank}
         </div>
 
         <AstronautHeadshot size={32} styleIds={normalizeStyle(entry.astronautStyle)} />
@@ -216,6 +222,107 @@ function LeaderboardRow({
         </motion.span>
       </button>
     </motion.li>
+  )
+}
+
+/** A place on the podium: its metal, its light, where its card stands. */
+const PODIUM_STEPS: Record<1 | 2 | 3, { metal: string; light: string; glow: string; order: string }> = {
+  1: { metal: '#fbbf24', light: '#fde68a', glow: 'rgba(251,191,36,0.5)', order: 'order-2' },
+  2: { metal: '#cbd5e1', light: '#f1f5f9', glow: 'rgba(203,213,225,0.4)', order: 'order-1' },
+  3: { metal: '#d97706', light: '#fcd34d', glow: 'rgba(217,119,6,0.45)', order: 'order-3' },
+}
+
+/**
+ * The top three: three cards in their metals — silver, gold in the
+ * middle and a step taller, bronze — each with the whole astronaut
+ * adrift over a pool of the metal's light, the place cut into the corner,
+ * the name and the score under. The rest of the ranking is rows; these
+ * three are the ones on the podium.
+ */
+function Podium({
+  top,
+  sortBy,
+  language,
+  userId,
+  reduceMotion,
+  onOpen,
+  strings,
+}: {
+  top: LeaderboardEntry[]
+  sortBy: LeaderboardSort
+  language: 'es' | 'en'
+  userId: string | null
+  reduceMotion: boolean
+  onOpen: (entry: LeaderboardEntry) => void
+  strings: ReturnType<typeof useLanguage>['strings']
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.3 }}
+      className="relative mb-5 grid grid-cols-3 items-end gap-2"
+    >
+      {top.map((entry, i) => {
+        const place = (i + 1) as 1 | 2 | 3
+        const step = PODIUM_STEPS[place]
+        const mine = entry.id === userId
+        return (
+          <button
+            key={entry.id}
+            onClick={() => onOpen(entry)}
+            className={`relative flex flex-col items-center overflow-hidden rounded-2xl border px-2 pb-3 text-center transition-transform active:scale-[0.98] ${step.order} ${place === 1 ? 'pt-7' : 'pt-4'}`}
+            style={{
+              borderColor: `${step.metal}59`,
+              background: `linear-gradient(180deg, ${step.metal}1f 0%, #101018 45%, #0c0c12 100%)`,
+              boxShadow: `inset 0 1px 0 ${step.light}33, 0 12px 28px rgba(0,0,0,0.45), 0 0 18px ${step.glow}`,
+            }}
+          >
+            {/* the hall's scanlines, and the metal's light pooling at the top */}
+            <span
+              className="pointer-events-none absolute inset-0 opacity-[0.035]"
+              style={{ backgroundImage: 'repeating-linear-gradient(180deg, #fff 0px, #fff 1px, transparent 1px, transparent 3px)' }}
+            />
+            <span
+              className="pointer-events-none absolute inset-x-0 top-0 h-20"
+              style={{ background: `radial-gradient(70% 90% at 50% 0%, ${step.glow}, transparent 70%)` }}
+            />
+            {place === 1 && (
+              <span className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2" style={{ color: step.light, filter: `drop-shadow(0 0 6px ${step.glow})` }}>
+                <Crown size={16} />
+              </span>
+            )}
+
+            {/* the astronaut, whole, adrift over its own pool of light */}
+            <span className="relative mt-3 flex items-end justify-center">
+              <span
+                className="pointer-events-none absolute bottom-1 left-1/2 h-4 w-16 -translate-x-1/2 rounded-[50%]"
+                style={{ background: `radial-gradient(50% 60% at 50% 50%, ${step.glow}, transparent 70%)` }}
+              />
+              <span
+                className={`relative block ${reduceMotion ? '' : 'podium-float'}`}
+                style={{ animationDelay: `${i * 0.7}s` }}
+              >
+                <AstronautAvatar size={place === 1 ? 84 : 68} styleIds={normalizeStyle(entry.astronautStyle)} showSky={false} />
+              </span>
+            </span>
+
+            <span className={`mt-2 max-w-full truncate text-xs font-semibold ${mine ? 'text-violet-200' : 'text-neutral-100'}`}>
+              {entry.username ?? strings.leaderboard.fallbackName}
+            </span>
+            <span className="mt-0.5 font-[Space_Grotesk] text-sm font-bold tabular-nums" style={{ color: step.light, textShadow: `0 0 10px ${step.glow}` }}>
+              {sortBy === 'cps' ? (
+                <>
+                  {entry.bestCps.toFixed(1)} <span className="text-[10px] font-medium opacity-60">t/s</span>
+                </>
+              ) : (
+                <ScoreFigure value={entry.lifetimePlatino} language={language} />
+              )}
+            </span>
+          </button>
+        )
+      })}
+    </motion.div>
   )
 }
 

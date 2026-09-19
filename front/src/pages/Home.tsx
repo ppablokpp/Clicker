@@ -380,6 +380,10 @@ export function Home() {
     legendaryBonusStep,
     legendaryThresholdTps,
     multiShotValue,
+    semiAutoLevel,
+    semiAutoHoldSeconds,
+    semiAutoRateTps,
+    semiAutoRechargeSeconds,
     scoutDroneLevel,
     scoutDroneRate,
     scoutDroneCps,
@@ -612,6 +616,89 @@ export function Home() {
   // "hand" at once and feel Multidisparo's extra cannons the same way a
   // second/third finger does on mobile.
   const activePointersRef = useRef<Set<number | string>>(new Set())
+
+  // Cañón semiautomático (tree node b2a). One held finger fires on its own,
+  // draining a charge that lasts semiAutoHoldSeconds; empty (or let go) it
+  // refills at a fixed rate — semiAutoRechargeSeconds from empty to full —
+  // and can't be held again until full. All refs and a DOM write for the
+  // bar, so a tick never re-renders Home (see fireShot for why that
+  // matters up here).
+  const HOLD_ARM_MS = 220
+  // Cadencia (tree node b2a2): shots a second while held
+  const holdFireIntervalMs = 1000 / Math.max(1, semiAutoRateTps)
+  const semiAutoRef = useRef<{
+    charge: number
+    holdingKey: number | string | null
+    holdX: number
+    holdY: number
+    armTimer: number | null
+    fireTimer: number | null
+    tickTimer: number | null
+    lastTick: number
+  }>({ charge: 1, holdingKey: null, holdX: 0, holdY: 0, armTimer: null, fireTimer: null, tickTimer: null, lastTick: 0 })
+  const chargeBarRef = useRef<HTMLDivElement | null>(null)
+  const paintCharge = useCallback(() => {
+    const bar = chargeBarRef.current
+    if (!bar) return
+    const { charge, fireTimer } = semiAutoRef.current
+    bar.style.transform = `scaleX(${charge})`
+    // lit while full or firing; dimmed the moment it runs dry or is let go
+    bar.style.opacity = charge >= 1 || fireTimer !== null ? '1' : '0.45'
+  }, [])
+  // The clock: drains while a finger is held and armed, refills otherwise,
+  // and stops itself once the charge is full and nobody is holding.
+  const semiAutoTick = useCallback(() => {
+    const st = semiAutoRef.current
+    const now = performance.now()
+    const dt = (now - st.lastTick) / 1000
+    st.lastTick = now
+    if (st.holdingKey !== null && st.fireTimer !== null) {
+      st.charge = Math.max(0, st.charge - dt / Math.max(1, semiAutoHoldSeconds))
+      if (st.charge <= 0 && st.fireTimer !== null) {
+        // dry: the finger can stay down, but the cannon is done until full
+        window.clearInterval(st.fireTimer)
+        st.fireTimer = null
+      }
+    } else if (st.charge < 1) {
+      st.charge = Math.min(1, st.charge + dt / Math.max(1, semiAutoRechargeSeconds))
+    }
+    paintCharge()
+    if (st.charge >= 1 && st.holdingKey === null && st.tickTimer !== null) {
+      window.clearInterval(st.tickTimer)
+      st.tickTimer = null
+    }
+  }, [semiAutoHoldSeconds, semiAutoRechargeSeconds, paintCharge])
+  const ensureSemiAutoClock = useCallback(() => {
+    const st = semiAutoRef.current
+    if (st.tickTimer !== null) return
+    st.lastTick = performance.now()
+    st.tickTimer = window.setInterval(semiAutoTick, 100)
+  }, [semiAutoTick])
+  // Leaving Home mid-hold: no timer outlives the screen.
+  useEffect(() => {
+    const st = semiAutoRef.current
+    return () => {
+      if (st.armTimer !== null) window.clearTimeout(st.armTimer)
+      if (st.fireTimer !== null) window.clearInterval(st.fireTimer)
+      if (st.tickTimer !== null) window.clearInterval(st.tickTimer)
+      st.armTimer = st.fireTimer = st.tickTimer = null
+      st.holdingKey = null
+    }
+  }, [])
+  const releaseSemiAuto = useCallback(
+    (pointerKey: number | string) => {
+      const st = semiAutoRef.current
+      if (st.holdingKey !== pointerKey) return
+      st.holdingKey = null
+      if (st.armTimer !== null) window.clearTimeout(st.armTimer)
+      st.armTimer = null
+      if (st.fireTimer !== null) window.clearInterval(st.fireTimer)
+      st.fireTimer = null
+      paintCharge()
+      ensureSemiAutoClock()
+    },
+    [paintCharge, ensureSemiAutoClock],
+  )
   const RIGHT_CLICK_KEY = 'right-click'
   const SPACE_KEY = 'space'
   // Last known mouse position — the Space bar has no coordinates of its
@@ -1005,6 +1092,26 @@ export function Home() {
       registerClick(amount, isLucky)
       playLaserShot()
 
+      // The cannon: the first finger down while it is full and free takes
+      // it. Held past the arming delay it starts firing on its own from
+      // wherever the finger is (fireShot again, same slot), until the charge
+      // runs out or the finger lifts.
+      const st = semiAutoRef.current
+      if (semiAutoLevel > 0 && st.holdingKey === null && st.charge >= 1 && typeof pointerKey === 'number') {
+        st.holdingKey = pointerKey
+        st.holdX = clientX
+        st.holdY = clientY
+        st.armTimer = window.setTimeout(() => {
+          st.armTimer = null
+          if (st.holdingKey !== pointerKey) return
+          ensureSemiAutoClock()
+          st.fireTimer = window.setInterval(() => {
+            if (st.holdingKey !== pointerKey || st.charge <= 0) return
+            fireShotRef.current?.(pointerKey, st.holdX, st.holdY)
+          }, holdFireIntervalMs)
+        }, HOLD_ARM_MS)
+      }
+
       // Fire a shot from the tap point at the space object. Handed straight
       // to TapEffectsLayer rather than stored here: this is per-tap state,
       // and keeping it out of Home is what stops every single tap from
@@ -1037,8 +1144,15 @@ export function Home() {
       combinedLuckMultiplier,
       legendaryStreakBase,
       multiShotValue,
+      semiAutoLevel,
+      holdFireIntervalMs,
+      ensureSemiAutoClock,
     ],
   )
+  // The cannon's timer calls the latest fireShot, not the one it closed
+  // over when the finger landed.
+  const fireShotRef = useRef(fireShot)
+  fireShotRef.current = fireShot
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -1127,6 +1241,11 @@ export function Home() {
         return
       }
       if (e.pointerType === 'mouse') cursorPosRef.current = { x: e.clientX, y: e.clientY }
+      const st = semiAutoRef.current
+      if (st.holdingKey === e.pointerId) {
+        st.holdX = e.clientX
+        st.holdY = e.clientY
+      }
     },
     [applyView, zoomAround],
   )
@@ -1148,7 +1267,8 @@ export function Home() {
     }
     const pointerKey = e.button === 2 ? RIGHT_CLICK_KEY : e.pointerId
     activePointersRef.current.delete(pointerKey)
-  }, [])
+    releaseSemiAuto(pointerKey)
+  }, [releaseSemiAuto])
 
   // Right-click and Space both act as an extra "hand" for Multidisparo on
   // desktop, where a single mouse cursor otherwise has no way to land more
@@ -1427,6 +1547,19 @@ export function Home() {
                   <DiaryCover ariaLabel={strings.diary.title} onClick={() => setShowDiary(true)} />
                 </div>
               </div>
+
+              {/* The cannon's charge: a hairline along the foot of the
+                  console, the full width, in the console's violet. Drains
+                  while a finger holds, dims while it refills, and is written
+                  straight to the DOM by the cannon's clock. */}
+              {semiAutoLevel > 0 && (
+                <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06]">
+                  <div
+                    ref={chargeBarRef}
+                    className="h-full w-full origin-left rounded-full bg-violet-400/80 shadow-[0_0_6px_rgba(167,139,250,0.7)]"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

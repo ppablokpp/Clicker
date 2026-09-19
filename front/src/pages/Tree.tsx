@@ -11,6 +11,10 @@ import {
   ChevronsUp,
   Gauge,
   Gem,
+  Focus,
+  BatteryCharging,
+  FastForward,
+  Fingerprint,
   HelpCircle,
   Lock,
   Minus,
@@ -203,12 +207,16 @@ const NODES: TreeNode[] = [
   // used to hang off Suerte too but is now its own root branch, see below.
   { id: 'a1', x: CENTER + 140, y: CENTER - 100, label: 'Mejora' },
   { id: 'a2', x: CENTER + 260, y: CENTER - 200, label: 'Mejora' },
-  { id: 'a2b', x: CENTER + 300, y: CENTER - 340, label: 'Mejora' },
-  { id: 'a3', x: CENTER + 400, y: CENTER - 240, label: 'Mejora+' },
 
   // Branch B — short reach left that forks into two.
   { id: 'b1', x: CENTER - 170, y: CENTER + 70, label: 'Mejora' },
+  // Cañón semiautomático (b2a, a one-time gate: one held finger fires on
+  // its own) with its own children Carga (b2a1, how long it holds) and
+  // Cadencia (b2a2, how fast it fires); Sincronía (b2b) carries
+  // Multidisparo's finger count on past ten.
   { id: 'b2a', x: CENTER - 320, y: CENTER - 10, label: 'Mejora' },
+  { id: 'b2a1', x: CENTER - 470, y: CENTER - 110, label: 'Mejora' },
+  { id: 'b2a2', x: CENTER - 470, y: CENTER + 60, label: 'Mejora' },
   { id: 'b2b', x: CENTER - 330, y: CENTER + 160, label: 'Mejora' },
 
   // Branch C — one lone node straight down, nothing beyond it yet.
@@ -275,11 +283,11 @@ const NODES: TreeNode[] = [
 const EDGES: TreeEdge[] = [
   { from: 'root', to: 'a1' },
   { from: 'a1', to: 'a2' },
-  { from: 'a2', to: 'a2b' },
-  { from: 'a2', to: 'a3' },
 
   { from: 'root', to: 'b1' },
   { from: 'b1', to: 'b2a' },
+  { from: 'b2a', to: 'b2a1' },
+  { from: 'b2a', to: 'b2a2' },
   { from: 'b1', to: 'b2b' },
 
   { from: 'root', to: 'c1' },
@@ -337,7 +345,7 @@ const PARENT_OF = computeParentsFromRoot(EDGES)
 // the way to 'available' itself only if that parent is a real node past
 // level 0. That's how root revealing a1/c1 works, and it's exactly the
 // same mechanism that makes leveling up a1 (luck) reveal a1's own
-// children, and would keep cascading into a3 once a2 ever becomes real.
+// children, and keeps cascading the same way down every branch.
 function getRevealState(nodeId: string, realLevelById: Record<string, number>): RevealState {
   const parentId = PARENT_OF[nodeId]
 
@@ -396,17 +404,6 @@ const MULTI_SHOT_NODE_STYLE = 'border-cyan-400/25 bg-[#08191c] text-cyan-200 sha
 // Branch D — Anomalías/Extracción/Detección. Orange, its own family, distinct
 // from every other branch's color so far.
 const ANOMALY_NODE_STYLE = 'border-orange-400/25 bg-[#1f1006] text-orange-200 shadow-black/20'
-
-// Still-unwired placeholder leaves at the end of each real branch — tinted
-// with that branch's own family color/icon once revealed instead of the
-// generic default violet, so a branch reads as one color end-to-end even
-// before its later nodes have anything to actually buy yet.
-const PLACEHOLDER_FAMILY: Record<string, { style: string; iconText: string }> = {
-  a2b: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
-  a3: { style: LUCK_NODE_STYLE, iconText: 'text-green-300' },
-  b2a: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
-  b2b: { style: MULTI_SHOT_NODE_STYLE, iconText: 'text-cyan-300' },
-}
 
 const DEFAULT_SCALE = 0.68
 
@@ -505,6 +502,25 @@ export function Tree() {
     multiShotLevel,
     multiShotValue,
     multiShotNextCost,
+    multiShotExtraLevel,
+    multiShotExtraUnlocked,
+    multiShotExtraNextCost,
+    semiAutoLevel,
+    semiAutoNextCost,
+    semiAutoHoldLevel,
+    semiAutoHoldSeconds,
+    semiAutoHoldNextCost,
+    semiAutoRateLevel,
+    semiAutoRateTps,
+    semiAutoRateNextCost,
+    isBuyingSemiAuto,
+    buySemiAuto,
+    isBuyingSemiAutoHold,
+    buySemiAutoHold,
+    isBuyingSemiAutoRate,
+    buySemiAutoRate,
+    isBuyingMultiShotExtra,
+    buyMultiShotExtra,
     isBuyingMultiShot,
     buyMultiShot,
     anomalyUnlockLevel,
@@ -576,6 +592,22 @@ export function Tree() {
   const canAffordTapMultiplier = tapMultiplierNextCost !== null && totalClicks >= tapMultiplierNextCost
   const isMultiShotMaxed = multiShotNextCost === null
   const canAffordMultiShot = multiShotNextCost !== null && totalClicks >= multiShotNextCost
+  const isSemiAutoMaxed = semiAutoNextCost === null
+  const canAffordSemiAuto = semiAutoNextCost !== null && totalClicks >= semiAutoNextCost
+  const isSemiAutoHoldMaxed = semiAutoHoldNextCost === null
+  const canAffordSemiAutoHold = semiAutoHoldNextCost !== null && totalClicks >= semiAutoHoldNextCost
+  const isMultiShotExtraMaxed = multiShotExtraNextCost === null
+  const canAffordMultiShotExtra =
+    multiShotExtraUnlocked && multiShotExtraNextCost !== null && totalClicks >= multiShotExtraNextCost
+  // Carga's next step, for the modal: the ladder lives on the server, so
+  // this mirrors it (see back/src/tree/semiAutoHold.js)
+  const SEMI_AUTO_HOLD_SECONDS = [5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20]
+  const semiAutoHoldNextSeconds = SEMI_AUTO_HOLD_SECONDS[Math.min(semiAutoHoldLevel + 1, SEMI_AUTO_HOLD_SECONDS.length - 1)]
+  // Cadencia climbs the same steps to 20, in shots a second (see back/src/tree/semiAutoRate.js)
+  const SEMI_AUTO_RATE_TPS = [5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20]
+  const isSemiAutoRateMaxed = semiAutoRateNextCost === null
+  const canAffordSemiAutoRate = semiAutoRateNextCost !== null && totalClicks >= semiAutoRateNextCost
+  const semiAutoRateNextTps = SEMI_AUTO_RATE_TPS[Math.min(semiAutoRateLevel + 1, SEMI_AUTO_RATE_TPS.length - 1)]
   const isAnomalyUnlockMaxed = anomalyUnlockNextCost === null
   const canAffordAnomalyUnlock = anomalyUnlockNextCost !== null && totalClicks >= anomalyUnlockNextCost
   const isAnomalyRewardMaxed = anomalyRewardNextCost === null
@@ -612,6 +644,10 @@ export function Tree() {
   const [showAutoMultiplierModal, setShowAutoMultiplierModal] = useState(false)
   const [showTapMultiplierModal, setShowTapMultiplierModal] = useState(false)
   const [showMultiShotModal, setShowMultiShotModal] = useState(false)
+  const [showSemiAutoModal, setShowSemiAutoModal] = useState(false)
+  const [showSemiAutoHoldModal, setShowSemiAutoHoldModal] = useState(false)
+  const [showSemiAutoRateModal, setShowSemiAutoRateModal] = useState(false)
+  const [showMultiShotExtraModal, setShowMultiShotExtraModal] = useState(false)
   const [showAnomalyUnlockModal, setShowAnomalyUnlockModal] = useState(false)
   const [showAnomalyRewardModal, setShowAnomalyRewardModal] = useState(false)
   const [showAnomalyFrequencyModal, setShowAnomalyFrequencyModal] = useState(false)
@@ -841,6 +877,10 @@ export function Tree() {
     a1b2a: gunnerRateLevel,
     a2: luckChanceLevel,
     b1: multiShotLevel,
+    b2a: semiAutoLevel,
+    b2a1: semiAutoHoldLevel,
+    b2a2: semiAutoRateLevel,
+    b2b: multiShotExtraLevel,
     c1: premiumOwnedCount,
     c2: fleetOwnedCount,
     e1: multiplierLevel,
@@ -905,63 +945,6 @@ export function Tree() {
               )
             })}
           </svg>
-
-          {NODES.filter(
-            (node) =>
-              node.id !== 'root' &&
-              node.id !== 'c1' &&
-              node.id !== 'c2' &&
-              node.id !== 'b1' &&
-              node.id !== 'a1' &&
-              node.id !== 'a1b' &&
-              node.id !== 'a1b1' &&
-              node.id !== 'a1b2' &&
-              node.id !== 'a1b2a' &&
-              node.id !== 'a2' &&
-              node.id !== 'e1' &&
-              node.id !== 'e2a' &&
-              node.id !== 'e2b' &&
-              node.id !== 'e2b1' &&
-              node.id !== 'e2a1' &&
-              node.id !== 'e2a2' &&
-              node.id !== 'e2c' &&
-              node.id !== 'd1' &&
-              node.id !== 'd2' &&
-              node.id !== 'd3' &&
-              revealStateById[node.id] !== 'hidden',
-          ).map((node) => {
-            const revealState = revealStateById[node.id] as 'available' | 'locked'
-            const family = PLACEHOLDER_FAMILY[node.id]
-            const styleClass = revealState === 'available' && family ? family.style : NODE_STYLES[revealState]
-            const iconClass = revealState === 'available' ? (family?.iconText ?? 'text-violet-300') : ''
-            return (
-              // Positioning (left/top + centering translate) lives on this
-              // plain wrapper so framer-motion's own animated transform
-              // (on the child below) doesn't fight it — motion overwrites
-              // the whole `transform` style each frame, which would
-              // silently drop a Tailwind translate class on the same node.
-              <div
-                key={node.id}
-                className="absolute -translate-x-1/2 -translate-y-1/2"
-                style={{ left: node.x, top: node.y }}
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.3 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(node, CENTER, CENTER) }}
-                  className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${styleClass}`}
-                >
-                  <Sparkles size={20} className={iconClass} />
-                  <span className="whitespace-nowrap text-xs font-semibold">{node.label}</span>
-                  {revealState === 'locked' && (
-                    <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
-                      <Lock size={14} />
-                    </span>
-                  )}
-                </motion.div>
-              </div>
-            )
-          })}
 
           {/* Branch C — the premium gem multiplier, moved here from the
               Store (removed there entirely). Locked until root has a
@@ -1115,6 +1098,217 @@ export function Tree() {
                 </span>
 
                 {!isMultiShotMaxed && canAffordMultiShot && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Multidisparo's children — cyan like it. Cañón semiautomático is
+              a one-time gate; Carga hangs off it; Sincronía continues the
+              finger ladder and only opens once Multidisparo is maxed (the
+              lock on an otherwise available node says so). */}
+          {revealStateById.b2a === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2a.x, top: nodeById.b2a.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2a, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Focus size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {semiAutoLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.b2a === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2a.x, top: nodeById.b2a.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowSemiAutoModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2a, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-cyan-400/40 ${MULTI_SHOT_NODE_STYLE}`}
+              >
+                <Focus size={20} className="text-cyan-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {semiAutoLevel}
+                </span>
+                {false && (
+                  <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                    <Lock size={14} />
+                  </span>
+                )}
+                {!isSemiAutoMaxed && canAffordSemiAuto && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.b2a1 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2a1.x, top: nodeById.b2a1.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2a1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <BatteryCharging size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {semiAutoHoldLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.b2a1 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2a1.x, top: nodeById.b2a1.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowSemiAutoHoldModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2a1, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-cyan-400/40 ${MULTI_SHOT_NODE_STYLE}`}
+              >
+                <BatteryCharging size={20} className="text-cyan-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {semiAutoHoldLevel}
+                </span>
+                {false && (
+                  <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                    <Lock size={14} />
+                  </span>
+                )}
+                {!isSemiAutoHoldMaxed && canAffordSemiAutoHold && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.b2a2 === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2a2.x, top: nodeById.b2a2.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2a2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <FastForward size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {semiAutoRateLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.b2a2 === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2a2.x, top: nodeById.b2a2.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowSemiAutoRateModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2a2, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-cyan-400/40 ${MULTI_SHOT_NODE_STYLE}`}
+              >
+                <FastForward size={20} className="text-cyan-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {semiAutoRateLevel}
+                </span>
+                {!isSemiAutoRateMaxed && canAffordSemiAutoRate && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
+                    <ArrowUp size={13} strokeWidth={3} />
+                  </span>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {revealStateById.b2b === 'locked' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2b.x, top: nodeById.b2b.y }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2b, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
+              >
+                <Fingerprint size={20} />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {multiShotExtraLevel}
+                </span>
+                <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                  <Lock size={14} />
+                </span>
+              </motion.div>
+            </div>
+          )}
+
+          {revealStateById.b2b === 'available' && (
+            <div
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: nodeById.b2b.x, top: nodeById.b2b.y }}
+            >
+              <motion.button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setShowMultiShotExtraModal(true)}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.b2b, CENTER, CENTER) }}
+                className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-cyan-400/40 ${MULTI_SHOT_NODE_STYLE}`}
+              >
+                <Fingerprint size={20} className="text-cyan-300" />
+                <span className="whitespace-nowrap text-xs font-semibold">
+                  {strings.tree.level} {multiShotExtraLevel}
+                </span>
+                {!multiShotExtraUnlocked && (
+                  <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-neutral-200 shadow-md">
+                    <Lock size={14} />
+                  </span>
+                )}
+                {!isMultiShotExtraMaxed && canAffordMultiShotExtra && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-green-400/30 bg-[#0f1f16] text-green-400 shadow-black/20">
                     <ArrowUp size={13} strokeWidth={3} />
                   </span>
@@ -1960,7 +2154,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.d3, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Timer size={20} />
+                <BatteryCharging size={20} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {anomalyFrequencyLevel}
                 </span>
@@ -2150,7 +2344,7 @@ export function Tree() {
                 this one, which stays "buy another drone". */}
             <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
               <span>
-                {strings.tree.currentRate}{' '}
+                {strings.tree.currentFireRate}{' '}
                 <span className="font-semibold text-white">
                   {autoClickLevel.toLocaleString(locale)} {strings.tree.dronesUnit}
                 </span>
@@ -2582,6 +2776,211 @@ export function Tree() {
         </div>
       )}
 
+
+      {showSemiAutoModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowSemiAutoModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowSemiAutoModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Focus size={18} className="text-cyan-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.semiAutoName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.semiAutoDesc()}</p>
+
+            {isSemiAutoMaxed ? (
+              <TreeMaxBadge tone="cyan" label={strings.store.maxLevel} />
+            ) : (
+              <TreeBuyButton
+                onClick={buySemiAuto}
+                isBuying={isBuyingSemiAuto}
+                canAfford={canAffordSemiAuto}
+                buyingLabel={strings.tree.upgrading}
+                cost={semiAutoNextCost ?? 0}
+                balance={totalClicks}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showSemiAutoHoldModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowSemiAutoHoldModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowSemiAutoHoldModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <BatteryCharging size={18} className="text-cyan-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.semiAutoHoldName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.semiAutoHoldDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentHold}{' '}
+                <span className="font-semibold text-white">{strings.tree.holdSeconds(semiAutoHoldSeconds)}</span>
+              </span>
+              {!isSemiAutoHoldMaxed && (
+                <span>
+                  {strings.tree.nextHold}{' '}
+                  <span className="font-semibold text-white">{strings.tree.holdSeconds(semiAutoHoldNextSeconds)}</span>
+                </span>
+              )}
+            </div>
+
+            {isSemiAutoHoldMaxed ? (
+              <TreeMaxBadge tone="cyan" label={strings.store.maxLevel} />
+            ) : (
+              <TreeBuyButton
+                onClick={buySemiAutoHold}
+                isBuying={isBuyingSemiAutoHold}
+                canAfford={canAffordSemiAutoHold}
+                buyingLabel={strings.tree.upgrading}
+                cost={semiAutoHoldNextCost ?? 0}
+                balance={totalClicks}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showSemiAutoRateModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowSemiAutoRateModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowSemiAutoRateModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <FastForward size={18} className="text-cyan-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.semiAutoRateName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.semiAutoRateDesc}</p>
+
+            <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+              <span>
+                {strings.tree.currentFireRate}{' '}
+                <span className="font-semibold text-white">{strings.tree.rateTps(semiAutoRateTps)}</span>
+              </span>
+              {!isSemiAutoRateMaxed && (
+                <span>
+                  {strings.tree.nextFireRate}{' '}
+                  <span className="font-semibold text-white">{strings.tree.rateTps(semiAutoRateNextTps)}</span>
+                </span>
+              )}
+            </div>
+
+            {isSemiAutoRateMaxed ? (
+              <TreeMaxBadge tone="cyan" label={strings.store.maxLevel} />
+            ) : (
+              <TreeBuyButton
+                onClick={buySemiAutoRate}
+                isBuying={isBuyingSemiAutoRate}
+                canAfford={canAffordSemiAutoRate}
+                buyingLabel={strings.tree.upgrading}
+                cost={semiAutoRateNextCost ?? 0}
+                balance={totalClicks}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showMultiShotExtraModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
+          onClick={() => setShowMultiShotExtraModal(false)}
+        >
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-[#0d0d14] p-5 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowMultiShotExtraModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="mb-3 flex items-center gap-2">
+              <Fingerprint size={18} className="text-cyan-300" />
+              <p className="text-sm font-semibold text-white">{strings.tree.multiShotExtraName}</p>
+            </div>
+            <p className="mb-4 text-sm text-neutral-400">{strings.tree.multiShotExtraDesc}</p>
+
+            {multiShotExtraUnlocked && (
+              <div className="mb-4 flex flex-col gap-1 text-xs text-neutral-400">
+                <span>
+                  {strings.tree.currentMultiShot}{' '}
+                  <span className="font-semibold text-white">{multiShotValue}</span>
+                </span>
+                {!isMultiShotExtraMaxed && (
+                  <span>
+                    {strings.tree.nextMultiShot}{' '}
+                    <span className="font-semibold text-white">{multiShotValue + 1}</span>
+                  </span>
+                )}
+              </div>
+            )}
+
+            {isMultiShotExtraMaxed ? (
+              <TreeMaxBadge tone="cyan" label={strings.store.maxLevel} />
+            ) : !multiShotExtraUnlocked ? (
+              <p className="rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-center text-xs text-neutral-500">
+                {strings.tree.multiShotExtraLocked}
+              </p>
+            ) : (
+              <TreeBuyButton
+                onClick={buyMultiShotExtra}
+                isBuying={isBuyingMultiShotExtra}
+                canAfford={canAffordMultiShotExtra}
+                buyingLabel={strings.tree.upgrading}
+                cost={multiShotExtraNextCost ?? 0}
+                balance={totalClicks}
+                currency="clicks"
+              />
+            )}
+          </div>
+        </div>
+      )}
       {showLegendaryUnlockModal && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-6 backdrop-blur-sm"
