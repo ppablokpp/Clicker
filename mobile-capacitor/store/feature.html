@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>ClankUp feature graphic</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@500;600&display=swap" />
+<style>
+  html, body { margin: 0; background: #120d22; }
+  .g { position: relative; width: 1024px; height: 500px; overflow: hidden; background: #120d22; font-family: Inter, sans-serif; }
+  .sky { position: absolute; inset: 0; background-image: url("splash.png"); background-size: 1400px 1400px; background-position: 68% 50%; }
+  .grad { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(18,13,34,0.96) 0%, rgba(18,13,34,0.85) 38%, rgba(18,13,34,0.0) 62%); }
+  .planet { position: absolute; right: 90px; top: 50%; width: 400px; height: 400px; transform: translateY(-50%); background: url("icon-only.png") center/contain no-repeat; -webkit-mask: radial-gradient(circle at 50% 50%, #000 40%, transparent 68%); mask: radial-gradient(circle at 50% 50%, #000 40%, transparent 68%); }
+  .text { position: absolute; left: 76px; top: 50%; transform: translateY(-50%); color: #f5f1ff; }
+  .kicker { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; color: #a78bfa; }
+  .title { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 118px; line-height: 1; letter-spacing: -0.03em; margin-top: 10px; text-shadow: 0 0 40px rgba(167,139,250,0.35); }
+  .tag { margin-top: 18px; font-size: 26px; font-weight: 500; color: #cfc6ea; max-width: 520px; line-height: 1.3; }
+  .pills { margin-top: 26px; display: flex; gap: 10px; }
+  .pill { font-family: ui-monospace, Consolas, monospace; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: #ddd6fe; border: 1px solid rgba(167,139,250,0.45); border-radius: 999px; padding: 8px 14px; background: rgba(167,139,250,0.08); }
+  .scan { position: absolute; inset: 0; opacity: 0.05; background: repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 4px); pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="g">
+  <div class="sky"></div>
+  <div class="grad"></div>
+  <div class="planet"></div>
+  <div class="text">
+    <div class="kicker">Minería espacial · clicker</div>
+    <div class="title">ClankUp</div>
+    <div class="tag">Ocho minerales, un reactor roto y una nave que quiere volver a casa.</div>
+    <div class="pills"><span class="pill">Toca</span><span class="pill">Mejora</span><span class="pill">Extrae</span><span class="pill">Vuelve</span></div>
+  </div>
+  <div class="scan"></div>
+</div>
+</body>
+</html>

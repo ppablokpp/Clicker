@@ -9,7 +9,7 @@
     "open:ios": "npx cap open ios",
     "run:android": "npx cap run android",
     "run:ios": "npx cap run ios",
-    "build:android": "npm run build:web && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "build:android": "npm run build:web && npx cap sync android && cd android && gradlew bundleRelease",
     "splash": "node scripts/splash.mjs",
     "assets": "node scripts/splash.mjs && capacitor-assets generate --android --ios --iconBackgroundColor \"#120d22\" --iconBackgroundColorDark \"#120d22\" --splashBackgroundColor \"#120d22\" --splashBackgroundColorDark \"#120d22\""
   },

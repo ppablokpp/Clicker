@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>ClankUp store frame</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@500;600&display=swap" />
+<style>
+  /* One store screenshot: 540×960 css, captured at 2x → 1080×1920.
+     The phone is cut off at the bottom on purpose: the eye reads the
+     screen, not the device. Query: shot, kicker, title, accent, n, tilt. */
+  html, body { margin: 0; width: 540px; height: 960px; overflow: hidden; background: #0b0716; }
+  .slide { position: relative; width: 540px; height: 960px; overflow: hidden; background: #0b0716; font-family: Inter, sans-serif; color: #f5f1ff; }
+  .sky { position: absolute; inset: -40px; background: url("splash.png") center/1400px 1400px; opacity: 0.9; }
+  .glow { position: absolute; left: 50%; top: 62%; width: 900px; height: 900px; transform: translate(-50%, -50%);
+          background: radial-gradient(circle, var(--accent-glow) 0%, transparent 55%); }
+  .num { position: absolute; right: -14px; top: 150px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 300px; line-height: 1; letter-spacing: -0.06em; color: #fff; opacity: 0.045; }
+  .copy { position: absolute; left: 40px; right: 40px; top: 64px; }
+  .kicker { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--accent); }
+  .kicker::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); margin-right: 12px; vertical-align: 1px; }
+  .title { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 46px; line-height: 1.04; letter-spacing: -0.03em; margin-top: 14px; text-wrap: balance; text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 40px var(--accent-glow); }
+  .phone { position: absolute; left: 50%; top: 232px; width: 392px; height: 820px; transform: translateX(-50%) rotate(var(--tilt, 0deg));
+           border-radius: 54px; background: #06040c; padding: 12px;
+           box-shadow: 0 0 0 2px #2a2138, 0 0 0 4px #0a0812, 0 40px 90px rgba(0,0,0,.75), 0 0 80px var(--accent-glow); }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 42px; overflow: hidden; background: #08080c; }
+  .screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .cam { position: absolute; left: 50%; top: 14px; width: 14px; height: 14px; border-radius: 50%; background: #000; box-shadow: inset 0 0 0 2px #151221, 0 0 0 2px rgba(255,255,255,.04); transform: translateX(-50%); }
+  .rim { position: absolute; inset: 0; border-radius: 42px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); pointer-events: none; }
+  .scan { position: absolute; inset: 0; opacity: 0.045; background: repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 4px); pointer-events: none; }
+  .foot { position: absolute; left: 40px; bottom: 26px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(245,241,255,.35); }
+</style>
+</head>
+<body>
+<div class="slide" id="slide">
+  <div class="sky"></div>
+  <div class="glow"></div>
+  <div class="num" id="num">01</div>
+  <div class="copy">
+    <div class="kicker" id="kicker"></div>
+    <div class="title" id="title"></div>
+  </div>
+  <div class="phone">
+    <div class="screen"><img id="shot" alt="" /><div class="cam"></div><div class="rim"></div></div>
+  </div>
+  <div class="scan"></div>
+  <div class="foot">ClankUp · minería espacial</div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search)
+  document.getElementById('shot').src = q.get('shot')
+  document.getElementById('kicker').textContent = q.get('kicker') || ''
+  document.getElementById('title').textContent = q.get('title') || ''
+  document.getElementById('num').textContent = q.get('n') || '01'
+  const s = document.getElementById('slide')
+  s.style.setProperty('--accent', q.get('accent') || '#a78bfa')
+  s.style.setProperty('--accent-glow', q.get('glow') || 'rgba(167,139,250,.35)')
+  s.style.setProperty('--tilt', q.get('tilt') || '0deg')
+</script>
+</body>
+</html>
