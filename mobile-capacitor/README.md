@@ -78,7 +78,9 @@ Sign-in in a Play build: Play re-signs the app, so the SHA-1 Google checks is
 **Play's app-signing certificate**, not the debug or upload key. Copy it from
 Play Console → Test and release → App integrity → App signing, and add an
 Android OAuth client with it in Google Cloud (same package `app.clankup`),
-then list that client id in the back's `GOOGLE_CLIENT_IDS`.
+then list that client id in the back's `GOOGLE_CLIENT_IDS`. The fingerprint the console shows can mislead; the
+sure way is the installed APK itself: `adb pull` its base.apk and
+`apksigner verify --print-certs` it.
 
 ## Origins
 

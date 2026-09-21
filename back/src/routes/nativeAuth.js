@@ -38,13 +38,20 @@ const KNOWN_CLIENT_IDS = (process.env.GOOGLE_CLIENT_IDS ?? '')
  */
 async function verifyGoogleIdToken(idToken) {
   const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`)
-  if (!res.ok) return null
+  // Each refusal says why, with the client ids involved (never the email):
+  // a token from a build signed with a key we have not registered shows up
+  // here as an unknown azp, and that is the thing to go and register.
+  const refuse = (why, extra = '') => {
+    console.warn(`Native Google sign-in refused: ${why}${extra ? ' ' + extra : ''}`)
+    return null
+  }
+  if (!res.ok) return refuse(`tokeninfo ${res.status}`)
   const claims = await res.json()
-  if (claims.iss !== 'https://accounts.google.com' && claims.iss !== 'accounts.google.com') return null
-  if (!WEB_CLIENT_ID || claims.aud !== WEB_CLIENT_ID) return null
-  if (claims.azp && claims.azp !== WEB_CLIENT_ID && !KNOWN_CLIENT_IDS.includes(claims.azp)) return null
-  if (claims.email_verified !== 'true' && claims.email_verified !== true) return null
-  if (!claims.email) return null
+  if (claims.iss !== 'https://accounts.google.com' && claims.iss !== 'accounts.google.com') return refuse('issuer', claims.iss)
+  if (!WEB_CLIENT_ID || claims.aud !== WEB_CLIENT_ID) return refuse('audience', claims.aud)
+  if (claims.azp && claims.azp !== WEB_CLIENT_ID && !KNOWN_CLIENT_IDS.includes(claims.azp)) return refuse('unknown azp', claims.azp)
+  if (claims.email_verified !== 'true' && claims.email_verified !== true) return refuse('email not verified')
+  if (!claims.email) return refuse('no email')
   return claims
 }
 

@@ -45,7 +45,11 @@ export function SignInModal() {
       } catch (err) {
         if (!(err instanceof NativeSignInCancelled)) {
           console.error('Error iniciando sesión con Google (nativo)', err)
-          setError(extractErrorMessage(err, strings.signIn.genericError))
+          // The plugin's own words after ours: on a phone there is no console
+          // to read, and a client-id mismatch or a Play Services complaint is
+          // only diagnosable from that text.
+          const detail = (err as { message?: string })?.message
+          setError(detail ? `${extractErrorMessage(err, strings.signIn.genericError)} (${detail})` : extractErrorMessage(err, strings.signIn.genericError))
         }
       } finally {
         setIsRedirecting(false)
