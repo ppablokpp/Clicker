@@ -52,6 +52,20 @@ export interface TranslationStrings {
     reactorCaption: (whole: number, total: number) => string
     compendiumHead: string
     compendiumNote: string
+    goalsTitle: string
+    goalsNote: string
+    goalUnknown: string
+    goalsCaption: (extracted: number, total: number) => string
+    /** One plate per asteroid, in tier order: the mineral as it really is, and what happened there. */
+    specimens: readonly {
+      /** The specimen label under the name: formula and hardness. */
+      label: string
+      facts: string
+      story: string
+      /** Before we get there: what the commander has heard, and supposes. */
+      guess: string
+    }[]
+    specimenNumber: (n: number) => string
     calendarHead: string
     /** Monday first, one letter each. */
     calendarWeekdays: readonly [string, string, string, string, string, string, string]
@@ -673,6 +687,69 @@ export const translations: Record<Language, TranslationStrings> = {
       compendiumHead: 'Trayectoria',
       compendiumNote:
         'Estos son los ocho minerales que necesitamos, C0\u2060-\u2060PI dice que el reactor no arranca con menos. Sin los ocho no hay vuelta a casa.',
+      goalsTitle: 'Extracción',
+      goalsNote: 'El reactor necesita una cantidad de cada mineral. Aquí apunto cuánto llevamos extraído de cada uno.',
+      goalUnknown: '???',
+      goalsCaption: (extracted, total) => `${extracted} de ${total} minerales extraídos.`,
+      specimens: [
+        {
+          label: 'SiO₂ · dureza 7',
+          facts:
+            'Cuarzo violeta. El color se lo da un poco de hierro que la radiación de la roca ha ido tostando durante millones de años; si la calientas se vuelve amarilla.',
+          story: 'Se parte con mirarla y el reactor la traga sin quejarse. Buen sitio para empezar a aprender.',
+          guess: 'Dicen que es morada y que se rompe sola. Si es tan fácil como cuentan, no sé por qué nadie ha vuelto con las bodegas llenas.',
+        },
+        {
+          label: 'Pt · dureza 4,5 · 21,4 g/cm³',
+          facts:
+            'Metal nativo, más denso que el oro y que el plomo. No se oxida ni con los siglos, por eso lo quiere el reactor para los contactos.',
+          story: 'Pesa el doble de lo que parece. C0\u2060-\u2060PI dice que es el más noble; yo digo que es el que más cuesta cargar.',
+          guess: 'Un metal gris que no se oxida, o eso pone en el manual. Supongo que pesará; C0\u2060-\u2060PI ya ha pedido que revise las grúas antes de ir.',
+        },
+        {
+          label: 'Al₂O₃ · dureza 9',
+          facts:
+            'Corindón azul: óxido de aluminio con un poco de hierro y titanio. Solo lo raya el diamante; con él se hacen cristales de reloj y ventanas de sonda.',
+          story: 'Corta como el vidrio. He tenido que pedir guantes nuevos dos veces.',
+          guess: 'Azul, y de los duros. Un minero que lo vio me dijo que ni el taladro grande lo raya. Me imagino que lo dijo para asustarme.',
+        },
+        {
+          label: 'Be₃Al₂Si₆O₁₈ · dureza 7,5',
+          facts:
+            'Berilo verde por el cromo. Casi ninguna sale limpia: dentro tiene fisuras y burbujas que los joyeros llaman jardín, y aquí se ven a simple vista.',
+          story: 'Vetas que parecen hojas. Es lo primero vivo que veo en meses, aunque sea piedra.',
+          guess: 'Verde, según todos. Nadie se pone de acuerdo en si es verde de bosque o verde de botella; supongo que ninguno de los dos, que ahí fuera no hay ni lo uno ni lo otro.',
+        },
+        {
+          label: 'SiO₂ · dureza 7',
+          facts:
+            'El mineral más corriente de una corteza planetaria, y el más útil: si lo aprietas da corriente, y si le das corriente vibra siempre al mismo ritmo. Por eso marca la hora.',
+          story: 'Casi transparente. Se me perdía en la bodega hasta que le puse cinta roja.',
+          guess: 'Cristal blanco, corriente en todas partes menos donde hace falta. Me da que será fácil de encontrar y difícil de ver.',
+        },
+        {
+          label: 'Al₂O₃ · dureza 9',
+          facts:
+            'La misma piedra que el zafiro, pero con cromo en vez de hierro, y el cromo la enciende en rojo. Con rubí se hizo el primer láser.',
+          story: 'Rojo como un aviso. El reactor sube dos grados solo con acercárselo.',
+          guess: 'Rojo. Es lo único que sé seguro. C0\u2060-\u2060PI cree que es pariente del zafiro, lo cual no me tranquiliza: ya sé lo que corta el zafiro.',
+        },
+        {
+          label: 'Au · dureza 2,5 · 19,3 g/cm³',
+          facts:
+            'Blando como para marcarlo con la uña y tan dúctil que un gramo se estira en dos kilómetros de hilo. Casi todo el oro de un planeta llegó de fuera, en meteoritos.',
+          story: 'Brilla hasta con las luces apagadas. C0\u2060-\u2060PI lo mira más de la cuenta.',
+          guess: 'Todo el mundo sabe cómo es y nadie lo ha visto en bruto. Supongo que amarillo, blando y caro. Habrá que vigilar la bodega.',
+        },
+        {
+          label: 'C · dureza 10',
+          facts:
+            'Carbono puro, apretado a más de cien kilómetros bajo una corteza hasta que cristaliza. Nada lo raya, y conduce el calor mejor que el cobre.',
+          story: 'El último. Dicen que ni existe. Lo veremos.',
+          guess: 'El último de la lista y el único del que nadie me ha contado nada de primera mano. Me imagino un asteroide pequeño, muy lejos, y una piedra que no se deja rayar por nada.',
+        },
+      ],
+      specimenNumber: (n) => `Mineral nº ${n}`,
       calendarHead: 'Calendario',
       calendarWeekdays: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
       calendarNote:
@@ -1522,6 +1599,69 @@ export const translations: Record<Language, TranslationStrings> = {
       compendiumHead: 'Trajectory',
       compendiumNote:
         'These are the eight minerals we need, C0\u2060-\u2060PI says the reactor will not start on fewer. Without all eight there is no way home.',
+      goalsTitle: 'Extraction',
+      goalsNote: 'The reactor needs a set amount of each mineral. This is where I keep how much of each one we have extracted.',
+      goalUnknown: '???',
+      goalsCaption: (extracted, total) => `${extracted} of ${total} minerals extracted.`,
+      specimens: [
+        {
+          label: 'SiO₂ · hardness 7',
+          facts:
+            'Violet quartz. The colour comes from a trace of iron the rock\'s own radiation has been toasting for millions of years; heat it and it turns yellow.',
+          story: 'It splits if you look at it and the reactor swallows it without complaint. A good place to learn.',
+          guess: 'They say it is purple and breaks on its own. If it is as easy as they tell it, I do not know why nobody has come back with a full hold.',
+        },
+        {
+          label: 'Pt · hardness 4.5 · 21.4 g/cm³',
+          facts:
+            'Native metal, denser than gold and than lead. It does not tarnish in centuries, which is why the reactor wants it for its contacts.',
+          story: 'Twice as heavy as it looks. C0\u2060-\u2060PI calls it the noblest; I call it the hardest to load.',
+          guess: 'A grey metal that does not rust, or so the manual says. I suppose it will be heavy; C0\u2060-\u2060PI has already asked me to check the cranes before we go.',
+        },
+        {
+          label: 'Al₂O₃ · hardness 9',
+          facts:
+            'Blue corundum: aluminium oxide with a little iron and titanium. Only diamond scratches it; watch crystals and probe windows are made of it.',
+          story: 'Cuts like glass. I have had to ask for new gloves twice.',
+          guess: 'Blue, and one of the hard ones. A miner who saw it told me not even the big drill scratches it. I imagine he said it to scare me.',
+        },
+        {
+          label: 'Be₃Al₂Si₆O₁₈ · hardness 7.5',
+          facts:
+            'Beryl, green from chromium. Almost none comes out clean: inside are fissures and bubbles the jewellers call the garden, and here you can see it with the naked eye.',
+          story: 'Veined like leaves. The first living-looking thing I have seen in months, even if it is stone.',
+          guess: 'Green, everyone agrees. Nobody agrees on whether it is forest green or bottle green; I suppose neither, since out here there are no forests and no bottles.',
+        },
+        {
+          label: 'SiO₂ · hardness 7',
+          facts:
+            'The commonest mineral in a planet\'s crust, and the most useful: squeeze it and it gives a current, feed it a current and it vibrates at one steady beat. That is how it keeps time.',
+          story: 'Nearly transparent. I kept losing it in the hold until I put red tape on it.',
+          guess: 'White crystal, common everywhere except where it is needed. My guess is it will be easy to find and hard to see.',
+        },
+        {
+          label: 'Al₂O₃ · hardness 9',
+          facts:
+            'The same stone as sapphire, with chromium in place of iron, and the chromium lights it red. The first laser was made with ruby.',
+          story: 'Red like a warning. The reactor climbs two degrees just from bringing it near.',
+          guess: 'Red. That is the only thing I know for sure. C0\u2060-\u2060PI thinks it is kin to sapphire, which does not reassure me: I already know what sapphire cuts.',
+        },
+        {
+          label: 'Au · hardness 2.5 · 19.3 g/cm³',
+          facts:
+            'Soft enough to mark with a fingernail and so ductile a gram draws out into two kilometres of wire. Nearly all the gold on a planet arrived from outside, in meteorites.',
+          story: 'Shines even with the lights off. C0\u2060-\u2060PI looks at it more than it should.',
+          guess: 'Everyone knows what it looks like and nobody has seen it raw. Yellow, soft and dear, I suppose. The hold will want watching.',
+        },
+        {
+          label: 'C · hardness 10',
+          facts:
+            'Pure carbon, squeezed more than a hundred kilometres under a crust until it crystallises. Nothing scratches it, and it carries heat better than copper.',
+          story: 'The last one. They say it does not even exist. We will see.',
+          guess: 'Last on the list and the only one nobody has told me about first-hand. I picture a small asteroid, very far out, and a stone nothing can scratch.',
+        },
+      ],
+      specimenNumber: (n) => `Mineral no. ${n}`,
       calendarHead: 'Calendar',
       calendarWeekdays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
       calendarNote:

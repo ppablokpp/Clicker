@@ -68,13 +68,16 @@ export function DiaryBook({ pages, font, onClose }: { pages: DiaryPage[]; font: 
   }, [])
   // A tab is glued to its section's first page. On the right-hand stack it
   // shows while that page is on the right: under the leaf turning (still
-  // to come), or on top (the page you are on). The one glued to the leaf
-  // that is turning rides with it (rendered on the leaf, below), and a
+  // to come), or on top (the page you are on). A turn lifts every page
+  // between where we are and where we go as one sheet, so the tabs glued
+  // to any of those pages ride with the leaf (rendered on it, below); a
   // page already turned has taken its tab to the left with it.
   const stackTabs = tabs.filter((t) =>
-    turn ? (turn.dir === 1 ? t.first > turn.from : t.first >= turn.from) : t.first >= index,
+    turn ? (turn.dir === 1 ? t.first >= turn.to : t.first >= turn.from) : t.first >= index,
   )
-  const leafTab = leafIndex === null ? null : (tabs.find((t) => t.first === leafIndex) ?? null)
+  const leafTabs = turn
+    ? tabs.filter((t) => t.first >= Math.min(turn.from, turn.to) && t.first < Math.max(turn.from, turn.to))
+    : []
   // a tab's slot on the edge, fixed by its order, so a tab never shifts
   const slotTop = (tab: (typeof tabs)[number]) => 40 + tabs.indexOf(tab) * 70
 
@@ -129,12 +132,20 @@ export function DiaryBook({ pages, font, onClose }: { pages: DiaryPage[]; font: 
                     hasNext={leafIndex < pages.length - 1}
                     font={font}
                   />
-                  {/* the tab glued to this page, turning with it */}
-                  {leafTab && (
+                  {/* the tabs glued to the pages turning, riding with them */}
+                  {leafTabs.length > 0 && (
                     <div className="pointer-events-none absolute inset-y-0 left-full w-0">
-                      {/* a tab in flight stays as it was: lit, because it is the top
-                          page's — leaving with it, or arriving with it */}
-                      <Tab id={leafTab.id} top={slotTop(leafTab)} active />
+                      {leafTabs.map((tab) => (
+                        // a tab in flight stays as it was: lit if it is the top
+                        // page's — leaving with it, or arriving with it — and
+                        // plain if its page was merely among the ones skipped
+                        <Tab
+                          key={tab.id}
+                          id={tab.id}
+                          top={slotTop(tab)}
+                          active={tab.first === (turn.dir === 1 ? turn.from : turn.to)}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>

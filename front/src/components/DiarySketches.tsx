@@ -47,8 +47,7 @@ const ghost = {
 } as const
 const hatch = {
   stroke: INK,
-  strokeOpacity: 0.35,
-  strokeWidth: 0.8,
+  strokeWidth: 0.6,
   strokeLinecap: 'round',
 } as const
 
@@ -76,7 +75,9 @@ function Hatch({
   color?: string
 }) {
   const id = useId()
-  const n = Math.ceil((w + h) / gap) + 2
+  // the strokes span the box's full turned extent, centred on it
+  const span = w + h
+  const n = Math.ceil(span / gap) + 1
   return (
     <g>
       <clipPath id={id}>
@@ -88,7 +89,10 @@ function Hatch({
       <g clipPath={`url(#${id})`}>
         <g transform={`rotate(${angle} ${x + w / 2} ${y + h / 2})`}>
           {Array.from({ length: n }, (_, i) => {
-            const yy = y - h / 2 + i * gap
+            const yy = y + h / 2 - span / 2 + i * gap
+            // graphite: light at the first stroke, pressing harder toward
+            // the last — shade, not a grid; crayon is coloured in flat
+            const t = n > 1 ? i / (n - 1) : 1
             return (
               <line
                 key={i}
@@ -97,7 +101,7 @@ function Hatch({
                 x2={x + w * 2}
                 y2={yy}
                 {...hatch}
-                {...(color ? { stroke: color, strokeOpacity: 0.75, strokeWidth: 1.2 } : {})}
+                {...(color ? { stroke: color, strokeOpacity: 0.75, strokeWidth: 1.2 } : { strokeOpacity: 0.12 + 0.3 * t })}
               />
             )
           })}
@@ -142,7 +146,6 @@ export function RefinerySketch({ className }: { className?: string }) {
       <circle cx="176" cy="48" r="4" {...ghost} />
       <path d="M198 27 v-18 h9 v18" {...line} />
       <path d="M200 6 q3 -5 6 0 M201 2 q3 -4 6 0" {...ghost} />
-      <Hatch x={152} y={54} w={54} h={14} gap={4} />
       {/* the truss and the arrays */}
       <path d="M232 86 h50 M232 94 h50" {...line} />
       {[240, 252, 264, 274].map((x) => (
@@ -178,7 +181,6 @@ export function ReactorSketch({
       <circle cx={cx} cy={cy} r="24" {...line} />
       <circle cx={cx} cy={cy} r="18" {...ghost} />
       <circle cx={cx} cy={cy} r="7" {...line} strokeWidth={1} />
-      <Hatch x={cx - 10} y={cy - 10} w={20} h={20} gap={3} />
       {whole.map((on, i) => {
         const a = (i / whole.length) * Math.PI * 2 - Math.PI / 2
         const x = cx + Math.cos(a) * 66
@@ -256,7 +258,6 @@ function ShipGlyph() {
       <circle cx="40" cy="58" r="8" {...line} />
       <path d="M30 40 h20 M26 84 h28" {...ghost} />
       <path d="M32 100 v10 M40 100 v12 M48 100 v10" {...ghost} />
-      <Hatch x={24} y={72} w={10} h={24} gap={3} />
     </>
   )
 }
@@ -295,13 +296,57 @@ export function RobotSketch({ className }: { className?: string }) {
 export function RockSketch({ known, color, className }: { known: boolean; color?: string; className?: string }) {
   return (
     <svg viewBox="0 0 60 60" className={className} aria-hidden="true" style={{ filter: 'url(#pencil)' }}>
-      <RockGlyph known={known} color={color} />
+      <RockGlyph known={known} color={color} shade={false} />
     </svg>
   )
 }
 
-/** The rock's lines on a 60×60 box, for a <g> to place. */
-function RockGlyph({ known, color }: { known: boolean; color?: string }) {
+/** The rock's shade: pencil strokes that curve round the lit corner
+ *  (upper left), spaced closer and pressed harder toward the far edge, and
+ *  a few short cross-strokes right at the rim where it is darkest. Clipped
+ *  to the rock, so the pencil stops at its outline. */
+function RockShade() {
+  const id = useId()
+  const LX = 21
+  const LY = 19
+  const arc = (r: number, from: number, to: number) => {
+    const a0 = (from * Math.PI) / 180
+    const a1 = (to * Math.PI) / 180
+    return `M${LX + r * Math.cos(a0)} ${LY + r * Math.sin(a0)} A${r} ${r} 0 0 1 ${LX + r * Math.cos(a1)} ${LY + r * Math.sin(a1)}`
+  }
+  const rings = [15, 18, 20.5, 23, 25, 27, 28.8, 30.5, 32, 33.5, 35]
+  return (
+    <g>
+      <clipPath id={id}>
+        <path d={ROCK} />
+      </clipPath>
+      <g clipPath={`url(#${id})`} fill="none" stroke={INK} strokeLinecap="round" strokeWidth={0.6}>
+        {rings.map((r, i) => {
+          const t = i / (rings.length - 1)
+          // the strokes reach further round the rock the deeper the shade
+          return <path key={r} d={arc(r, -30 + 40 * (1 - t), 105 + 10 * t)} strokeOpacity={0.08 + 0.34 * t} />
+        })}
+        {/* the rim: short strokes across the rings, only at the very edge */}
+        {[10, 25, 40, 55, 70, 85].map((deg) => {
+          const a = (deg * Math.PI) / 180
+          const r0 = 30
+          const r1 = 37
+          return (
+            <path
+              key={deg}
+              d={`M${LX + r0 * Math.cos(a)} ${LY + r0 * Math.sin(a)} L${LX + r1 * Math.cos(a)} ${LY + r1 * Math.sin(a)}`}
+              strokeOpacity={0.3}
+            />
+          )
+        })}
+      </g>
+    </g>
+  )
+}
+
+/** The rock's lines on a 60×60 box, for a <g> to place. Shaded by default;
+ *  the big portrait goes without. */
+function RockGlyph({ known, color, shade = true }: { known: boolean; color?: string; shade?: boolean }) {
   return (
     <>
       {/* the paper under the rock, so a route line stops at its edge */}
@@ -318,11 +363,11 @@ function RockGlyph({ known, color }: { known: boolean; color?: string }) {
               <path d="M16 33 L32 48" />
             </g>
           )}
+          {shade && <RockShade />}
           <path d={ROCK} {...line} />
           <ellipse cx="26" cy="26" rx="5" ry="3.5" {...ghost} strokeOpacity={0.6} />
           <ellipse cx="38" cy="38" rx="4" ry="3" {...ghost} strokeOpacity={0.6} />
           <ellipse cx="22" cy="40" rx="3" ry="2" {...ghost} strokeOpacity={0.6} />
-          <Hatch x={36} y={14} w={12} h={22} gap={3} />
         </>
       ) : (
         <>
@@ -360,6 +405,74 @@ const ROUTE: ReadonlyArray<{
   { x: 246, y: 316, ship: [26, -40] },
 ]
 const ROUTE_ROCK = 50
+
+/**
+ * The ledger of goals: one line per asteroid, the rock small at the left,
+ * its name, a hand-ruled bar for how much of that rock's ore we have to
+ * pull before the next one is worth flying to, and the figures at the
+ * right in the margin's grey. The rocks behind us have their bars filled
+ * in their own crayon; the one we are on has its bar part-coloured; the
+ * ones ahead are dotted outlines with their figures still unknown.
+ */
+export function GoalsSketch({
+  names,
+  colors,
+  reached,
+  progress,
+  labels,
+  className,
+}: {
+  names: readonly string[]
+  colors: readonly (string | undefined)[]
+  reached: number
+  /** 0..1 of the current rock's goal; only read for `reached`. */
+  progress: number
+  /** The figures beside each bar, already formatted. */
+  labels: readonly string[]
+  className?: string
+}) {
+  const ROW = 26
+  const BAR_X = 108
+  const BAR_W = 96
+  const BAR_H = 11
+  return (
+    <svg viewBox={`0 0 296 ${names.length * ROW}`} className={className} aria-hidden="true">
+      {names.map((name, i) => {
+        const y = i * ROW
+        const cy = y + ROW / 2
+        const known = i <= reached
+        const done = i < reached
+        const here = i === reached
+        const color = colors[i]
+        const fill = done ? 1 : here ? Math.max(0, Math.min(1, progress)) : 0
+        return (
+          <g key={name}>
+            <g transform={`translate(2 ${cy - 10}) scale(${20 / 60})`} style={{ filter: 'url(#pencil-soft)' }}>
+              <RockGlyph known={known} color={color} />
+            </g>
+            <text x={30} y={cy + 5} fontSize="14" fill={known ? INK : FAINT} fontFamily="inherit">
+              {name}
+            </text>
+            {/* the bar: ruled by hand, and coloured in as far as we are */}
+            {known ? (
+              <>
+                {fill > 0 && color && (
+                  <Hatch x={BAR_X + 1} y={cy - BAR_H / 2 + 1} w={Math.max(3, (BAR_W - 2) * fill)} h={BAR_H - 2} gap={3} color={color} />
+                )}
+                <path d={handBox(BAR_X, cy - BAR_H / 2, BAR_W, BAR_H, 2, i + 11)} {...line} strokeWidth={1.1} />
+              </>
+            ) : (
+              <path d={handBox(BAR_X, cy - BAR_H / 2, BAR_W, BAR_H, 2, i + 11)} {...ghost} strokeDasharray="3 3" />
+            )}
+            <text x={294} y={cy + 4} textAnchor="end" fontSize="11" fill={FAINT} fontFamily="inherit">
+              {labels[i]}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
 
 /**
  * The month, ruled off by hand: a seven-column grid drawn a little

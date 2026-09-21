@@ -4,14 +4,17 @@ import { useClickDays } from '../hooks/useClickDays'
 import { formatPlatino } from '../lib/formatPlatino'
 import { CORES_PER_TIER } from '../lib/refinery'
 import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
+import { TRAJECTORY_TIER_THRESHOLDS } from '../lib/trajectory'
 import { DiaryBook, type DiaryPage } from './DiaryBook'
 import {
   CalendarSketch,
   CapsulesSketch,
+  GoalsSketch,
   PencilFilter,
   ReactorSketch,
   RefinerySketch,
   RobotSketch,
+  RockSketch,
   RouteSketch,
   ShipSketch,
 } from './DiarySketches'
@@ -68,6 +71,18 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
   )
   const monthName = now.toLocaleDateString(language === 'en' ? 'en-US' : 'es-ES', { month: 'long', year: 'numeric' })
   const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1)
+  // The ledger: each rock's goal is the next tier's floor (see
+  // lib/trajectory.ts); on the rock we are at, how far along that goal
+  // the lifetime haul is.
+  const tierFrom = TRAJECTORY_TIER_THRESHOLDS[figures.tierIndex] ?? 0
+  const tierTo = TRAJECTORY_TIER_THRESHOLDS[figures.tierIndex + 1] ?? tierFrom
+  const goalProgress = tierTo > tierFrom ? (figures.lifetimePlatino - tierFrom) / (tierTo - tierFrom) : 1
+  const goalLabels = tierNames.map((_, i) => {
+    const goal = TRAJECTORY_TIER_THRESHOLDS[i + 1]
+    if (i < figures.tierIndex) return formatPlatino(goal, language)
+    if (i === figures.tierIndex) return `${formatPlatino(figures.lifetimePlatino, language)} / ${formatPlatino(goal, language)}`
+    return d.goalUnknown
+  })
 
   const pages: DiaryPage[] = [
     // ── the day's entry ──
@@ -164,6 +179,60 @@ export function DiaryModal({ figures, onClose }: { figures: DiaryFigures; onClos
         </div>
       ),
     },
+    // ── the compendium: the ledger of goals ──
+    {
+      head: d.compendiumHead,
+      tab: 'route',
+      content: (
+        <div>
+          <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{d.goalsTitle}</p>
+          <p className="mt-[26px]">{d.goalsNote}</p>
+          <GoalsSketch
+            names={tierNames}
+            colors={tierNames.map((_, i) => MATERIAL_TIER_COLORS[i]?.fill)}
+            reached={figures.tierIndex}
+            progress={goalProgress}
+            labels={goalLabels}
+            className="mt-[26px] h-[208px] w-full"
+          />
+          <p className="text-[13px] text-[#8a8070]">{d.goalsCaption(figures.tierIndex, tierNames.length)}</p>
+        </div>
+      ),
+    },
+    // ── the compendium: one page per rock, the mineral as it is and what
+    //    happened there — filled in once we have been; the ones ahead carry
+    //    their name, a rock still to be drawn, and what the commander has
+    //    heard and supposes ──
+    ...tierNames.map((name, i): DiaryPage => {
+      const known = i <= figures.tierIndex
+      const specimen = d.specimens[i] ?? d.specimens[0]
+      return {
+        head: d.compendiumHead,
+        tab: 'route',
+        content: (
+          <div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-[17px] underline decoration-[#c9605a]/50 underline-offset-4">{name}</p>
+              {known && (
+                <p className="text-[11px] tracking-[0.12em] text-[#8a8070]" style={{ fontFamily: 'ui-monospace, monospace' }}>
+                  {specimen.label}
+                </p>
+              )}
+            </div>
+            <RockSketch known={known} color={MATERIAL_TIER_COLORS[i]?.fill} className="mx-auto mt-[13px] h-[156px] w-[156px]" />
+            {known ? (
+              <>
+                <p className="mt-[13px] text-[14px]">{specimen.facts}</p>
+                <p className="mt-[26px] text-[14px]">{specimen.story}</p>
+              </>
+            ) : (
+              <p className="mt-[13px] text-[14px]">{specimen.guess}</p>
+            )}
+            <p className="text-[13px] text-[#8a8070]">{d.specimenNumber(i + 1)}</p>
+          </div>
+        ),
+      }
+    }),
   ]
 
   return (
