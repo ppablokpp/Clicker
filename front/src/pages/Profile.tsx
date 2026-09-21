@@ -5,12 +5,14 @@ import {
   Check,
   ChevronRight,
   Crown,
+  FileText,
   Languages,
   LogIn,
   LogOut,
   Mail,
   Pencil,
   Settings,
+  Shield,
   Volume2,
   VolumeX,
   X,
@@ -550,6 +552,7 @@ function SettingsSheet({
   const { strings, language, setLanguage } = useLanguage()
   const { user } = useUser()
   const { signOut } = useClerk()
+  const navigate = useNavigate()
   const email = user?.primaryEmailAddress?.emailAddress ?? null
   // Same fix as EditUsernameModal's — see its own comment.
   useLockBodyScroll(true)
@@ -654,6 +657,34 @@ function SettingsSheet({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="my-4 h-px bg-white/5" />
+
+        {/* The small print, each on a page of its own the back arrow
+            returns from; the sheet closes so it isn't waiting underneath. */}
+        <div className="flex flex-col gap-1">
+          {(
+            [
+              { to: '/privacidad', label: strings.profile.privacyLink, Icon: Shield },
+              { to: '/terminos', label: strings.profile.termsLink, Icon: FileText },
+            ] as const
+          ).map(({ to, label, Icon }) => (
+            <button
+              key={to}
+              onClick={() => {
+                onClose()
+                navigate(to)
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-white/[0.04]"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-neutral-400">
+                <Icon size={15} />
+              </div>
+              <p className="min-w-0 flex-1 text-sm text-neutral-300">{label}</p>
+              <ChevronRight size={16} className="shrink-0 text-neutral-600" />
+            </button>
+          ))}
         </div>
 
         <div className="my-4 h-px bg-white/5" />

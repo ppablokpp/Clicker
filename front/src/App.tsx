@@ -35,6 +35,7 @@ import { TutorialOverlay } from './components/TutorialOverlay'
 import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { PublicProfile } from './pages/PublicProfile'
+import { LegalPage } from './pages/LegalPage'
 import { CustomizeAstronaut } from './pages/CustomizeAstronaut'
 import { CosmeticDetail } from './pages/CosmeticDetail'
 import { Store } from './pages/Store'
@@ -93,6 +94,8 @@ function ClickerApp() {
                                               <Route path="/refineria" element={<Refinery />} />
                                               <Route path="/nave" element={<Ship />} />
                                               <Route path="/batalla/:battleId" element={<Battle />} />
+                                              <Route path="/privacidad" element={<LegalPage kind="privacy" />} />
+                                              <Route path="/terminos" element={<LegalPage kind="terms" />} />
                                             </Routes>
                                             <BottomNavPill />
                                             <SignInModal />

@@ -72,6 +72,14 @@ export interface TranslationStrings {
     calendarNote: string
     calendarDaysOut: (days: number) => string
   }
+  legal: {
+    privacyTitle: string
+    termsTitle: string
+    updated: string
+    /** `{email}` in a paragraph is the contact address (see LegalPage). */
+    privacy: readonly { heading: string; paragraphs: readonly string[] }[]
+    terms: readonly { heading: string; paragraphs: readonly string[] }[]
+  }
   ship: {
     title: string
     reactor: string
@@ -246,6 +254,8 @@ export interface TranslationStrings {
     languageLabel: string
     soundLabel: string
     settingsLabel: string
+    privacyLink: string
+    termsLink: string
     signOut: string
     signedOutTitle: string
     signedOutBody: string
@@ -756,6 +766,34 @@ export const translations: Record<Language, TranslationStrings> = {
         'Aquí no hay amaneceres, así que el día empieza cuando yo digo. Lo tacho cuando me quito las botas; hasta entonces sigue siendo hoy.',
       calendarDaysOut: (days) => (days === 1 ? '1 día de trabajo este mes.' : `${days} días de trabajo este mes.`),
     },
+    legal: {
+      privacyTitle: 'Política de privacidad',
+      termsTitle: 'Términos de uso',
+      updated: 'Última actualización: 21 de septiembre de 2026',
+      privacy: [
+        { heading: "Quién trata tus datos", paragraphs: ["ClankUp es un juego desarrollado de forma independiente. El responsable del tratamiento de los datos es su desarrollador, con quien puedes contactar en {email}."] },
+        { heading: "Qué datos recogemos", paragraphs: ["Si juegas como invitado no te pedimos ningún dato personal. El juego genera un identificador anónimo que se guarda en tu dispositivo para conservar tu progreso.", "Si inicias sesión con Google recibimos tu dirección de correo, tu nombre y la imagen de tu perfil de Google, a través de nuestro proveedor de identidad (Clerk). Los usamos para crear tu cuenta y mostrar tu nombre de usuario en la clasificación.", "Mientras juegas guardamos tu progreso: minerales extraídos, mejoras, cosméticos, estadísticas y los días en que has jugado. Este progreso se asocia a tu cuenta o a tu identificador anónimo.", "Si realizas una compra dentro de la app, el pago lo gestiona Google Play o App Store. Nosotros no vemos ni almacenamos tus datos de pago; solo recibimos, a través de RevenueCat, la confirmación de la compra y un identificador de comprador para entregarte lo adquirido."] },
+        { heading: "Para qué los usamos", paragraphs: ["Para que el juego funcione: guardar tu progreso, sincronizarlo entre dispositivos, mostrar la clasificación y entregar las compras.", "Para mantener el juego seguro y justo, por ejemplo detectando trampas o abusos.", "No vendemos tus datos ni los usamos para publicidad personalizada. Si en el futuro mostramos anuncios, actualizaremos esta política antes."] },
+        { heading: "Con quién los compartimos", paragraphs: ["Solo con los proveedores que necesitamos para operar el juego: Clerk (inicio de sesión), RevenueCat (compras), Google Play y App Store (pagos) y nuestros proveedores de alojamiento de servidores y base de datos. Cada uno trata los datos según su propia política de privacidad y solo para prestarnos su servicio.", "Tu nombre de usuario, tu astronauta y tus estadísticas públicas son visibles para otros jugadores en la clasificación y en tu perfil público."] },
+        { heading: "Cuánto tiempo los guardamos", paragraphs: ["Mientras tengas cuenta o sigas jugando como invitado. Si eliminas tu cuenta, borramos tus datos personales y tu progreso en un plazo de 30 días, salvo lo que debamos conservar por obligación legal (por ejemplo, registros de compras)."] },
+        { heading: "Tus derechos", paragraphs: ["Puedes acceder a tus datos, corregirlos, pedir que los borremos o solicitar una copia escribiendo a {email}. Si has iniciado sesión con Google, también puedes retirar el acceso desde la configuración de tu cuenta de Google. Si estás en la Unión Europea, puedes reclamar ante tu autoridad de protección de datos."] },
+        { heading: "Menores", paragraphs: ["ClankUp no está dirigido a menores de 13 años y no recogemos a sabiendas datos de menores de esa edad. Si crees que un menor nos ha facilitado datos, escríbenos y los eliminaremos."] },
+        { heading: "Seguridad", paragraphs: ["Los datos viajan cifrados (HTTPS) y se guardan en servidores de proveedores con medidas de seguridad estándar del sector. Ningún sistema es infalible, pero hacemos lo razonable para proteger tu información."] },
+        { heading: "Cambios", paragraphs: ["Si cambiamos esta política, actualizaremos la fecha de arriba y, si el cambio es importante, te lo indicaremos dentro del juego."] },
+      ],
+      terms: [
+        { heading: "Aceptación", paragraphs: ["Al instalar o usar ClankUp aceptas estos términos. Si no estás de acuerdo con ellos, no uses el juego."] },
+        { heading: "El juego", paragraphs: ["ClankUp es un juego de minería espacial para entretenimiento. Podemos cambiar, añadir o retirar contenido, mecánicas y funciones en cualquier momento, y también interrumpir el servicio de forma temporal o definitiva. Intentaremos avisar con antelación cuando sea razonable."] },
+        { heading: "Tu cuenta", paragraphs: ["Puedes jugar sin cuenta. Si inicias sesión con Google, eres responsable de mantener el acceso a tu cuenta de Google y de lo que se haga con ella en el juego.", "Tu nombre de usuario es público. No uses nombres ofensivos, que suplanten a otras personas o que infrinjan derechos de terceros; podemos cambiarlos o retirarlos."] },
+        { heading: "Objetos y moneda virtuales", paragraphs: ["Los minerales, gemas, llaves, cofres, mejoras y cosméticos son elementos virtuales del juego. No tienen valor fuera de ClankUp, no se pueden cambiar por dinero ni transferir a otras personas, y pueden ajustarse por motivos de equilibrio del juego.", "Las compras dentro de la app se realizan a través de Google Play o App Store y están sujetas a sus condiciones. Salvo que la ley aplicable exija otra cosa, las compras de elementos virtuales no son reembolsables una vez entregadas."] },
+        { heading: "Juego limpio", paragraphs: ["No está permitido usar bots, autoclickers externos, modificaciones del juego, exploits ni cualquier medio para alterar el progreso, la clasificación o las compras. Si lo detectamos, podemos corregir o reiniciar tu progreso, retirarte de la clasificación o suspender tu cuenta."] },
+        { heading: "Propiedad intelectual", paragraphs: ["El juego, su nombre, su arte, su música, sus textos y su código son propiedad de su desarrollador. Te concedemos una licencia personal, no exclusiva y revocable para usar el juego con fines privados de entretenimiento."] },
+        { heading: "Responsabilidad", paragraphs: ["ClankUp se ofrece tal cual. En la medida en que la ley lo permita, no nos hacemos responsables de pérdidas de progreso, interrupciones del servicio o daños derivados del uso del juego. Nada en estos términos limita los derechos que te reconozca la legislación de consumo aplicable."] },
+        { heading: "Baja y cancelación", paragraphs: ["Puedes dejar de usar el juego cuando quieras y pedir la eliminación de tu cuenta escribiendo a {email}. Nosotros podemos suspender o cerrar cuentas que incumplan estos términos."] },
+        { heading: "Ley aplicable", paragraphs: ["Estos términos se rigen por la legislación española, sin perjuicio de las normas de protección al consumidor que te correspondan por tu país de residencia."] },
+        { heading: "Contacto", paragraphs: ["Para cualquier duda sobre estos términos, escríbenos a {email}."] },
+      ],
+    },
     ship: {
       title: 'Tu nave',
       reactor: 'Reactor',
@@ -933,6 +971,8 @@ export const translations: Record<Language, TranslationStrings> = {
       languageLabel: 'Idioma',
       soundLabel: 'Sonido',
       settingsLabel: 'Ajustes',
+      privacyLink: 'Política de privacidad',
+      termsLink: 'Términos de uso',
       signOut: 'Cerrar sesión',
       signedOutTitle: 'Inicia sesión para tener un perfil',
       signedOutBody:
@@ -1668,6 +1708,34 @@ export const translations: Record<Language, TranslationStrings> = {
         'There are no sunrises here, so the day starts when I say it does. I cross it off when I take my boots off; until then it is still today.',
       calendarDaysOut: (days) => (days === 1 ? '1 day of work this month.' : `${days} days of work this month.`),
     },
+    legal: {
+      privacyTitle: 'Privacy policy',
+      termsTitle: 'Terms of use',
+      updated: 'Last updated: 21 September 2026',
+      privacy: [
+        { heading: "Who handles your data", paragraphs: ["ClankUp is an independently developed game. The data controller is its developer, who you can reach at {email}."] },
+        { heading: "What we collect", paragraphs: ["If you play as a guest we ask for no personal data. The game generates an anonymous identifier, stored on your device, to keep your progress.", "If you sign in with Google we receive your email address, your name and your Google profile picture through our identity provider (Clerk). We use them to create your account and to show your username on the leaderboard.", "As you play we store your progress: minerals extracted, upgrades, cosmetics, statistics and the days you played. This progress is tied to your account or to your anonymous identifier.", "If you make an in-app purchase, the payment is handled by Google Play or the App Store. We never see or store your payment details; through RevenueCat we only receive the purchase confirmation and a buyer identifier so we can deliver what you bought."] },
+        { heading: "What we use it for", paragraphs: ["To run the game: saving your progress, syncing it across devices, showing the leaderboard and delivering purchases.", "To keep the game safe and fair, for example by detecting cheating or abuse.", "We do not sell your data or use it for personalised advertising. If we show ads in the future, we will update this policy first."] },
+        { heading: "Who we share it with", paragraphs: ["Only with the providers we need to run the game: Clerk (sign-in), RevenueCat (purchases), Google Play and the App Store (payments) and our server and database hosting providers. Each handles data under its own privacy policy and only to provide its service to us.", "Your username, your astronaut and your public statistics are visible to other players on the leaderboard and on your public profile."] },
+        { heading: "How long we keep it", paragraphs: ["For as long as you have an account or keep playing as a guest. If you delete your account we erase your personal data and progress within 30 days, except what we must keep by law (for example, purchase records)."] },
+        { heading: "Your rights", paragraphs: ["You can access your data, correct it, ask us to delete it or request a copy by writing to {email}. If you signed in with Google you can also revoke access from your Google account settings. If you are in the European Union you may lodge a complaint with your data protection authority."] },
+        { heading: "Children", paragraphs: ["ClankUp is not directed at children under 13 and we do not knowingly collect data from them. If you believe a child has given us data, write to us and we will delete it."] },
+        { heading: "Security", paragraphs: ["Data travels encrypted (HTTPS) and is stored on providers' servers with industry-standard security measures. No system is infallible, but we take reasonable steps to protect your information."] },
+        { heading: "Changes", paragraphs: ["If we change this policy we will update the date above and, if the change matters, let you know inside the game."] },
+      ],
+      terms: [
+        { heading: "Acceptance", paragraphs: ["By installing or using ClankUp you accept these terms. If you do not agree with them, do not use the game."] },
+        { heading: "The game", paragraphs: ["ClankUp is a space-mining game made for entertainment. We may change, add or remove content, mechanics and features at any time, and may suspend the service temporarily or permanently. We will try to give notice in advance when reasonable."] },
+        { heading: "Your account", paragraphs: ["You can play without an account. If you sign in with Google you are responsible for keeping access to your Google account and for what is done with it in the game.", "Your username is public. Do not use names that are offensive, impersonate others or infringe third-party rights; we may change or remove them."] },
+        { heading: "Virtual items and currency", paragraphs: ["Minerals, gems, keys, chests, upgrades and cosmetics are virtual items within the game. They have no value outside ClankUp, cannot be exchanged for money or transferred to others, and may be adjusted for game balance.", "In-app purchases are made through Google Play or the App Store and are subject to their terms. Unless applicable law requires otherwise, purchases of virtual items are non-refundable once delivered."] },
+        { heading: "Fair play", paragraphs: ["Bots, external auto-clickers, game modifications, exploits or any means of altering progress, the leaderboard or purchases are not allowed. If we detect them we may correct or reset your progress, remove you from the leaderboard or suspend your account."] },
+        { heading: "Intellectual property", paragraphs: ["The game, its name, art, music, text and code belong to its developer. You are granted a personal, non-exclusive, revocable licence to use the game for private entertainment."] },
+        { heading: "Liability", paragraphs: ["ClankUp is provided as is. To the extent the law allows, we are not liable for lost progress, service interruptions or damages arising from use of the game. Nothing in these terms limits the rights granted to you by applicable consumer law."] },
+        { heading: "Ending your use", paragraphs: ["You can stop using the game whenever you like and ask us to delete your account by writing to {email}. We may suspend or close accounts that breach these terms."] },
+        { heading: "Governing law", paragraphs: ["These terms are governed by Spanish law, without prejudice to the consumer-protection rules that apply in your country of residence."] },
+        { heading: "Contact", paragraphs: ["For any question about these terms, write to {email}."] },
+      ],
+    },
     ship: {
       title: 'Your ship',
       reactor: 'Reactor',
@@ -1843,6 +1911,8 @@ export const translations: Record<Language, TranslationStrings> = {
       languageLabel: 'Language',
       soundLabel: 'Sound',
       settingsLabel: 'Settings',
+      privacyLink: 'Privacy policy',
+      termsLink: 'Terms of use',
       signOut: 'Sign out',
       signedOutTitle: 'Sign in to get a profile',
       signedOutBody:
