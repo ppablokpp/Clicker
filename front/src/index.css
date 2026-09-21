@@ -44,6 +44,54 @@ body {
   box-sizing: border-box;
 }
 
+/* The native shell runs full screen with the system bars hidden (see
+   mobile-capacitor's MainActivity and ClankUpViewController), so the page
+   reaches the physical edges of the glass: the camera cutout at the top,
+   the gesture strip at the bottom. Inside the shell (`html.native`, set in
+   main.tsx) everything anchored to an edge moves in by the safe area plus
+   a little air — the console down from the cutout, the tab bar up from the
+   strip — the way the browser's own chrome spaced them on the web. In a
+   browser none of this applies.
+
+   The insets come from whichever the WebView provides: env() with
+   viewport-fit=cover, or the --safe-area-inset-* variables Capacitor
+   injects (SystemBars.insetsHandling: css). */
+html.native {
+  /* never less than a status bar's worth at the top: a WebView that
+     reports no inset still has the camera and the rounded corners there */
+  --safe-top: calc(max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px), 24px) + 8px);
+  --safe-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)) + 14px);
+}
+html.native body {
+  padding-top: var(--safe-top);
+}
+/* the pages that fill the viewport keep filling what is left of it */
+html.native .h-\[100dvh\] {
+  height: calc(100dvh - var(--safe-top));
+}
+html.native .min-h-\[100dvh\] {
+  min-height: calc(100dvh - var(--safe-top));
+}
+/* the tree's fixed sheet, and the corner buttons pinned to the viewport */
+html.native .bulkhead.fixed.inset-0 {
+  top: var(--safe-top);
+}
+html.native .fixed.top-4 {
+  top: calc(1rem + var(--safe-top));
+}
+html.native .fixed.bottom-5 {
+  bottom: calc(1.25rem + var(--safe-bottom));
+}
+html.native .fixed.bottom-6 {
+  bottom: calc(1.5rem + var(--safe-bottom));
+}
+html.native .fixed.bottom-24 {
+  bottom: calc(6rem + var(--safe-bottom));
+}
+html.native .fixed.bottom-28 {
+  bottom: calc(7rem + var(--safe-bottom));
+}
+
 /* Chromium quantizes CSS gradients/blurs to 8-bit sRGB with no dithering,
    which shows up as visible banding on the app's large dark violet glows
    and gradients (Firefox/Safari already dither these internally). A

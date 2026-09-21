@@ -6,6 +6,12 @@ import { dark } from '@clerk/themes'
 import './index.css'
 import App from './App.tsx'
 import { LanguageProvider } from './context/LanguageContext'
+import { isNativeApp } from './lib/native'
+
+// Inside the native shell the page runs edge to edge under hidden system
+// bars; index.css moves the edge-anchored pieces in by the safe area when
+// this class is on.
+if (isNativeApp()) document.documentElement.classList.add('native')
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 

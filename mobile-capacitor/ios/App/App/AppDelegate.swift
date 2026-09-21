@@ -1,6 +1,15 @@
 import UIKit
 import Capacitor
 
+/// The shell, full screen, the way games are: the status bar stays hidden
+/// (Info.plist, UIStatusBarHidden) and the home indicator dims away after a
+/// moment without touches — iOS never lets an app remove it outright, this
+/// is as far as it goes. Set as the storyboard's view controller class.
+class ClankUpViewController: CAPBridgeViewController {
+    override var prefersHomeIndicatorAutoHidden: Bool { true }
+    override var prefersStatusBarHidden: Bool { true }
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
