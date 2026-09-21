@@ -13,6 +13,7 @@ import {
   Pencil,
   Settings,
   Shield,
+  Trash2,
   Volume2,
   VolumeX,
   X,
@@ -711,18 +712,35 @@ function SettingsSheet({
             {strings.profile.signIn}
           </button>
         ) : (
-          <button
-            onClick={() => {
-              clearStoredStyleIds()
-              void signOut()
-            }}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/[0.12]"
-          >
-            <LogOut size={16} />
-            {strings.profile.signOut}
-          </button>
+          <>
+            <button
+              onClick={() => {
+                clearStoredStyleIds()
+                void signOut()
+              }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/[0.12]"
+            >
+              <LogOut size={16} />
+              {strings.profile.signOut}
+            </button>
+            {/* Quieter than signing out on purpose — a text link, not a
+                second red button — and on a page of its own with two
+                confirmations (see DeleteAccountPage), since this one
+                cannot be undone. */}
+            <button
+              onClick={() => {
+                onClose()
+                navigate('/eliminar-cuenta')
+              }}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 py-1 text-xs text-neutral-500 transition-colors hover:text-red-300"
+            >
+              <Trash2 size={12} />
+              {strings.profile.deleteAccount}
+            </button>
+          </>
         )}
       </div>
     </div>
   )
 }
+

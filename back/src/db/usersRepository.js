@@ -239,6 +239,34 @@ export const usersRepository = {
   // The "already claimed today" flag is computed in SQL against CURRENT_DATE
   // rather than in JS â€” comparing a DATE column's parsed value against
   // "today" in JS risks a timezone mismatch with what the DB considers today.
+  // Everything of a player's, gone: every row of theirs in every table
+  // that carries a user column (found in the catalogue, so a table added
+  // later is covered without anyone remembering to list it here), the
+  // duels they were in, and last the user row itself. One transaction, so
+  // a failure half-way leaves them whole rather than half-erased.
+  async deleteCompletely(id) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const cols = await client.query(
+        `SELECT table_name, column_name FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name <> 'users'
+           AND column_name IN ('user_id', 'challenger_id', 'opponent_id')`,
+      )
+      for (const { table_name, column_name } of cols.rows) {
+        await client.query(`DELETE FROM "${table_name}" WHERE "${column_name}" = $1`, [id])
+      }
+      const gone = await client.query('DELETE FROM users WHERE id = $1', [id])
+      await client.query('COMMIT')
+      return gone.rowCount > 0
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   async getById(id) {
     const result = await database.query(
       `SELECT *, (last_key_claim_date IS NOT NULL AND last_key_claim_date = CURRENT_DATE) AS key_claimed_today

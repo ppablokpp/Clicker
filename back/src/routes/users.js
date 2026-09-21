@@ -193,6 +193,25 @@ usersRouter.patch('/me/username', async (req, res) => {
 // unlike /sync this is a bare insert: every other column just takes its
 // own schema DEFAULT, identical to what a brand-new real account starts
 // with too.
+// The account, deleted for good: our rows first, then the Clerk user, so
+// a Clerk failure leaves a user that can retry rather than a ghost that
+// can never sign in to finish the job. Signed-in accounts only — a guest
+// has nothing to delete but a local id, which is theirs to clear.
+usersRouter.delete('/me', async (req, res) => {
+  const { userId } = getClerkAuth(req)
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  try {
+    await usersRepository.deleteCompletely(userId)
+    await clerkClient.users.deleteUser(userId)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('No se pudo eliminar la cuenta', err)
+    res.status(500).json({ error: 'delete-failed' })
+  }
+})
+
 usersRouter.post('/anon-init', async (req, res) => {
   const { userId } = getAuth(req)
   if (!isAnonId(userId)) {

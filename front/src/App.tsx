@@ -36,6 +36,7 @@ import { Home } from './pages/Home'
 import { Leaderboard } from './pages/Leaderboard'
 import { PublicProfile } from './pages/PublicProfile'
 import { LegalPage } from './pages/LegalPage'
+import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { CustomizeAstronaut } from './pages/CustomizeAstronaut'
 import { CosmeticDetail } from './pages/CosmeticDetail'
 import { Store } from './pages/Store'
@@ -96,6 +97,7 @@ function ClickerApp() {
                                               <Route path="/batalla/:battleId" element={<Battle />} />
                                               <Route path="/privacidad" element={<LegalPage kind="privacy" />} />
                                               <Route path="/terminos" element={<LegalPage kind="terms" />} />
+                                              <Route path="/eliminar-cuenta" element={<DeleteAccountPage />} />
                                             </Routes>
                                             <BottomNavPill />
                                             <SignInModal />

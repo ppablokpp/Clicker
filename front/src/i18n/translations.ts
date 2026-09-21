@@ -79,6 +79,8 @@ export interface TranslationStrings {
     /** `{email}` in a paragraph is the contact address (see LegalPage). */
     privacy: readonly { heading: string; paragraphs: readonly string[] }[]
     terms: readonly { heading: string; paragraphs: readonly string[] }[]
+    deleteTitle: string
+    delete: readonly { heading: string; paragraphs: readonly string[] }[]
   }
   ship: {
     title: string
@@ -256,6 +258,17 @@ export interface TranslationStrings {
     settingsLabel: string
     privacyLink: string
     termsLink: string
+    deleteAccount: string
+    deleteAccountBody: string
+    /** The word the player has to type; `word` is deleteAccountWord. */
+    deleteAccountConfirmBody: (word: string) => string
+    deleteAccountWord: string
+    deleteAccountSignedOut: string
+    deleteAccountFinalTitle: string
+    deleteAccountFinalBody: string
+    deleteAccountFinalButton: string
+    deleteAccountBusy: string
+    deleteAccountError: string
     signOut: string
     signedOutTitle: string
     signedOutBody: string
@@ -781,6 +794,12 @@ export const translations: Record<Language, TranslationStrings> = {
         { heading: "Seguridad", paragraphs: ["Los datos viajan cifrados (HTTPS) y se guardan en servidores de proveedores con medidas de seguridad estándar del sector. Ningún sistema es infalible, pero hacemos lo razonable para proteger tu información."] },
         { heading: "Cambios", paragraphs: ["Si cambiamos esta política, actualizaremos la fecha de arriba y, si el cambio es importante, te lo indicaremos dentro del juego."] },
       ],
+      deleteTitle: 'Eliminar tu cuenta',
+      delete: [
+        { heading: 'Desde el juego', paragraphs: ['Abre tu perfil, pulsa el icono de ajustes (la rueda dentada) y elige "Eliminar cuenta": llegarás a esta página. Escribe la palabra de confirmación, pulsa el botón y confirma. La eliminación es inmediata.'] },
+        { heading: 'Por correo', paragraphs: ['Si no puedes acceder al juego, escribe a {email} desde la dirección de correo con la que iniciaste sesión y eliminaremos tu cuenta en un plazo máximo de 30 días.'] },
+        { heading: 'Qué se elimina', paragraphs: ['Tu cuenta, tu nombre de usuario, tu correo, todo tu progreso (minerales, gemas, llaves, mejoras, cosméticos, estadísticas) y tu posición en la clasificación. Los registros de compras se conservan el tiempo que exige la ley y no contienen tus datos de pago.'] },
+      ],
       terms: [
         { heading: "Aceptación", paragraphs: ["Al instalar o usar ClankUp aceptas estos términos. Si no estás de acuerdo con ellos, no uses el juego."] },
         { heading: "El juego", paragraphs: ["ClankUp es un juego de minería espacial para entretenimiento. Podemos cambiar, añadir o retirar contenido, mecánicas y funciones en cualquier momento, y también interrumpir el servicio de forma temporal o definitiva. Intentaremos avisar con antelación cuando sea razonable."] },
@@ -973,6 +992,17 @@ export const translations: Record<Language, TranslationStrings> = {
       settingsLabel: 'Ajustes',
       privacyLink: 'Política de privacidad',
       termsLink: 'Términos de uso',
+      deleteAccount: 'Eliminar cuenta',
+      deleteAccountBody:
+        'Se borrarán tu cuenta, todo tu progreso, tus minerales, gemas, llaves, mejoras y cosméticos, y desaparecerás de la clasificación. Las compras realizadas no se reembolsan. Esto no se puede deshacer.',
+      deleteAccountConfirmBody: (word) => `Escribe ${word} para continuar.`,
+      deleteAccountWord: 'CONFIRMAR',
+      deleteAccountSignedOut: 'Para eliminar tu cuenta desde aquí tienes que haber iniciado sesión en el juego. Si no puedes, escríbenos al correo de arriba.',
+      deleteAccountFinalTitle: '¿Eliminar definitivamente?',
+      deleteAccountFinalBody: 'Tu cuenta y todo tu progreso se borrarán ahora mismo. No hay vuelta atrás.',
+      deleteAccountFinalButton: 'Eliminar',
+      deleteAccountBusy: 'Eliminando…',
+      deleteAccountError: 'No se ha podido eliminar la cuenta. Inténtalo de nuevo.',
       signOut: 'Cerrar sesión',
       signedOutTitle: 'Inicia sesión para tener un perfil',
       signedOutBody:
@@ -1723,6 +1753,12 @@ export const translations: Record<Language, TranslationStrings> = {
         { heading: "Security", paragraphs: ["Data travels encrypted (HTTPS) and is stored on providers' servers with industry-standard security measures. No system is infallible, but we take reasonable steps to protect your information."] },
         { heading: "Changes", paragraphs: ["If we change this policy we will update the date above and, if the change matters, let you know inside the game."] },
       ],
+      deleteTitle: 'Delete your account',
+      delete: [
+        { heading: 'From the game', paragraphs: ['Open your profile, tap the settings icon (the gear) and choose "Delete account": it brings you to this page. Type the confirmation word, press the button and confirm. Deletion is immediate.'] },
+        { heading: 'By email', paragraphs: ['If you can no longer access the game, write to {email} from the email address you signed in with and we will delete your account within 30 days.'] },
+        { heading: 'What is deleted', paragraphs: ['Your account, your username, your email, all your progress (minerals, gems, keys, upgrades, cosmetics, statistics) and your place on the leaderboard. Purchase records are kept for as long as the law requires and contain no payment details.'] },
+      ],
       terms: [
         { heading: "Acceptance", paragraphs: ["By installing or using ClankUp you accept these terms. If you do not agree with them, do not use the game."] },
         { heading: "The game", paragraphs: ["ClankUp is a space-mining game made for entertainment. We may change, add or remove content, mechanics and features at any time, and may suspend the service temporarily or permanently. We will try to give notice in advance when reasonable."] },
@@ -1913,6 +1949,17 @@ export const translations: Record<Language, TranslationStrings> = {
       settingsLabel: 'Settings',
       privacyLink: 'Privacy policy',
       termsLink: 'Terms of use',
+      deleteAccount: 'Delete account',
+      deleteAccountBody:
+        'Your account, all your progress, your minerals, gems, keys, upgrades and cosmetics will be erased, and you will disappear from the leaderboard. Purchases are not refunded. This cannot be undone.',
+      deleteAccountConfirmBody: (word) => `Type ${word} to continue.`,
+      deleteAccountWord: 'CONFIRM',
+      deleteAccountSignedOut: 'To delete your account from here you need to be signed in to the game. If you cannot, write to the email above.',
+      deleteAccountFinalTitle: 'Delete for good?',
+      deleteAccountFinalBody: 'Your account and all your progress will be erased right now. There is no way back.',
+      deleteAccountFinalButton: 'Delete',
+      deleteAccountBusy: 'Deleting…',
+      deleteAccountError: 'The account could not be deleted. Please try again.',
       signOut: 'Sign out',
       signedOutTitle: 'Sign in to get a profile',
       signedOutBody:
