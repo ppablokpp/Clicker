@@ -53,6 +53,33 @@ and need the native toolchain to run. The closest "just look at it" is the
 site itself in Safari/Chrome on the phone — the web view is the same
 engine, so it looks and performs the same.
 
+## Signing for Play (release builds)
+
+Play wants an **App Bundle (.aab)** signed with an *upload key*; Play App
+Signing then re-signs it with the key the phones actually see. One-time
+setup:
+
+1. Make the upload key (any JDK's `keytool`; Android Studio's is at
+   `%USERPROFILE%\.jdks\jbr-21.0.11\bin`). Pick a password and keep it:
+   ```
+   keytool -genkeypair -v -keystore android/upload-keystore.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. Copy `android/keystore.properties.example` to `android/keystore.properties`
+   and fill in the passwords. Both files are gitignored — back them up
+   somewhere private (losing the upload key means asking Google to reset it).
+3. `npm run build:android` → `android/app/build/outputs/bundle/release/app-release.aab`.
+   Gradle needs JDK 21 (`JAVA_HOME`, set once with `setx`); Android
+   Studio's own JBR is too new for this Gradle.
+
+Each upload needs a higher `versionCode` in `android/app/build.gradle`
+(`versionName` is the one people see).
+
+Sign-in in a Play build: Play re-signs the app, so the SHA-1 Google checks is
+**Play's app-signing certificate**, not the debug or upload key. Copy it from
+Play Console → Test and release → App integrity → App signing, and add an
+Android OAuth client with it in Google Cloud (same package `app.clankup`),
+then list that client id in the back's `GOOGLE_CLIENT_IDS`.
+
 ## Origins
 
 Inside the app the page is served from `capacitor://localhost` (iOS) and

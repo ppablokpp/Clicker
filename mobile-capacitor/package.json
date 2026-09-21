@@ -8,7 +8,10 @@
     "open:android": "npx cap open android",
     "open:ios": "npx cap open ios",
     "run:android": "npx cap run android",
-    "run:ios": "npx cap run ios"
+    "run:ios": "npx cap run ios",
+    "build:android": "npm run build:web && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "splash": "node scripts/splash.mjs",
+    "assets": "node scripts/splash.mjs && capacitor-assets generate --android --ios --iconBackgroundColor \"#120d22\" --iconBackgroundColorDark \"#120d22\" --splashBackgroundColor \"#120d22\" --splashBackgroundColorDark \"#120d22\""
   },
   "keywords": [],
   "author": "",
@@ -19,6 +22,7 @@
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
+    "@capacitor/splash-screen": "^8.0.2",
     "@capgo/capacitor-social-login": "^8.5.10",
     "@revenuecat/purchases-capacitor": "^13.6.0"
   },

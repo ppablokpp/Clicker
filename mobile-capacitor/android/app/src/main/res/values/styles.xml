@@ -16,7 +16,15 @@
     </style>
 
 
+    <!-- The launch: on Android 12+ the system draws its own splash first — a
+         flat colour with a circle-masked icon — so it gets the sky colour and
+         a planet whose stars fade out before the mask edge (see
+         scripts/splash.mjs), and the full-bleed drawable behind takes over
+         from there until the web view paints. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#120d22</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <item name="android:background">@drawable/splash</item>
     </style>
 </resources>

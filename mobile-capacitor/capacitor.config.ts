@@ -37,6 +37,19 @@ const config: CapacitorConfig = {
     backgroundColor: '#08080c',
   },
   plugins: {
+    // The full-bleed sky (assets/splash.png, drawn by scripts/splash.mjs)
+    // stays up after the system splash until the web view has painted, so
+    // the planet never sits on a bare colour between the two.
+    SplashScreen: {
+      launchAutoHide: true,
+      launchShowDuration: 0,
+      launchFadeOutDuration: 250,
+      backgroundColor: '#120d22',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: false,
+      splashFullScreen: true,
+      splashImmersive: false,
+    },
     // Sign in with Google, natively (front/src/lib/nativeSignIn.ts). Only
     // Google is bundled; Apple joins when there is an Apple account to
     // configure it with.

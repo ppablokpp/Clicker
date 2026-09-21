@@ -102,3 +102,8 @@ app/src/main/res/xml/config.xml
 
 # Android Studio project settings (per machine)
 .idea/
+
+# Release signing (upload key + its passwords), never committed
+keystore.properties
+*.jks
+*.keystore
