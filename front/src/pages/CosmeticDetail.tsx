@@ -116,16 +116,24 @@ export function CosmeticDetail() {
   }, [valid, navigate])
   if (!valid) return null
 
-  const persist = (next: AstronautStyleIds) => {
+  // Awaited, not fired and forgotten: the wardrobe re-reads the style from
+  // the server the moment it mounts, so leaving this page before the save
+  // lands had it painting the previous outfit back (and the piece looked
+  // unequipped until you came in again).
+  const persist = async (next: AstronautStyleIds) => {
     setStyleIds(next)
     saveStyleIds(next, styleOwner)
-    void saveMyStyle(getToken, next).then(() => refetchTree())
+    await saveMyStyle(getToken, next)
+    void refetchTree()
   }
 
   const onPrimary = async () => {
     if (busy || equipped) return
     if (unlocked) {
-      persist(worn)
+      setBusy(true)
+      await persist(worn)
+      if (!mounted.current) return
+      setBusy(false)
       // Equipped: back to the wardrobe, where the change is now visible on
       // the astronaut. Nothing left to do on this page.
       navigate(-1)
