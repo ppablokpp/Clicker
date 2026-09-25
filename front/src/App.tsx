@@ -2,6 +2,7 @@
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
 import { BottomNavPill } from './components/BottomNavPill'
+import { Reminders } from './components/Reminders'
 import { ScrollManager } from './components/ScrollManager'
 import { GameStateGate } from './components/GameStateGate'
 import { LoadingGateProvider } from './components/LoadingGate'
@@ -81,6 +82,10 @@ function ClickerApp() {
                                                 Reports only — the cover is an
                                                 overlay above all of this. */}
                                             <GameStateGate />
+                                            {/* The phone's own reminders, kept
+                                                in step with the key and the
+                                                streak (see lib/notifications). */}
+                                            <Reminders />
                                             <ScrollManager />
                                             <Routes>
                                               <Route path="/" element={<Home />} />

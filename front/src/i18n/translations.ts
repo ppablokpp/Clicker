@@ -73,6 +73,13 @@ export interface TranslationStrings {
     calendarNote: string
     calendarDaysOut: (days: number) => string
   }
+  /** What the phone's own reminders say (see lib/notifications). */
+  notifications: {
+    keyTitle: string
+    keyBody: string
+    streakTitle: string
+    streakBody: string
+  }
   legal: {
     privacyTitle: string
     termsTitle: string
@@ -780,6 +787,12 @@ export const translations: Record<Language, TranslationStrings> = {
       calendarNote:
         'Aquí no hay amaneceres, así que el día empieza cuando yo digo. Lo tacho cuando me quito las botas; hasta entonces sigue siendo hoy.',
       calendarDaysOut: (days) => (days === 1 ? '1 día de trabajo este mes.' : `${days} días de trabajo este mes.`),
+    },
+    notifications: {
+      keyTitle: 'Llave nueva en la bodega',
+      keyBody: 'C0\u2060-\u2060PI ha dejado tu llave diaria junto a los cofres.',
+      streakTitle: 'El asteroide sigue ahí',
+      streakBody: 'Hoy no has picado piedra. Unos minutos y la racha sigue viva.',
     },
     legal: {
       privacyTitle: 'Política de privacidad',
@@ -1740,6 +1753,12 @@ export const translations: Record<Language, TranslationStrings> = {
       calendarNote:
         'There are no sunrises here, so the day starts when I say it does. I cross it off when I take my boots off; until then it is still today.',
       calendarDaysOut: (days) => (days === 1 ? '1 day of work this month.' : `${days} days of work this month.`),
+    },
+    notifications: {
+      keyTitle: 'A new key in the hold',
+      keyBody: 'C0\u2060-\u2060PI has left your daily key by the chests.',
+      streakTitle: 'The asteroid is still there',
+      streakBody: 'No mining today. A few minutes and the streak lives on.',
     },
     legal: {
       privacyTitle: 'Privacy policy',
