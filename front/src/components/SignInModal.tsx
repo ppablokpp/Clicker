@@ -29,11 +29,16 @@ export function SignInModal() {
   // beside it, but only the pressed one says so.
   const [going, setGoing] = useState<'google' | 'apple' | null>(null)
   const isRedirecting = going !== null
-  // Apple is offered where it is worth offering: on the web, and on the
-  // iPhone, where the system draws its own sheet and the App Store asks
-  // for it beside Google. Inside the Android app it would mean leaving for
-  // a browser and finding the way back, for a button nobody there uses.
-  const showApple = !isNativeApp() || nativePlatform() === 'ios'
+  // Apple is built and tested end to end (the button, the native sheet,
+  // the token check in routes/nativeAuth.js) but it cannot work until
+  // there is an Apple Developer membership to mint a Services ID and a
+  // key with — Clerk refuses the connection without them, so the button
+  // could only fail. Flip this on the day those exist, together with
+  // APPLE_CLIENT_IDS on the back: on the web and on the iPhone, where the
+  // App Store asks for it beside Google, never inside the Android app
+  // (a browser round-trip for a button nobody there uses).
+  const APPLE_READY = false
+  const showApple = APPLE_READY && (!isNativeApp() || nativePlatform() === 'ios')
   const [error, setError] = useState<string | null>(null)
   useLockBodyScroll(isOpen)
 
