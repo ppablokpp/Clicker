@@ -7,6 +7,7 @@ export interface TranslationStrings {
     perks: readonly [string, string, string]
     continueAsGuest: string
     continueWithGoogle: string
+    continueWithApple: string
     redirecting: string
     genericError: string
   }
@@ -619,6 +620,7 @@ export const translations: Record<Language, TranslationStrings> = {
       perks: ['Guarda el asteroide y la flota', 'Compite en el ranking mundial', 'Compra y recibe recompensas'],
       continueAsGuest: 'Seguir como invitado',
       continueWithGoogle: 'Continuar con Google',
+      continueWithApple: 'Continuar con Apple',
       redirecting: 'Redirigiendo…',
       genericError: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
     },
@@ -1578,6 +1580,7 @@ export const translations: Record<Language, TranslationStrings> = {
       perks: ['Keep your asteroid and your fleet', 'Compete on the global leaderboard', 'Buy and receive rewards'],
       continueAsGuest: 'Keep playing as a guest',
       continueWithGoogle: 'Continue with Google',
+      continueWithApple: 'Continue with Apple',
       redirecting: 'Redirecting…',
       genericError: "Couldn't sign in with Google. Please try again.",
     },

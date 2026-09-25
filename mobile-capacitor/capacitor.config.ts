@@ -50,11 +50,12 @@ const config: CapacitorConfig = {
       splashFullScreen: true,
       splashImmersive: false,
     },
-    // Sign in with Google, natively (front/src/lib/nativeSignIn.ts). Only
-    // Google is bundled; Apple joins when there is an Apple account to
-    // configure it with.
+    // Sign in with Google and with Apple, natively (see
+    // front/src/lib/nativeSignIn.ts). Apple's is iOS only — the plugin
+    // would fall back to a browser round-trip on Android, and the button
+    // is hidden there anyway.
     SocialLogin: {
-      providers: { google: true, apple: false, facebook: false, twitter: false },
+      providers: { google: true, apple: true, facebook: false, twitter: false },
       logLevel: 1,
     },
   },

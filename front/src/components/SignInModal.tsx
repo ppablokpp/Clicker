@@ -4,8 +4,8 @@ import { TriangleAlert, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
-import { isNativeApp } from '../lib/native'
-import { NativeSignInCancelled, signInWithGoogleNative } from '../lib/nativeSignIn'
+import { isNativeApp, nativePlatform } from '../lib/native'
+import { NativeSignInCancelled, signInWithAppleNative, signInWithGoogleNative } from '../lib/nativeSignIn'
 
 interface ClerkApiError {
   errors?: { message?: string; longMessage?: string }[]
@@ -25,7 +25,15 @@ export function SignInModal() {
   const { signIn, isLoaded } = useSignIn()
   const clerk = useClerk()
   const { strings } = useLanguage()
-  const [isRedirecting, setIsRedirecting] = useState(false)
+  // Which one is going, not just that one is: the other button greys out
+  // beside it, but only the pressed one says so.
+  const [going, setGoing] = useState<'google' | 'apple' | null>(null)
+  const isRedirecting = going !== null
+  // Apple is offered where it is worth offering: on the web, and on the
+  // iPhone, where the system draws its own sheet and the App Store asks
+  // for it beside Google. Inside the Android app it would mean leaving for
+  // a browser and finding the way back, for a button nobody there uses.
+  const showApple = !isNativeApp() || nativePlatform() === 'ios'
   const [error, setError] = useState<string | null>(null)
   useLockBodyScroll(isOpen)
 
@@ -34,7 +42,7 @@ export function SignInModal() {
   const handleGoogleSignIn = async () => {
     if (!isLoaded || !signIn) return
     setError(null)
-    setIsRedirecting(true)
+    setGoing('google')
     // Inside the native shell there is no redirect: the system's account
     // sheet opens over the app and the token goes to Clerk directly (see
     // lib/nativeSignIn). The page never leaves, so the modal closes itself.
@@ -52,7 +60,7 @@ export function SignInModal() {
           setError(detail ? `${extractErrorMessage(err, strings.signIn.genericError)} (${detail})` : extractErrorMessage(err, strings.signIn.genericError))
         }
       } finally {
-        setIsRedirecting(false)
+        setGoing(null)
       }
       return
     }
@@ -65,7 +73,41 @@ export function SignInModal() {
     } catch (err) {
       console.error('Error iniciando sesión con Google', err)
       setError(extractErrorMessage(err, strings.signIn.genericError))
-      setIsRedirecting(false)
+      setGoing(null)
+    }
+  }
+
+  // The same two roads as Google's: the system's own sheet in the app,
+  // Clerk's redirect on the web.
+  const handleAppleSignIn = async () => {
+    if (!isLoaded || !signIn) return
+    setError(null)
+    setGoing('apple')
+    if (isNativeApp()) {
+      try {
+        await signInWithAppleNative(clerk)
+        closePrompt()
+      } catch (err) {
+        if (!(err instanceof NativeSignInCancelled)) {
+          console.error('Error iniciando sesión con Apple (nativo)', err)
+          const detail = (err as { message?: string })?.message
+          setError(detail ? `${extractErrorMessage(err, strings.signIn.genericError)} (${detail})` : extractErrorMessage(err, strings.signIn.genericError))
+        }
+      } finally {
+        setGoing(null)
+      }
+      return
+    }
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: 'oauth_apple',
+        redirectUrl: `${import.meta.env.BASE_URL}sso-callback`,
+        redirectUrlComplete: import.meta.env.BASE_URL,
+      })
+    } catch (err) {
+      console.error('Error iniciando sesión con Apple', err)
+      setError(extractErrorMessage(err, strings.signIn.genericError))
+      setGoing(null)
     }
   }
 
@@ -123,8 +165,19 @@ export function SignInModal() {
             className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <GoogleIcon />
-            {isRedirecting ? strings.signIn.redirecting : strings.signIn.continueWithGoogle}
+            {going === 'google' ? strings.signIn.redirecting : strings.signIn.continueWithGoogle}
           </button>
+
+          {showApple && (
+            <button
+              onClick={handleAppleSignIn}
+              disabled={!isLoaded || isRedirecting}
+              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-black px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              <AppleIcon />
+              {going === 'apple' ? strings.signIn.redirecting : strings.signIn.continueWithApple}
+            </button>
+          )}
 
           <button
             onClick={closePrompt}
@@ -164,6 +217,15 @@ function GoogleIcon() {
         fill="#EA4335"
         d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"
       />
+    </svg>
+  )
+}
+
+/** Apple's mark, as their guidelines draw it: solid, one colour. */
+function AppleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.36 12.73c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.61-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.75-.78-2.87-.76-1.48.02-2.84.86-3.6 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.06 1.6 2.25 2.75 2.2 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.7.71 2.87.69 1.19-.02 1.94-1.08 2.66-2.14.84-1.23 1.19-2.42 1.2-2.48-.03-.01-2.3-.88-2.33-3.5zM14.2 6.2c.6-.74 1.01-1.76.9-2.78-.87.04-1.93.58-2.56 1.31-.56.65-1.05 1.69-.92 2.69.97.07 1.96-.49 2.58-1.22z" />
     </svg>
   )
 }

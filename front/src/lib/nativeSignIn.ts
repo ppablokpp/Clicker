@@ -33,6 +33,8 @@ function ensureInitialized() {
   if (!WEB_CLIENT_ID) throw new Error('Falta VITE_GOOGLE_WEB_CLIENT_ID para el inicio de sesión nativo con Google')
   initialized ??= SocialLogin.initialize({
     google: { webClientId: WEB_CLIENT_ID, iOSServerClientId: WEB_CLIENT_ID, mode: 'online' },
+    // iOS reads the app's own entitlement, so Apple needs no client id here.
+    apple: {},
   })
   return initialized
 }
@@ -72,6 +74,57 @@ export async function signInWithGoogleNative(clerk: ClerkInstance): Promise<void
   })
   const data = (await res.json().catch(() => ({}))) as { ticket?: string; error?: string }
   if (!res.ok || !data.ticket) throw new Error(data.error ?? 'No se ha podido validar la cuenta de Google')
+
+  const signIn = await client.signIn.create({ strategy: 'ticket', ticket: data.ticket })
+  if (signIn.status !== 'complete' || !signIn.createdSessionId) {
+    throw new Error(`Clerk no ha completado el inicio de sesión (${signIn.status})`)
+  }
+  await clerk.setActive({ session: signIn.createdSessionId })
+}
+
+/**
+ * Sign in with Apple inside the native shell — iOS only.
+ *
+ * On an iPhone the button opens Apple's own sheet (Face ID, no browser)
+ * and hands back an identity token. It takes the same road as Google's:
+ * Clerk's browser-facing API will not accept a token minted for the app
+ * itself, so the back verifies it against Apple's published keys
+ * (routes/nativeAuth.js) and mints a Clerk sign-in token we redeem here.
+ *
+ * Apple only reveals the name on the very first authorization, so it
+ * travels beside the token — the back has no second chance to ask.
+ */
+export async function signInWithAppleNative(clerk: ClerkInstance): Promise<void> {
+  await ensureInitialized()
+
+  let idToken: string | null | undefined
+  let givenName: string | null | undefined
+  let familyName: string | null | undefined
+  try {
+    const res = await SocialLogin.login({ provider: 'apple', options: { scopes: ['name', 'email'] } })
+    const result = res.result as {
+      idToken?: string | null
+      profile?: { givenName?: string | null; familyName?: string | null }
+    }
+    idToken = result.idToken
+    givenName = result.profile?.givenName
+    familyName = result.profile?.familyName
+  } catch (err) {
+    if (isCancellation(err)) throw new NativeSignInCancelled()
+    throw err
+  }
+  if (!idToken) throw new Error('Apple no ha devuelto un token de identidad')
+
+  const client = clerk.client
+  if (!client) throw new Error('Clerk no está listo')
+
+  const res = await fetch(`${API_URL}/api/native-auth/apple`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, givenName, familyName }),
+  })
+  const data = (await res.json().catch(() => ({}))) as { ticket?: string; error?: string }
+  if (!res.ok || !data.ticket) throw new Error(data.error ?? 'No se ha podido validar la cuenta de Apple')
 
   const signIn = await client.signIn.create({ strategy: 'ticket', ticket: data.ticket })
   if (signIn.status !== 'complete' || !signIn.createdSessionId) {
