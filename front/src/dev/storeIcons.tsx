@@ -5,6 +5,7 @@
 import { createRoot } from 'react-dom/client'
 import { GemContainer, gemContainerFor, keyContainerFor } from '../components/StallGoods'
 
+
 const q = new URLSearchParams(location.search)
 const contents = q.get('contents') === 'keys' ? 'keys' : 'gems'
 const index = Number(q.get('index') ?? 0)
