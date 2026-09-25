@@ -114,10 +114,33 @@ usersRouter.post('/sync', async (req, res) => {
 
   try {
     const clerkUser = await clerkClient.users.getUser(userId)
+    const email = clerkUser.primaryEmailAddress?.emailAddress ?? null
+
+    // First of all: the Clerk instance moved (development → production),
+    // so a familiar email can arrive under an id we have never seen. If
+    // their old account is there, hand it over — and before the upsert
+    // below, which would otherwise collide with the old row over the
+    // unique email (see adoptLegacyAccountByEmail).
+    const adopted = await usersRepository.adoptLegacyAccountByEmail(clerkUser.id, email)
+    let username = clerkUser.username ?? clerkUser.firstName ?? null
+    if (adopted) {
+      console.log(`Adopted legacy account ${adopted.oldId} -> ${clerkUser.id}`)
+      // Their name lived in Clerk, and the new instance does not have it.
+      // Give it back, unless someone took it in the meantime.
+      if (!clerkUser.username && adopted.username) {
+        try {
+          await clerkClient.users.updateUser(clerkUser.id, { username: adopted.username })
+          username = adopted.username
+        } catch (err) {
+          console.warn(`No se pudo restaurar el username ${adopted.username}`, err?.errors ?? err)
+        }
+      }
+    }
+
     const user = await usersRepository.upsertFromClerk({
       id: clerkUser.id,
-      email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
-      username: clerkUser.username ?? clerkUser.firstName ?? null,
+      email,
+      username,
       avatarUrl: clerkUser.imageUrl ?? null,
     })
     res.json(toPublicUser(user))

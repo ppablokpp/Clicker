@@ -239,6 +239,121 @@ export const usersRepository = {
   // The "already claimed today" flag is computed in SQL against CURRENT_DATE
   // rather than in JS â€” comparing a DATE column's parsed value against
   // "today" in JS risks a timezone mismatch with what the DB considers today.
+  /**
+   * The same person, a new Clerk id. Moving the Clerk instance from
+   * development to production mints brand-new user ids for everyone: the
+   * account behind `pablo@example.com` signs in as before, but arrives as
+   * an id our tables have never seen, and without this they would land in
+   * an empty account while their real one sat unreachable.
+   *
+   * So on the first sign-in of an unknown id we look for a row with the
+   * same email and hand it over: the old row's game state is copied onto
+   * the new id, every child row is re-pointed at it, and the old row goes.
+   * One transaction — half a migration is worse than none.
+   *
+   * Safe because the only way to arrive with an email is to have signed in
+   * with it (Clerk only reports verified ones, and Google is the only
+   * provider), which is the same proof the old account itself required.
+   * Guarded twice more: never touches an id that already has progress of
+   * its own, and never adopts another guest row (`anon_...`), which
+   * belongs to claimAnonymousProgress.
+   *
+   * Returns the adopted row's old id and username, or null if there was
+   * nothing to adopt.
+   */
+  async adoptLegacyAccountByEmail(newId, email) {
+    if (!email || !newId || newId.startsWith('anon_')) return null
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+
+      // Runs BEFORE the row is upserted from Clerk, not after: `email` is
+      // unique, so the upsert would hit the old row's address and fail
+      // before there was anything to adopt. The new row is made here
+      // instead, and the email only moves onto it once the old one is gone.
+      const mine = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [newId])
+      const current = mine.rows[0]
+      // Already played under the new id: nothing to adopt onto, and merging
+      // two sets of progress is not something to decide behind their back.
+      if (
+        current &&
+        (Number(current.total_clicks) > 0 ||
+          Number(current.lifetime_platino) > 0 ||
+          Number(current.cases_opened) > 0 ||
+          Number(current.total_real_clicks) > 0)
+      ) {
+        await client.query('ROLLBACK')
+        return null
+      }
+
+      // The likeliest one first, in case an email somehow has two rows.
+      const legacy = await client.query(
+        `SELECT * FROM users
+          WHERE lower(email) = lower($1) AND id <> $2 AND id NOT LIKE 'anon\\_%'
+          ORDER BY lifetime_platino DESC, total_clicks DESC
+          LIMIT 1
+          FOR UPDATE`,
+        [email, newId],
+      )
+      const old = legacy.rows[0]
+      if (!old) {
+        await client.query('ROLLBACK')
+        return null
+      }
+
+      // The row has to exist before anything can point at it, and without
+      // its email yet — that still belongs to the old row for a few lines.
+      await client.query('INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [newId])
+
+      // The new id's own child rows (a welcome chest grant, a tutorial
+      // flag) make way for the old account's — otherwise the re-pointing
+      // below would collide with their primary keys.
+      const cols = await client.query(
+        `SELECT table_name, column_name FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name <> 'users'
+           AND column_name IN ('user_id', 'challenger_id', 'opponent_id')`,
+      )
+      for (const { table_name, column_name } of cols.rows) {
+        await client.query(`DELETE FROM "${table_name}" WHERE "${column_name}" = $1`, [newId])
+      }
+      for (const { table_name, column_name } of cols.rows) {
+        await client.query(`UPDATE "${table_name}" SET "${column_name}" = $1 WHERE "${column_name}" = $2`, [newId, old.id])
+      }
+
+      // Everything the old row holds except who it is: the identity stays
+      // the new account's (Clerk owns it), the game state comes across.
+      // Read from the catalogue rather than listed by hand, so a column
+      // added later travels without anyone remembering this function.
+      const userCols = await client.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'users'
+           AND column_name NOT IN ('id', 'email', 'username', 'avatar_url', 'created_at', 'updated_at')`,
+      )
+      const names = userCols.rows.map((r) => r.column_name)
+      const sets = names.map((n, i) => `"${n}" = $${i + 2}`).join(', ')
+      await client.query(`UPDATE users SET ${sets}, updated_at = now() WHERE id = $1`, [
+        newId,
+        ...names.map((n) => old[n]),
+      ])
+      // The old row goes, and only then does its email move across — the
+      // column is unique, so the two can never hold it at once.
+      await client.query('DELETE FROM users WHERE id = $1', [old.id])
+      await client.query('UPDATE users SET email = $2, username = $3, updated_at = now() WHERE id = $1', [
+        newId,
+        old.email,
+        old.username,
+      ])
+
+      await client.query('COMMIT')
+      return { oldId: old.id, username: old.username ?? null }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   // Everything of a player's, gone: every row of theirs in every table
   // that carries a user column (found in the catalogue, so a table added
   // later is covered without anyone remembering to list it here), the
