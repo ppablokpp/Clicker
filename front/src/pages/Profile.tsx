@@ -11,7 +11,6 @@ import {
   LogOut,
   Mail,
   Pencil,
-  Settings,
   Shield,
   Trash2,
   Volume2,
@@ -21,6 +20,7 @@ import {
 import { SIGNIN_CHEST_REWARD } from '../store/chestBench'
 import { VaultChest } from '../components/VaultChest'
 import { MiniLoader } from '../components/MiniLoader'
+import { GearIcon } from '../components/PillIcons'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { useLanguage } from '../context/LanguageContext'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -166,7 +166,7 @@ export function Profile() {
       aria-label={strings.profile.settingsLabel}
       className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
     >
-      <Settings size={16} />
+      <GearIcon size={19} />
     </button>
   )
 

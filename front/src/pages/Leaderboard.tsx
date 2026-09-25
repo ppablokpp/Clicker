@@ -1,14 +1,15 @@
 import { Bulkhead } from '../components/Bulkhead'
 import { MiniLoader } from '../components/MiniLoader'
+import { MineralIcon } from '../components/MaterialIcons'
+import { BoltIcon, DuelIcon } from '../components/PillIcons'
 import { OutsideBackButton } from '../components/OutsideBackButton'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Crown, Loader2, Minus, Plus, Search, Swords, X, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Crown, Loader2, Minus, Plus, Search, X } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import { hasCachedLeaderboard, useLeaderboard, type LeaderboardEntry, type LeaderboardSort } from '../hooks/useLeaderboard'
 import { useLanguage } from '../context/LanguageContext'
-import { PlatinumIcon } from '../components/PlatinumIcon'
 import { AstronautAvatar } from '../components/AstronautAvatar'
 import { AstronautHeadshot } from '../components/AstronautHeadshot'
 import { normalizeStyle } from '../lib/astronautStyleApi'
@@ -43,7 +44,7 @@ export function Leaderboard() {
         aria-label={strings.battle.buttonLabel}
         className="fixed right-4 top-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/5 bg-white/[0.03] text-neutral-300 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.06] sm:right-6 sm:top-6"
       >
-        <Swords size={16} />
+        <DuelIcon size={19} />
       </button>
 
       {showBattles && <BattlesModal onClose={() => setShowBattles(false)} onNavigate={navigate} userId={userId ?? null} />}
@@ -59,7 +60,10 @@ export function Leaderboard() {
               sortBy === 'clicks' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <PlatinumIcon size={19} />
+            {/* the rock keeps its own colour on both states of the pill:
+                this tab IS the mineral ranking, and a black rock on the lit
+                pill read as a hole */}
+            <MineralIcon size={21} style={{ color: tier.fill }} />
           </button>
           <button
             onClick={() => setSortBy('cps')}
@@ -68,7 +72,7 @@ export function Leaderboard() {
               sortBy === 'cps' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <Zap size={16} />
+            <BoltIcon size={20} color={sortBy === 'cps' ? '#7c3aed' : undefined} />
           </button>
         </div>
       </div>
@@ -421,7 +425,7 @@ function BattlesModal({
 
         <div className="mb-4 flex shrink-0 items-center gap-2 pr-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 text-violet-200">
-            <Swords size={17} />
+            <DuelIcon size={20} />
           </div>
           <p className="text-sm font-semibold text-white">{strings.battle.modalTitle}</p>
         </div>
@@ -440,7 +444,7 @@ function BattlesModal({
               onClick={() => (userId ? setShowPicker(true) : promptSignIn())}
               className="flex items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2.5 text-sm font-semibold text-violet-200 transition-colors hover:bg-violet-500/15"
             >
-              <Swords size={15} />
+              <DuelIcon size={18} />
               {strings.battle.newBattle}
             </button>
 
@@ -479,7 +483,7 @@ function BattlesModal({
                           }`}
                         >
                           <span className="flex items-center justify-center gap-1">
-                            <PlatinumIcon size={13} className="opacity-70" />
+                            <MineralIcon size={15} className="opacity-70" />
                             <span className="tabular-nums">{b.wager.toLocaleString(locale)}</span>
                           </span>
                         </button>
@@ -754,7 +758,7 @@ function WagerPickerModal({
               className="flex items-center gap-1.5 font-[Space_Grotesk] text-3xl font-bold tabular-nums"
               style={{ color: tier.fill }}
             >
-              <PlatinumIcon size={24} className="opacity-80" />
+              <MineralIcon size={26} className="opacity-80" />
               {formatWager(value, language)}
             </span>
             <span className="mt-1 text-[11px] text-neutral-500">

@@ -51,7 +51,7 @@ import { formatPlatino } from '../lib/formatPlatino'
 // OBJECT_TIERS (tier i spans [threshold[i], threshold[i+1])).
 import { TRAJECTORY_TIER_THRESHOLDS } from '../lib/trajectory'
 import { DroneIcon } from '../components/DroneIcon'
-import { PlatinumIcon } from '../components/PlatinumIcon'
+import { MineralIcon } from '../components/MaterialIcons'
 import { EventChallenge } from '../components/EventChallenge'
 import { Meteor } from '../components/Meteor'
 import type { AsteroidColors } from '../components/Asteroid'
@@ -1443,7 +1443,7 @@ export function Home() {
 
                 <div className="relative flex-1 overflow-hidden rounded-[3px] border border-violet-400/20 bg-violet-500/[0.06] px-2.5 py-1.5">
                   <div className="flex items-center gap-1.5">
-                    <PlatinumIcon size={11} className="text-violet-300" />
+                    <MineralIcon size={13} className="text-violet-300" />
                     <span className="whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-widest text-violet-400/70">
                       {strings.home.hudProdLabel}
                     </span>
@@ -2052,7 +2052,7 @@ export function Home() {
                               return (
                                 <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 opacity-70">
                                   <Check size={13} />
-                                  <PlatinumIcon size={13} className="opacity-80" />
+                                  <MineralIcon size={15} className="opacity-80" />
                                   {selectedTier.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
                                 </span>
                               )
@@ -2064,7 +2064,7 @@ export function Home() {
                                   disabled={isClaiming}
                                   className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-bold transition-transform hover:scale-105 disabled:opacity-60 ${MATERIAL_BUTTON_THEMES[currentTierIndex].pill}`}
                                 >
-                                  <PlatinumIcon size={13} className="opacity-80" />
+                                  <MineralIcon size={15} className="opacity-80" />
                                   {isClaiming ? strings.home.taskClaiming : selectedTier.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
                                 </button>
                               )
@@ -2074,7 +2074,7 @@ export function Home() {
                                 aria-disabled="true"
                                 className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-xs font-semibold text-neutral-600"
                               >
-                                <PlatinumIcon size={13} className="opacity-50" />
+                                <MineralIcon size={15} className="opacity-50" />
                                 {selectedTier.reward.toLocaleString(language === 'en' ? 'en-US' : 'es-ES')}
                               </span>
                             )

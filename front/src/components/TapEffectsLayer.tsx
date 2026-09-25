@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from 'react'
-import { Gem, Key } from 'lucide-react'
+import { Key } from 'lucide-react'
+import { GemIcon } from './MaterialIcons'
 import { useLanguage } from '../context/LanguageContext'
 import { formatPlatino } from '../lib/formatPlatino'
 
@@ -296,7 +297,7 @@ function TapEffectsLayerImpl({ ref }: { ref?: Ref<TapEffectsHandle> }) {
             +{formatPlatino(fx.amount, language)}
             {fx.isLucky && '!'}
             {fx.icon === 'key' && <Key size={11} />}
-            {fx.icon === 'gem' && <Gem size={11} />}
+            {fx.icon === 'gem' && <GemIcon size={13} />}
           </span>
         </div>
       ))}

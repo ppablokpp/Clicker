@@ -10,7 +10,6 @@ import {
   ChevronsDown,
   ChevronsUp,
   Gauge,
-  Gem,
   Focus,
   BatteryCharging,
   FastForward,
@@ -45,7 +44,7 @@ import { useFleetUpgradesContext } from '../context/FleetUpgradesContext'
 import { useGemsContext } from '../context/GemsContext'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { DroneIcon } from '../components/DroneIcon'
-import { PlatinumIcon } from '../components/PlatinumIcon'
+import { GemIcon, MineralIcon } from '../components/MaterialIcons'
 import { MATERIAL_BUTTON_THEMES, MATERIAL_ABBREVIATIONS, MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 
 // Radial stagger for the reveal pop — nodes closer to whatever unlocked
@@ -133,9 +132,9 @@ function TreeBuyButton({
         ) : (
           <>
             {currency === 'gems' ? (
-              <Gem size={14} className="opacity-80" />
+              <GemIcon size={16} className="opacity-80" />
             ) : (
-              <PlatinumIcon size={17} className="opacity-70" />
+              <MineralIcon size={18} className="opacity-70" />
             )}
             <span className="tabular-nums">{formatPlatino(cost, language)}</span>
           </>
@@ -961,7 +960,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.c1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg ${NODE_STYLES.locked}`}
               >
-                <Gem size={20} />
+                <GemIcon size={22} />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {premiumOwnedCount}
                 </span>
@@ -985,7 +984,7 @@ export function Tree() {
                 transition={{ type: 'spring', stiffness: 260, damping: 20, delay: revealDelay(nodeById.c1, CENTER, CENTER) }}
                 className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-full border text-center shadow-lg transition-colors hover:border-indigo-400/40 ${PREMIUM_NODE_STYLE}`}
               >
-                <Gem size={20} className="text-indigo-300" />
+                <GemIcon size={22} className="text-indigo-300" />
                 <span className="whitespace-nowrap text-xs font-semibold">
                   {strings.tree.level} {premiumOwnedCount}
                 </span>
@@ -2409,7 +2408,7 @@ export function Tree() {
             </button>
 
             <div className="relative mb-3 flex items-center gap-2">
-              <Gem size={18} className="text-fuchsia-300" />
+              <GemIcon size={20} className="text-fuchsia-300" />
               <p className="text-sm font-semibold text-white">{strings.store.moneyUpgradesTitle}</p>
             </div>
             <p className="relative mb-4 text-sm text-neutral-400">{strings.tree.premiumDesc}</p>

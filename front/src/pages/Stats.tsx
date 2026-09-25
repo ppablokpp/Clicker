@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, CalendarCheck, CircleUserRound, Flame, Medal } from 'lucide-react'
+import { CalendarCheck, Flame, Medal } from 'lucide-react'
 import { Profile } from './Profile'
 import { Bulkhead } from '../components/Bulkhead'
 import { OutsideBackButton } from '../components/OutsideBackButton'
@@ -15,6 +15,7 @@ import {
   MILESTONE_TIER_GRADIENTS,
   type StatCategoryKey,
 } from '../stats/config'
+import { ChartIcon, HelmetIcon } from '../components/PillIcons'
 import { CircularProgress } from '../components/CircularProgress'
 import { toLocalDateString } from '../lib/date'
 
@@ -153,7 +154,7 @@ export function Stats() {
               view === 'profile' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <CircleUserRound size={19} />
+            <HelmetIcon size={21} />
           </button>
           <button
             onClick={() => setView('stats')}
@@ -162,7 +163,7 @@ export function Stats() {
               view === 'stats' ? 'bg-white text-neutral-900' : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
-            <BarChart3 size={17} />
+            <ChartIcon size={19} color={view === 'stats' ? '#7c3aed' : undefined} />
           </button>
         </div>
       </div>
