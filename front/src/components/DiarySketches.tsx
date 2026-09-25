@@ -504,9 +504,12 @@ export function CalendarSketch({
   // Monday first: Date's Sunday=0 becomes 6
   const firstCol = (new Date(year, month, 1).getDay() + 6) % 7
   const rows = Math.ceil((firstCol + daysInMonth) / 7)
-  const COL = 41
+  // Seven columns with a margin either side: at the full 296 the grid ran
+  // flush to both edges of the text column, and on a phone the last one lost
+  // its outer line to rounding.
+  const COL = 39
   const ROW = 26
-  const X0 = 4
+  const X0 = (296 - COL * 7) / 2
   // The page's rules fall 19px into every 26px block (see DiaryBook), and
   // this drawing starts on a block: the grid's lines land on the rules, so
   // the month is ruled straight onto the notebook's own lines.
