@@ -22,6 +22,25 @@ function scaleMaterialAmount(amount, prestigeTier) {
   return amount * prestigeTierMultiplier(Number(prestigeTier))
 }
 
+/**
+ * Every column in the database that points at a user, asked of Postgres
+ * itself: each foreign key whose target is `users`. Listing the names by
+ * hand missed `battles.winner_id` and broke the first production sign-in
+ * — a player's old row could not be deleted while a duel they had won
+ * still referenced it. A key added later is covered without anyone
+ * remembering these two functions.
+ */
+async function userReferences(client) {
+  const { rows } = await client.query(
+    `SELECT c.conrelid::regclass::text AS table_name, a.attname AS column_name
+       FROM pg_constraint c
+       JOIN unnest(c.conkey) AS k(attnum) ON true
+       JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+      WHERE c.contype = 'f' AND c.confrelid = 'users'::regclass`,
+  )
+  return rows
+}
+
 export const usersRepository = {
   // Runs once per session (from the sync-on-login call) â€” just profile
   // fields. The streak is entirely driven by actual click activity now
@@ -308,16 +327,12 @@ export const usersRepository = {
       // The new id's own child rows (a welcome chest grant, a tutorial
       // flag) make way for the old account's — otherwise the re-pointing
       // below would collide with their primary keys.
-      const cols = await client.query(
-        `SELECT table_name, column_name FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name <> 'users'
-           AND column_name IN ('user_id', 'challenger_id', 'opponent_id')`,
-      )
-      for (const { table_name, column_name } of cols.rows) {
-        await client.query(`DELETE FROM "${table_name}" WHERE "${column_name}" = $1`, [newId])
+      const refs = await userReferences(client)
+      for (const { table_name, column_name } of refs) {
+        await client.query(`DELETE FROM ${table_name} WHERE "${column_name}" = $1`, [newId])
       }
-      for (const { table_name, column_name } of cols.rows) {
-        await client.query(`UPDATE "${table_name}" SET "${column_name}" = $1 WHERE "${column_name}" = $2`, [newId, old.id])
+      for (const { table_name, column_name } of refs) {
+        await client.query(`UPDATE ${table_name} SET "${column_name}" = $1 WHERE "${column_name}" = $2`, [newId, old.id])
       }
 
       // Everything the old row holds except who it is: the identity stays
@@ -355,21 +370,16 @@ export const usersRepository = {
   },
 
   // Everything of a player's, gone: every row of theirs in every table
-  // that carries a user column (found in the catalogue, so a table added
-  // later is covered without anyone remembering to list it here), the
-  // duels they were in, and last the user row itself. One transaction, so
+  // that points at them (found from the foreign keys themselves, see
+  // userReferences), the duels they were in, and last the user row itself. One transaction, so
   // a failure half-way leaves them whole rather than half-erased.
   async deleteCompletely(id) {
     const client = await database.getClient()
     try {
       await client.query('BEGIN')
-      const cols = await client.query(
-        `SELECT table_name, column_name FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name <> 'users'
-           AND column_name IN ('user_id', 'challenger_id', 'opponent_id')`,
-      )
-      for (const { table_name, column_name } of cols.rows) {
-        await client.query(`DELETE FROM "${table_name}" WHERE "${column_name}" = $1`, [id])
+      const refs = await userReferences(client)
+      for (const { table_name, column_name } of refs) {
+        await client.query(`DELETE FROM ${table_name} WHERE "${column_name}" = $1`, [id])
       }
       const gone = await client.query('DELETE FROM users WHERE id = $1', [id])
       await client.query('COMMIT')
