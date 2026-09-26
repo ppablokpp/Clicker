@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useKeysContext } from '../context/KeysContext'
-import { useAppAuth } from './useAppAuth'
+import { useAuth } from '@clerk/clerk-react'
 import { RewardSkipped, adsAvailable, showRewardedAd } from '../lib/ads'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -15,10 +15,14 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
  * times before giving up rather than once and hoping.
  */
 export function useRewardedKey() {
-  const { userId, getToken } = useAppAuth()
+  // Clerk's own, not useAppAuth: this hands out a key, and a guest id was
+  // never issued by Clerk and must never be what a reward is attached to.
+  const { userId, getToken } = useAuth()
   const { keys, syncKeys } = useKeysContext()
   const [used, setUsed] = useState(0)
   const [perDay, setPerDay] = useState(0)
+  const [resetsAt, setResetsAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const [watching, setWatching] = useState(false)
   const [error, setError] = useState(false)
 
@@ -31,6 +35,8 @@ export function useRewardedKey() {
       const data = await res.json()
       setUsed(Number(data.used ?? 0))
       setPerDay(Number(data.perDay ?? 0))
+      const at = data.resetsAt ? Date.parse(data.resetsAt) : NaN
+      setResetsAt(Number.isFinite(at) ? at : null)
     } catch (err) {
       console.error('No se pudo leer el cupo de anuncios', err)
     }
@@ -39,6 +45,17 @@ export function useRewardedKey() {
   useEffect(() => {
     void readAllowance()
   }, [readAllowance])
+
+  // The countdown only ticks once the day's ads are spent — that is the only
+  // state that shows it, and a timer running behind a button nobody is
+  // looking at is a wake-up a minute for nothing.
+  const spent = perDay > 0 && used >= perDay
+  useEffect(() => {
+    if (!spent) return
+    setNow(Date.now())
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [spent])
 
   const watch = useCallback(async () => {
     if (!userId || watching) return
@@ -78,6 +95,8 @@ export function useRewardedKey() {
     used,
     perDay,
     left: Math.max(0, perDay - used),
+    /** Seconds until the allowance comes back; 0 until there is one to wait for. */
+    resetsIn: spent && resetsAt ? Math.max(0, Math.ceil((resetsAt - now) / 1000)) : 0,
     watching,
     error,
     watch,

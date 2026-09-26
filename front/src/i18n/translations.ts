@@ -355,8 +355,8 @@ export interface TranslationStrings {
     buyChest: string
     chestLimitReached: string
     claimDailyKey: string
-  /** The rewarded-ad button: `left` is how many are still allowed today. */
-  watchAdForKey: (left: number) => string
+  /** The rewarded-ad button; the tally and the countdown are drawn, not worded. */
+  watchAd: string
   watchingAd: string
   adKeysDone: string
   adError: string
@@ -1230,9 +1230,9 @@ export const translations: Record<Language, TranslationStrings> = {
       buyChest: 'Comprar cofre',
       chestLimitReached: 'Ya tienes el máximo de cofres',
       claimDailyKey: 'Reclamar llave gratis diaria',
-      watchAdForKey: (left) => `Ver un anuncio · +1 llave (${left} hoy)`,
+      watchAd: 'Ver un anuncio',
       watchingAd: 'Cargando anuncio…',
-      adKeysDone: 'Vuelve mañana a por más llaves',
+      adKeysDone: 'Mañana más llaves',
       adError: 'No hay anuncios disponibles ahora mismo.',
       keyClaimedToday: 'Llave diaria reclamada',
       claimingKey: 'Reclamando…',
@@ -2196,9 +2196,9 @@ export const translations: Record<Language, TranslationStrings> = {
       buyChest: 'Buy chest',
       chestLimitReached: "You've hit the chest limit",
       claimDailyKey: 'Claim free daily key',
-      watchAdForKey: (left) => `Watch an ad · +1 key (${left} today)`,
+      watchAd: 'Watch an ad',
       watchingAd: 'Loading ad…',
-      adKeysDone: 'Come back tomorrow for more keys',
+      adKeysDone: 'More keys tomorrow',
       adError: 'No ads available right now.',
       keyClaimedToday: 'Daily key claimed',
       claimingKey: 'Claiming…',

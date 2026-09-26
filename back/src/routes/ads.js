@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { createPublicKey, createVerify } from 'node:crypto'
-import { getAuth } from '../auth/getAuth.js'
+import { getAuth, isAnonId } from '../auth/getAuth.js'
 import { usersRepository } from '../db/usersRepository.js'
 import { AD_KEYS_PER_AD, AD_KEYS_PER_DAY } from '../store/rewardedAds.js'
 
@@ -70,6 +70,11 @@ async function verifyAdmobCallback(rawQuery) {
 
   const userId = params.get('user_id') || params.get('custom_data')
   if (!userId) return refuse('no user_id')
+  // A guest id is not an account, and nothing is ever granted to one. The
+  // app hides the button without a Clerk session, so this only fires for a
+  // hand-built callback — but the signature check above does not care whose
+  // id travels in custom_data, so the rule has to live here too.
+  if (isAnonId(userId)) return refuse(`guest id ${userId}`)
   return { userId }
 }
 
@@ -105,6 +110,6 @@ adsRouter.get('/ssv', async (req, res) => {
 adsRouter.get('/me', async (req, res) => {
   const { userId } = getAuth(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-  const used = await usersRepository.adKeysUsedToday(userId)
-  res.json({ used, perDay: AD_KEYS_PER_DAY, keysPerAd: AD_KEYS_PER_AD })
+  const { used, resetsAt } = await usersRepository.adKeysUsedToday(userId)
+  res.json({ used, perDay: AD_KEYS_PER_DAY, keysPerAd: AD_KEYS_PER_AD, resetsAt })
 })

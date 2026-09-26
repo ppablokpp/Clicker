@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
-import { Loader2, Minus, Play, Plus, X } from 'lucide-react'
+import { Loader2, Minus, Plus, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
 import { GemIcon, MineralIcon } from './MaterialIcons'
 import { ChestCatalogModal } from './ChestCatalogModal'
@@ -8,6 +8,7 @@ import { MATERIAL_TIER_COLORS } from '../lib/materialTiers'
 import { formatPlatino } from '../lib/formatPlatino'
 import { VaultChest, VaultKey } from './VaultChest'
 import { StampedHeading } from './StampedHeading'
+import { RewardVideoIcon } from './PillIcons'
 import { useLanguage } from '../context/LanguageContext'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { useSignInPrompt } from '../context/SignInPromptContext'
@@ -604,47 +605,81 @@ export function ChestBench() {
       >
         {s.casesSection}
       </StampedHeading>
-      {/* The claim it always was — plain pill, plain label — only run the
-          full width now that the heading above it is full width too. It
-          hands you a key rather than spending any, so it stays out of the
-          bench card below and off the console styling: mono caps and a lit
-          edge would read as part of a machine this button is not part of. */}
-      <button
-        onClick={handleClaimKey}
-        disabled={claimedToday || isClaiming}
-        aria-label={s.claimDailyKey}
-        className={`relative mb-5 mt-2 flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-          claimedToday
-            ? 'border-white/5 bg-white/[0.03] text-neutral-500 [&>*]:opacity-60'
-            : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-        }`}
-      >
-        <VaultKey tone="key" size={28} />
-        {isClaiming ? s.claimingKey : claimedToday ? formatCountdown(cooldownSecondsLeft) : s.claimDailyKey}
-      </button>
-
-      {/* And the same again for an ad, right under it: the free key first,
-          then the ones you can earn. Quieter than the daily claim — it asks
-          for a minute of your time, so it should not shout over the gift. */}
-      {rewarded.available && (
+      {/* The two free keys, as one plate rather than two loose pills. They
+          give the same thing by different means — one is a gift, one costs a
+          minute of your time — so they share the frame and one grammar read
+          left to right: what it is, where you stand with it, and, hard right,
+          what it pays. Live rows are filled amber and spent ones are not,
+          which is the whole state read at a glance: the gift is filled
+          deeper than the ad because it costs nothing, but an ad you can
+          still watch is plainly a lit button and not a greyed one. */}
+      <div className="mb-5 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
         <button
-          onClick={() => void rewarded.watch()}
-          disabled={rewarded.watching || rewarded.left === 0}
-          aria-label={s.watchAdForKey(rewarded.left)}
-          className={`relative -mt-3 mb-5 flex h-9 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ${
-            rewarded.left === 0
-              ? 'border-white/5 bg-white/[0.02] text-neutral-600'
-              : 'border-white/10 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.06]'
+          onClick={handleClaimKey}
+          disabled={claimedToday || isClaiming}
+          aria-label={s.claimDailyKey}
+          className={`flex h-[52px] w-full items-center gap-2.5 px-3 text-left transition-colors disabled:cursor-not-allowed ${
+            claimedToday ? 'text-neutral-500' : 'bg-amber-500/[0.13] text-amber-100 hover:bg-amber-500/[0.19]'
           }`}
         >
-          <Play size={12} />
-          {rewarded.watching
-            ? s.watchingAd
-            : rewarded.left === 0
-              ? s.adKeysDone
-              : s.watchAdForKey(rewarded.left)}
+          <VaultKey tone="key" size={30} className={claimedToday ? 'opacity-40' : undefined} />
+          <span className="flex-1 text-xs font-semibold leading-tight">
+            {isClaiming ? s.claimingKey : s.claimDailyKey}
+          </span>
+          {/* What it pays, hard right, where the other row's key also sits.
+              Spent, the same column holds the wait instead. */}
+          {claimedToday ? (
+            <span className="text-[13px] font-bold tabular-nums text-neutral-500">
+              {formatCountdown(cooldownSecondsLeft)}
+            </span>
+          ) : (
+            <span className="text-base font-bold text-amber-200">+1</span>
+          )}
         </button>
-      )}
+
+        {rewarded.available && (
+          <>
+            <div className="h-px bg-white/[0.07]" />
+            <button
+              onClick={() => void rewarded.watch()}
+              disabled={rewarded.watching || rewarded.left === 0}
+              aria-label={rewarded.left === 0 ? s.adKeysDone : s.watchAd}
+              className={`flex h-[52px] w-full items-center gap-2.5 px-3 text-left transition-colors disabled:cursor-not-allowed ${
+                rewarded.left === 0
+                  ? 'text-neutral-500'
+                  : 'bg-amber-500/[0.06] text-amber-100/90 hover:bg-amber-500/[0.11]'
+              }`}
+            >
+              <RewardVideoIcon size={28} color={rewarded.left === 0 ? '#6b7280' : '#fcd34d'} />
+              <span className="flex-1 whitespace-nowrap text-xs font-semibold leading-tight">
+                {rewarded.watching ? s.watchingAd : rewarded.left === 0 ? s.adKeysDone : s.watchAd}
+                {/* How many are left of today's, beside the label rather than
+                    off on its own: it qualifies the offer, it is not a second
+                    thing to look at. */}
+                <span className="ml-1.5 text-[11px] font-bold tabular-nums text-neutral-500">
+                  {rewarded.left}/{rewarded.perDay}
+                </span>
+              </span>
+              {rewarded.left === 0 ? (
+                <span className="text-[13px] font-bold tabular-nums text-neutral-500">
+                  {rewarded.resetsIn > 0 ? formatCountdown(rewarded.resetsIn) : ''}
+                </span>
+              ) : (
+                /* Set the way the open button sets its total: the key at
+                   full size with the count beside it, pulled into the empty
+                   space the tilt leaves at its lower right and dropped to
+                   that same line. Not a corner tag like a chest's price —
+                   this is what you are about to be paid, and it reads as a
+                   sentence. */
+                <span className="flex items-center text-xs font-bold text-amber-200">
+                  <VaultKey tone="key" size={34} />
+                  <span className="-ml-1 translate-y-[3px] tabular-nums">×1</span>
+                </span>
+              )}
+            </button>
+          </>
+        )}
+      </div>
       {rewarded.error && <p className="-mt-3 mb-4 text-center text-[11px] text-red-300">{s.adError}</p>}
 
       {/* The rack. Two per row, every chest priced in the one currency. */}

@@ -985,13 +985,22 @@ export const usersRepository = {
   },
 
   /** How many of today's ad keys are already taken. */
+  // Both halves of the daily allowance, and the reset comes from the
+  // database on purpose: the allowance is counted against CURRENT_DATE
+  // here, so only this connection knows what "tomorrow" means. A phone
+  // working it out from its own clock would show the wrong countdown to
+  // anyone whose timezone is not this one's.
   async adKeysUsedToday(id) {
     const { rows } = await database.query(
-      `SELECT CASE WHEN ad_keys_date = CURRENT_DATE THEN ad_keys_today ELSE 0 END AS used
-       FROM users WHERE id = $1`,
+      `SELECT (CURRENT_DATE + 1)::timestamptz AS resets_at,
+              COALESCE(
+                (SELECT CASE WHEN ad_keys_date = CURRENT_DATE THEN ad_keys_today ELSE 0 END
+                 FROM users WHERE id = $1),
+                0
+              ) AS used`,
       [id],
     )
-    return rows[0] ? Number(rows[0].used) : 0
+    return { used: Number(rows[0].used), resetsAt: rows[0].resets_at }
   },
 
   async claimDailyKey(id) {

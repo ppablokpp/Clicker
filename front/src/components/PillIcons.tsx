@@ -82,6 +82,40 @@ export function ChartIcon({ size = 20, color = 'currentColor', className }: Prop
  */
 
 /** Settings: a cog. */
+/**
+ * A rewarded ad: the little screen with a play triangle that every game
+ * puts on this button, drawn with a body and a rim like the rest of these
+ * so it sits beside the key without looking borrowed. The stand is what
+ * carries it at 23px — a rounded rectangle with a triangle in it is a play
+ * button, the same shape on a foot is something you watch.
+ */
+export function RewardVideoIcon({ size = 22, color = 'currentColor', className }: Props) {
+  const uid = useId()
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} className={className} aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={`${uid}-body`} x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.16" />
+        </linearGradient>
+      </defs>
+      {/* the stand, before the body, so the body's outline cuts its post off */}
+      <rect x="42" y="72" width="16" height="13" rx="3" fill={color} opacity="0.35" />
+      <rect x="26" y="83" width="48" height="9" rx="4.5" fill={color} opacity="0.5" />
+      <rect x="26" y="83" width="48" height="9" rx="4.5" fill="none" stroke="#000000" strokeOpacity="0.4" strokeWidth="2.4" />
+      {/* the screen */}
+      <rect x="8" y="12" width="84" height="64" rx="14" fill={`url(#${uid}-body)`} />
+      <rect x="8" y="12" width="84" height="64" rx="14" fill="none" stroke="#000000" strokeOpacity="0.4" strokeWidth="3" />
+      <rect x="16" y="20" width="68" height="48" rx="9" fill="#000000" opacity="0.32" />
+      {/* the play triangle, rounded off the way a button's is */}
+      <path d="M41 32 L66 44 L41 56 Z" fill={color} stroke={color} strokeWidth="7.5" strokeLinejoin="round" />
+      <path d="M41 32 L66 44 L41 56 Z" fill="none" stroke="#000000" strokeOpacity="0.3" strokeWidth="2.4" strokeLinejoin="round" />
+      {/* one highlight, upper left, like every other object here */}
+      <path d="M17 27 A10 10 0 0 1 26 19" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="3.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function GearIcon({ size = 20, className }: Props) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" className={className} aria-hidden="true" focusable="false">
