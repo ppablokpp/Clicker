@@ -1,0 +1,96 @@
+# Builds the iOS app on a Mac in the cloud and sends it to TestFlight.
+#
+# There is no Mac here: Capacitor generates a real Xcode project, and only
+# macOS can compile and sign one. Codemagic rents the Mac for the length of
+# the build and does the signing with the App Store Connect API key, the
+# same key RevenueCat uses.
+#
+# What it does, in order: install the web app's dependencies, build it in
+# `app` mode (the packaged keys, see front/.env.app), copy that build into
+# the iOS project, then archive and upload.
+#
+# The keys are written here from environment variables rather than read
+# from front/.env.app, which is not in the repository. They are all public
+# client keys — they ship inside the app either way — but they still live
+# in Codemagic's own variable group rather than in this file, so rotating
+# one does not mean a commit.
+
+workflows:
+  ios-testflight:
+    name: iOS · TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # Set up once in Codemagic: Teams/Personal → Integrations → Developer
+      # Portal, with the App Store Connect API key (Issuer ID, Key ID, .p8).
+      app_store_connect: ClankUp
+    environment:
+      groups:
+        # Codemagic → the app → Environment variables, group `clankup-app`.
+        - clankup-app
+      vars:
+        XCODE_PROJECT: mobile-capacitor/ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+        BUNDLE_ID: app.clankup
+      node: 20
+      xcode: latest
+      cocoapods: default
+    ios_signing:
+      distribution_type: app_store
+      bundle_identifier: app.clankup
+    triggering:
+      # Built on demand from the Codemagic UI; nothing here fires on push,
+      # so an ordinary commit never spends build minutes.
+      events: []
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci --prefix front
+          npm ci --prefix mobile-capacitor
+      - name: Write front/.env.app from the environment
+        script: |
+          cat > front/.env.app <<EOF
+          VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+          VITE_API_URL=$VITE_API_URL
+          VITE_REVENUECAT_PUBLIC_KEY=$VITE_REVENUECAT_PUBLIC_KEY
+          VITE_GOOGLE_WEB_CLIENT_ID=$VITE_GOOGLE_WEB_CLIENT_ID
+          VITE_GOOGLE_IOS_CLIENT_ID=$VITE_GOOGLE_IOS_CLIENT_ID
+          VITE_REVENUECAT_GOOGLE_KEY=$VITE_REVENUECAT_GOOGLE_KEY
+          VITE_REVENUECAT_APPLE_KEY=$VITE_REVENUECAT_APPLE_KEY
+          EOF
+          # The ad units are only set on a real release; unset, the app
+          # shows Google's test ads (see front/src/lib/ads.ts).
+          if [ -n "$VITE_ADMOB_REWARDED_IOS" ]; then
+            echo "VITE_ADMOB_REWARDED_IOS=$VITE_ADMOB_REWARDED_IOS" >> front/.env.app
+          fi
+      - name: Build the web app and copy it into the iOS project
+        script: |
+          cd mobile-capacitor
+          npm run build:web
+          npx cap sync ios
+      - name: Build number, one past whatever TestFlight already has
+        script: |
+          cd mobile-capacitor/ios/App
+          BUILD=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0) + 1))
+          agvtool new-version -all "$BUILD"
+      - name: Fetch the signing files and archive
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Straight to TestFlight's internal testers; nothing is submitted
+        # for review from here.
+        submit_to_testflight: true
+      email:
+        recipients:
+          - soporteclankup@gmail.com
+        notify:
+          success: true
+          failure: true
