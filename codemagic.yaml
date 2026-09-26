@@ -25,6 +25,13 @@ workflows:
       # Portal, with the App Store Connect API key (Issuer ID, Key ID, .p8).
       app_store_connect: ClankUp
     environment:
+      # Signing: Codemagic fetches (or creates) the distribution certificate
+      # and the provisioning profile through the integration above. It lives
+      # under `environment`, not beside it — the schema rejects it anywhere
+      # else with "extra fields not permitted".
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.clankup
       groups:
         # Codemagic → the app → Environment variables, group `clankup-app`.
         - clankup-app
@@ -34,16 +41,12 @@ workflows:
         BUNDLE_ID: app.clankup
       # 22, not 20: Vite 8 wants ^20.19 or >=22.12, and this is the runtime
       # the app is developed and built on locally.
-      node: 22
+      node: '22'
       xcode: latest
       cocoapods: default
-    ios_signing:
-      distribution_type: app_store
-      bundle_identifier: app.clankup
-    triggering:
-      # Built on demand from the Codemagic UI; nothing here fires on push,
-      # so an ordinary commit never spends build minutes.
-      events: []
+    # No `triggering` block at all, which is what keeps this manual: a
+    # workflow with no triggers only ever runs from the Start new build
+    # button, so an ordinary push never spends build minutes.
     scripts:
       - name: Install dependencies
         script: |
