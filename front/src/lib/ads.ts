@@ -101,16 +101,8 @@ function ensureStarted(): Promise<unknown> {
   return started
 }
 
-/**
- * Whether the button should be there at all.
- *
- * In a browser it should not: there is no AdMob on the web. The one
- * exception is `npm run dev`, where it is shown anyway so the button can be
- * laid out and looked at on a screen big enough to work on — a built app
- * never takes this branch, since Vite replaces `import.meta.env.DEV` with
- * `false` and drops the rest.
- */
-export const adsAvailable = (): boolean => isNativeApp() || import.meta.env.DEV
+/** Whether the button should be there at all. */
+export const adsAvailable = (): boolean => isNativeApp()
 
 /**
  * Shows one rewarded ad and resolves when it has been watched through.
@@ -119,14 +111,7 @@ export const adsAvailable = (): boolean => isNativeApp() || import.meta.env.DEV
  * why the caller re-reads its keys rather than trusting a return value.
  */
 export async function showRewardedAd(userId: string): Promise<void> {
-  if (!isNativeApp()) {
-    // The button is on screen in `npm run dev` for layout work only (see
-    // adsAvailable). Pressing it there behaves like an ad closed early —
-    // nothing happens, and no error is shown for something that was never
-    // going to work in a browser.
-    if (import.meta.env.DEV) throw new RewardSkipped()
-    throw new Error('Los anuncios solo están en la app')
-  }
+  if (!isNativeApp()) throw new Error('Los anuncios solo están en la app')
   await ensureStarted()
 
   const { id, testing } = rewardedUnitId()
