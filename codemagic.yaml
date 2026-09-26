@@ -32,7 +32,9 @@ workflows:
         XCODE_PROJECT: mobile-capacitor/ios/App/App.xcodeproj
         XCODE_SCHEME: App
         BUNDLE_ID: app.clankup
-      node: 20
+      # 22, not 20: Vite 8 wants ^20.19 or >=22.12, and this is the runtime
+      # the app is developed and built on locally.
+      node: 22
       xcode: latest
       cocoapods: default
     ios_signing:
