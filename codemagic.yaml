@@ -58,11 +58,14 @@ workflows:
           VITE_REVENUECAT_GOOGLE_KEY=$VITE_REVENUECAT_GOOGLE_KEY
           VITE_REVENUECAT_APPLE_KEY=$VITE_REVENUECAT_APPLE_KEY
           EOF
-          # The ad units are only set on a real release; unset, the app
-          # shows Google's test ads (see front/src/lib/ads.ts).
-          if [ -n "$VITE_ADMOB_REWARDED_IOS" ]; then
-            echo "VITE_ADMOB_REWARDED_IOS=$VITE_ADMOB_REWARDED_IOS" >> front/.env.app
-          fi
+          # Ads: the unit id is ours, but nothing is served live until
+          # VITE_ADMOB_LIVE is 'true' — and the reward's callback only fires
+          # for devices listed in VITE_ADMOB_TEST_DEVICES until then (see
+          # front/src/lib/ads.ts). All three are optional here.
+          for v in VITE_ADMOB_REWARDED_IOS VITE_ADMOB_TEST_DEVICES VITE_ADMOB_LIVE; do
+            eval "value=\$$v"
+            if [ -n "$value" ]; then echo "$v=$value" >> front/.env.app; fi
+          done
       - name: Build the web app and copy it into the iOS project
         script: |
           cd mobile-capacitor

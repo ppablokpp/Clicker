@@ -1,5 +1,6 @@
 import { SocialLogin } from '@capgo/capacitor-social-login'
 import type { useClerk } from '@clerk/clerk-react'
+import { nativePlatform } from './native'
 
 /** The Clerk instance, as the hook hands it out. */
 type ClerkInstance = ReturnType<typeof useClerk>
@@ -43,8 +44,13 @@ function ensureInitialized() {
       iOSServerClientId: WEB_CLIENT_ID,
       mode: 'online',
     },
-    // iOS reads the app's own entitlement, so Apple needs no client id here.
-    apple: {},
+    // Apple, and only on the iPhone, where it signs through the system and
+    // needs nothing configured beyond the app's own entitlement. Passing
+    // the key at all on Android makes the plugin demand a Services ID and
+    // a redirect URL for its browser flow, and it refuses to initialise
+    // without them — taking Google's button down with it, since this one
+    // call sets up both.
+    ...(nativePlatform() === 'ios' ? { apple: {} } : {}),
   })
   return initialized
 }

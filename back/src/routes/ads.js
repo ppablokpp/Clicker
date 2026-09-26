@@ -73,20 +73,31 @@ async function verifyAdmobCallback(rawQuery) {
   return { userId }
 }
 
-// GET /api/ads/ssv?...  — AdMob's own callback. Answers 200 whatever
-// happens once the signature checks out: a non-200 makes Google retry, and
-// a player who has already had their three today is not an error to retry.
+// GET /api/ads/ssv?...  — AdMob's own callback.
+//
+// It answers 200 to everything, refusals included. Nothing is granted
+// without a valid signature (see above) — the status code is not what
+// protects the endpoint, and saying so out loud helps nobody: AdMob pings
+// the URL when it is saved in the console and refuses one that answers
+// anything else, and in normal operation a non-2xx just makes Google retry
+// a callback that will be refused again for the same reason. Refusals are
+// logged instead; `fly logs | grep SSV` is where they are read.
 adsRouter.get('/ssv', async (req, res) => {
+  // Answered first, so a slow database or an unreachable Google never turns
+  // into a retry storm.
+  res.status(200).send('ok')
   try {
     const rawQuery = req.originalUrl.split('?')[1] ?? ''
     const verified = await verifyAdmobCallback(rawQuery)
-    if (!verified) return res.status(403).send('invalid')
+    if (!verified) return
     const result = await usersRepository.grantAdKey(verified.userId)
-    if (!result.ok) console.log(`AdMob SSV: no key for ${verified.userId} (${result.reason})`)
-    res.status(200).send('ok')
+    console.log(
+      result.ok
+        ? `AdMob SSV: key granted to ${verified.userId}`
+        : `AdMob SSV: no key for ${verified.userId} (${result.reason})`,
+    )
   } catch (err) {
     console.error('AdMob SSV failed', err)
-    res.status(500).send('error')
   }
 })
 
