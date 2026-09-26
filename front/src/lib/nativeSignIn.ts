@@ -27,12 +27,22 @@ type ClerkInstance = ReturnType<typeof useClerk>
  */
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const WEB_CLIENT_ID = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined
+// iOS signs in through Google's own SDK, which wants the app's own OAuth
+// client (an iOS one, bound to the bundle id) and not the Web one. The Web
+// client still travels as the server client id: that is the audience Clerk
+// and our back check the resulting token against.
+const IOS_CLIENT_ID = import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID as string | undefined
 
 let initialized: Promise<void> | null = null
 function ensureInitialized() {
   if (!WEB_CLIENT_ID) throw new Error('Falta VITE_GOOGLE_WEB_CLIENT_ID para el inicio de sesión nativo con Google')
   initialized ??= SocialLogin.initialize({
-    google: { webClientId: WEB_CLIENT_ID, iOSServerClientId: WEB_CLIENT_ID, mode: 'online' },
+    google: {
+      webClientId: WEB_CLIENT_ID,
+      iOSClientId: IOS_CLIENT_ID,
+      iOSServerClientId: WEB_CLIENT_ID,
+      mode: 'online',
+    },
     // iOS reads the app's own entitlement, so Apple needs no client id here.
     apple: {},
   })

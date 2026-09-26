@@ -516,12 +516,45 @@ export function ClickPacksModal({ strings, currentMaterialName, materialColors, 
   )
 }
 
-// Same idea for gems, and for keys below.
-const GEM_PACK_DISCOUNTS: Record<string, number> = { x50_gems: 20, x100_gems: 20 }
-// Lots that carry the bulk discount, and by how much. Kept as data next to
-// the component rather than as an id compared inline in the JSX — that is
-// how x100 ended up without its badge while x50 had one.
-const KEY_PACK_DISCOUNTS: Record<string, number> = { x50_keys: 10, x100_keys: 10 }
+/**
+ * What a lot saves per unit against the smallest one, worked out from the
+ * prices the store actually returned.
+ *
+ * It used to be a table of percentages written by hand, which was true of
+ * Google Play's prices and of nothing else: the same badge would have
+ * claimed 20% on the App Store while the real saving there was 25%. Every
+ * store prices its own way, and each currency rounds differently, so the
+ * only number that cannot drift is the one computed from what the player
+ * is being charged.
+ *
+ * Measured against the smallest lot, the way a shelf price is. Against the
+ * next size down instead, the two big lots would usually tie — they are
+ * normally priced the same per unit — and the biggest would lose its badge
+ * for it. Whole numbers only: a percentage with decimals reads as a
+ * calculation rather than as an offer.
+ *
+ * `amounts` is keyed by pack id, in currency micro-units.
+ */
+function bulkSavingsPct(
+  catalog: readonly { id: string; amount: number }[],
+  amounts: Record<string, number>,
+  index: number,
+): number {
+  const pack = catalog[index]
+  const base = catalog[0]
+  if (index === 0 || !pack || !base) return 0
+  const price = amounts[pack.id]
+  const basePrice = amounts[base.id]
+  if (!price || !basePrice) return 0
+  const exact = (1 - price / pack.amount / (basePrice / base.amount)) * 100
+  // To the nearest five, the way a shelf sign is written: the arithmetic
+  // lands on 19.2 or 39.4 and "Ahorra 19%" reads as a calculation rather
+  // than an offer. Nearest, not up, so a lot is never flattered by more
+  // than a couple of points.
+  const pct = Math.round(exact / 5) * 5
+  // Under a twentieth is rounding, not an offer.
+  return pct >= 5 ? pct : 0
+}
 
 interface KeyPacksModalProps {
   locale: string
@@ -530,7 +563,7 @@ interface KeyPacksModalProps {
 }
 
 function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
-  const { catalog, prices, buyingId, buy } = useKeyPacksContext()
+  const { catalog, prices, priceAmountsMicros, buyingId, buy } = useKeyPacksContext()
   const [error, setError] = useState<string | null>(null)
   useLockBodyScroll(true)
 
@@ -588,7 +621,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
           {catalog.map((pack, i) => {
             const priceLabel = prices[pack.id]
             const disabled = buyingId !== null || !priceLabel
-            const discount = KEY_PACK_DISCOUNTS[pack.id]
+            const discount = bulkSavingsPct(catalog, priceAmountsMicros, i)
             return (
               <button
                 key={pack.id}
@@ -609,7 +642,7 @@ function KeyPacksModal({ locale, strings, onClose }: KeyPacksModalProps) {
 
                 <span className="relative">
                   <GemContainer kind={keyContainerFor(i)} contents="keys" size={GOODS_SIZE} />
-                  {discount !== undefined && (
+                  {discount > 0 && (
                     <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#E8A33D] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#2A1A06] shadow-md shadow-black/50">
                       {strings.savingsBadge(discount)}
                     </span>
@@ -642,7 +675,7 @@ export interface GemPacksModalProps {
 }
 
 export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) {
-  const { catalog, prices, buyingId, buy } = useGemPacksContext()
+  const { catalog, prices, priceAmountsMicros, buyingId, buy } = useGemPacksContext()
   const [error, setError] = useState<string | null>(null)
   useLockBodyScroll(true)
 
@@ -708,7 +741,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
           {catalog.map((pack, i) => {
             const priceLabel = prices[pack.id]
             const disabled = buyingId !== null || !priceLabel
-            const discount = GEM_PACK_DISCOUNTS[pack.id]
+            const discount = bulkSavingsPct(catalog, priceAmountsMicros, i)
             return (
               <button
                 key={pack.id}
@@ -732,7 +765,7 @@ export function GemPacksModal({ locale, strings, onClose }: GemPacksModalProps) 
 
                 <span className="relative">
                   <GemContainer kind={gemContainerFor(i)} size={GOODS_SIZE} />
-                  {discount !== undefined && (
+                  {discount > 0 && (
                     <span className="absolute -right-1 bottom-3 rotate-[8deg] rounded-sm bg-[#A5B4FC] px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-[#1B1B3A] shadow-md shadow-black/50">
                       {strings.savingsBadge(discount)}
                     </span>

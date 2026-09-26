@@ -26,8 +26,7 @@ const TEST_REWARDED = {
 function rewardedUnitId(): { id: string; testing: boolean } {
   const ios = nativePlatform() === 'ios'
   const real = (ios ? import.meta.env.VITE_ADMOB_REWARDED_IOS : import.meta.env.VITE_ADMOB_REWARDED_ANDROID) as
-    | string
-    | undefined
+    string | undefined
   if (real) return { id: real, testing: false }
   return { id: ios ? TEST_REWARDED.ios : TEST_REWARDED.android, testing: true }
 }
@@ -35,27 +34,40 @@ function rewardedUnitId(): { id: string; testing: boolean } {
 /** Thrown when the player closes the ad early; not an error to show. */
 export class RewardSkipped extends Error {}
 
-let started: Promise<void> | null = null
-function ensureStarted() {
-  started ??= AdMob.initialize({
-    // Europe needs a consent prompt before a personalised ad, and Google's
-    // own form is the supported way to get one; `true` shows it when the
-    // rules require it and does nothing where they do not.
-    initializeForTesting: false,
-    tagForChildDirectedTreatment: false,
-    tagForUnderAgeOfConsent: false,
-  }).then(async () => {
-    try {
-      const info = await AdMob.requestConsentInfo()
-      if (info.isConsentFormAvailable && info.status === 'REQUIRED') {
-        await AdMob.showConsentForm()
+let started: Promise<unknown> | null = null
+function ensureStarted(): Promise<unknown> {
+  started ??= (async () => {
+    // iOS asks before an app may read the advertising identifier. Ask
+    // first, then start: AdMob reads the answer when it initialises, and
+    // a refusal only means non-personalised ads.
+    if (nativePlatform() === 'ios') {
+      try {
+        const { status } = await AdMob.trackingAuthorizationStatus()
+        if (status === 'notDetermined') await AdMob.requestTrackingAuthorization()
+      } catch (err) {
+        console.warn('No se pudo pedir el permiso de seguimiento', err)
       }
-    } catch (err) {
-      // No consent form is not a reason to refuse the ad: Google falls back
-      // to a non-personalised one.
-      console.warn('No se pudo mostrar el formulario de consentimiento', err)
     }
-  })
+    return AdMob.initialize({
+      // Europe needs a consent prompt before a personalised ad, and Google's
+      // own form is the supported way to get one; `true` shows it when the
+      // rules require it and does nothing where they do not.
+      initializeForTesting: false,
+      tagForChildDirectedTreatment: false,
+      tagForUnderAgeOfConsent: false,
+    }).then(async () => {
+      try {
+        const info = await AdMob.requestConsentInfo()
+        if (info.isConsentFormAvailable && info.status === 'REQUIRED') {
+          await AdMob.showConsentForm()
+        }
+      } catch (err) {
+        // No consent form is not a reason to refuse the ad: Google falls back
+        // to a non-personalised one.
+        console.warn('No se pudo mostrar el formulario de consentimiento', err)
+      }
+    })
+  })()
   return started
 }
 

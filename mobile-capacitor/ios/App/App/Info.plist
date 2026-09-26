@@ -64,6 +64,28 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Google's iOS sign-in hands control back through this scheme: the
+	     iOS OAuth client id with its parts reversed (see
+	     VITE_GOOGLE_IOS_CLIENT_ID in front/.env.app). Without it the
+	     account sheet opens and never returns. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.52178825824-ro488a38sbk9vvk0p9ulsotdit88g6jn</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Apple asks before an app may read the advertising identifier, and
+	     AdMob is the only reason this app would. Refusing is fine: the ads
+	     simply stop being personalised. -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Se usa para mostrarte anuncios más relevantes cuando ves uno para conseguir llaves. Puedes negarte y seguirás viendo anuncios, solo que no personalizados.</string>
+	<!-- The app uses no encryption of its own beyond standard HTTPS, which
+	     is exempt; declaring it here saves the question on every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- AdMob (see the Android manifest for the same note). -->
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-5237916274591646~1009458128</string>
