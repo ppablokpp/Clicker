@@ -6,6 +6,7 @@ import { accrueProduction } from './treeRepository.js'
 import { settle as settleCore } from './refineryRepository.js'
 import { CORES_PER_TIER } from '../game/refinery.js'
 import { SIGNIN_CHEST_REWARD } from '../store/chestBench.js'
+import { AD_KEYS_PER_AD, AD_KEYS_PER_DAY } from '../store/rewardedAds.js'
 
 // Applies to both chest types â€” buying more than this just sits unopened,
 // so it's a soft cap on hoarding rather than a scarcity mechanic.
@@ -936,6 +937,63 @@ export const usersRepository = {
   // Once per calendar day, grants exactly one key â€” the same cooldown
   // mechanic the free case used to have, just moved here so the case itself
   // stays freely repeatable and keys are what's actually rationed.
+  /**
+   * A key for a rewarded ad, with the day's allowance enforced here rather
+   * than on the phone — reinstalling the app must not hand anyone a fresh
+   * three. The date column doubles as the reset: a row whose ad_keys_date
+   * is not today has, by definition, none used today.
+   *
+   * Called from AdMob's own callback (routes/ads.js), never from the
+   * client: the phone is not a witness to an ad having been watched.
+   */
+  async grantAdKey(id) {
+    const client = await database.getClient()
+    try {
+      await client.query('BEGIN')
+      const row = await client.query(
+        `SELECT CASE WHEN ad_keys_date = CURRENT_DATE THEN ad_keys_today ELSE 0 END AS used
+         FROM users WHERE id = $1 FOR UPDATE`,
+        [id],
+      )
+      if (!row.rows[0]) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'not-found' }
+      }
+      const used = Number(row.rows[0].used)
+      if (used >= AD_KEYS_PER_DAY) {
+        await client.query('ROLLBACK')
+        return { ok: false, reason: 'daily-limit' }
+      }
+      const updated = await client.query(
+        `UPDATE users
+         SET keys = keys + $2,
+             ad_keys_date = CURRENT_DATE,
+             ad_keys_today = $3,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING keys`,
+        [id, AD_KEYS_PER_AD, used + 1],
+      )
+      await client.query('COMMIT')
+      return { ok: true, keys: Number(updated.rows[0].keys), used: used + 1 }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
+  /** How many of today's ad keys are already taken. */
+  async adKeysUsedToday(id) {
+    const { rows } = await database.query(
+      `SELECT CASE WHEN ad_keys_date = CURRENT_DATE THEN ad_keys_today ELSE 0 END AS used
+       FROM users WHERE id = $1`,
+      [id],
+    )
+    return rows[0] ? Number(rows[0].used) : 0
+  },
+
   async claimDailyKey(id) {
     const client = await database.getClient()
     try {

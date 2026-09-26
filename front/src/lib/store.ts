@@ -80,10 +80,39 @@ export async function getStore(userId: string | null | undefined): Promise<Store
 }
 
 // ── the web: RevenueCat Web Billing ──
+
+/** Where a guest browser keeps the id RevenueCat knows it by. */
+const GUEST_ID_KEY = 'clankup_rc_guest_id'
+
+/**
+ * One anonymous id per browser, not one per call.
+ *
+ * RevenueCat's generator mints a fresh id every time it is asked, and a
+ * guest builds the store once per shop context (gems, keys, the case, the
+ * upgrades) on every visit — so asking it each time turned one visitor
+ * into a handful of new customers a day, hundreds of them against a
+ * couple of dozen real players. Kept in storage, a browser is one
+ * customer. Nothing is bought under it (a guest is sent to sign in first);
+ * it exists so prices can be read at all.
+ */
+function guestAppUserId(generate: () => string): string {
+  try {
+    const stored = localStorage.getItem(GUEST_ID_KEY)
+    if (stored) return stored
+    const fresh = generate()
+    localStorage.setItem(GUEST_ID_KEY, fresh)
+    return fresh
+  } catch {
+    // Private windows and blocked storage: back to one per call, which is
+    // the old behaviour and still works.
+    return generate()
+  }
+}
+
 async function webStore(userId: string | null): Promise<Store> {
   const { Purchases, PurchasesError, ErrorCode } = await import('@revenuecat/purchases-js')
   type Package = import('@revenuecat/purchases-js').Package
-  const appUserId = userId ?? Purchases.generateRevenueCatAnonymousAppUserId()
+  const appUserId = userId ?? guestAppUserId(Purchases.generateRevenueCatAnonymousAppUserId)
   if (!Purchases.isConfigured()) {
     Purchases.configure({ apiKey: WEB_KEY!, appUserId })
   } else if (Purchases.getSharedInstance().getAppUserId() !== appUserId) {

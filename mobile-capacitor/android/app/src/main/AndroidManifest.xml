@@ -20,6 +20,15 @@
             </intent-filter>
         </activity>
 
+        <!-- AdMob refuses to start without this, and a missing one
+             crashes the app on launch rather than just failing to show an
+             ad. Google's own sample id while the game is not published:
+             swap it for the real App ID (AdMob → Apps → App settings) the
+             day ads go live, together with VITE_ADMOB_REWARDED_ANDROID. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

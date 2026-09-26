@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
-import { Loader2, Minus, Plus, X } from 'lucide-react'
+import { Loader2, Minus, Play, Plus, X } from 'lucide-react'
 import { AstronautPieceById } from './AstronautPiecePreview'
 import { GemIcon, MineralIcon } from './MaterialIcons'
 import { ChestCatalogModal } from './ChestCatalogModal'
@@ -12,6 +12,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { useAppAuth } from '../hooks/useAppAuth'
 import { useSignInPrompt } from '../context/SignInPromptContext'
 import { useKeysContext } from '../context/KeysContext'
+import { useRewardedKey } from '../hooks/useRewardedKey'
 import { useGemsContext } from '../context/GemsContext'
 import { useCosmetics } from '../context/CosmeticsContext'
 import { useDailyKeyContext } from '../context/DailyKeyContext'
@@ -275,6 +276,9 @@ export function ChestBench() {
   const { userId, getToken } = useAppAuth()
   const { promptSignIn } = useSignInPrompt()
   const { keys, syncKeys } = useKeysContext()
+  // Watch an ad, get a key — inside the app only, and never more than the
+  // day's allowance (the server keeps that count, see routes/ads.js).
+  const rewarded = useRewardedKey()
   // How many chests of each kind this account is holding. Only the two style
   // ones cover their own key cost on this bench; material and gems are stock
   // the daily case spends elsewhere, so their count is shown but never
@@ -618,6 +622,30 @@ export function ChestBench() {
         <VaultKey tone="key" size={28} />
         {isClaiming ? s.claimingKey : claimedToday ? formatCountdown(cooldownSecondsLeft) : s.claimDailyKey}
       </button>
+
+      {/* And the same again for an ad, right under it: the free key first,
+          then the ones you can earn. Quieter than the daily claim — it asks
+          for a minute of your time, so it should not shout over the gift. */}
+      {rewarded.available && (
+        <button
+          onClick={() => void rewarded.watch()}
+          disabled={rewarded.watching || rewarded.left === 0}
+          aria-label={s.watchAdForKey(rewarded.left)}
+          className={`relative -mt-3 mb-5 flex h-9 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ${
+            rewarded.left === 0
+              ? 'border-white/5 bg-white/[0.02] text-neutral-600'
+              : 'border-white/10 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.06]'
+          }`}
+        >
+          <Play size={12} />
+          {rewarded.watching
+            ? s.watchingAd
+            : rewarded.left === 0
+              ? s.adKeysDone
+              : s.watchAdForKey(rewarded.left)}
+        </button>
+      )}
+      {rewarded.error && <p className="-mt-3 mb-4 text-center text-[11px] text-red-300">{s.adError}</p>}
 
       {/* The rack. Two per row, every chest priced in the one currency. */}
       <div className="relative mb-4 grid grid-cols-2 gap-3">

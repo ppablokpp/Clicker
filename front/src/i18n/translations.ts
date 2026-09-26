@@ -355,6 +355,11 @@ export interface TranslationStrings {
     buyChest: string
     chestLimitReached: string
     claimDailyKey: string
+  /** The rewarded-ad button: `left` is how many are still allowed today. */
+  watchAdForKey: (left: number) => string
+  watchingAd: string
+  adKeysDone: string
+  adError: string
     keyClaimedToday: string
     claimingKey: string
     buyClicksTitle: (materialName: string) => string
@@ -801,8 +806,8 @@ export const translations: Record<Language, TranslationStrings> = {
       privacy: [
         { heading: "Quién trata tus datos", paragraphs: ["ClankUp es un juego desarrollado de forma independiente. El responsable del tratamiento de los datos es su desarrollador, con quien puedes contactar en {email}."] },
         { heading: "Qué datos recogemos", paragraphs: ["Si juegas como invitado no te pedimos ningún dato personal. El juego genera un identificador anónimo que se guarda en tu dispositivo para conservar tu progreso.", "Si inicias sesión con Google recibimos tu dirección de correo, tu nombre y la imagen de tu perfil de Google, a través de nuestro proveedor de identidad (Clerk). Los usamos para crear tu cuenta y mostrar tu nombre de usuario en la clasificación.", "Mientras juegas guardamos tu progreso: minerales extraídos, mejoras, cosméticos, estadísticas y los días en que has jugado. Este progreso se asocia a tu cuenta o a tu identificador anónimo.", "Si realizas una compra dentro de la app, el pago lo gestiona Google Play o App Store. Nosotros no vemos ni almacenamos tus datos de pago; solo recibimos, a través de RevenueCat, la confirmación de la compra y un identificador de comprador para entregarte lo adquirido."] },
-        { heading: "Para qué los usamos", paragraphs: ["Para que el juego funcione: guardar tu progreso, sincronizarlo entre dispositivos, mostrar la clasificación y entregar las compras.", "Para mantener el juego seguro y justo, por ejemplo detectando trampas o abusos.", "No vendemos tus datos ni los usamos para publicidad personalizada. Si en el futuro mostramos anuncios, actualizaremos esta política antes."] },
-        { heading: "Con quién los compartimos", paragraphs: ["Solo con los proveedores que necesitamos para operar el juego: Clerk (inicio de sesión), RevenueCat (compras), Google Play y App Store (pagos) y nuestros proveedores de alojamiento de servidores y base de datos. Cada uno trata los datos según su propia política de privacidad y solo para prestarnos su servicio.", "Tu nombre de usuario, tu astronauta y tus estadísticas públicas son visibles para otros jugadores en la clasificación y en tu perfil público."] },
+        { heading: "Para qué los usamos", paragraphs: ["Para que el juego funcione: guardar tu progreso, sincronizarlo entre dispositivos, mostrar la clasificación y entregar las compras.", "Para mantener el juego seguro y justo, por ejemplo detectando trampas o abusos.", "No vendemos tus datos.", "Dentro de la app puedes ver un anuncio para conseguir una llave extra. Esos anuncios los sirve Google AdMob, que recibe el identificador de publicidad de tu dispositivo y datos técnicos para mostrarlos y evitar fraude. En la Unión Europea te pediremos tu consentimiento antes, y puedes cambiarlo cuando quieras; sin él verás anuncios no personalizados. Nunca compartimos con AdMob tu correo ni tu progreso."] },
+        { heading: "Con quién los compartimos", paragraphs: ["Solo con los proveedores que necesitamos para operar el juego: Clerk (inicio de sesión), RevenueCat (compras), Google Play y App Store (pagos), Google AdMob (los anuncios con recompensa) y nuestros proveedores de alojamiento de servidores y base de datos. Cada uno trata los datos según su propia política de privacidad y solo para prestarnos su servicio.", "Tu nombre de usuario, tu astronauta y tus estadísticas públicas son visibles para otros jugadores en la clasificación y en tu perfil público."] },
         { heading: "Cuánto tiempo los guardamos", paragraphs: ["Mientras tengas cuenta o sigas jugando como invitado. Si eliminas tu cuenta, borramos tus datos personales y tu progreso en un plazo de 30 días, salvo lo que debamos conservar por obligación legal (por ejemplo, registros de compras)."] },
         { heading: "Tus derechos", paragraphs: ["Puedes acceder a tus datos, corregirlos, pedir que los borremos o solicitar una copia escribiendo a {email}. Si has iniciado sesión con Google, también puedes retirar el acceso desde la configuración de tu cuenta de Google. Si estás en la Unión Europea, puedes reclamar ante tu autoridad de protección de datos."] },
         { heading: "Menores", paragraphs: ["ClankUp no está dirigido a menores de 13 años y no recogemos a sabiendas datos de menores de esa edad. Si crees que un menor nos ha facilitado datos, escríbenos y los eliminaremos."] },
@@ -1225,6 +1230,10 @@ export const translations: Record<Language, TranslationStrings> = {
       buyChest: 'Comprar cofre',
       chestLimitReached: 'Ya tienes el máximo de cofres',
       claimDailyKey: 'Reclamar llave gratis diaria',
+      watchAdForKey: (left) => `Ver un anuncio · +1 llave (${left} hoy)`,
+      watchingAd: 'Cargando anuncio…',
+      adKeysDone: 'Vuelve mañana a por más llaves',
+      adError: 'No hay anuncios disponibles ahora mismo.',
       keyClaimedToday: 'Llave diaria reclamada',
       claimingKey: 'Reclamando…',
       buyClicksTitle: (materialName) => `Comprar ${materialName.toLowerCase()}`,
@@ -1767,8 +1776,8 @@ export const translations: Record<Language, TranslationStrings> = {
       privacy: [
         { heading: "Who handles your data", paragraphs: ["ClankUp is an independently developed game. The data controller is its developer, who you can reach at {email}."] },
         { heading: "What we collect", paragraphs: ["If you play as a guest we ask for no personal data. The game generates an anonymous identifier, stored on your device, to keep your progress.", "If you sign in with Google we receive your email address, your name and your Google profile picture through our identity provider (Clerk). We use them to create your account and to show your username on the leaderboard.", "As you play we store your progress: minerals extracted, upgrades, cosmetics, statistics and the days you played. This progress is tied to your account or to your anonymous identifier.", "If you make an in-app purchase, the payment is handled by Google Play or the App Store. We never see or store your payment details; through RevenueCat we only receive the purchase confirmation and a buyer identifier so we can deliver what you bought."] },
-        { heading: "What we use it for", paragraphs: ["To run the game: saving your progress, syncing it across devices, showing the leaderboard and delivering purchases.", "To keep the game safe and fair, for example by detecting cheating or abuse.", "We do not sell your data or use it for personalised advertising. If we show ads in the future, we will update this policy first."] },
-        { heading: "Who we share it with", paragraphs: ["Only with the providers we need to run the game: Clerk (sign-in), RevenueCat (purchases), Google Play and the App Store (payments) and our server and database hosting providers. Each handles data under its own privacy policy and only to provide its service to us.", "Your username, your astronaut and your public statistics are visible to other players on the leaderboard and on your public profile."] },
+        { heading: "What we use it for", paragraphs: ["To run the game: saving your progress, syncing it across devices, showing the leaderboard and delivering purchases.", "To keep the game safe and fair, for example by detecting cheating or abuse.", "We do not sell your data.", "Inside the app you can watch an ad to earn an extra key. Those ads are served by Google AdMob, which receives your device advertising identifier and technical data to show them and prevent fraud. In the European Union we ask for your consent first, and you can change it whenever you like; without it you will see non-personalised ads. We never share your email or your progress with AdMob."] },
+        { heading: "Who we share it with", paragraphs: ["Only with the providers we need to run the game: Clerk (sign-in), RevenueCat (purchases), Google Play and the App Store (payments), Google AdMob (the rewarded ads) and our server and database hosting providers. Each handles data under its own privacy policy and only to provide its service to us.", "Your username, your astronaut and your public statistics are visible to other players on the leaderboard and on your public profile."] },
         { heading: "How long we keep it", paragraphs: ["For as long as you have an account or keep playing as a guest. If you delete your account we erase your personal data and progress within 30 days, except what we must keep by law (for example, purchase records)."] },
         { heading: "Your rights", paragraphs: ["You can access your data, correct it, ask us to delete it or request a copy by writing to {email}. If you signed in with Google you can also revoke access from your Google account settings. If you are in the European Union you may lodge a complaint with your data protection authority."] },
         { heading: "Children", paragraphs: ["ClankUp is not directed at children under 13 and we do not knowingly collect data from them. If you believe a child has given us data, write to us and we will delete it."] },
@@ -2187,6 +2196,10 @@ export const translations: Record<Language, TranslationStrings> = {
       buyChest: 'Buy chest',
       chestLimitReached: "You've hit the chest limit",
       claimDailyKey: 'Claim free daily key',
+      watchAdForKey: (left) => `Watch an ad · +1 key (${left} today)`,
+      watchingAd: 'Loading ad…',
+      adKeysDone: 'Come back tomorrow for more keys',
+      adError: 'No ads available right now.',
       keyClaimedToday: 'Daily key claimed',
       claimingKey: 'Claiming…',
       buyClicksTitle: (materialName) => `Buy ${materialName.toLowerCase()}`,

@@ -14,6 +14,7 @@ import { tasksRouter } from './routes/tasks.js'
 import { eventsRouter } from './routes/events.js'
 import { dailyCaseRouter } from './routes/dailyCase.js'
 import { dailyKeyRouter } from './routes/dailyKey.js'
+import { adsRouter } from './routes/ads.js'
 import { moneyCaseRouter } from './routes/moneyCase.js'
 import { gemCaseRouter } from './routes/gemCase.js'
 import { gemChestRouter } from './routes/gemChest.js'
@@ -92,6 +93,7 @@ app.use('/api/tasks', tasksRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/daily-case', dailyCaseRouter)
 app.use('/api/daily-key', dailyKeyRouter)
+app.use('/api/ads', adsRouter)
 app.use('/api/money-case', moneyCaseRouter)
 app.use('/api/gem-case', gemCaseRouter)
 app.use('/api/gem-chest', gemChestRouter)

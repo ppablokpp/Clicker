@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.1.0",
     "@capacitor/core": "^8.5.2",
     "@capacitor/local-notifications": "^8.3.1",
     "@capgo/capacitor-social-login": "^8.5.10",
