@@ -1371,7 +1371,7 @@ export function Home() {
           wordmark, language toggle, avatar — is gone, its pieces living in
           the profile screen instead). The tab bar carries a matching
           cockpit look on every screen. */}
-      <div data-tutorial="home-hud" className="pointer-events-none absolute inset-x-0 top-0 z-10 pt-3 sm:pt-4">
+      <div data-tutorial="home-hud" className="safe-hud pointer-events-none absolute inset-x-0 top-0 z-10 pt-3 sm:pt-4">
         <div className="relative mx-auto w-full max-w-md px-3 sm:max-w-lg sm:px-4">
           <div
             className="relative overflow-hidden rounded-t-sm border border-white/10 bg-gradient-to-b from-[#15151d] via-[#0e0e15] to-[#0a0a10] shadow-[0_10px_34px_-10px_rgba(0,0,0,0.75)]"

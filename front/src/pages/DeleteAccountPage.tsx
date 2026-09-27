@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { forgetNativeProvider } from '../lib/nativeSignIn'
+import { clearNativeClerkSession } from '../lib/clerkNativeSession'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
 import { ChevronLeft, Trash2, X } from 'lucide-react'
@@ -43,6 +45,8 @@ export function DeleteAccountPage() {
       })
       if (!res.ok) throw new Error(`DELETE me failed: ${res.status}`)
       clearStoredStyleIds()
+      forgetNativeProvider()
+      clearNativeClerkSession()
       void signOut()
       navigate('/')
     } catch (err) {

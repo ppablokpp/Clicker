@@ -87,9 +87,21 @@ html.native .h-\[100dvh\].bleed-top {
   margin-top: calc(-1 * var(--safe-top));
   padding-top: var(--safe-top);
 }
-/* the tree's fixed sheet, and the corner buttons pinned to the viewport */
-html.native .bulkhead.fixed.inset-0 {
+/* What a `bleed-top` screen owes its own furniture. The screen now starts
+   at the top of the phone so its background can, which moves anything
+   anchored to its top edge up with it — the rock's read-out among them.
+   Things meant to be read take the inset back. */
+html.native .safe-hud {
   top: var(--safe-top);
+}
+
+/* The tree's fixed sheet. Padded rather than pushed down, for the same
+   reason as `bleed-top`: pushed down, its grid and the light above it
+   began below the notch and the background looked cut off. The canvas
+   inside is `h-full`, so it lands clear of the notch either way. */
+html.native .bulkhead.fixed.inset-0 {
+  top: 0;
+  padding-top: var(--safe-top);
 }
 html.native .fixed.top-4 {
   top: calc(1rem + var(--safe-top));

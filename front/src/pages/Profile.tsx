@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { forgetNativeProvider } from '../lib/nativeSignIn'
+import { clearNativeClerkSession } from '../lib/clerkNativeSession'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react'
 import {
@@ -716,7 +718,9 @@ function SettingsSheet({
             <button
               onClick={() => {
                 clearStoredStyleIds()
-                void signOut()
+                forgetNativeProvider()
+                clearNativeClerkSession()
+      void signOut()
               }}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/[0.12]"
             >

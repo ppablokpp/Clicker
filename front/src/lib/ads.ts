@@ -122,7 +122,15 @@ export async function showRewardedAd(userId: string): Promise<void> {
     ssv: { customData: userId },
   }
 
-  await AdMob.prepareRewardVideoAd(options)
+  // Loading is given 20 seconds and no more. Without a fill — which is the
+  // normal state of a brand-new app, and of a test unit on a bad
+  // connection — `prepareRewardVideoAd` can simply never settle, and the
+  // button then sits on "Cargando anuncio…" for as long as the screen is
+  // open with no way back.
+  await Promise.race([
+    AdMob.prepareRewardVideoAd(options),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('El anuncio ha tardado demasiado en cargar')), 20_000)),
+  ])
   const reward = await AdMob.showRewardVideoAd()
   // Closing early resolves with nothing rewarded; Google has not called the
   // back either, so there is no key and nothing to undo.

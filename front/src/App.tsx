@@ -2,6 +2,7 @@
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react'
 import { AuthGate } from './components/AuthGate'
 import { BottomNavPill } from './components/BottomNavPill'
+import { NativeSessionResume } from './components/NativeSessionResume'
 import { Reminders } from './components/Reminders'
 import { ScrollManager } from './components/ScrollManager'
 import { GameStateGate } from './components/GameStateGate'
@@ -104,6 +105,7 @@ function ClickerApp() {
                                               <Route path="/terminos" element={<LegalPage kind="terms" />} />
                                               <Route path="/eliminar-cuenta" element={<DeleteAccountPage />} />
                                             </Routes>
+                                            <NativeSessionResume />
                                             <BottomNavPill />
                                             <SignInModal />
                                             <FleetAwayModal />

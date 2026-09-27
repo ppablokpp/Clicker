@@ -59,6 +59,35 @@ function ensureInitialized() {
 export class NativeSignInCancelled extends Error {}
 
 /**
+ * Which provider signed in last on this device, so the app can take the
+ * session again by itself when it is opened (see NativeSessionResume).
+ * The Clerk session itself cannot be stored — see that file for why — so
+ * this is the whole of what is remembered: one word, no credential.
+ */
+const PROVIDER_KEY = 'clankup_native_provider'
+
+export function lastNativeProvider(): 'google' | 'apple' | null {
+  try {
+    const v = localStorage.getItem(PROVIDER_KEY)
+    return v === 'google' || v === 'apple' ? v : null
+  } catch {
+    return null
+  }
+}
+
+function rememberProvider(provider: 'google' | 'apple' | null): void {
+  try {
+    if (provider) localStorage.setItem(PROVIDER_KEY, provider)
+    else localStorage.removeItem(PROVIDER_KEY)
+  } catch {
+    // A web view with storage blocked just loses the convenience.
+  }
+}
+
+/** Called when the player signs out on purpose, so the app stops doing it for them. */
+export const forgetNativeProvider = (): void => rememberProvider(null)
+
+/**
  * Apple's sheet reports backing out as an error, and never says the word.
  * The plugin hands Apple's own `Error` straight through (AppleProvider
  * .swift, `didCompleteWithError`), so what arrives is the localized
@@ -121,6 +150,7 @@ export async function signInWithGoogleNative(clerk: ClerkInstance): Promise<void
     throw new Error(`Clerk no ha completado el inicio de sesión (${signIn.status})`)
   }
   await clerk.setActive({ session: signIn.createdSessionId })
+  rememberProvider('google')
 }
 
 /**
@@ -172,4 +202,5 @@ export async function signInWithAppleNative(clerk: ClerkInstance): Promise<void>
     throw new Error(`Clerk no ha completado el inicio de sesión (${signIn.status})`)
   }
   await clerk.setActive({ session: signIn.createdSessionId })
+  rememberProvider('apple')
 }

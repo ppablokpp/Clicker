@@ -305,8 +305,11 @@ export function Ship() {
 
   return (
     <div className="relative flex min-h-[100dvh] w-full flex-col bg-[#08080c] px-5 pb-24 pt-4 sm:px-6">
+      {/* Fixed, like the bulkhead's own: the light comes from above the
+          phone, not from above the page. Anchored to the page it started
+          at the safe-area inset and drew a line across the screen. */}
       <span
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none fixed inset-0"
         style={{
           background: `radial-gradient(60% 30% at 50% -4%, ${c.fill}33, transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)`,
         }}
