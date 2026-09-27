@@ -29,14 +29,34 @@ export interface NotificationTexts {
   streakBody: string
 }
 
+/**
+ * Settles once the phone has finished asking about notifications, so
+ * nothing else puts something on screen while that prompt is up — the
+ * tutorial waits on it (see TutorialContext). Resolved rather than
+ * rejected in every case, including a refusal or an error: what matters is
+ * that the system is done with the screen, not what the answer was.
+ *
+ * On the web it is already settled. In the app it settles either way within
+ * a few seconds, and the waiter has its own timeout in case a platform
+ * manages to leave the prompt hanging.
+ */
+let settlePrompt: () => void = () => {}
+export const notificationPromptSettled: Promise<void> = isNativeApp()
+  ? new Promise<void>((resolve) => (settlePrompt = resolve))
+  : Promise.resolve()
+
 /** Whether we may post notifications at all, asking once if never asked. */
 async function ensurePermission(): Promise<boolean> {
-  const { display } = await LocalNotifications.checkPermissions()
-  if (display === 'granted') return true
-  // 'denied' is their answer, not a question to ask again on every launch.
-  if (display === 'denied') return false
-  const asked = await LocalNotifications.requestPermissions()
-  return asked.display === 'granted'
+  try {
+    const { display } = await LocalNotifications.checkPermissions()
+    if (display === 'granted') return true
+    // 'denied' is their answer, not a question to ask again on every launch.
+    if (display === 'denied') return false
+    const asked = await LocalNotifications.requestPermissions()
+    return asked.display === 'granted'
+  } finally {
+    settlePrompt()
+  }
 }
 
 /** Next time the server's day rolls over (the key resets at UTC midnight). */

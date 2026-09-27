@@ -106,8 +106,12 @@ html.native .bulkhead.fixed.inset-0 {
 html.native .fixed.top-4 {
   top: calc(1rem + var(--safe-top));
 }
+/* The tab bar, which sits on `bottom-5` on the web where there is a browser
+   chrome under it. In the app there is only the gesture strip, so it keeps
+   clear of that and little else — the full 1.25rem on top of the inset left
+   it floating high enough to cover the last row of a page. */
 html.native .fixed.bottom-5 {
-  bottom: calc(1.25rem + var(--safe-bottom));
+  bottom: calc(0.375rem + var(--safe-bottom));
 }
 html.native .fixed.bottom-6 {
   bottom: calc(1.5rem + var(--safe-bottom));

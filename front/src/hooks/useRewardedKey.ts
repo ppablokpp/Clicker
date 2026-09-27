@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useKeysContext } from '../context/KeysContext'
 import { useAuth } from '@clerk/clerk-react'
 import { RewardSkipped, adsAvailable, showRewardedAd } from '../lib/ads'
+import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -74,6 +75,11 @@ export function useRewardedKey() {
         const data = await res.json()
         if (typeof data.keys === 'number' && data.keys > before) {
           syncKeys(data.keys)
+          // The same sound the daily claim makes, for the same event: a key
+          // landing. It plays here rather than when the ad closes because
+          // this is the moment there is actually one — the ad closing only
+          // means Google is about to tell the server.
+          playChestPurchase()
           break
         }
       }

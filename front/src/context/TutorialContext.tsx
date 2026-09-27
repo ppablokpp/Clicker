@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAppAuth } from '../hooks/useAppAuth'
+import { notificationPromptSettled } from '../lib/notifications'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -201,6 +202,13 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const data = await res.json()
           if (data.tutorialCompleted === false) {
+            // After the phone has finished asking about notifications, not
+            // during: the two used to land together on a first launch, and
+            // the system alert covered the first bubble — which is the one
+            // that explains what the game is. Capped in case a platform
+            // leaves that prompt hanging; the tutorial is not worth losing
+            // over a permission dialog that never answers.
+            await Promise.race([notificationPromptSettled, new Promise((r) => setTimeout(r, 15_000))])
             setSkipDroneGrant(false)
             setStepIndex(0)
           }
