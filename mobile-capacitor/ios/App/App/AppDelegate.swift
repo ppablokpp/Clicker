@@ -1,12 +1,19 @@
 import UIKit
 import Capacitor
 
-/// The shell, full screen, the way games are: the status bar stays hidden
-/// (Info.plist, UIStatusBarHidden) and the home indicator dims away after a
-/// moment without touches — iOS never lets an app remove it outright, this
-/// is as far as it goes. Set as the storyboard's view controller class.
+/// The shell, full screen the way games are: no status bar. The plist asks
+/// for it too (UIStatusBarHidden), but with
+/// UIViewControllerBasedStatusBarAppearance on it is the view controller
+/// that decides, so the word has to be given here — and this controller has
+/// to be the one actually on screen, which is why SceneDelegate builds this
+/// class and not CAPBridgeViewController.
+///
+/// The home indicator stays. `prefersHomeIndicatorAutoHidden` is not `open`
+/// in the iOS 26 SDK, so a subclass outside UIKit cannot override it at all
+/// ("overriding non-open property outside of its defining module"), and iOS
+/// offers no other way to dim it. It was never removable anyway — at most
+/// it faded after a few still seconds.
 class ClankUpViewController: CAPBridgeViewController {
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var prefersStatusBarHidden: Bool { true }
 }
 

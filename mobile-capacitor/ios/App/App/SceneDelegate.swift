@@ -8,7 +8,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        // Ours, not Capacitor's bare one. The scene builds the root
+        // controller in code and never reads Main.storyboard, so the custom
+        // class set there has no effect and the status bar would come back.
+        window?.rootViewController = ClankUpViewController()
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
