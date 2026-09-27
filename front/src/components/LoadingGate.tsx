@@ -26,6 +26,19 @@ type Report = (key: string, ready: boolean) => void
 const ReportContext = createContext<Report>(() => {})
 
 /**
+ * Whether the startup cover is still up. Read by the tab bar, which hides
+ * itself while it is: the cover is opaque and sits above everything, so in
+ * theory nothing behind it shows — but "in theory" is what produced a strip
+ * of tab bar along the bottom of the loading screen when the cover came up
+ * short of the viewport. Nothing but the loading screen belongs on the
+ * loading screen, so the pieces around it now step aside outright instead
+ * of relying on being covered.
+ */
+const BootingContext = createContext(false)
+
+export const useIsBooting = (): boolean => useContext(BootingContext)
+
+/**
  * Both keys start pending, which matters: readiness is reported from effects,
  * and those run after the first paint. Starting empty would show one frame of
  * bare page before the cover appeared.
@@ -46,12 +59,14 @@ export function LoadingGateProvider({ children }: { children: ReactNode }) {
 
   return (
     <ReportContext.Provider value={report}>
-      {children}
-      {!allReady && (
-        <div className="fixed inset-0 z-[100]">
-          <LoadingScreen />
-        </div>
-      )}
+      <BootingContext.Provider value={!allReady}>
+        {children}
+        {!allReady && (
+          <div className="fixed inset-0 z-[100]">
+            <LoadingScreen />
+          </div>
+        )}
+      </BootingContext.Provider>
     </ReportContext.Provider>
   )
 }

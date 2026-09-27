@@ -28,8 +28,14 @@ export function Bulkhead({ tier, fixed = true }: { tier: MaterialTierColors; fix
           background: `repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px), repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 68px)`,
         }}
       />
+      {/* The light comes from above the phone, not from above the content:
+          anchored to the page it started at the safe-area inset, and a lit
+          band that begins 50px down draws a line across the screen that
+          reads as the background being cut. Headers and pills do take the
+          inset into account — they are things to read, and read they must
+          be clear of the notch. This is not. */}
       <span
-        className="pointer-events-none absolute inset-x-0 top-0 h-[42vh]"
+        className={`pointer-events-none ${fixed ? 'fixed' : 'absolute'} inset-x-0 top-0 h-[42vh]`}
         style={{ background: `radial-gradient(60% 70% at 50% -10%, ${tier.fill}2b, transparent 70%)` }}
       />
     </>

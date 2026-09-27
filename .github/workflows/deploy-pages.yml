@@ -42,8 +42,17 @@ jobs:
       # GitHub Pages has no server-side rewrites: without this, refreshing on
       # any route other than "/" (e.g. /clasificacion) 404s. Serving the SPA
       # shell for unknown paths lets react-router take over client-side.
+      # The pages App Store review and Google Play open by hand get a real
+      # file each, so they answer 200 rather than the 404 the fallback
+      # carries. The shell is the same either way; only the status differs,
+      # and a privacy policy that answers 404 to a checker is a rejection.
       - name: SPA fallback for client-side routing
-        run: cp front/dist/index.html front/dist/404.html
+        run: |
+          cp front/dist/index.html front/dist/404.html
+          for page in privacidad terminos eliminar-cuenta; do
+            mkdir -p "front/dist/$page"
+            cp front/dist/index.html "front/dist/$page/index.html"
+          done
 
       - uses: actions/configure-pages@v5
 

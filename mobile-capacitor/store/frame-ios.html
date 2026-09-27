@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>ClankUp App Store frame</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@500;600&display=swap" />
+<style>
+  /* One App Store screenshot: 660×1434 css, captured at 2x → 1320×2868,
+     the 6.9" size App Store Connect asks for. Same design as frame.html
+     (Play, 1080×1920), re-proportioned: Apple's frame is far taller and a
+     little wider, so the phone grows and the copy gets more air above it
+     rather than everything being stretched.
+
+     The phone's screen is cut to the captures' own aspect (393×852, an
+     iPhone's) so `cover` crops nothing — a store screenshot that loses its
+     own edges looks like a mistake. It still bleeds off the bottom edge on
+     purpose: the eye should read the screen, not the device.
+
+     The design is laid out once at 660×1434 and scaled to whatever page
+     size is asked for, because App Store Connect wants a separate set per
+     device class (6.9" is 1320×2868, 6.5" is 1242×2688) and their aspects
+     differ by less than half a percent. Scaling one design beats keeping
+     two that drift apart; a couple of pixels come off the bottom on the
+     shorter one, where there is nothing but sky.
+
+     Query: shot, kicker, title, accent, glow, tilt, n, w, h. */
+  html, body { margin: 0; overflow: hidden; background: #0b0716; }
+  .slide { position: relative; width: 660px; height: 1434px; overflow: hidden; background: #0b0716; font-family: Inter, sans-serif; color: #f5f1ff; transform-origin: top left; }
+  .sky { position: absolute; inset: -40px; background: url("splash.png") center/2000px 2000px; opacity: 0.9; }
+  .glow { position: absolute; left: 50%; top: 60%; width: 1250px; height: 1250px; transform: translate(-50%, -50%);
+          background: radial-gradient(circle, var(--accent-glow) 0%, transparent 55%); }
+  .num { position: absolute; right: -20px; top: 226px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 400px; line-height: 1; letter-spacing: -0.06em; color: #fff; opacity: 0.045; }
+  .copy { position: absolute; left: 52px; right: 52px; top: 96px; }
+  .kicker { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 16px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--accent); }
+  .kicker::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); margin-right: 14px; vertical-align: 1px; }
+  .title { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 58px; line-height: 1.04; letter-spacing: -0.03em; margin-top: 18px; text-wrap: balance; text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 48px var(--accent-glow); }
+  .phone { position: absolute; left: 50%; top: 400px; width: 520px; height: 1094px; transform: translateX(-50%) rotate(var(--tilt, 0deg));
+           border-radius: 64px; background: #06040c; padding: 14px;
+           box-shadow: 0 0 0 2px #2a2138, 0 0 0 5px #0a0812, 0 48px 110px rgba(0,0,0,.75), 0 0 96px var(--accent-glow); }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 50px; overflow: hidden; background: #08080c; }
+  .screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .cam { position: absolute; left: 50%; top: 16px; width: 16px; height: 16px; border-radius: 50%; background: #000; box-shadow: inset 0 0 0 2px #151221, 0 0 0 2px rgba(255,255,255,.04); transform: translateX(-50%); }
+  .rim { position: absolute; inset: 0; border-radius: 50px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); pointer-events: none; }
+  .scan { position: absolute; inset: 0; opacity: 0.045; background: repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 4px); pointer-events: none; }
+  .foot { position: absolute; left: 52px; bottom: 34px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(245,241,255,.35); }
+</style>
+</head>
+<body>
+<div class="slide" id="slide">
+  <div class="sky"></div>
+  <div class="glow"></div>
+  <div class="num" id="num">01</div>
+  <div class="copy">
+    <div class="kicker" id="kicker"></div>
+    <div class="title" id="title"></div>
+  </div>
+  <div class="phone">
+    <div class="screen"><img id="shot" alt="" /><div class="cam"></div><div class="rim"></div></div>
+  </div>
+  <div class="scan"></div>
+  <div class="foot">ClankUp · minería espacial</div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search)
+  document.getElementById('shot').src = q.get('shot')
+  document.getElementById('kicker').textContent = q.get('kicker') || ''
+  document.getElementById('title').textContent = q.get('title') || ''
+  document.getElementById('num').textContent = q.get('n') || '01'
+  const s = document.getElementById('slide')
+  // The page is whatever size was asked for; the design scales into it.
+  const w = Number(q.get('w') || 660)
+  const h = Number(q.get('h') || 1434)
+  document.documentElement.style.width = document.body.style.width = w + 'px'
+  document.documentElement.style.height = document.body.style.height = h + 'px'
+  if (w !== 660) s.style.transform = 'scale(' + w / 660 + ')'
+  s.style.setProperty('--accent', q.get('accent') || '#a78bfa')
+  s.style.setProperty('--accent-glow', q.get('glow') || 'rgba(167,139,250,.35)')
+  s.style.setProperty('--tilt', q.get('tilt') || '0deg')
+</script>
+</body>
+</html>

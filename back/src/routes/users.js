@@ -122,7 +122,15 @@ usersRouter.post('/sync', async (req, res) => {
     // below, which would otherwise collide with the old row over the
     // unique email (see adoptLegacyAccountByEmail).
     const adopted = await usersRepository.adoptLegacyAccountByEmail(clerkUser.id, email)
-    let username = clerkUser.username ?? clerkUser.firstName ?? null
+    // Clerk's username or nothing. It used to fall back to the first name,
+    // which is what Google hands over with the profile — so signing in as
+    // pablo.laparra.dev@gmail.com named the account "Pablo" before the app
+    // had a chance to derive one, and the derived name (pablolaparradev,
+    // see front useAssignUsername) never got a turn because the row
+    // already had one. Left null, the client names the account properly a
+    // moment later, and the COALESCE in upsertFromClerk keeps later syncs
+    // from blanking it.
+    let username = clerkUser.username ?? null
     if (adopted) {
       console.log(`Adopted legacy account ${adopted.oldId} -> ${clerkUser.id}`)
       // Their name lived in Clerk, and the new instance does not have it.

@@ -634,7 +634,7 @@ export const translations: Record<Language, TranslationStrings> = {
       continueWithGoogle: 'Continuar con Google',
       continueWithApple: 'Continuar con Apple',
       redirecting: 'Redirigiendo…',
-      genericError: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
+      genericError: 'No se pudo iniciar sesión. Inténtalo de nuevo.',
     },
     loading: {
       steps: ['Localizando el asteroide', 'Sincronizando la flota', 'Contando el mineral', 'Abriendo la tienda'],
@@ -1604,7 +1604,7 @@ export const translations: Record<Language, TranslationStrings> = {
       continueWithGoogle: 'Continue with Google',
       continueWithApple: 'Continue with Apple',
       redirecting: 'Redirecting…',
-      genericError: "Couldn't sign in with Google. Please try again.",
+      genericError: "Couldn't sign in. Please try again.",
     },
     loading: {
       steps: ['Locating the asteroid', 'Syncing the fleet', 'Counting the ore', 'Opening the store'],

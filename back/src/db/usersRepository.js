@@ -52,7 +52,10 @@ export const usersRepository = {
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (id) DO UPDATE
          SET email = EXCLUDED.email,
-             username = EXCLUDED.username,
+             -- Never blanked by a sync that arrives without one. A name is
+             -- the player's, set once and changed only from the profile;
+             -- a sign-in that happens to carry nothing is not a rename.
+             username = COALESCE(EXCLUDED.username, users.username),
              avatar_url = EXCLUDED.avatar_url,
              updated_at = now()
        RETURNING id, email, username, avatar_url, total_clicks, total_real_clicks, best_cps, current_streak, longest_streak,

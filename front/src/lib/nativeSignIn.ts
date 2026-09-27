@@ -58,9 +58,34 @@ function ensureInitialized() {
 /** Thrown when the user backs out of the account sheet; not an error to show. */
 export class NativeSignInCancelled extends Error {}
 
+/**
+ * Apple's sheet reports backing out as an error, and never says the word.
+ * The plugin hands Apple's own `Error` straight through (AppleProvider
+ * .swift, `didCompleteWithError`), so what arrives is the localized
+ * description of an `ASAuthorizationError`: "The operation couldn't be
+ * completed. (com.apple.AuthenticationServices.AuthorizationError error
+ * 1001.)" — no "cancel" anywhere in it.
+ *
+ * The number at the end is the only reliable part, so that is what is read
+ * rather than the wording or the domain, which differ by iOS version and
+ * get truncated on screen anyway. 1001 is `canceled` and 1000 is `unknown`,
+ * which is what a dismissal sometimes comes back as and is not a sentence
+ * worth showing anyone either. Everything else — 1002 invalidResponse, 1003
+ * notHandled, 1004 failed — is a real failure and still surfaces, as does
+ * anything that goes wrong afterwards with our own back or with Clerk.
+ */
+const SILENT_APPLE_CODES = new Set(['1000', '1001'])
+
 function isCancellation(err: unknown): boolean {
-  const msg = String((err as { message?: string })?.message ?? err).toLowerCase()
-  return msg.includes('cancel') || msg.includes('canceled') || msg.includes('user closed')
+  const e = err as { message?: string; code?: string | number }
+  const msg = String(e?.message ?? err).toLowerCase()
+  if (msg.includes('cancel') || msg.includes('user closed')) return true
+
+  const code = String(e?.code ?? '')
+  if (SILENT_APPLE_CODES.has(code)) return true
+
+  const fromMessage = /error (\d{3,4})/.exec(msg)?.[1]
+  return Boolean(fromMessage && SILENT_APPLE_CODES.has(fromMessage) && msg.includes('authenticationservices'))
 }
 
 export async function signInWithGoogleNative(clerk: ClerkInstance): Promise<void> {

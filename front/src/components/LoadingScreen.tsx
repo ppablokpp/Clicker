@@ -73,7 +73,13 @@ export function LoadingScreen({ steps: stepsProp }: { steps?: string[] } = {}) {
   const linePhase = stepsProp ? 0 : phases.lines
 
   return (
-    <div className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#08080c]">
+    /* `h-full`, not `h-[100dvh]`: both callers (LoadingGate, TravelCover)
+       hang this inside a `fixed inset-0`, which already ignores the body's
+       safe-area padding and is exactly the viewport. Asking for 100dvh got
+       it shrunk by the top inset like a page in normal flow would be, and
+       the screen came up some 50px short — a transparent band at the
+       bottom with the tab bar showing through it. */
+    <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-[#08080c]">
       {/* Sky. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: stars.dim }} />

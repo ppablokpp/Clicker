@@ -31,6 +31,18 @@ if (!CLERK_PUBLISHABLE_KEY) {
         publishableKey={CLERK_PUBLISHABLE_KEY}
         appearance={{ baseTheme: dark }}
         afterSignOutUrl={import.meta.env.BASE_URL}
+        // What keeps a session alive inside the app. Clerk assumes by
+        // default that it can set cookies on its own domain and read them
+        // back — true on the website, false in a web view: the page is
+        // served from `capacitor://localhost` (iOS refuses to let an app
+        // serve over https, so this cannot be changed), which makes every
+        // cookie for clerk.clankup.app a third-party one, and WKWebView
+        // blocks those. The session then survived only until the next time
+        // Clerk had to read it back: returning from an ad, coming back from
+        // the background, a cold start. With this off Clerk keeps the
+        // client token in localStorage and sends it itself, which is what
+        // it documents for native platforms.
+        standardBrowser={!isNativeApp()}
       >
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <LanguageProvider>

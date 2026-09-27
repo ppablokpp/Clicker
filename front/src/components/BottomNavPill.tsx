@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
 import { useClickCounterContext } from '../context/ClickCounterContext'
 import { PLACE_ROUTES, usePlace } from '../lib/place'
+import { useIsBooting } from './LoadingGate'
 
 /**
  * The tab glyphs, drawn here rather than taken from an icon set — the same
@@ -111,6 +112,7 @@ export function BottomNavPill() {
 const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspended }: { isSyncSuspended: boolean }) {
   const { strings } = useLanguage()
   const location = useLocation()
+  const isBooting = useIsBooting()
   // The centre tab leads to wherever you last were — the rock or the
   // station (see lib/place) — so leaving the station for the store and
   // coming back lands you back at the station.
@@ -123,11 +125,21 @@ const BottomNavPillContent = memo(function BottomNavPillContent({ isSyncSuspende
   // And none outside the ship: the tabs are the ship's own console, and
   // out there the stations are the way around, each screen they open with
   // a back button to outside (see OutsideBackButton).
+  // Nor on the pages that are documents rather than places: the policy, the
+  // terms and the deletion form are reached from settings, they are read
+  // and left by their own back button, and a tab bar over them would offer
+  // a way out of a form halfway through filling it in.
+  // And nothing at all over the loading screen, which owns the whole
+  // viewport while it is up.
   if (
+    isBooting ||
     place === 'station' ||
     location.pathname.startsWith('/batalla') ||
     location.pathname.startsWith('/perfil/') ||
-    location.pathname.startsWith('/personalizar')
+    location.pathname.startsWith('/personalizar') ||
+    location.pathname.startsWith('/privacidad') ||
+    location.pathname.startsWith('/terminos') ||
+    location.pathname.startsWith('/eliminar-cuenta')
   ) {
     return null
   }

@@ -60,7 +60,10 @@ html.native {
   /* never less than a status bar's worth at the top: a WebView that
      reports no inset still has the camera and the rounded corners there */
   --safe-top: calc(max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px), 24px) + 8px);
-  --safe-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)) + 14px);
+  /* The gesture strip's own height and nothing more. It used to carry
+     another 14px, which on an iPhone put the tab bar 68px off the bottom —
+     far enough up to sit on the page's last row. */
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
 }
 html.native body {
   padding-top: var(--safe-top);
@@ -71,6 +74,18 @@ html.native .h-\[100dvh\] {
 }
 html.native .min-h-\[100dvh\] {
   min-height: calc(100dvh - var(--safe-top));
+}
+/* The exception: a screen whose own background has to reach the very top of
+   the phone. Shrunk like the rest, the strip under the notch showed the
+   ground behind instead — on the rock, where the background is a starfield
+   painted inside the screen rather than a fixed layer, that read as the sky
+   being cut off in a straight line. This one keeps the whole viewport and
+   holds its content clear of the notch with padding instead, so nothing
+   moves but the background. */
+html.native .h-\[100dvh\].bleed-top {
+  height: 100dvh;
+  margin-top: calc(-1 * var(--safe-top));
+  padding-top: var(--safe-top);
 }
 /* the tree's fixed sheet, and the corner buttons pinned to the viewport */
 html.native .bulkhead.fixed.inset-0 {

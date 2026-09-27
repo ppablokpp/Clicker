@@ -291,7 +291,7 @@ export function Battle() {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
+      className="bleed-top relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute h-px w-px rounded-full bg-white" style={{ boxShadow: starsDim }} />

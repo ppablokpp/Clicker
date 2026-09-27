@@ -1337,7 +1337,7 @@ export function Home() {
       onPointerMove={handlePointerMove}
       onWheel={handleWheel}
       onContextMenu={handleContextMenu}
-      className="relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
+      className="bleed-top relative flex h-[100dvh] w-full touch-none select-none flex-col items-center justify-center overflow-hidden bg-[#08080c]"
     >
       {/* starfield — replaces the old scattered ambient glows entirely */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
