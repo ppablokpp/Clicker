@@ -83,9 +83,18 @@ workflows:
           # Distribution certificate if the account has none, and the App
           # Store provisioning profile for this bundle id, with whatever
           # capabilities the App ID carries (Sign in with Apple among them).
-          # It needs the API key to have Admin or App Manager access.
+          # It needs the API key to have Admin or App Manager access, and a
+          # private key: a certificate is a signed request, so there is
+          # nothing to create without one ("Cannot save Signing Certificates
+          # without certificate private key"). CERTIFICATE_PRIVATE_KEY holds
+          # it, in the variable group, and stays the same from build to
+          # build — a new key each time would mean a new certificate each
+          # time, and Apple allows three.
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
           keychain add-certificates
           xcode-project use-profiles
           xcode-project build-ipa \
