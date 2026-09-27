@@ -743,6 +743,13 @@ function SettingsSheet({
             </button>
           </>
         )}
+        {/* The footer of the whole panel, under everything and outside the
+            signed-in block: a guest is looking at the same app. The year is
+            read rather than written so it never goes stale. No translation
+            — the notice is the same line in every language. */}
+        <p className="mt-6 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-neutral-600">
+          © {new Date().getFullYear()} ClankUp
+        </p>
       </div>
     </div>
   )
