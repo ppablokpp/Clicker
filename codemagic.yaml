@@ -25,13 +25,6 @@ workflows:
       # Portal, with the App Store Connect API key (Issuer ID, Key ID, .p8).
       app_store_connect: ClankUp
     environment:
-      # Signing: Codemagic fetches (or creates) the distribution certificate
-      # and the provisioning profile through the integration above. It lives
-      # under `environment`, not beside it — the schema rejects it anywhere
-      # else with "extra fields not permitted".
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: app.clankup
       groups:
         # Codemagic → the app → Environment variables, group `clankup-app`.
         - clankup-app
@@ -83,6 +76,17 @@ workflows:
           agvtool new-version -all "$BUILD"
       - name: Fetch the signing files and archive
         script: |
+          # Done here rather than through `environment.ios_signing`, which
+          # only looks for a profile that already exists and fails with "No
+          # matching profiles found" on an app that has never been signed.
+          # `--create` makes the missing pieces instead: the Apple
+          # Distribution certificate if the account has none, and the App
+          # Store provisioning profile for this bundle id, with whatever
+          # capabilities the App ID carries (Sign in with Apple among them).
+          # It needs the API key to have Admin or App Manager access.
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
           xcode-project use-profiles
           xcode-project build-ipa \
             --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
