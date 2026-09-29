@@ -105,6 +105,19 @@ function ensureStarted(): Promise<unknown> {
 export const adsAvailable = (): boolean => isNativeApp()
 
 /**
+ * Forces the ad card on for a store screenshot, which is taken against the
+ * dev server in a browser where there is no AdMob and no account (see
+ * mobile-capacitor/store/shoot-ios.mjs, `/tienda?ads=1`). The listing has
+ * to show the app as it is on a phone, and on a phone that card is there.
+ *
+ * `import.meta.env.DEV` is what keeps it out of everything that ships:
+ * Vite replaces it with `false` in a build and drops the branch, so the
+ * published site cannot be talked into this with a query string.
+ */
+export const adsPreviewForced = (): boolean =>
+  import.meta.env.DEV && new URLSearchParams(window.location.search).has('ads')
+
+/**
  * Shows one rewarded ad and resolves when it has been watched through.
  * Resolving means the phone saw the reward event — the key itself lands
  * when AdMob's callback reaches the back, a second or two later, which is

@@ -13,8 +13,10 @@
 
      The phone's screen is cut to the captures' own aspect (393×852, an
      iPhone's) so `cover` crops nothing — a store screenshot that loses its
-     own edges looks like a mistake. It still bleeds off the bottom edge on
-     purpose: the eye should read the screen, not the device.
+     own edges looks like a mistake. The whole device is in frame, standing
+     on its own shadow: at this size the screen is still the biggest thing
+     on the slide, and a phone cut off by the edge reads as a crop rather
+     than as a phone.
 
      The design is laid out once at 660×1434 and scaled to whatever page
      size is asked for, because App Store Connect wants a separate set per
@@ -23,24 +25,26 @@
      two that drift apart; a couple of pixels come off the bottom on the
      shorter one, where there is nothing but sky.
 
-     Query: shot, kicker, title, accent, glow, tilt, n, w, h. */
+     Query: shot, kicker, title, accent, glow, tilt, n, foot, w, h. */
   html, body { margin: 0; overflow: hidden; background: #0b0716; }
   .slide { position: relative; width: 660px; height: 1434px; overflow: hidden; background: #0b0716; font-family: Inter, sans-serif; color: #f5f1ff; transform-origin: top left; }
   .sky { position: absolute; inset: -40px; background: url("splash.png") center/2000px 2000px; opacity: 0.9; }
   .glow { position: absolute; left: 50%; top: 60%; width: 1250px; height: 1250px; transform: translate(-50%, -50%);
           background: radial-gradient(circle, var(--accent-glow) 0%, transparent 55%); }
-  .num { position: absolute; right: -20px; top: 226px; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 400px; line-height: 1; letter-spacing: -0.06em; color: #fff; opacity: 0.045; }
   .copy { position: absolute; left: 52px; right: 52px; top: 96px; }
   .kicker { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 16px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--accent); }
   .kicker::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); margin-right: 14px; vertical-align: 1px; }
   .title { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 58px; line-height: 1.04; letter-spacing: -0.03em; margin-top: 18px; text-wrap: balance; text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 48px var(--accent-glow); }
-  .phone { position: absolute; left: 50%; top: 400px; width: 520px; height: 1094px; transform: translateX(-50%) rotate(var(--tilt, 0deg));
-           border-radius: 64px; background: #06040c; padding: 14px;
-           box-shadow: 0 0 0 2px #2a2138, 0 0 0 5px #0a0812, 0 48px 110px rgba(0,0,0,.75), 0 0 96px var(--accent-glow); }
+  .phone { position: absolute; left: 50%; top: 320px; width: 496px; height: 1045px; transform: translateX(-50%) rotate(var(--tilt, 0deg));
+           border-radius: 60px; background: #06040c; padding: 13px;
+           box-shadow: 0 0 0 2px #2a2138, 0 0 0 5px #0a0812, 0 40px 90px rgba(0,0,0,.7), 0 0 90px var(--accent-glow); }
   .screen { position: relative; width: 100%; height: 100%; border-radius: 50px; overflow: hidden; background: #08080c; }
   .screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-  .cam { position: absolute; left: 50%; top: 16px; width: 16px; height: 16px; border-radius: 50%; background: #000; box-shadow: inset 0 0 0 2px #151221, 0 0 0 2px rgba(255,255,255,.04); transform: translateX(-50%); }
+  .island { position: absolute; left: 50%; top: 13px; width: 150px; height: 44px; border-radius: 22px; background: #000;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); transform: translateX(-50%); }
   .rim { position: absolute; inset: 0; border-radius: 50px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); pointer-events: none; }
+  .floor { position: absolute; left: 50%; bottom: 38px; width: 560px; height: 90px; transform: translateX(-50%);
+           background: radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.65), transparent 70%); filter: blur(2px); }
   .scan { position: absolute; inset: 0; opacity: 0.045; background: repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 4px); pointer-events: none; }
   .foot { position: absolute; left: 52px; bottom: 34px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(245,241,255,.35); }
 </style>
@@ -49,23 +53,23 @@
 <div class="slide" id="slide">
   <div class="sky"></div>
   <div class="glow"></div>
-  <div class="num" id="num">01</div>
   <div class="copy">
     <div class="kicker" id="kicker"></div>
     <div class="title" id="title"></div>
   </div>
+  <div class="floor"></div>
   <div class="phone">
-    <div class="screen"><img id="shot" alt="" /><div class="cam"></div><div class="rim"></div></div>
+    <div class="screen"><img id="shot" alt="" /><div class="island"></div><div class="rim"></div></div>
   </div>
   <div class="scan"></div>
-  <div class="foot">ClankUp · minería espacial</div>
+  <div class="foot" id="foot"></div>
 </div>
 <script>
   const q = new URLSearchParams(location.search)
   document.getElementById('shot').src = q.get('shot')
   document.getElementById('kicker').textContent = q.get('kicker') || ''
   document.getElementById('title').textContent = q.get('title') || ''
-  document.getElementById('num').textContent = q.get('n') || '01'
+  document.getElementById('foot').textContent = q.get('foot') || 'ClankUp'
   const s = document.getElementById('slide')
   // The page is whatever size was asked for; the design scales into it.
   const w = Number(q.get('w') || 660)

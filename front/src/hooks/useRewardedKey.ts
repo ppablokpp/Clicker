@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useKeysContext } from '../context/KeysContext'
 import { useAuth } from '@clerk/clerk-react'
-import { RewardSkipped, adsAvailable, showRewardedAd } from '../lib/ads'
+import { RewardSkipped, adsAvailable, adsPreviewForced, showRewardedAd } from '../lib/ads'
 import { playChestPurchase } from '../lib/caseSound'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
@@ -28,7 +28,15 @@ export function useRewardedKey() {
   const [error, setError] = useState(false)
 
   const readAllowance = useCallback(async () => {
-    if (!userId) return
+    if (!userId) {
+      // Screenshot mode: no account to ask about, so the card is drawn
+      // with a full day ahead of it (see adsPreviewForced).
+      if (adsPreviewForced()) {
+        setPerDay(3)
+        setUsed(0)
+      }
+      return
+    }
     try {
       const token = await getToken()
       const res = await fetch(`${API_URL}/api/ads/me`, { headers: { Authorization: `Bearer ${token}` } })
@@ -97,7 +105,7 @@ export function useRewardedKey() {
 
   return {
     /** Whether to show the button at all: inside the app, with an account. */
-    available: adsAvailable() && Boolean(userId),
+    available: (adsAvailable() && Boolean(userId)) || adsPreviewForced(),
     used,
     perDay,
     left: Math.max(0, perDay - used),

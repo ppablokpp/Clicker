@@ -605,81 +605,115 @@ export function ChestBench() {
       >
         {s.casesSection}
       </StampedHeading>
-      {/* The two free keys, as one plate rather than two loose pills. They
-          give the same thing by different means — one is a gift, one costs a
-          minute of your time — so they share the frame and one grammar read
-          left to right: what it is, where you stand with it, and, hard right,
-          what it pays. Live rows are filled amber and spent ones are not,
-          which is the whole state read at a glance: the gift is filled
-          deeper than the ad because it costs nothing, but an ad you can
-          still watch is plainly a lit button and not a greyed one. */}
-      <div className="mb-5 mt-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+      {/* The free keys. Two shapes, because there are two situations and
+          they are not the same shape of choice.
+
+          With an ad to offer they are alternatives — a gift, or a minute of
+          your time — so they sit side by side as two square cards and the
+          row says "pick one". Each is object-first, the thing you get big
+          over its name, like the chests below, so the row reads as the top
+          shelf of the same rack. What tells them apart is light rather than
+          colour: both amber, the gift lit from within, the ad an outline
+          waiting to be. Spent, a card loses its light and its bottom line
+          becomes the wait.
+
+          With no ad — on the web, or before signing in — there is nothing
+          to choose between, and a lone square card in half the width reads
+          as a gap where the other one should be. So it becomes the wide bar
+          it always was. */}
+      {rewarded.available ? (
+        <div className="mb-5 mt-2 grid grid-cols-2 gap-2.5">
+          <button
+            onClick={handleClaimKey}
+            disabled={claimedToday || isClaiming}
+            aria-label={s.claimDailyKey}
+            className={`relative flex h-[132px] flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border px-3 transition-colors disabled:cursor-not-allowed ${
+              claimedToday
+                ? 'border-white/[0.06] bg-white/[0.02]'
+                : 'border-amber-400/30 bg-amber-500/[0.10] hover:bg-amber-500/[0.16]'
+            }`}
+          >
+            {/* The light the object sits in, not a fill on the card: it
+                pools behind the key and fades, which is what makes a live
+                card read as lit rather than tinted. */}
+            {!claimedToday && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 h-24"
+                style={{ background: 'radial-gradient(62% 100% at 50% 0%, rgba(251,191,36,0.20), transparent 72%)' }}
+              />
+            )}
+            <VaultKey tone="key" size={52} className={claimedToday ? 'opacity-35' : undefined} />
+            <span
+              className={`relative mt-0.5 text-[11px] font-semibold ${claimedToday ? 'text-neutral-500' : 'text-amber-100'}`}
+            >
+              {isClaiming ? s.claimingKey : s.dailyKeyCard}
+            </span>
+            <span
+              className={`relative text-[13px] font-bold tabular-nums ${claimedToday ? 'text-neutral-600' : 'text-amber-300'}`}
+            >
+              {claimedToday ? formatCountdown(cooldownSecondsLeft) : '+1'}
+            </span>
+          </button>
+
+          <button
+            onClick={() => void rewarded.watch()}
+            disabled={rewarded.watching || rewarded.left === 0}
+            aria-label={rewarded.left === 0 ? s.adKeysDone : s.watchAd}
+            className={`relative flex h-[132px] flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border px-3 transition-colors disabled:cursor-not-allowed ${
+              rewarded.left === 0
+                ? 'border-white/[0.06] bg-white/[0.02]'
+                : 'border-amber-400/20 bg-white/[0.03] hover:bg-amber-500/[0.09]'
+            }`}
+          >
+            <RewardVideoIcon size={46} color={rewarded.left === 0 ? '#5b6270' : '#fcd34d'} />
+            <span
+              className={`relative mt-0.5 whitespace-nowrap text-[11px] font-semibold ${
+                rewarded.left === 0 ? 'text-neutral-500' : 'text-amber-100/90'
+              }`}
+            >
+              {rewarded.watching ? s.watchingAd : rewarded.left === 0 ? s.adKeysDone : s.watchAd}
+            </span>
+            {/* The day's three as three lamps rather than "3/3": at this
+                size a row of pips is read without being counted, and it
+                empties left to right as they go. The tally stays in the
+                label for a screen reader. */}
+            {rewarded.left === 0 ? (
+              <span className="relative text-[13px] font-bold tabular-nums text-neutral-600">
+                {rewarded.resetsIn > 0 ? formatCountdown(rewarded.resetsIn) : ''}
+              </span>
+            ) : (
+              <span className="relative flex items-center gap-2">
+                <span className="flex items-center gap-1" aria-hidden="true">
+                  {Array.from({ length: rewarded.perDay }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        i < rewarded.left ? 'bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.8)]' : 'bg-white/15'
+                      }`}
+                    />
+                  ))}
+                </span>
+                <span className="text-[13px] font-bold tabular-nums text-amber-300">+1</span>
+              </span>
+            )}
+          </button>
+        </div>
+      ) : (
         <button
           onClick={handleClaimKey}
           disabled={claimedToday || isClaiming}
           aria-label={s.claimDailyKey}
-          className={`flex h-[52px] w-full items-center gap-2.5 px-3 text-left transition-colors disabled:cursor-not-allowed ${
-            claimedToday ? 'text-neutral-500' : 'bg-amber-500/[0.13] text-amber-100 hover:bg-amber-500/[0.19]'
+          className={`relative mb-5 mt-2 flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-4 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+            claimedToday
+              ? 'border-white/5 bg-white/[0.03] text-neutral-500 [&>*]:opacity-60'
+              : 'border-amber-400/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
           }`}
         >
-          <VaultKey tone="key" size={30} className={claimedToday ? 'opacity-40' : undefined} />
-          <span className="flex-1 text-xs font-semibold leading-tight">
-            {isClaiming ? s.claimingKey : s.claimDailyKey}
-          </span>
-          {/* What it pays, hard right, where the other row's key also sits.
-              Spent, the same column holds the wait instead. */}
-          {claimedToday ? (
-            <span className="text-[13px] font-bold tabular-nums text-neutral-500">
-              {formatCountdown(cooldownSecondsLeft)}
-            </span>
-          ) : (
-            <span className="text-base font-bold text-amber-200">+1</span>
-          )}
+          <VaultKey tone="key" size={28} />
+          {isClaiming ? s.claimingKey : claimedToday ? formatCountdown(cooldownSecondsLeft) : s.claimDailyKey}
         </button>
-
-        {rewarded.available && (
-          <>
-            <div className="h-px bg-white/[0.07]" />
-            <button
-              onClick={() => void rewarded.watch()}
-              disabled={rewarded.watching || rewarded.left === 0}
-              aria-label={rewarded.left === 0 ? s.adKeysDone : s.watchAd}
-              className={`flex h-[52px] w-full items-center gap-2.5 px-3 text-left transition-colors disabled:cursor-not-allowed ${
-                rewarded.left === 0
-                  ? 'text-neutral-500'
-                  : 'bg-amber-500/[0.06] text-amber-100/90 hover:bg-amber-500/[0.11]'
-              }`}
-            >
-              <RewardVideoIcon size={28} color={rewarded.left === 0 ? '#6b7280' : '#fcd34d'} />
-              <span className="flex-1 whitespace-nowrap text-xs font-semibold leading-tight">
-                {rewarded.watching ? s.watchingAd : rewarded.left === 0 ? s.adKeysDone : s.watchAd}
-                {/* How many are left of today's, beside the label rather than
-                    off on its own: it qualifies the offer, it is not a second
-                    thing to look at. */}
-                <span className="ml-1.5 text-[11px] font-bold tabular-nums text-neutral-500">
-                  {rewarded.left}/{rewarded.perDay}
-                </span>
-              </span>
-              {rewarded.left === 0 ? (
-                <span className="text-[13px] font-bold tabular-nums text-neutral-500">
-                  {rewarded.resetsIn > 0 ? formatCountdown(rewarded.resetsIn) : ''}
-                </span>
-              ) : (
-                /* Set the way the open button sets its total: the key at
-                   full size with the count beside it, pulled into the empty
-                   space the tilt leaves at its lower right and dropped to
-                   that same line. Not a corner tag like a chest's price —
-                   this is what you are about to be paid, and it reads as a
-                   sentence. */
-                <span className="flex items-center text-xs font-bold text-amber-200">
-                  <VaultKey tone="key" size={34} />
-                  <span className="-ml-1 translate-y-[3px] tabular-nums">×1</span>
-                </span>
-              )}
-            </button>
-          </>
-        )}
-      </div>
+      )}
       {rewarded.error && <p className="-mt-3 mb-4 text-center text-[11px] text-red-300">{s.adError}</p>}
 
       {/* The rack. Two per row, every chest priced in the one currency. */}

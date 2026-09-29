@@ -1,21 +1,25 @@
 // App Store listing screenshots, rendered from the game itself:
 //   node store/shoot-ios.mjs
 // Needs the Vite dev server on :5173 (npm run dev in front/) and the back
-// on :3001. Writes store/out-ios/shot-N-<name>.png at 1320×2868, the 6.9"
-// size App Store Connect asks for (deviceScaleFactor 2 over a 660×1434
-// page, captured at clip scale 1 — Apple rejects anything that is not that
-// size to the pixel), and the bare captures to store/raw-ios/.
+// on :3001. Writes store/out-ios/<locale>/<size>/shot-N-<name>.png, and the
+// bare captures to store/raw-ios/<locale>/.
 //
-// The sibling of shoot.mjs (Play, 1080×1920). Two differences beyond the
-// size: the captures are taken at an iPhone's own 393×852 so nothing is
-// cropped inside the phone frame, and the profile and fleet slides are
-// reused from store/raw/ rather than re-captured — both relied on dev-only
-// mocks (`?mock`, `?mockaway`) that no longer exist in the app.
+// Two sizes because App Store Connect keeps a slot per device class and
+// rejects anything that is not the exact pixel size: 6.9" is 1320×2868 and
+// 6.5" is 1242×2688. Two locales because the listing is published in
+// Spanish and English, and a screenshot has to be in the language of the
+// listing it sits under — so the game itself is switched over before the
+// capture, not just the line beside the phone.
+//
+// The store slide is taken with `?ads=1`, which is a dev-only switch that
+// draws the rewarded-ad card the browser cannot otherwise show (see
+// front/src/lib/ads.ts): on a phone that card is there, so the listing
+// should show it.
 //
 // Every name that comes from the database is swapped for a placeholder
 // before the capture.
 import { spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync, existsSync, copyFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -23,25 +27,90 @@ import path from 'node:path'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const OUT = path.join(HERE, 'out-ios')
 const RAW = path.join(HERE, 'raw-ios')
-const OLD_RAW = path.join(HERE, 'raw')
-mkdirSync(OUT, { recursive: true })
-mkdirSync(RAW, { recursive: true })
 
 const FRONT = 'http://localhost:5173'
 const API = 'http://localhost:3001'
 const GUEST = 'anon_11111111-2222-3333-4444-555555555555'
 const PLACEHOLDERS = ['nova_7', 'astro_lu', 'kepler', 'orbita', 'mina_9', 'stardust', 'pilot_x', 'quasar', 'rocket_kid', 'luna', 'vega', 'cometa', 'sol_3', 'draco', 'eris', 'titan', 'lyra', 'io', 'ceres', 'atlas']
 
-// the slides: route, file, and the words beside the phone. `reuse` marks
-// the two whose capture comes from the Play run.
+// One slide per screen: where it lives, what colour it is lit in, and the
+// line beside the phone in each language.
 const SLIDES = [
-  { route: '/', name: 'home', kicker: 'Minería espacial', title: 'ClankUp', accent: '#a78bfa', glow: 'rgba(167,139,250,.38)', tilt: '-3deg' },
-  { route: '/arbol', name: 'tree', kicker: 'Mejoras', title: 'Mejora tu nave', accent: '#67e8f9', glow: 'rgba(103,232,249,.30)', tilt: '3deg' },
-  { route: '/clasificacion', name: 'ranking', kicker: 'Clasificación', title: 'Compite con otros jugadores', accent: '#fbbf24', glow: 'rgba(251,191,36,.30)', tilt: '-3deg' },
-  { route: '/tienda', name: 'store', kicker: 'Tienda', title: 'Abre cofres y gana premios', accent: '#f0abfc', glow: 'rgba(240,171,252,.30)', tilt: '3deg' },
-  { name: 'profile', reuse: true, kicker: 'Perfil', title: 'Personaliza tu astronauta', accent: '#6ee7b7', glow: 'rgba(110,231,183,.30)', tilt: '-3deg' },
-  { route: '/', name: 'diary', kicker: 'Diario', title: 'Sigue tu viaje por los asteroides', accent: '#e5cf8a', glow: 'rgba(229,207,138,.30)', tilt: '3deg', diary: true },
-  { name: 'fleet', reuse: true, kicker: 'Flota', title: 'Tu flota trabaja mientras descansas', accent: '#a78bfa', glow: 'rgba(167,139,250,.38)', tilt: '-3deg' },
+  {
+    name: 'home',
+    route: '/',
+    accent: '#a78bfa',
+    glow: 'rgba(167,139,250,.38)',
+    tilt: '-3deg',
+    es: { kicker: 'Minería espacial', title: 'ClankUp' },
+    en: { kicker: 'Space mining', title: 'ClankUp' },
+  },
+  {
+    name: 'tree',
+    route: '/arbol',
+    accent: '#67e8f9',
+    glow: 'rgba(103,232,249,.30)',
+    tilt: '3deg',
+    es: { kicker: 'Mejoras', title: 'Mejora la nave y deja de picar' },
+    en: { kicker: 'Upgrades', title: 'Upgrade the ship, stop digging' },
+  },
+  {
+    name: 'ranking',
+    route: '/clasificacion',
+    accent: '#fbbf24',
+    glow: 'rgba(251,191,36,.30)',
+    tilt: '-3deg',
+    es: { kicker: 'Clasificación', title: 'Compite con el mundo entero' },
+    en: { kicker: 'Leaderboard', title: 'Compete with the whole world' },
+  },
+  {
+    name: 'store',
+    route: '/tienda?ads=1',
+    accent: '#f0abfc',
+    glow: 'rgba(240,171,252,.30)',
+    tilt: '3deg',
+    es: { kicker: 'Cofres', title: 'Abre cofres, gana premios' },
+    en: { kicker: 'Chests', title: 'Open chests, win prizes' },
+  },
+  {
+    name: 'locker',
+    route: '/personalizar',
+    accent: '#6ee7b7',
+    glow: 'rgba(110,231,183,.30)',
+    tilt: '-3deg',
+    es: { kicker: 'Vestuario', title: 'Viste a tu astronauta' },
+    en: { kicker: 'Locker', title: 'Dress your astronaut' },
+  },
+  {
+    name: 'diary',
+    route: '/',
+    diary: true,
+    accent: '#e5cf8a',
+    glow: 'rgba(229,207,138,.30)',
+    tilt: '3deg',
+    es: { kicker: 'Diario', title: 'Ocho minerales por descubrir' },
+    en: { kicker: 'Diary', title: 'Eight minerals to discover' },
+  },
+  {
+    name: 'fleet',
+    route: '/',
+    keepModal: true,
+    accent: '#a78bfa',
+    glow: 'rgba(167,139,250,.38)',
+    tilt: '-3deg',
+    es: { kicker: 'Flota', title: 'Tu flota extrae mientras duermes' },
+    en: { kicker: 'Fleet', title: 'Your fleet mines while you sleep' },
+  },
+]
+
+const LOCALES = [
+  { id: 'es', foot: 'ClankUp · minería espacial' },
+  { id: 'en', foot: 'ClankUp · space mining' },
+]
+
+const SIZES = [
+  { dir: '6.9', w: 660, h: 1434 }, // 1320×2868 — iPhone 16 Pro Max and friends
+  { dir: '6.5', w: 621, h: 1344 }, // 1242×2688 — iPhone 11 Pro Max and friends
 ]
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -83,64 +152,77 @@ const swapNames = `(() => {
   }
 })()`
 
-// the bare captures, at an iPhone 15 Pro's 393×852 css at 3x
-await send('Emulation.setDeviceMetricsOverride', { width: 393, height: 852, deviceScaleFactor: 3, mobile: true }, sessionId)
-await send('Page.navigate', { url: FRONT + '/' }, sessionId); await sleep(3000)
-await ev(`localStorage.setItem('clankup_anon_id', '${GUEST}')`)
-for (const s of SLIDES) {
-  // Re-rendering the frames is cheap; re-capturing the game is not, so a
-  // capture already on disk is kept. Delete store/raw-ios to refresh them.
-  const target = path.join(RAW, `${s.name}.png`)
-  if (existsSync(target)) continue
-  if (s.reuse) {
-    copyFileSync(path.join(OLD_RAW, `${s.name}.png`), target)
-    continue
-  }
-  await send('Page.navigate', { url: FRONT + s.route }, sessionId); await sleep(9000)
-  // The fleet report is real now (the `?mockaway` mock is gone), so it
-  // turns up whenever the guest has been away — and it arrives with its own
-  // fetch, not with the page. Dismissed a few times over a few seconds
-  // rather than once, or it lands on top of the shot with the game blurred
-  // out behind it. Slide 7 is where that modal is supposed to be.
-  for (let k = 0; k < 4; k++) {
-    await ev(`[...document.querySelectorAll('button')].find(b => /aceptar/i.test(b.textContent))?.click()`)
-    await sleep(1200)
-  }
-  if (s.diary) {
-    await ev(`[...document.querySelectorAll('button[aria-label]')].find(b => b.getAttribute('aria-label') === 'Diario')?.click()`); await sleep(1200)
-    await ev(`document.querySelector('button[aria-label="route"]')?.click()`); await sleep(1500)
-  }
-  await ev(swapNames); await sleep(300)
-  await shot(target)
-}
+// The diary is opened by its own button, whose label is translated; the
+// aria-label is what the app puts on it, so it is matched per locale.
+const DIARY_LABEL = { es: 'Diario', en: 'Diary' }
 
-// The slides: each capture inside the phone, on the sky, with its line.
-// One folder per device class, because App Store Connect keeps a separate
-// slot for each and rejects anything that is not the exact pixel size.
-const SIZES = [
-  { dir: '6.9', w: 660, h: 1434 }, // 1320×2868 — iPhone 16 Pro Max and friends
-  { dir: '6.5', w: 621, h: 1344 }, // 1242×2688 — iPhone 11 Pro Max and friends
-]
-for (const size of SIZES) {
-  const dir = path.join(OUT, size.dir)
-  mkdirSync(dir, { recursive: true })
-  await send('Emulation.setDeviceMetricsOverride', { width: size.w, height: size.h, deviceScaleFactor: 2, mobile: false }, sessionId)
-  for (const [i, s] of SLIDES.entries()) {
-    if (!existsSync(path.join(RAW, `${s.name}.png`))) continue
-    const q = new URLSearchParams({
-      shot: `raw-ios/${s.name}.png`,
-      kicker: s.kicker,
-      title: s.title,
-      accent: s.accent,
-      glow: s.glow,
-      tilt: s.tilt,
-      n: String(i + 1).padStart(2, '0'),
-      w: String(size.w),
-      h: String(size.h),
-    })
-    await send('Page.navigate', { url: fileUrl(path.join(HERE, 'frame-ios.html')) + '?' + q }, sessionId)
-    await sleep(2200)
-    await shot(path.join(dir, `shot-${i + 1}-${s.name}.png`), { x: 0, y: 0, width: size.w, height: size.h, scale: 1 })
+for (const locale of LOCALES) {
+  const rawDir = path.join(RAW, locale.id)
+  rmSync(rawDir, { recursive: true, force: true })
+  mkdirSync(rawDir, { recursive: true })
+
+  // the bare captures, at an iPhone 15 Pro's 393×852 css at 3x
+  await send('Emulation.setDeviceMetricsOverride', { width: 393, height: 852, deviceScaleFactor: 3, mobile: true }, sessionId)
+  await send('Page.navigate', { url: FRONT + '/' }, sessionId); await sleep(3000)
+  await ev(`localStorage.setItem('clankup_anon_id', '${GUEST}'); localStorage.setItem('clicker:language', '${locale.id}')`)
+
+  // The capture is framed as a phone, so it is taken as one: the app's own
+  // native class plus an iPhone's insets, which is what keeps the header
+  // clear of the island drawn over it and lifts the tab bar off the
+  // bottom edge. Without them the page runs edge to edge and the tab bar
+  // ends up under the frame's rounded corner, looking clipped.
+  const asPhone = `(() => {
+    const r = document.documentElement
+    r.classList.add('native')
+    r.style.setProperty('--safe-area-inset-top', '59px')
+    r.style.setProperty('--safe-area-inset-bottom', '34px')
+  })()`
+
+  for (const s of SLIDES) {
+    await send('Page.navigate', { url: FRONT + s.route }, sessionId); await sleep(9000)
+    if (!s.keepModal) {
+      // The fleet report is real and arrives with its own fetch, after the
+      // page. Dismissed a few times over a few seconds rather than once,
+      // or it lands on top of the shot with the game blurred out behind
+      // it. The fleet slide is the one where it belongs.
+      for (let k = 0; k < 4; k++) {
+        await ev(`[...document.querySelectorAll('button')].find(b => /aceptar|accept|ok/i.test(b.textContent))?.click()`)
+        await sleep(1200)
+      }
+    }
+    if (s.diary) {
+      const label = DIARY_LABEL[locale.id]
+      await ev(`[...document.querySelectorAll('button[aria-label]')].find(b => b.getAttribute('aria-label') === '${label}')?.click()`); await sleep(1200)
+      await ev(`document.querySelector('button[aria-label="route"]')?.click()`); await sleep(1500)
+    }
+    await ev(asPhone)
+    await ev(swapNames); await sleep(300)
+    await shot(path.join(rawDir, `${s.name}.png`))
+  }
+
+  // the slides: each capture inside the phone, on the sky, with its line
+  for (const size of SIZES) {
+    const dir = path.join(OUT, locale.id, size.dir)
+    mkdirSync(dir, { recursive: true })
+    await send('Emulation.setDeviceMetricsOverride', { width: size.w, height: size.h, deviceScaleFactor: 2, mobile: false }, sessionId)
+    for (const [i, s] of SLIDES.entries()) {
+      if (!existsSync(path.join(rawDir, `${s.name}.png`))) continue
+      const q = new URLSearchParams({
+        shot: `raw-ios/${locale.id}/${s.name}.png`,
+        kicker: s[locale.id].kicker,
+        title: s[locale.id].title,
+        accent: s.accent,
+        glow: s.glow,
+        tilt: s.tilt,
+        n: String(i + 1).padStart(2, '0'),
+        foot: locale.foot,
+        w: String(size.w),
+        h: String(size.h),
+      })
+      await send('Page.navigate', { url: fileUrl(path.join(HERE, 'frame-ios.html')) + '?' + q }, sessionId)
+      await sleep(2200)
+      await shot(path.join(dir, `shot-${i + 1}-${s.name}.png`), { x: 0, y: 0, width: size.w, height: size.h, scale: 1 })
+    }
   }
 }
 
