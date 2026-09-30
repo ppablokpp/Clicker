@@ -25,7 +25,7 @@
      two that drift apart; a couple of pixels come off the bottom on the
      shorter one, where there is nothing but sky.
 
-     Query: shot, kicker, title, accent, glow, tilt, n, foot, w, h. */
+     Query: shot, kicker, title, accent, glow, tilt, foot, pad, w, h. */
   html, body { margin: 0; overflow: hidden; background: #0b0716; }
   .slide { position: relative; width: 660px; height: 1434px; overflow: hidden; background: #0b0716; font-family: Inter, sans-serif; color: #f5f1ff; transform-origin: top left; }
   .sky { position: absolute; inset: -40px; background: url("splash.png") center/2000px 2000px; opacity: 0.9; }
@@ -47,6 +47,22 @@
            background: radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.65), transparent 70%); filter: blur(2px); }
   .scan { position: absolute; inset: 0; opacity: 0.045; background: repeating-linear-gradient(180deg, #fff 0 1px, transparent 1px 4px); pointer-events: none; }
   .foot { position: absolute; left: 52px; bottom: 34px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(245,241,255,.35); }
+
+  /* The 13" iPad slot (2064×2752). A different shape, not the phone
+     design stretched: the canvas is 3:4 rather than 1:2.2, so the copy
+     gets a wider column and more air, and the device in it is a tablet
+     holding a real tablet capture — App Store review expects the iPad
+     shot to show the app as an iPad runs it. No island: iPads have none. */
+  .pad .copy { left: 96px; right: 96px; top: 104px; }
+  .pad .kicker { font-size: 19px; letter-spacing: 0.32em; }
+  .pad .title { font-size: 76px; margin-top: 22px; }
+  .pad .glow { top: 62%; width: 1600px; height: 1600px; }
+  .pad .sky { background-size: 2600px 2600px; }
+  .pad .phone { top: 320px; width: 760px; height: 1003px; border-radius: 40px; padding: 16px; }
+  .pad .screen, .pad .rim { border-radius: 26px; }
+  .pad .island { display: none; }
+  .pad .floor { bottom: 20px; width: 880px; height: 120px; }
+  .pad .foot { left: 96px; bottom: 44px; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -76,7 +92,13 @@
   const h = Number(q.get('h') || 1434)
   document.documentElement.style.width = document.body.style.width = w + 'px'
   document.documentElement.style.height = document.body.style.height = h + 'px'
-  if (w !== 660) s.style.transform = 'scale(' + w / 660 + ')'
+  if (q.get('pad')) {
+    s.classList.add('pad')
+    s.style.width = w + 'px'
+    s.style.height = h + 'px'
+  } else if (w !== 660) {
+    s.style.transform = 'scale(' + w / 660 + ')'
+  }
   s.style.setProperty('--accent', q.get('accent') || '#a78bfa')
   s.style.setProperty('--accent-glow', q.get('glow') || 'rgba(167,139,250,.35)')
   s.style.setProperty('--tilt', q.get('tilt') || '0deg')

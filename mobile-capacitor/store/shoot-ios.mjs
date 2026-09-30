@@ -108,9 +108,19 @@ const LOCALES = [
   { id: 'en', foot: 'ClankUp · space mining' },
 ]
 
+// What the app is captured on. The iPad slot has to show the app as an
+// iPad runs it, not a phone shot inside a tablet-shaped frame, so it gets
+// its own pass at an iPad's own viewport. The insets are each device's:
+// an iPhone's notch and home indicator, an iPad's thinner pair.
+const DEVICES = [
+  { id: 'phone', vw: 393, vh: 852, dsf: 3, top: 59, bottom: 34 },
+  { id: 'pad', vw: 1032, vh: 1376, dsf: 2, top: 24, bottom: 20 },
+]
+
 const SIZES = [
-  { dir: '6.9', w: 660, h: 1434 }, // 1320×2868 — iPhone 16 Pro Max and friends
-  { dir: '6.5', w: 621, h: 1344 }, // 1242×2688 — iPhone 11 Pro Max and friends
+  { dir: '6.9', w: 660, h: 1434, device: 'phone' }, // 1320×2868 — iPhone 16 Pro Max and friends
+  { dir: '6.5', w: 621, h: 1344, device: 'phone' }, // 1242×2688 — iPhone 11 Pro Max and friends
+  { dir: '13', w: 1032, h: 1376, device: 'pad', pad: true }, // 2064×2752 — 13" iPad
 ]
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
@@ -161,8 +171,9 @@ for (const locale of LOCALES) {
   rmSync(rawDir, { recursive: true, force: true })
   mkdirSync(rawDir, { recursive: true })
 
-  // the bare captures, at an iPhone 15 Pro's 393×852 css at 3x
-  await send('Emulation.setDeviceMetricsOverride', { width: 393, height: 852, deviceScaleFactor: 3, mobile: true }, sessionId)
+  for (const device of DEVICES) {
+  mkdirSync(path.join(rawDir, device.id), { recursive: true })
+  await send('Emulation.setDeviceMetricsOverride', { width: device.vw, height: device.vh, deviceScaleFactor: device.dsf, mobile: true }, sessionId)
   await send('Page.navigate', { url: FRONT + '/' }, sessionId); await sleep(3000)
   await ev(`localStorage.setItem('clankup_anon_id', '${GUEST}'); localStorage.setItem('clicker:language', '${locale.id}')`)
 
@@ -174,8 +185,8 @@ for (const locale of LOCALES) {
   const asPhone = `(() => {
     const r = document.documentElement
     r.classList.add('native')
-    r.style.setProperty('--safe-area-inset-top', '59px')
-    r.style.setProperty('--safe-area-inset-bottom', '34px')
+    r.style.setProperty('--safe-area-inset-top', '${device.top}px')
+    r.style.setProperty('--safe-area-inset-bottom', '${device.bottom}px')
   })()`
 
   for (const s of SLIDES) {
@@ -186,7 +197,7 @@ for (const locale of LOCALES) {
       // or it lands on top of the shot with the game blurred out behind
       // it. The fleet slide is the one where it belongs.
       for (let k = 0; k < 4; k++) {
-        await ev(`[...document.querySelectorAll('button')].find(b => /aceptar|accept|ok/i.test(b.textContent))?.click()`)
+        await ev(`[...document.querySelectorAll('button')].find(b => /^(aceptar|accept|ok)$/i.test((b.textContent || '').trim()))?.click()`)
         await sleep(1200)
       }
     }
@@ -197,7 +208,8 @@ for (const locale of LOCALES) {
     }
     await ev(asPhone)
     await ev(swapNames); await sleep(300)
-    await shot(path.join(rawDir, `${s.name}.png`))
+    await shot(path.join(rawDir, device.id, `${s.name}.png`))
+  }
   }
 
   // the slides: each capture inside the phone, on the sky, with its line
@@ -206,16 +218,16 @@ for (const locale of LOCALES) {
     mkdirSync(dir, { recursive: true })
     await send('Emulation.setDeviceMetricsOverride', { width: size.w, height: size.h, deviceScaleFactor: 2, mobile: false }, sessionId)
     for (const [i, s] of SLIDES.entries()) {
-      if (!existsSync(path.join(rawDir, `${s.name}.png`))) continue
+      if (!existsSync(path.join(rawDir, size.device, `${s.name}.png`))) continue
       const q = new URLSearchParams({
-        shot: `raw-ios/${locale.id}/${s.name}.png`,
+        shot: `raw-ios/${locale.id}/${size.device}/${s.name}.png`,
         kicker: s[locale.id].kicker,
         title: s[locale.id].title,
         accent: s.accent,
         glow: s.glow,
         tilt: s.tilt,
-        n: String(i + 1).padStart(2, '0'),
         foot: locale.foot,
+        ...(size.pad ? { pad: '1' } : {}),
         w: String(size.w),
         h: String(size.h),
       })
